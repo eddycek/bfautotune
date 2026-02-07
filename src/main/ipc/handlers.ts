@@ -14,6 +14,7 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
+import type { BlackboxInfo } from '@shared/types/blackbox.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
@@ -486,6 +487,21 @@ export function registerIPCHandlers(): void {
     } catch (error) {
       logger.error('Failed to save PID configuration:', error);
       return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  // Blackbox handlers
+  ipcMain.handle(IPCChannel.BLACKBOX_GET_INFO, async (): Promise<IPCResponse<BlackboxInfo>> => {
+    try {
+      if (!mspClient) {
+        return createResponse<BlackboxInfo>(undefined, 'MSP client not initialized');
+      }
+
+      const info = await mspClient.getBlackboxInfo();
+      return createResponse<BlackboxInfo>(info);
+    } catch (error) {
+      logger.error('Failed to get Blackbox info:', error);
+      return createResponse<BlackboxInfo>(undefined, getErrorMessage(error));
     }
   });
 

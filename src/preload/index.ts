@@ -14,6 +14,7 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { BlackboxInfo } from '@shared/types/blackbox.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -244,6 +245,15 @@ const betaflightAPI: BetaflightAPI = {
     if (!response.success) {
       throw new Error(response.error || 'Failed to save PID configuration');
     }
+  },
+
+  // Blackbox
+  async getBlackboxInfo(): Promise<BlackboxInfo> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_GET_INFO);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get Blackbox info');
+    }
+    return response.data;
   },
 
   onPIDChanged(callback: (config: PIDConfiguration) => void): () => void {

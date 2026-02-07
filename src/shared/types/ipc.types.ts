@@ -13,6 +13,7 @@ import type {
   PresetProfile
 } from './profile.types';
 import type { PIDConfiguration } from './pid.types';
+import type { BlackboxInfo } from './blackbox.types';
 
 export enum IPCChannel {
   // Connection
@@ -48,6 +49,9 @@ export enum IPCChannel {
   PID_GET_CONFIG = 'pid:get-config',
   PID_UPDATE_CONFIG = 'pid:update-config',
   PID_SAVE_CONFIG = 'pid:save-config',
+
+  // Blackbox
+  BLACKBOX_GET_INFO = 'blackbox:get-info',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -99,6 +103,9 @@ export interface BetaflightAPI {
   getPIDConfig(): Promise<PIDConfiguration>;
   updatePIDConfig(config: PIDConfiguration): Promise<void>;
   savePIDConfig(): Promise<void>;
+
+  // Blackbox
+  getBlackboxInfo(): Promise<BlackboxInfo>;
 
   // Events
   onError(callback: (error: string) => void): () => void;
