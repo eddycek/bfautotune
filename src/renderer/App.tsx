@@ -1,10 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConnectionPanel } from './components/ConnectionPanel/ConnectionPanel';
 import { FCInfoDisplay } from './components/FCInfo/FCInfoDisplay';
 import { SnapshotManager } from './components/SnapshotManager/SnapshotManager';
+import { ProfileWizard } from './components/ProfileWizard';
+import { ProfileSelector } from './components/ProfileSelector';
+import { useProfiles } from './hooks/useProfiles';
+import type { FCInfo } from '@shared/types/common.types';
+import type { ProfileCreationInput } from '@shared/types/profile.types';
 import './App.css';
 
 function App() {
+  const [showProfileWizard, setShowProfileWizard] = useState(false);
+  const [newFCSerial, setNewFCSerial] = useState<string | null>(null);
+  const [newFCInfo, setNewFCInfo] = useState<FCInfo | null>(null);
+  const { createProfile, createProfileFromPreset } = useProfiles();
+
+  useEffect(() => {
+    // Listen for new FC detection
+    const unsubscribe = window.betaflight.onNewFCDetected((fcSerial, fcInfo) => {
+      setNewFCSerial(fcSerial);
+      setNewFCInfo(fcInfo);
+      setShowProfileWizard(true);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const handleProfileWizardComplete = async (input: ProfileCreationInput | { presetId: string; customName?: string }) => {
+    try {
+      if ('presetId' in input) {
+        // Create from preset
+        await createProfileFromPreset(input.presetId, input.customName);
+      } else {
+        // Create custom profile
+        await createProfile(input);
+      }
+      setShowProfileWizard(false);
+      setNewFCSerial(null);
+      setNewFCInfo(null);
+    } catch (error) {
+      console.error('Failed to create profile:', error);
+      // Keep wizard open on error so user can retry
+    }
+  };
+
+  const handleProfileWizardCancel = () => {
+    setShowProfileWizard(false);
+    setNewFCSerial(null);
+    setNewFCInfo(null);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -14,11 +59,21 @@ function App() {
 
       <main className="app-main">
         <div className="main-content">
+          <ProfileSelector />
           <ConnectionPanel />
           <FCInfoDisplay />
           <SnapshotManager />
         </div>
       </main>
+
+      {showProfileWizard && newFCSerial && newFCInfo && (
+        <ProfileWizard
+          fcSerial={newFCSerial}
+          fcInfo={newFCInfo}
+          onComplete={handleProfileWizardComplete}
+          onCancel={handleProfileWizardCancel}
+        />
+      )}
     </div>
   );
 }
