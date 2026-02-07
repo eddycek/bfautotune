@@ -511,11 +511,25 @@ export class MSPClient extends EventEmitter {
       const totalSize = response.data.readUInt32LE(4);
       const usedSize = response.data.readUInt32LE(8);
 
-      logger.debug('Blackbox parsed:', { flags, totalSize, usedSize });
+      logger.debug('Blackbox parsed:', { flags, totalSize, usedSize, flagsHex: flags.toString(16) });
 
-      // Check if supported (bit 1 = 0x02)
-      const supported = (flags & 0x02) !== 0;
-      const hasLogs = usedSize > 0;
+      // Check for invalid values (0x80000000 = "not available" on some FCs)
+      const INVALID_SIZE = 0x80000000;
+      if (totalSize === INVALID_SIZE || usedSize === INVALID_SIZE) {
+        logger.warn('Blackbox returns invalid size markers (0x80000000) - not supported');
+        return {
+          supported: false,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Check if supported (bit 1 = 0x02) and totalSize > 0
+      const supported = (flags & 0x02) !== 0 && totalSize > 0;
+      const hasLogs = usedSize > 0 && usedSize < totalSize;
       const freeSize = totalSize - usedSize;
       const usagePercent = totalSize > 0 ? Math.round((usedSize / totalSize) * 100) : 0;
 

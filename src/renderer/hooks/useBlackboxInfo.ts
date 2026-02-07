@@ -1,12 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { BlackboxInfo } from '@shared/types/blackbox.types';
 
 export function useBlackboxInfo() {
   const [info, setInfo] = useState<BlackboxInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadingRef = useRef(false); // Prevent concurrent requests
 
   const loadBlackboxInfo = async () => {
+    // Prevent concurrent requests
+    if (loadingRef.current) {
+      console.log('[useBlackboxInfo] Already loading, skipping...');
+      return;
+    }
+
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -21,6 +29,7 @@ export function useBlackboxInfo() {
       console.error('[useBlackboxInfo] Error:', err);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
