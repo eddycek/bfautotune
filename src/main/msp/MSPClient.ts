@@ -75,8 +75,42 @@ export class MSPClient extends EventEmitter {
       // Wait a bit for FC to stabilize
       await this.delay(500);
 
-      // Get FC information
-      const fcInfo = await this.getFCInfo();
+      // Try to exit CLI mode if FC is stuck there from previous session
+      try {
+        await this.connection.forceExitCLI();
+        await this.delay(500);
+      } catch (error) {
+        // Ignore errors - FC might not be in CLI mode
+        logger.debug('CLI exit attempt (this is normal):', error);
+      }
+
+      // Try to get FC information with retry logic
+      let fcInfo;
+      let retries = 2;
+
+      while (retries > 0) {
+        try {
+          fcInfo = await this.getFCInfo();
+          break; // Success!
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            // Last attempt failed - close port and throw error
+            logger.error('Failed to get FC info after retries, closing port');
+            await this.connection.close();
+            this.connectionStatus = { connected: false };
+            this.currentPort = null;
+            throw new ConnectionError('FC not responding to MSP commands. Please disconnect and reconnect the FC.', error);
+          }
+
+          // Retry - try to reset FC state
+          logger.warn(`FC not responding, attempting reset (${retries} retries left)...`);
+          try {
+            await this.connection.forceExitCLI();
+            await this.delay(1000);
+          } catch {}
+        }
+      }
 
       this.connectionStatus = {
         connected: true,

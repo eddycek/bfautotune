@@ -13,17 +13,26 @@ function App() {
   const [showProfileWizard, setShowProfileWizard] = useState(false);
   const [newFCSerial, setNewFCSerial] = useState<string | null>(null);
   const [newFCInfo, setNewFCInfo] = useState<FCInfo | null>(null);
-  const { createProfile, createProfileFromPreset } = useProfiles();
+  const [isConnected, setIsConnected] = useState(false);
+  const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
 
   useEffect(() => {
+    // Listen for connection changes
+    const unsubscribeConnection = window.betaflight.onConnectionChanged((status) => {
+      setIsConnected(status.connected);
+    });
+
     // Listen for new FC detection
-    const unsubscribe = window.betaflight.onNewFCDetected((fcSerial, fcInfo) => {
+    const unsubscribeNewFC = window.betaflight.onNewFCDetected((fcSerial, fcInfo) => {
       setNewFCSerial(fcSerial);
       setNewFCInfo(fcInfo);
       setShowProfileWizard(true);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeConnection();
+      unsubscribeNewFC();
+    };
   }, []);
 
   const handleProfileWizardComplete = async (input: ProfileCreationInput | { presetId: string; customName?: string }) => {
@@ -59,10 +68,10 @@ function App() {
 
       <main className="app-main">
         <div className="main-content">
-          <ProfileSelector />
+          {isConnected && currentProfile && <ProfileSelector />}
           <ConnectionPanel />
-          <FCInfoDisplay />
-          <SnapshotManager />
+          {isConnected && <FCInfoDisplay />}
+          {isConnected && currentProfile && <SnapshotManager />}
         </div>
       </main>
 

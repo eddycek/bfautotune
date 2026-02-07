@@ -11,6 +11,10 @@ export function useConnection() {
     // Listen for connection changes
     const unsubscribe = window.betaflight.onConnectionChanged((newStatus) => {
       setStatus(newStatus);
+      // Clear error when successfully connected
+      if (newStatus.connected) {
+        setError(null);
+      }
       if (newStatus.error) {
         setError(newStatus.error);
       }

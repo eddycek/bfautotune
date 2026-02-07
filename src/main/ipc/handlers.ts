@@ -16,6 +16,7 @@ import type {
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
+import { getMainWindow } from '../window';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -197,6 +198,13 @@ export function registerIPCHandlers(): void {
         throw new Error('Profile manager not initialized');
       }
       const profile = await profileManager.createProfile(input);
+
+      // Notify UI of the new profile
+      const window = getMainWindow();
+      if (window) {
+        sendProfileChanged(window, profile);
+      }
+
       return createResponse<DroneProfile>(profile);
     } catch (error) {
       logger.error('Failed to create profile:', error);
@@ -219,6 +227,13 @@ export function registerIPCHandlers(): void {
       const fcInfo = await mspClient.getFCInfo();
 
       const profile = await profileManager.createProfileFromPreset(preset, fcSerial, fcInfo, customName);
+
+      // Notify UI of the new profile
+      const window = getMainWindow();
+      if (window) {
+        sendProfileChanged(window, profile);
+      }
+
       return createResponse<DroneProfile>(profile);
     } catch (error) {
       logger.error('Failed to create profile from preset:', error);

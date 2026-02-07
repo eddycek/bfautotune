@@ -64,16 +64,22 @@ async function initialize(): Promise<void> {
         if (window) {
           sendProfileChanged(window, profile);
         }
+
+        // Create baseline ONLY for existing profiles
+        // For new FCs, baseline will be created after profile is created
+        logger.info('Creating baseline for existing profile...');
+        await snapshotManager.createBaselineIfMissing();
       } else {
         // New drone - notify UI to show ProfileWizard modal
-        logger.info('New FC detected - profile creation needed');
+        // DO NOT create baseline yet - wait until profile is created
+        logger.info('New FC detected - profile creation needed (baseline will be created later)');
         if (window) {
+          logger.info(`Sending new FC detected event: ${fcSerial}`);
           sendNewFCDetected(window, fcSerial, fcInfo);
+        } else {
+          logger.error('Window is null, cannot send new FC detected event');
         }
       }
-
-      // Create baseline if missing (for current profile)
-      await snapshotManager.createBaselineIfMissing();
     } catch (error) {
       logger.error('Failed to handle connection:', error);
     }

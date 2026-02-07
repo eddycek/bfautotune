@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PresetSelector } from './PresetSelector';
 import { SIZE_DEFAULTS } from '@shared/constants';
 import type {
@@ -106,14 +107,30 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete, onCancel }: Profil
   const canContinueBasic = name.trim().length > 0;
   const canContinuePreset = selectedPresetId !== null;
 
-  return (
-    <div className="profile-wizard fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+  const modalContent = (
+    <div className="profile-wizard" style={{
+      position: 'fixed',
+      inset: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999
+    }}>
+      <div style={{
+        backgroundColor: '#1a1a1a',
+        borderRadius: '8px',
+        padding: '24px',
+        width: '100%',
+        maxWidth: '800px',
+        maxHeight: '90vh',
+        overflowY: 'auto'
+      }}>
         {/* Header */}
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-white mb-2">Create Drone Profile</h2>
           <p className="text-gray-400 text-sm">
-            New flight controller detected: <span className="text-blue-400">{fcInfo.boardName}</span>
+            New flight controller detected: <span className="text-blue-400">{fcInfo.boardName || 'Unknown'}</span>
           </p>
         </div>
 
@@ -195,6 +212,11 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete, onCancel }: Profil
       </div>
     </div>
   );
+
+  // Temporarily render directly without portal for debugging
+  console.log('ProfileWizard: Rendering...');
+  return modalContent;
+  // return createPortal(modalContent, document.body);
 }
 
 // Method selection step
