@@ -697,11 +697,11 @@ export class MSPClient extends EventEmitter {
       const chunks: Buffer[] = [];
       let bytesRead = 0;
 
-      // Adaptive chunking - automatically find optimal chunk size
-      // Start optimistic (250 bytes), reduce on failure, increase on sustained success
-      let currentChunkSize = 250;
+      // Conservative adaptive chunking with recovery delays
+      // Start with known-working size, gradually increase with caution
+      let currentChunkSize = 180; // Start conservative (between 128 working and 256 timeout)
       const minChunkSize = 128; // Known working minimum
-      const maxChunkSize = 255; // MSP v1 theoretical maximum
+      const maxChunkSize = 240; // Conservative max (under 256 timeout threshold)
       let consecutiveSuccesses = 0;
       let consecutiveFailures = 0;
 
@@ -717,10 +717,10 @@ export class MSPClient extends EventEmitter {
           consecutiveSuccesses++;
           consecutiveFailures = 0;
 
-          // After 20 successful chunks, try increasing chunk size
-          if (consecutiveSuccesses >= 20 && currentChunkSize < maxChunkSize) {
-            const newSize = Math.min(currentChunkSize + 20, maxChunkSize);
-            logger.debug(`Increasing chunk size: ${currentChunkSize} → ${newSize} bytes`);
+          // After 50 successful chunks, cautiously try increasing chunk size by 10 bytes
+          if (consecutiveSuccesses >= 50 && currentChunkSize < maxChunkSize) {
+            const newSize = Math.min(currentChunkSize + 10, maxChunkSize);
+            logger.info(`Increasing chunk size: ${currentChunkSize} → ${newSize} bytes`);
             currentChunkSize = newSize;
             consecutiveSuccesses = 0;
           }
@@ -736,21 +736,26 @@ export class MSPClient extends EventEmitter {
             }
           }
 
-          // NO delay - maximize throughput!
+          // Tiny delay to keep FC stable
+          await new Promise(resolve => setTimeout(resolve, 5));
         } catch (error) {
-          // Chunk failed - reduce size and retry
+          // Chunk failed - reduce size and retry with recovery delay
           consecutiveFailures++;
           consecutiveSuccesses = 0;
 
-          if (consecutiveFailures > 3) {
+          if (consecutiveFailures > 5) {
             // Too many failures, abort
-            logger.error(`Too many consecutive failures at chunk size ${currentChunkSize}, aborting`);
+            logger.error(`Too many consecutive failures (${consecutiveFailures}) at chunk size ${currentChunkSize}, aborting`);
             throw error;
           }
 
-          const newSize = Math.max(Math.floor(currentChunkSize * 0.7), minChunkSize);
-          logger.warn(`Chunk failed at size ${currentChunkSize}, reducing to ${newSize} bytes and retrying`);
+          // Reduce chunk size more conservatively
+          const newSize = Math.max(Math.floor(currentChunkSize * 0.8), minChunkSize);
+          logger.warn(`Chunk failed at size ${currentChunkSize} (failure ${consecutiveFailures}/5), reducing to ${newSize} bytes and retrying`);
           currentChunkSize = newSize;
+
+          // Give FC time to recover after timeout (critical!)
+          await new Promise(resolve => setTimeout(resolve, 500));
 
           // Don't increment bytesRead - retry same address
           continue;
