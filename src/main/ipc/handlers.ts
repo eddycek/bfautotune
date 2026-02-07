@@ -1,4 +1,6 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app, shell } from 'electron';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { IPCChannel, IPCResponse } from '@shared/types/ipc.types';
 import type {
   PortInfo,
@@ -502,6 +504,62 @@ export function registerIPCHandlers(): void {
     } catch (error) {
       logger.error('Failed to get Blackbox info:', error);
       return createResponse<BlackboxInfo>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_DOWNLOAD_LOG, async (): Promise<IPCResponse<string>> => {
+    try {
+      if (!mspClient) {
+        return createResponse<string>(undefined, 'MSP client not initialized');
+      }
+
+      logger.info('Starting Blackbox log download...');
+
+      // Download log data from FC
+      const logData = await mspClient.downloadBlackboxLog((progress) => {
+        // TODO: Send progress updates via IPC event
+        logger.debug(`Download progress: ${progress}%`);
+      });
+
+      // Create blackbox directory if it doesn't exist
+      const blackboxDir = path.join(app.getPath('userData'), 'blackbox');
+      await fs.mkdir(blackboxDir, { recursive: true });
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `blackbox_${timestamp}.bbl`;
+      const filepath = path.join(blackboxDir, filename);
+
+      // Write log data to file
+      await fs.writeFile(filepath, logData);
+
+      logger.info(`Blackbox log saved to: ${filepath}`);
+
+      return createResponse<string>(filepath);
+    } catch (error) {
+      logger.error('Failed to download Blackbox log:', error);
+      return createResponse<string>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_OPEN_FOLDER, async (_event, filepath: string): Promise<IPCResponse<void>> => {
+    try {
+      // Extract directory from filepath
+      const directory = path.dirname(filepath);
+
+      logger.info(`Opening Blackbox folder: ${directory}`);
+
+      // Open folder in file manager
+      const result = await shell.openPath(directory);
+
+      if (result) {
+        throw new Error(`Failed to open folder: ${result}`);
+      }
+
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to open Blackbox folder:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
     }
   });
 

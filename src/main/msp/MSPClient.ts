@@ -602,6 +602,96 @@ export class MSPClient extends EventEmitter {
     }
   }
 
+  /**
+   * Read a chunk of Blackbox data from flash storage
+   * @param address - Start address to read from
+   * @param size - Number of bytes to read (max 4096)
+   * @returns Buffer containing the requested data
+   */
+  async readBlackboxChunk(address: number, size: number): Promise<Buffer> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    if (size > 4096) {
+      throw new Error('Chunk size cannot exceed 4096 bytes');
+    }
+
+    try {
+      // Build request: address (uint32 LE) + size (uint16 LE)
+      const request = Buffer.alloc(6);
+      request.writeUInt32LE(address, 0);
+      request.writeUInt16LE(size, 4);
+
+      logger.debug(`Reading Blackbox chunk: address=${address}, size=${size}, requestHex=${request.toString('hex')}`);
+
+      // Increase timeout for Blackbox read (10 seconds instead of default 2)
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 10000);
+
+      logger.debug(`Received Blackbox chunk: ${response.data.length} bytes, dataHex=${response.data.slice(0, 32).toString('hex')}...`);
+
+      return response.data;
+    } catch (error) {
+      logger.error(`Failed to read Blackbox chunk at ${address}: ${error instanceof Error ? error.message : error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Download entire Blackbox log from flash storage
+   * @param onProgress - Optional callback for progress updates (0-100)
+   * @returns Buffer containing all log data
+   */
+  async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<Buffer> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    try {
+      // Get flash info to know how much to download
+      const info = await this.getBlackboxInfo();
+
+      if (!info.supported || !info.hasLogs || info.usedSize === 0) {
+        throw new Error('No Blackbox logs available to download');
+      }
+
+      logger.info(`Starting Blackbox download: ${info.usedSize} bytes`);
+
+      const chunks: Buffer[] = [];
+      const chunkSize = 4096; // Max chunk size for MSP_DATAFLASH_READ
+      let bytesRead = 0;
+
+      // Read flash in chunks
+      while (bytesRead < info.usedSize) {
+        const remaining = info.usedSize - bytesRead;
+        const currentChunkSize = Math.min(chunkSize, remaining);
+
+        const chunk = await this.readBlackboxChunk(bytesRead, currentChunkSize);
+        chunks.push(chunk);
+        bytesRead += chunk.length;
+
+        // Report progress
+        if (onProgress) {
+          const progress = Math.round((bytesRead / info.usedSize) * 100);
+          onProgress(progress);
+        }
+
+        logger.debug(`Downloaded ${bytesRead}/${info.usedSize} bytes (${Math.round((bytesRead / info.usedSize) * 100)}%)`);
+
+        // Small delay to avoid overwhelming FC
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+
+      const fullLog = Buffer.concat(chunks);
+      logger.info(`Blackbox download complete: ${fullLog.length} bytes`);
+
+      return fullLog;
+    } catch (error) {
+      logger.error('Failed to download Blackbox log:', error);
+      throw error;
+    }
+  }
+
   private cleanCLIOutput(output: string): string {
     // Remove CLI prompt characters and clean up
     return output

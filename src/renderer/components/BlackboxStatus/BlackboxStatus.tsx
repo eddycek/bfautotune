@@ -1,9 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useBlackboxInfo } from '../../hooks/useBlackboxInfo';
+import { useToast } from '../../hooks/useToast';
 import './BlackboxStatus.css';
 
 export function BlackboxStatus() {
   const { info, loading, error } = useBlackboxInfo();
+  const toast = useToast();
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [lastDownloadPath, setLastDownloadPath] = useState<string | null>(null);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    setDownloadProgress(0);
+
+    try {
+      const filepath = await window.betaflight.downloadBlackboxLog((progress) => {
+        setDownloadProgress(progress);
+      });
+
+      setLastDownloadPath(filepath);
+      toast.success('Blackbox log downloaded successfully!');
+      setDownloadProgress(100);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to download Blackbox log';
+      toast.error(message);
+    } finally {
+      setTimeout(() => {
+        setDownloading(false);
+        setDownloadProgress(0);
+      }, 2000);
+    }
+  };
+
+  const handleOpenFolder = async () => {
+    if (lastDownloadPath) {
+      try {
+        await window.betaflight.openBlackboxFolder(lastDownloadPath);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to open folder';
+        toast.error(message);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -103,10 +142,52 @@ export function BlackboxStatus() {
         </div>
 
         {info.hasLogs && (
-          <div className="logs-available">
-            <span className="icon">📊</span>
-            <span>Logs available for download</span>
-          </div>
+          <>
+            <div className="logs-available">
+              <span className="icon">📊</span>
+              <span>Logs available for download</span>
+            </div>
+
+            <div className="action-buttons">
+              <button
+                className="download-button"
+                onClick={handleDownload}
+                disabled={downloading}
+              >
+                {downloading ? (
+                  <>
+                    <span className="spinner" />
+                    <span>Downloading... {downloadProgress}%</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="icon">⬇️</span>
+                    <span>Download Logs</span>
+                  </>
+                )}
+              </button>
+
+              {lastDownloadPath && !downloading && (
+                <button
+                  className="open-folder-button"
+                  onClick={handleOpenFolder}
+                  title={lastDownloadPath}
+                >
+                  <span className="icon">📁</span>
+                  <span>Open Folder</span>
+                </button>
+              )}
+            </div>
+
+            {downloading && downloadProgress > 0 && (
+              <div className="download-progress">
+                <div
+                  className="download-progress-bar"
+                  style={{ width: `${downloadProgress}%` }}
+                />
+              </div>
+            )}
+          </>
         )}
 
         {!info.hasLogs && (

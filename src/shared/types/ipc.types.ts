@@ -52,6 +52,8 @@ export enum IPCChannel {
 
   // Blackbox
   BLACKBOX_GET_INFO = 'blackbox:get-info',
+  BLACKBOX_DOWNLOAD_LOG = 'blackbox:download-log',
+  BLACKBOX_OPEN_FOLDER = 'blackbox:open-folder',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -106,6 +108,8 @@ export interface BetaflightAPI {
 
   // Blackbox
   getBlackboxInfo(): Promise<BlackboxInfo>;
+  downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<string>;
+  openBlackboxFolder(filepath: string): Promise<void>;
 
   // Events
   onError(callback: (error: string) => void): () => void;
