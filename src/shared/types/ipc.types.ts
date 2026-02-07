@@ -13,6 +13,7 @@ import type {
   PresetProfile
 } from './profile.types';
 import type { PIDConfiguration } from './pid.types';
+import type { BlackboxInfo } from './blackbox.types';
 
 export enum IPCChannel {
   // Connection
@@ -49,11 +50,21 @@ export enum IPCChannel {
   PID_UPDATE_CONFIG = 'pid:update-config',
   PID_SAVE_CONFIG = 'pid:save-config',
 
+  // Blackbox
+  BLACKBOX_GET_INFO = 'blackbox:get-info',
+  BLACKBOX_DOWNLOAD_LOG = 'blackbox:download-log',
+  BLACKBOX_LIST_LOGS = 'blackbox:list-logs',
+  BLACKBOX_DELETE_LOG = 'blackbox:delete-log',
+  BLACKBOX_ERASE_FLASH = 'blackbox:erase-flash',
+  BLACKBOX_OPEN_FOLDER = 'blackbox:open-folder',
+  BLACKBOX_TEST_READ = 'blackbox:test-read',
+
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
   EVENT_PROFILE_CHANGED = 'event:profile-changed',
   EVENT_NEW_FC_DETECTED = 'event:new-fc-detected',
   EVENT_PID_CHANGED = 'event:pid-changed',
+  EVENT_BLACKBOX_DOWNLOAD_PROGRESS = 'event:blackbox-download-progress',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log'
 }
@@ -99,6 +110,15 @@ export interface BetaflightAPI {
   getPIDConfig(): Promise<PIDConfiguration>;
   updatePIDConfig(config: PIDConfiguration): Promise<void>;
   savePIDConfig(): Promise<void>;
+
+  // Blackbox
+  getBlackboxInfo(): Promise<BlackboxInfo>;
+  downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<BlackboxLogMetadata>;
+  listBlackboxLogs(): Promise<BlackboxLogMetadata[]>;
+  deleteBlackboxLog(logId: string): Promise<void>;
+  eraseBlackboxFlash(): Promise<void>;
+  openBlackboxFolder(filepath: string): Promise<void>;
+  testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }>;
 
   // Events
   onError(callback: (error: string) => void): () => void;

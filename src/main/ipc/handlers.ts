@@ -1,4 +1,6 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app, shell } from 'electron';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { IPCChannel, IPCResponse } from '@shared/types/ipc.types';
 import type {
   PortInfo,
@@ -14,6 +16,7 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
+import type { BlackboxInfo, BlackboxLogMetadata } from '@shared/types/blackbox.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
@@ -22,6 +25,7 @@ import { getMainWindow } from '../window';
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
 let profileManager: any = null; // Will be set from main
+let blackboxManager: any = null; // Will be set from main
 
 export function setMSPClient(client: any): void {
   mspClient = client;
@@ -33,6 +37,10 @@ export function setSnapshotManager(manager: any): void {
 
 export function setProfileManager(manager: any): void {
   profileManager = manager;
+}
+
+export function setBlackboxManager(manager: any): void {
+  blackboxManager = manager;
 }
 
 function createResponse<T>(data: T | undefined, error?: string): IPCResponse<T> {
@@ -306,6 +314,9 @@ export function registerIPCHandlers(): void {
       if (!snapshotManager) {
         throw new Error('Snapshot manager not initialized');
       }
+      if (!blackboxManager) {
+        throw new Error('Blackbox manager not initialized');
+      }
 
       // Get profile before deleting to access snapshot IDs
       const profile = await profileManager.getProfile(id);
@@ -324,6 +335,15 @@ export function registerIPCHandlers(): void {
           logger.error(`Failed to delete snapshot ${snapshotId}:`, err);
           // Continue deleting other snapshots even if one fails
         }
+      }
+
+      // Delete all Blackbox logs associated with this profile
+      try {
+        await blackboxManager.deleteLogsForProfile(id);
+        logger.info(`Deleted all Blackbox logs for profile ${id}`);
+      } catch (err) {
+        logger.error(`Failed to delete Blackbox logs for profile ${id}:`, err);
+        // Continue with profile deletion even if log deletion fails
       }
 
       // Delete the profile
@@ -485,6 +505,162 @@ export function registerIPCHandlers(): void {
       return createResponse<void>(undefined);
     } catch (error) {
       logger.error('Failed to save PID configuration:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  // Blackbox handlers
+  ipcMain.handle(IPCChannel.BLACKBOX_GET_INFO, async (): Promise<IPCResponse<BlackboxInfo>> => {
+    try {
+      if (!mspClient) {
+        return createResponse<BlackboxInfo>(undefined, 'MSP client not initialized');
+      }
+
+      const info = await mspClient.getBlackboxInfo();
+      return createResponse<BlackboxInfo>(info);
+    } catch (error) {
+      logger.error('Failed to get Blackbox info:', error);
+      return createResponse<BlackboxInfo>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_DOWNLOAD_LOG, async (event): Promise<IPCResponse<BlackboxLogMetadata>> => {
+    try {
+      if (!mspClient) {
+        logger.error('MSPClient not initialized');
+        return createResponse<BlackboxLogMetadata>(undefined, 'MSPClient not initialized');
+      }
+      if (!blackboxManager) {
+        logger.error('BlackboxManager not initialized');
+        return createResponse<BlackboxLogMetadata>(undefined, 'BlackboxManager not initialized');
+      }
+      if (!profileManager) {
+        logger.error('ProfileManager not initialized');
+        return createResponse<BlackboxLogMetadata>(undefined, 'ProfileManager not initialized');
+      }
+
+      // Get current profile
+      const currentProfile = await profileManager.getCurrentProfile();
+      if (!currentProfile) {
+        return createResponse<BlackboxLogMetadata>(undefined, 'No active profile selected');
+      }
+
+      logger.info('Starting Blackbox log download...');
+
+      // Download log data from FC with progress updates
+      const logData = await mspClient.downloadBlackboxLog((progress: number) => {
+        // Send progress update to renderer via IPC event
+        event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress);
+      });
+
+      // Get FC info for metadata
+      const fcInfo = await mspClient.getFCInfo();
+
+      // Save log with metadata
+      const metadata = await blackboxManager.saveLog(
+        logData,
+        currentProfile.id,
+        currentProfile.fcSerial,
+        {
+          variant: fcInfo.variant,
+          version: fcInfo.firmwareVersion,
+          target: fcInfo.target
+        }
+      );
+
+      logger.info(`Blackbox log saved: ${metadata.filename} (${metadata.size} bytes)`);
+
+      return createResponse<BlackboxLogMetadata>(metadata);
+    } catch (error) {
+      logger.error('Failed to download Blackbox log:', error);
+      return createResponse<BlackboxLogMetadata>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_OPEN_FOLDER, async (_event, filepath: string): Promise<IPCResponse<void>> => {
+    try {
+      // Extract directory from filepath
+      const directory = path.dirname(filepath);
+
+      logger.info(`Opening Blackbox folder: ${directory}`);
+
+      // Open folder in file manager
+      const result = await shell.openPath(directory);
+
+      if (result) {
+        throw new Error(`Failed to open folder: ${result}`);
+      }
+
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to open Blackbox folder:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_TEST_READ, async (): Promise<IPCResponse<{ success: boolean; message: string; data?: string }>> => {
+    try {
+      if (!mspClient) {
+        return createResponse<{ success: boolean; message: string }>(undefined, 'MSP client not initialized');
+      }
+
+      const result = await mspClient.testBlackboxRead();
+      return createResponse<{ success: boolean; message: string; data?: string }>(result);
+    } catch (error) {
+      logger.error('Failed to test Blackbox read:', error);
+      return createResponse<{ success: boolean; message: string }>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_LIST_LOGS, async (): Promise<IPCResponse<BlackboxLogMetadata[]>> => {
+    try {
+      if (!blackboxManager || !profileManager) {
+        return createResponse<BlackboxLogMetadata[]>(undefined, 'Services not initialized');
+      }
+
+      const currentProfile = await profileManager.getCurrentProfile();
+      if (!currentProfile) {
+        // No profile selected, return empty array
+        return createResponse<BlackboxLogMetadata[]>([]);
+      }
+
+      const logs = await blackboxManager.listLogs(currentProfile.id);
+      return createResponse<BlackboxLogMetadata[]>(logs);
+    } catch (error) {
+      logger.error('Failed to list Blackbox logs:', error);
+      return createResponse<BlackboxLogMetadata[]>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_DELETE_LOG, async (_event, logId: string): Promise<IPCResponse<void>> => {
+    try {
+      if (!blackboxManager) {
+        return createResponse<void>(undefined, 'BlackboxManager not initialized');
+      }
+
+      await blackboxManager.deleteLog(logId);
+      logger.info(`Deleted Blackbox log: ${logId}`);
+
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to delete Blackbox log:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.BLACKBOX_ERASE_FLASH, async (): Promise<IPCResponse<void>> => {
+    try {
+      if (!mspClient) {
+        return createResponse<void>(undefined, 'MSP client not initialized');
+      }
+
+      logger.warn('Erasing Blackbox flash memory...');
+      await mspClient.eraseBlackboxFlash();
+      logger.info('Blackbox flash erased successfully');
+
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to erase Blackbox flash:', error);
       return createResponse<void>(undefined, getErrorMessage(error));
     }
   });

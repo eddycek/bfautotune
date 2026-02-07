@@ -54,6 +54,9 @@ global.window.betaflight = {
   onProfileChanged: vi.fn(() => () => {}),
   onNewFCDetected: vi.fn(() => () => {}),
 
+  // Blackbox
+  getBlackboxInfo: vi.fn(),
+
   // Events
   onError: vi.fn(() => () => {}),
   onLog: vi.fn(() => () => {})

@@ -4,19 +4,27 @@ import { MSPError } from '../utils/errors';
 export class MSPProtocol {
   /**
    * Encode MSP message to send to FC
+   * Automatically uses jumbo frames (MSPv2) for payloads > 255 bytes
    */
   encode(command: number, data: Buffer = Buffer.alloc(0)): Buffer {
-    if (data.length > MSP_PROTOCOL.MAX_PAYLOAD_SIZE) {
-      throw new MSPError(`Payload too large: ${data.length} > ${MSP_PROTOCOL.MAX_PAYLOAD_SIZE}`);
+    const size = data.length;
+
+    // Use jumbo frames for large payloads
+    if (size >= MSP_PROTOCOL.JUMBO_FRAME_MIN_SIZE) {
+      return this.encodeJumbo(command, data);
     }
 
-    const size = data.length;
+    // Standard MSP v1 encoding
+    if (size > MSP_PROTOCOL.MAX_PAYLOAD_SIZE) {
+      throw new MSPError(`Payload too large: ${size} > ${MSP_PROTOCOL.MAX_PAYLOAD_SIZE}`);
+    }
+
     const buffer = Buffer.alloc(6 + size);
 
     buffer[0] = MSP_PROTOCOL.PREAMBLE1; // '$'
     buffer[1] = MSP_PROTOCOL.PREAMBLE2; // 'M'
     buffer[2] = MSP_PROTOCOL.DIRECTION_TO_FC; // '<'
-    buffer[3] = size; // payload size
+    buffer[3] = size; // payload size (1 byte)
     buffer[4] = command; // command ID
 
     // Copy payload
@@ -35,7 +43,45 @@ export class MSPProtocol {
   }
 
   /**
+   * Encode MSP jumbo frame message (MSPv2 over MSPv1)
+   * Format: $X<0xFF flag><size 16-bit LE><command><data><checksum>
+   */
+  private encodeJumbo(command: number, data: Buffer): Buffer {
+    const size = data.length;
+
+    if (size > MSP_PROTOCOL.MAX_JUMBO_PAYLOAD_SIZE) {
+      throw new MSPError(`Jumbo payload too large: ${size} > ${MSP_PROTOCOL.MAX_JUMBO_PAYLOAD_SIZE}`);
+    }
+
+    // Jumbo frame: preamble + 0xFF flag + 2-byte size + command + data + checksum
+    const buffer = Buffer.alloc(8 + size);
+
+    buffer[0] = MSP_PROTOCOL.PREAMBLE1; // '$'
+    buffer[1] = MSP_PROTOCOL.PREAMBLE2; // 'M'
+    buffer[2] = MSP_PROTOCOL.DIRECTION_TO_FC; // '<'
+    buffer[3] = 0xff; // Jumbo frame flag
+    buffer.writeUInt16LE(size, 4); // 16-bit size (little-endian)
+    buffer[6] = command; // command ID
+
+    // Copy payload
+    if (size > 0) {
+      data.copy(buffer, 7);
+    }
+
+    // Calculate checksum for jumbo frame (different from v1!)
+    // Checksum = CRC8 of size_low ^ size_high ^ command ^ data
+    let checksum = (size & 0xff) ^ (size >> 8) ^ command;
+    for (let i = 0; i < size; i++) {
+      checksum ^= data[i];
+    }
+    buffer[7 + size] = checksum;
+
+    return buffer;
+  }
+
+  /**
    * Decode MSP response from FC
+   * Handles both standard MSP v1 and jumbo frames (MSPv2)
    */
   decode(buffer: Buffer): MSPResponse | null {
     if (buffer.length < 6) {
@@ -54,7 +100,14 @@ export class MSPProtocol {
       throw new MSPError(`Invalid MSP direction: 0x${direction.toString(16)}`);
     }
 
-    const size = buffer[3];
+    // Check if this is a jumbo frame (flag = 0xFF)
+    const sizeOrFlag = buffer[3];
+    if (sizeOrFlag === 0xff) {
+      return this.decodeJumbo(buffer);
+    }
+
+    // Standard MSP v1 decoding
+    const size = sizeOrFlag;
     const command = buffer[4];
 
     // Check if we have complete message
@@ -82,6 +135,47 @@ export class MSPProtocol {
       command,
       data,
       error: isError
+    };
+  }
+
+  /**
+   * Decode MSP jumbo frame response (MSPv2 over MSPv1)
+   * Format: $X>0xFF<size 16-bit LE><command><data><checksum>
+   */
+  private decodeJumbo(buffer: Buffer): MSPResponse | null {
+    if (buffer.length < 8) {
+      return null; // Incomplete jumbo message
+    }
+
+    // Read 16-bit size (little-endian)
+    const size = buffer.readUInt16LE(4);
+    const command = buffer[6];
+
+    // Check if we have complete message
+    if (buffer.length < 8 + size) {
+      return null; // Incomplete message
+    }
+
+    // Extract data
+    const data = buffer.slice(7, 7 + size);
+
+    // Verify checksum
+    const receivedChecksum = buffer[7 + size];
+    let calculatedChecksum = (size & 0xff) ^ (size >> 8) ^ command;
+    for (let i = 0; i < size; i++) {
+      calculatedChecksum ^= data[i];
+    }
+
+    if (receivedChecksum !== calculatedChecksum) {
+      throw new MSPError(
+        `Jumbo frame checksum mismatch: received 0x${receivedChecksum.toString(16)}, calculated 0x${calculatedChecksum.toString(16)}`
+      );
+    }
+
+    return {
+      command,
+      data,
+      error: false
     };
   }
 

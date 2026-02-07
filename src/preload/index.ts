@@ -14,6 +14,7 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { BlackboxInfo, BlackboxLogMetadata } from '@shared/types/blackbox.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -244,6 +245,74 @@ const betaflightAPI: BetaflightAPI = {
     if (!response.success) {
       throw new Error(response.error || 'Failed to save PID configuration');
     }
+  },
+
+  // Blackbox
+  async getBlackboxInfo(): Promise<BlackboxInfo> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_GET_INFO);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get Blackbox info');
+    }
+    return response.data;
+  },
+
+  async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<BlackboxLogMetadata> {
+    // Set up progress listener if callback provided
+    let progressListener: ((event: any, progress: number) => void) | null = null;
+    if (onProgress) {
+      progressListener = (_event: any, progress: number) => onProgress(progress);
+      ipcRenderer.on(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progressListener);
+    }
+
+    try {
+      const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_DOWNLOAD_LOG);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to download Blackbox log');
+      }
+      return response.data;
+    } finally {
+      // Clean up progress listener
+      if (progressListener) {
+        ipcRenderer.removeListener(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progressListener);
+      }
+    }
+  },
+
+  async listBlackboxLogs(): Promise<BlackboxLogMetadata[]> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_LIST_LOGS);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to list Blackbox logs');
+    }
+    return response.data;
+  },
+
+  async deleteBlackboxLog(logId: string): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_DELETE_LOG, logId);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete Blackbox log');
+    }
+  },
+
+  async eraseBlackboxFlash(): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_ERASE_FLASH);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to erase Blackbox flash');
+    }
+  },
+
+  async openBlackboxFolder(filepath: string): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_OPEN_FOLDER, filepath);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to open Blackbox folder');
+    }
+  },
+
+  async testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_TEST_READ);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to test Blackbox read');
+    }
+    return response.data;
   },
 
   onPIDChanged(callback: (config: PIDConfiguration) => void): () => void {

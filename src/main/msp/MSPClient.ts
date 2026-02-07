@@ -4,6 +4,7 @@ import { MSPConnection } from './MSPConnection';
 import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { BlackboxInfo } from '@shared/types/blackbox.types';
 import { ConnectionError, MSPError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP, BETAFLIGHT } from '@shared/constants';
@@ -457,6 +458,344 @@ export class MSPClient extends EventEmitter {
     }
 
     logger.info('PID configuration updated successfully:', config);
+  }
+
+  /**
+   * Get Blackbox dataflash storage information
+   * Returns flash capacity, used space, and whether logs are available
+   */
+  async getBlackboxInfo(): Promise<BlackboxInfo> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    try {
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_SUMMARY);
+
+      logger.debug('Blackbox response:', {
+        error: response.error,
+        dataLength: response.data.length,
+        dataHex: response.data.toString('hex')
+      });
+
+      if (response.error) {
+        logger.warn('Blackbox MSP error response');
+        return {
+          supported: false,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Some FCs return shorter responses - handle gracefully
+      if (response.data.length < 13) {
+        logger.warn(`Blackbox response too short: ${response.data.length} bytes`);
+        return {
+          supported: false,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Parse dataflash summary response (13 bytes total)
+      // Byte 0: ready flag (bit 0 = flash ready, bit 1 = supported)
+      // Bytes 1-4: flags (uint32)
+      // Bytes 5-8: total size in bytes (uint32)
+      // Bytes 9-12: used size in bytes (uint32)
+      const ready = response.data.readUInt8(0);
+      const flags = response.data.readUInt32LE(1);
+      const totalSize = response.data.readUInt32LE(5);
+      const usedSize = response.data.readUInt32LE(9);
+
+      logger.debug('Blackbox parsed:', { ready, flags, totalSize, usedSize, readyHex: ready.toString(16), flagsHex: flags.toString(16) });
+
+      // Check if supported (ready bit 1 = 0x02)
+      const supported = (ready & 0x02) !== 0;
+
+      // Check for invalid values (0x80000000 = "not available" on some FCs)
+      const INVALID_SIZE = 0x80000000;
+      if (totalSize === INVALID_SIZE || usedSize === INVALID_SIZE) {
+        if (supported) {
+          // Blackbox is supported but size info not available (possibly SD card or external storage)
+          logger.warn('Blackbox supported but size info invalid (0x80000000) - might use SD card');
+          return {
+            supported: true,
+            totalSize: 0,
+            usedSize: 0,
+            hasLogs: false,
+            freeSize: 0,
+            usagePercent: 0
+          };
+        } else {
+          // Not supported and invalid sizes
+          logger.warn('Blackbox not supported (invalid sizes and flag not set)');
+          return {
+            supported: false,
+            totalSize: 0,
+            usedSize: 0,
+            hasLogs: false,
+            freeSize: 0,
+            usagePercent: 0
+          };
+        }
+      }
+
+      // If not supported by flags, return false
+      if (!supported) {
+        logger.warn('Blackbox not supported (flags bit 1 not set)');
+        return {
+          supported: false,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Blackbox is supported by flags, but totalSize is 0
+      if (totalSize === 0) {
+        logger.warn('Blackbox supported but totalSize is 0 - flash not configured or empty');
+        return {
+          supported: true,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Normal case with valid sizes
+      const hasLogs = usedSize > 0; // Logs exist if any space is used (even if 100% full)
+      const freeSize = totalSize - usedSize;
+      const usagePercent = totalSize > 0 ? Math.round((usedSize / totalSize) * 100) : 0;
+
+      const info: BlackboxInfo = {
+        supported,
+        totalSize,
+        usedSize,
+        hasLogs,
+        freeSize,
+        usagePercent
+      };
+
+      logger.info('Blackbox info:', info);
+      return info;
+    } catch (error) {
+      logger.error('Failed to get Blackbox info:', error);
+      // Return unsupported state instead of throwing
+      return {
+        supported: false,
+        totalSize: 0,
+        usedSize: 0,
+        hasLogs: false,
+        freeSize: 0,
+        usagePercent: 0
+      };
+    }
+  }
+
+  /**
+   * Test if FC supports MSP_DATAFLASH_READ by attempting minimal read
+   * @returns Object with success status and diagnostic info
+   */
+  async testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }> {
+    if (!this.isConnected()) {
+      return { success: false, message: 'FC not connected' };
+    }
+
+    try {
+      logger.info('Testing MSP_DATAFLASH_READ with minimal request (10 bytes from address 0)...');
+
+      // Try to read just 10 bytes from address 0
+      const request = Buffer.alloc(6);
+      request.writeUInt32LE(0, 0); // address = 0
+      request.writeUInt16LE(10, 4); // size = 10 bytes
+
+      logger.debug(`Test request hex: ${request.toString('hex')}`);
+
+      // Short timeout for test (5 seconds)
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 5000);
+
+      logger.info(`Test SUCCESS! Received ${response.data.length} bytes: ${response.data.toString('hex')}`);
+
+      return {
+        success: true,
+        message: `FC responded with ${response.data.length} bytes`,
+        data: response.data.toString('hex')
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`Test FAILED: ${message}`);
+
+      return {
+        success: false,
+        message: `Test failed: ${message}`
+      };
+    }
+  }
+
+  /**
+   * Read a chunk of Blackbox data from flash storage
+   * @param address - Start address to read from
+   * @param size - Number of bytes to read (max 4096)
+   * @returns Buffer containing the requested data
+   */
+  async readBlackboxChunk(address: number, size: number): Promise<Buffer> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    // Max size with MSP jumbo frames
+    if (size > 8192) {
+      throw new Error('Chunk size cannot exceed 8192 bytes (MSP jumbo frame limit)');
+    }
+
+    try {
+      // Build request: address (uint32 LE) + size (uint16 LE)
+      const request = Buffer.alloc(6);
+      request.writeUInt32LE(address, 0);
+      request.writeUInt16LE(size, 4);
+
+      // Use 5 second timeout - fail fast so adaptive chunking can adjust quickly
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 5000);
+
+      return response.data;
+    } catch (error) {
+      logger.error(`Failed to read Blackbox chunk at ${address}: ${error instanceof Error ? error.message : error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Download entire Blackbox log from flash storage
+   * @param onProgress - Optional callback for progress updates (0-100)
+   * @returns Buffer containing all log data
+   */
+  async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<Buffer> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    try {
+      // Get flash info to know how much to download
+      const info = await this.getBlackboxInfo();
+
+      if (!info.supported || !info.hasLogs || info.usedSize === 0) {
+        throw new Error('No Blackbox logs available to download');
+      }
+
+      logger.info(`Starting Blackbox download: ${info.usedSize} bytes`);
+
+      const chunks: Buffer[] = [];
+      let bytesRead = 0;
+
+      // Conservative adaptive chunking with recovery delays
+      // Start with known-working size, gradually increase with caution
+      let currentChunkSize = 180; // Start conservative (between 128 working and 256 timeout)
+      const minChunkSize = 128; // Known working minimum
+      const maxChunkSize = 240; // Conservative max (under 256 timeout threshold)
+      let consecutiveSuccesses = 0;
+      let consecutiveFailures = 0;
+
+      // Read flash in chunks with adaptive sizing
+      while (bytesRead < info.usedSize) {
+        const remaining = info.usedSize - bytesRead;
+        const requestSize = Math.min(currentChunkSize, remaining);
+
+        try {
+          const chunk = await this.readBlackboxChunk(bytesRead, requestSize);
+          chunks.push(chunk);
+          bytesRead += chunk.length;
+          consecutiveSuccesses++;
+          consecutiveFailures = 0;
+
+          // After 50 successful chunks, cautiously try increasing chunk size by 10 bytes
+          if (consecutiveSuccesses >= 50 && currentChunkSize < maxChunkSize) {
+            const newSize = Math.min(currentChunkSize + 10, maxChunkSize);
+            logger.info(`Increasing chunk size: ${currentChunkSize} → ${newSize} bytes`);
+            currentChunkSize = newSize;
+            consecutiveSuccesses = 0;
+          }
+
+          // Report progress
+          if (onProgress) {
+            const progress = Math.round((bytesRead / info.usedSize) * 100);
+            onProgress(progress);
+
+            // Log only at 5% intervals to reduce overhead
+            if (progress % 5 === 0 && progress > 0) {
+              logger.info(`Downloaded ${bytesRead}/${info.usedSize} bytes (${progress}%) - chunk size: ${currentChunkSize}B`);
+            }
+          }
+
+          // Tiny delay to keep FC stable
+          await new Promise(resolve => setTimeout(resolve, 5));
+        } catch (error) {
+          // Chunk failed - reduce size and retry with recovery delay
+          consecutiveFailures++;
+          consecutiveSuccesses = 0;
+
+          if (consecutiveFailures > 5) {
+            // Too many failures, abort
+            logger.error(`Too many consecutive failures (${consecutiveFailures}) at chunk size ${currentChunkSize}, aborting`);
+            throw error;
+          }
+
+          // Reduce chunk size more conservatively
+          const newSize = Math.max(Math.floor(currentChunkSize * 0.8), minChunkSize);
+          logger.warn(`Chunk failed at size ${currentChunkSize} (failure ${consecutiveFailures}/5), reducing to ${newSize} bytes and retrying`);
+          currentChunkSize = newSize;
+
+          // Give FC time to recover after timeout (critical!)
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Don't increment bytesRead - retry same address
+          continue;
+        }
+      }
+
+      const fullLog = Buffer.concat(chunks);
+      logger.info(`Blackbox download complete: ${fullLog.length} bytes (final chunk size: ${currentChunkSize}B)`);
+
+      return fullLog;
+    } catch (error) {
+      logger.error('Failed to download Blackbox log:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Erase all data from Blackbox flash storage
+   * WARNING: This permanently deletes all logged flight data!
+   */
+  async eraseBlackboxFlash(): Promise<void> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    try {
+      logger.warn('Erasing Blackbox flash - all logged data will be permanently deleted');
+
+      // MSP_DATAFLASH_ERASE has no payload
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_ERASE, Buffer.alloc(0), 30000);
+
+      if (response.error) {
+        throw new MSPError('Failed to erase Blackbox flash');
+      }
+
+      logger.info('Blackbox flash erased successfully');
+    } catch (error) {
+      logger.error('Failed to erase Blackbox flash:', error);
+      throw error;
+    }
   }
 
   private cleanCLIOutput(output: string): string {
