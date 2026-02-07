@@ -376,15 +376,160 @@ class ReconnectionManager {
 
 ---
 
-## 🎯 Long-term Goals (Phase 2)
+## 🎯 Phase 2 - Blackbox Analysis System
 
-**After Phase 1 completion:**
-- [ ] Blackbox log parsing
-- [ ] FFT analysis for filter tuning
-- [ ] Noise spectrum visualization
-- [ ] PID step response analysis
-- [ ] Guided tuning wizard
-- [ ] AI-powered tuning recommendations
+**Status:** In Progress 🚧
+**Branch:** `feature/auto-pid-tuning`
+**Started:** February 7, 2026
+
+### Overview
+Automated FPV drone tuning via Blackbox log analysis. No manual PID editor - fully automated filter and PID tuning based on FFT analysis and step response metrics.
+
+### Task #15: Blackbox MSP Commands ⏳
+**Priority:** HIGH | **Status:** In Progress
+
+#### 15.1 Blackbox Capability Detection
+- [ ] Implement MSP_DATAFLASH_SUMMARY command
+- [ ] Check if onboard flash storage available
+- [ ] Detect total capacity and used space
+- [ ] Add to MSPClient.ts with types
+
+#### 15.2 Blackbox Download
+- [ ] Implement MSP_DATAFLASH_READ command
+- [ ] Stream log data from flash storage
+- [ ] Progress tracking for large logs
+- [ ] Save to local file (.bbl format)
+- [ ] Handle download errors/timeouts
+
+#### 15.3 Blackbox Configuration
+- [ ] Read current Blackbox settings (rate, debug mode)
+- [ ] Set optimal logging rate for analysis
+- [ ] Configure debug modes (GYRO_SCALED for filter, etc.)
+- [ ] Validate prerequisites before test flights
+
+### Task #16: Blackbox Parser
+**Priority:** HIGH | **Status:** Not Started
+
+#### 16.1 Parser Core
+- [ ] Create BlackboxParser module
+- [ ] Parse .bbl file headers
+- [ ] Decode main frames (P, I, G frames)
+- [ ] Extract gyro data (gyroADC[0-2])
+- [ ] Extract setpoint data for step response
+- [ ] Handle different Betaflight versions
+
+#### 16.2 Data Extraction
+- [ ] Time series extraction for gyro channels
+- [ ] Filter data by flight segments (exclude takeoff/landing)
+- [ ] Resample data for consistent rate
+- [ ] Export to analysis-friendly format (typed arrays)
+
+#### 16.3 Multi-log Support
+- [ ] Load multiple logs for D sweep analysis
+- [ ] Correlate logs by timestamp/label
+- [ ] Batch processing for comparative analysis
+
+### Task #17: FFT Analysis Engine
+**Priority:** HIGH | **Status:** Not Started
+
+#### 17.1 FFT Implementation
+- [ ] Choose FFT library (fft.js or similar)
+- [ ] Compute power spectrum for gyro data
+- [ ] Window functions (Hanning, Blackman)
+- [ ] Frequency resolution optimization
+
+#### 17.2 Noise Analysis
+- [ ] Detect overall noise floor
+- [ ] Identify resonance peaks (frame, motors)
+- [ ] Motor harmonics detection
+- [ ] Noise level categorization (low/medium/high)
+
+#### 17.3 Filter Recommendations
+- [ ] Gyro lowpass cutoff adjustment logic
+- [ ] D-term lowpass cutoff adjustment logic
+- [ ] Dynamic notch validation
+- [ ] RPM filtering validation
+- [ ] Safety bounds (minimum filtering levels)
+- [ ] Plain-English explanations per change
+
+### Task #18: Step Response Analyzer
+**Priority:** MEDIUM | **Status:** Not Started
+
+#### 18.1 Step Detection
+- [ ] Detect step inputs in setpoint data
+- [ ] Align gyro response with setpoint
+- [ ] Extract rise time, overshoot, settling time
+- [ ] Handle noisy data and false positives
+
+#### 18.2 PID Metrics
+- [ ] Overshoot percentage calculation
+- [ ] Ringing frequency and amplitude
+- [ ] Latency (delay to first response)
+- [ ] Settling time to within 2%
+- [ ] Score function for optimal D value
+
+#### 18.3 P/D Balance & Master Gain
+- [ ] D sweep analysis (compare multiple logs)
+- [ ] Select best D value via scoring
+- [ ] Master gain oscillation detection
+- [ ] Stability margin calculation
+- [ ] Recommendations with safety margins
+
+### Task #19: Guided Wizard UI
+**Priority:** MEDIUM | **Status:** Not Started
+
+#### 19.1 Wizard Flow
+- [ ] Setup step (prerequisites, Blackbox config)
+- [ ] Filter tuning step (throttle sweep instructions)
+- [ ] PID tuning step (D sweep instructions)
+- [ ] Results step (summary, apply changes)
+- [ ] Progress indicator
+
+#### 19.2 Flight Instructions
+- [ ] Clear step-by-step instructions
+- [ ] Visual aids (diagrams, animations)
+- [ ] Safety checklist
+- [ ] Prerequisite validation
+- [ ] Video tutorials (optional)
+
+#### 19.3 Results Display
+- [ ] Before/after comparison
+- [ ] Change explanations (beginner-friendly)
+- [ ] Advanced graphs (FFT spectrum, step response)
+- [ ] Toggle advanced details
+- [ ] Export report (PDF/HTML)
+
+### Task #20: Auto-Apply Changes
+**Priority:** HIGH | **Status:** Not Started
+
+#### 20.1 Configuration Write
+- [ ] Apply filter changes via MSP
+- [ ] Apply PID changes via MSP
+- [ ] Verify changes written successfully
+- [ ] Handle write errors
+
+#### 20.2 Snapshot Integration
+- [ ] Auto-create snapshot before changes
+- [ ] Auto-create snapshot after changes
+- [ ] Store tuning metadata (filter/PID)
+- [ ] Generate CLI diff for review
+
+#### 20.3 Safety & Rollback
+- [ ] Validation before apply
+- [ ] Bounds checking (no extreme values)
+- [ ] One-click rollback to previous snapshot
+- [ ] Warning on risky changes
+
+---
+
+## 🎯 Long-term Goals (Phase 3+)
+
+**After Phase 2 completion:**
+- [ ] AI-powered tuning recommendations (optional, via API key)
+- [ ] Cloud analysis service (Kubernetes deployment)
+- [ ] Export session reports (PDF/HTML)
+- [ ] Advanced metrics dashboard
+- [ ] Fleet management (multiple drones)
 
 ---
 

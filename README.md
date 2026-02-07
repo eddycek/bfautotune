@@ -1,15 +1,30 @@
 # Beta PIDTune
 
-Phase 1: MSP Connection Module - Desktop application for managing FPV drone PID configurations and autotuning.
+**Automated FPV Drone Tuning Application for Betaflight**
+
+Desktop application that automatically tunes filter and PID settings by analyzing Blackbox logs. No manual graph reading required - guided test flights, automated analysis, and one-click tuning.
+
+## Current Status
+
+- **Phase 1:** ✅ Complete - MSP connection, profile management, snapshots
+- **Phase 2:** 🚧 In Progress - Blackbox analysis, automated tuning
 
 ## Features
 
-- USB serial connection to flight controllers (Betaflight compatible)
-- Read flight controller information (variant, version, board)
-- Export CLI configuration (diff and dump)
-- Create and manage configuration snapshots
-- Automatic baseline snapshot on first connection
-- Cross-platform (Windows, macOS, Linux)
+### Phase 1 (Released)
+- ✅ Multi-drone profile management (auto-detection by FC serial)
+- ✅ USB serial connection to Betaflight flight controllers
+- ✅ Configuration snapshots with versioning and rollback
+- ✅ CLI export (diff/dump)
+- ✅ Toast notifications for user feedback
+- ✅ Cross-platform (Windows, macOS, Linux)
+
+### Phase 2 (In Development)
+- 🚧 Blackbox log download and import
+- 🚧 Automated filter tuning (FFT noise analysis)
+- 🚧 Automated PID tuning (step response analysis)
+- 🚧 Guided wizard for test flights
+- 🚧 One-click apply changes with rollback
 
 ## Tech Stack
 
@@ -214,18 +229,41 @@ Snapshots are stored as JSON files in:
 - **Windows**: `%APPDATA%/betaflight-tune/data/snapshots/`
 - **Linux**: `~/.config/betaflight-tune/data/snapshots/`
 
+## How It Works (Phase 2)
+
+### 1. Filter Tuning
+1. Guided throttle-sweep test flight
+2. Download Blackbox log from FC
+3. FFT analysis detects noise spectrum and resonance peaks
+4. Automatically adjusts gyro/D-term lowpass filters
+5. Apply changes with one click
+
+### 2. PID Tuning
+1. Guided D sweep test flights (multiple flights with varying D)
+2. Analyze step responses (overshoot, ringing, latency)
+3. Find optimal P/D balance via scoring metrics
+4. Master gain tuning (highest stable multiplier)
+5. Apply PID changes with automatic snapshot
+
+### 3. Safety & Rollback
+- All changes create automatic snapshots
+- One-click rollback to any previous configuration
+- Safety bounds prevent extreme values
+- Plain-English explanations for every change
+
 ## Known Limitations
 
 - MSP v1 only (v2 support planned)
-- No configuration write/restore (Phase 2)
-- No blackbox log parsing yet (Phase 2)
-- No filter/PID tuning analysis (Phase 2)
+- Blackbox analysis requires onboard flash storage
+- Requires test flights in safe environment
+- No AI recommendations in MVP (manual tuning algorithm)
 
-## Future Phases
+## Development Roadmap
 
-- **Phase 2**: Blackbox log analysis, filter tuning
-- **Phase 3**: PID tuning assistant
-- **Phase 4**: Cloud API and AI integration
+- **Phase 1**: ✅ MSP connection, profiles, snapshots
+- **Phase 2**: 🚧 Blackbox analysis, automated tuning (current)
+- **Phase 3**: 📋 AI recommendations (optional, via user API key)
+- **Phase 4**: 📋 Cloud analysis service (Kubernetes deployment)
 
 ## License
 
