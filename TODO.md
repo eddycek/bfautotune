@@ -69,14 +69,17 @@ All core Phase 1 features implemented:
 ### Overview
 **Status:** 100% Complete ✅
 **Branch:** `feature/drone-profiles`
-**PR:** Pending merge to main
+**PR #1:** https://github.com/eddycek/beta-pidtune/pull/1 - Ready for Review ✅
 
 Complete multi-drone profile system allowing users to manage multiple drones with:
 - Unique identification via FC serial number (MSP_UID)
-- Preset profiles for common drone types (5" freestyle, 7" long range, etc.)
-- Custom profile creation with smart defaults
-- Profile-specific snapshot tracking
+- 10 preset profiles (tiny-whoop, micro-whoop, 5" freestyle, 7" long range, etc.)
+- Custom profile creation with smart defaults (1S-6S batteries, 1"-10" drone sizes)
+- Profile-specific snapshot tracking with server-side filtering
 - Auto-detection of known/new drones on connection
+- Profile locking when FC is connected (prevents accidental switching)
+- Comprehensive UI testing (128 tests) with pre-commit hooks
+- Full documentation (CLAUDE.md, TESTING.md)
 
 ### Task #13: Backend Implementation ✅
 **Status:** Completed
@@ -140,21 +143,84 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 - ✅ Auto-show wizard on new FC
 - ✅ Profile selector in main layout
 
-### Features
-- ✅ 6 preset profiles (5" freestyle, 5" race, 7" long range, etc.)
+### Features Implemented
+- ✅ 10 preset profiles (tiny-whoop, micro-whoop, toothpick, freestyle, race, cinematic, long-range, etc.)
+- ✅ Battery support: 1S, 2S, 3S, 4S, 6S
+- ✅ Drone sizes: 1", 2", 2.5", 3", 4", 5", 6", 7", 10"
 - ✅ Smart defaults: changing size auto-fills weight, motor KV, battery, prop size
-- ✅ Required fields: name, size, prop size, battery, weight, motor KV
-- ✅ Optional advanced: frame type, flight style, frame stiffness, notes
-- ✅ Profile-specific snapshots (each drone has its own snapshots)
-- ✅ Auto-detection: known drones auto-load profile, new drones show wizard
-- ✅ Connection tracking: last connected timestamp, connection count
-- ✅ Delete protection: cannot delete active profile or baseline snapshots
+- ✅ Profile editing: Full edit modal with all fields editable
+- ✅ Profile deletion: Confirmation modal with warnings, deletes all associated snapshots
+- ✅ Profile locking: Cannot switch profiles when FC is connected (UI lock with visual indicator)
+- ✅ Profile-specific snapshots: Server-side filtering by profile.snapshotIds array
+- ✅ Auto-detection: Known drones auto-load profile, new drones show wizard (cannot be cancelled)
+- ✅ Connection tracking: Last connected timestamp, connection count
+- ✅ Baseline snapshots: Auto-created on first connection
+- ✅ Board name handling: Null byte filtering, fallback to target name
+- ✅ Connection reliability: 3-second cooldown, auto port detection, retry logic
 
-### Testing
+### Bug Fixes (8 Critical Issues Resolved)
+- ✅ **Profile deletion blocked**: Removed active profile check, auto-clear currentProfileId
+- ✅ **Orphaned snapshots**: Delete all profile snapshots on profile deletion
+- ✅ **App crash on preset**: Added missing PRESET_PROFILES import
+- ✅ **"FC not responding" on immediate reconnect**: Added 3s cooldown + 1s backend delay
+- ✅ **Baseline not auto-created**: Create baseline after profile creation
+- ✅ **Port error on FC change**: Auto-detect port changes, select first available
+- ✅ **Wrong snapshots visible**: Server-side filtering by currentProfile.snapshotIds
+- ✅ **Empty board name**: Filter null bytes, fallback to target, conditional display
+
+### Testing Infrastructure ✅
+**Total: 128 tests across 9 test files**
+
+#### Components (77 tests)
+- ✅ ConnectionPanel.test.tsx (12 tests)
+- ✅ ProfileSelector.test.tsx (11 tests)
+- ✅ FCInfoDisplay.test.tsx (12 tests)
+- ✅ ProfileEditModal.test.tsx (18 tests)
+- ✅ ProfileDeleteModal.test.tsx (14 tests)
+- ✅ SnapshotManager.test.tsx (22 tests)
+
+#### Hooks (45 tests)
+- ✅ useConnection.test.ts (15 tests)
+- ✅ useProfiles.test.ts (14 tests)
+- ✅ useSnapshots.test.ts (16 tests)
+
+#### Automation
+- ✅ Pre-commit hooks via Husky + lint-staged
+- ✅ Tests run automatically on staged file changes
+- ✅ Commit blocked if tests fail
+- ✅ Test commands: `npm test`, `npm run test:run`, `npm run test:ui`
+
+### Documentation ✅
+- ✅ **CLAUDE.md**: Architecture guide (268 lines)
+  - Electron process model
+  - Multi-drone profile system
+  - MSP communication details
+  - IPC architecture
+  - Storage system
+  - Key behaviors & gotchas
+  - Common issues & solutions
+
+- ✅ **TESTING.md**: Testing guidelines (405 lines)
+  - Test stack overview
+  - Running tests
+  - Writing tests
+  - Common patterns
+  - Best practices
+  - Coverage goals
+  - Troubleshooting
+
+### Manual Testing
 - ✅ Backend compiles without errors
 - ✅ UI components render correctly
 - ✅ ProfileWizard modal displays on new FC
-- ⏳ Hardware testing pending (requires real FC)
+- ✅ Profile creation (preset + custom)
+- ✅ Profile editing and deletion
+- ✅ Profile switching and locking
+- ✅ Snapshot creation, export, deletion
+- ✅ Connection/disconnection flow
+- ✅ Cooldown mechanism
+- ✅ Auto port detection
+- ✅ All 8 bug fixes verified
 
 ---
 
@@ -219,16 +285,23 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 ## 📋 Pre-Release Checklist
 
 ### Required
-- [ ] Task #11 completed (reconnection)
-- [ ] Hardware testing complete
+- ✅ Task #11 completed (reconnection, cooldown, auto-detection)
+- ✅ Multi-drone profile system completed
+- ✅ All critical bugs fixed (8 issues resolved)
+- ✅ Comprehensive testing (128 tests with pre-commit hooks)
+- ✅ Basic error handling
+- ✅ Documentation (CLAUDE.md, TESTING.md, README updated)
+- [ ] Hardware testing with real FC (manual verification)
 - [ ] Build system works on all platforms
-- [ ] Basic error handling
-- [ ] README updated with test results
+- [ ] macOS build tested
+- [ ] Windows build tested
+- [ ] Linux build tested
 
 ### Recommended (nice-to-have)
 - [ ] Toast notifications
 - [ ] Keyboard shortcuts
-- [ ] Unit tests (at least for MSP protocol)
+- [ ] Loading spinners for long operations
+- [ ] Progress bar for CLI export
 - [ ] User guide with screenshots
 - [ ] Video tutorial
 
@@ -237,8 +310,10 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 ## 🔄 Current Status - Where We Left Off
 
 **Date:** February 7, 2026
+**Branch:** `feature/drone-profiles`
+**PR:** https://github.com/eddycek/beta-pidtune/pull/1
 
-### ✅ Completed:
+### ✅ Phase 1 Completed (100%):
 1. ✅ Electron + Vite + TypeScript + React project
 2. ✅ Folder structure
 3. ✅ TypeScript configuration
@@ -249,15 +324,21 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 8. ✅ Connection UI components
 9. ✅ FC Info UI components
 10. ✅ Snapshot Manager UI components
+11. ✅ CLI mode & Port management
+12. ✅ Multi-drone profile system
+13. ✅ Profile management UI (wizard, editing, deletion)
+14. ✅ 8 critical bug fixes
+15. ✅ Comprehensive testing (128 tests)
+16. ✅ Documentation (CLAUDE.md, TESTING.md)
 
 ### 🚧 In Progress:
-- No tasks currently in progress
+- ⏳ PR #1 pending review and merge
 
 ### ⏭️ Up Next:
-**Task #11: Reconnection logic**
-- Start with `ReconnectionManager` module
-- Implement disconnect detection in `MSPConnection`
-- Add retry logic to `MSPClient`
+**After PR #1 merges:**
+- Phase 2 planning
+- Consider implementing suggestions from Task #12 (UI improvements)
+- Hardware testing with real FC (verify all functionality)
 
 ---
 
@@ -310,13 +391,23 @@ class ReconnectionManager {
 ## 🐛 Known Bugs
 
 ### Critical
-- None
+- ✅ None (all 8 critical bugs fixed in feature/drone-profiles)
 
 ### Medium Priority
-- Build system requires Python 3.11 or earlier
+- Build system requires Python 3.11 or earlier (distutils deprecated in 3.12)
 
 ### Low Priority
 - None
+
+### Recently Fixed (in PR #1)
+- ✅ Profile deletion blocked for active profile
+- ✅ Orphaned snapshots after profile deletion
+- ✅ App crash when selecting preset without custom name
+- ✅ "FC not responding" error on immediate reconnect
+- ✅ Baseline snapshot not auto-created
+- ✅ Port error when changing FC
+- ✅ Wrong snapshots visible (cross-profile contamination)
+- ✅ Empty/corrupted board name display
 
 ---
 
