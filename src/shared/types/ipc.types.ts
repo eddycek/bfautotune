@@ -61,6 +61,7 @@ export enum IPCChannel {
   EVENT_PROFILE_CHANGED = 'event:profile-changed',
   EVENT_NEW_FC_DETECTED = 'event:new-fc-detected',
   EVENT_PID_CHANGED = 'event:pid-changed',
+  EVENT_BLACKBOX_DOWNLOAD_PROGRESS = 'event:blackbox-download-progress',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log'
 }

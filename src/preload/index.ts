@@ -257,12 +257,25 @@ const betaflightAPI: BetaflightAPI = {
   },
 
   async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<string> {
-    // TODO: Wire up progress callback via IPC events
-    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_DOWNLOAD_LOG);
-    if (!response.success) {
-      throw new Error(response.error || 'Failed to download Blackbox log');
+    // Set up progress listener if callback provided
+    let progressListener: ((event: any, progress: number) => void) | null = null;
+    if (onProgress) {
+      progressListener = (_event: any, progress: number) => onProgress(progress);
+      ipcRenderer.on(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progressListener);
     }
-    return response.data;
+
+    try {
+      const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_DOWNLOAD_LOG);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to download Blackbox log');
+      }
+      return response.data;
+    } finally {
+      // Clean up progress listener
+      if (progressListener) {
+        ipcRenderer.removeListener(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progressListener);
+      }
+    }
   },
 
   async openBlackboxFolder(filepath: string): Promise<void> {

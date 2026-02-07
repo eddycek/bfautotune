@@ -507,7 +507,7 @@ export function registerIPCHandlers(): void {
     }
   });
 
-  ipcMain.handle(IPCChannel.BLACKBOX_DOWNLOAD_LOG, async (): Promise<IPCResponse<string>> => {
+  ipcMain.handle(IPCChannel.BLACKBOX_DOWNLOAD_LOG, async (event): Promise<IPCResponse<string>> => {
     try {
       if (!mspClient) {
         return createResponse<string>(undefined, 'MSP client not initialized');
@@ -515,9 +515,10 @@ export function registerIPCHandlers(): void {
 
       logger.info('Starting Blackbox log download...');
 
-      // Download log data from FC
+      // Download log data from FC with progress updates
       const logData = await mspClient.downloadBlackboxLog((progress) => {
-        // TODO: Send progress updates via IPC event
+        // Send progress update to renderer via IPC event
+        event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress);
         logger.debug(`Download progress: ${progress}%`);
       });
 
