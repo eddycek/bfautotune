@@ -14,7 +14,7 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
-import type { BlackboxInfo, BlackboxLogMetadata } from '@shared/types/blackbox.types';
+import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from '@shared/types/blackbox.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -313,6 +313,34 @@ const betaflightAPI: BetaflightAPI = {
       throw new Error(response.error || 'Failed to test Blackbox read');
     }
     return response.data;
+  },
+
+  async parseBlackboxLog(logId: string, onProgress?: (progress: BlackboxParseProgress) => void): Promise<BlackboxParseResult> {
+    let progressListener: ((event: any, progress: BlackboxParseProgress) => void) | null = null;
+    if (onProgress) {
+      progressListener = (_event: any, progress: BlackboxParseProgress) => onProgress(progress);
+      ipcRenderer.on(IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS, progressListener);
+    }
+
+    try {
+      const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_PARSE_LOG, logId);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to parse Blackbox log');
+      }
+      return response.data;
+    } finally {
+      if (progressListener) {
+        ipcRenderer.removeListener(IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS, progressListener);
+      }
+    }
+  },
+
+  onBlackboxParseProgress(callback: (progress: BlackboxParseProgress) => void): () => void {
+    const listener = (_: any, progress: BlackboxParseProgress) => callback(progress);
+    ipcRenderer.on(IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS, listener);
+    };
   },
 
   onPIDChanged(callback: (config: PIDConfiguration) => void): () => void {
