@@ -148,16 +148,35 @@ export class MSPConnection extends EventEmitter {
     // Instead of sending 'exit' command which may close the port,
     // send an empty line and wait, then switch back to MSP mode manually
     return new Promise((resolve) => {
-      this.cliMode = false;
       this.cliBuffer = '';
 
       // Send a simple MSP command to reset the connection to MSP mode
       // This is safer than 'exit' which may cause FC to close the port
       this.port!.write('\r\n', () => {
-        // Give FC time to process and return to MSP mode
+        // Give FC more time to process and return to MSP mode
+        setTimeout(() => {
+          this.cliMode = false;
+          resolve();
+        }, 500);
+      });
+    });
+  }
+
+  async forceExitCLI(): Promise<void> {
+    // Force exit CLI mode without checking state
+    // Used during connection to ensure FC is not stuck in CLI mode
+    return new Promise((resolve) => {
+      this.cliMode = false;
+      this.cliBuffer = '';
+
+      // Send empty lines instead of 'exit' command
+      // The 'exit' command can sometimes close the port on some FCs
+      // Multiple newlines should flush any CLI state without closing port
+      this.port!.write('\r\n\r\n\r\n', () => {
+        // Wait for FC to fully process and return to MSP mode
         setTimeout(() => {
           resolve();
-        }, 100);
+        }, 500);
       });
     });
   }

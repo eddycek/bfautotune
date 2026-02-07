@@ -1,0 +1,336 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { SnapshotManager } from './SnapshotManager';
+import type { SnapshotMetadata, ConfigurationSnapshot } from '@shared/types/common.types';
+
+describe('SnapshotManager', () => {
+  const mockSnapshots: SnapshotMetadata[] = [
+    {
+      id: 'snapshot-1',
+      timestamp: new Date('2024-01-01').toISOString(),
+      label: 'Baseline',
+      type: 'baseline',
+      fcInfo: {
+        variant: 'BTFL',
+        version: '4.4.0',
+        boardName: 'MATEKF405'
+      }
+    },
+    {
+      id: 'snapshot-2',
+      timestamp: new Date('2024-01-02').toISOString(),
+      label: 'After PID tune',
+      type: 'manual',
+      fcInfo: {
+        variant: 'BTFL',
+        version: '4.4.0',
+        boardName: 'MATEKF405'
+      }
+    }
+  ];
+
+  const mockFullSnapshot: ConfigurationSnapshot = {
+    id: 'snapshot-1',
+    timestamp: new Date('2024-01-01').toISOString(),
+    label: 'Baseline',
+    type: 'baseline',
+    fcInfo: {
+      variant: 'BTFL',
+      version: '4.4.0',
+      target: 'MATEKF405',
+      boardName: 'MATEKF405',
+      apiVersion: { protocol: 1, major: 12, minor: 0 }
+    },
+    configuration: {
+      cliDiff: 'set motor_pwm_protocol = DSHOT600'
+    },
+    metadata: {
+      appVersion: '0.1.0',
+      createdBy: 'user'
+    }
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(mockSnapshots);
+    vi.mocked(window.betaflight.createSnapshot).mockResolvedValue(mockFullSnapshot);
+    vi.mocked(window.betaflight.loadSnapshot).mockResolvedValue(mockFullSnapshot);
+    vi.mocked(window.betaflight.deleteSnapshot).mockResolvedValue(undefined);
+    vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
+      connected: true,
+      portPath: '/dev/ttyUSB0'
+    });
+    vi.mocked(window.betaflight.onConnectionChanged).mockReturnValue(() => {});
+
+    // Mock window.confirm
+    global.confirm = vi.fn(() => true);
+  });
+
+  it('renders panel with title', () => {
+    render(<SnapshotManager />);
+    expect(screen.getByText('Configuration Snapshots')).toBeInTheDocument();
+  });
+
+  it('displays create snapshot button', () => {
+    render(<SnapshotManager />);
+    expect(screen.getByRole('button', { name: /create snapshot/i })).toBeInTheDocument();
+  });
+
+  it('loads and displays snapshots on mount', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      // Check for snapshot labels - there are multiple "Baseline" texts so use getAllByText
+      const baselineElements = screen.getAllByText(/Baseline/);
+      expect(baselineElements.length).toBeGreaterThan(0);
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+  });
+
+  it('displays baseline badge for baseline snapshot', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const badge = document.querySelector('.badge.baseline');
+      expect(badge).toBeTruthy();
+      expect(badge?.textContent).toBe('Baseline');
+    });
+  });
+
+  it('shows empty state when no snapshots exist', async () => {
+    vi.mocked(window.betaflight.listSnapshots).mockResolvedValue([]);
+
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/No snapshots yet/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows loading state', async () => {
+    vi.mocked(window.betaflight.listSnapshots).mockImplementation(
+      () => new Promise(resolve => setTimeout(() => resolve(mockSnapshots), 100))
+    );
+
+    render(<SnapshotManager />);
+
+    expect(screen.getByText('Loading snapshots...')).toBeInTheDocument();
+  });
+
+  it('disables create button when not connected', () => {
+    vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
+      connected: false
+    });
+
+    render(<SnapshotManager />);
+
+    const createButton = screen.getByRole('button', { name: /create snapshot/i });
+    expect(createButton).toBeDisabled();
+  });
+
+  it('opens create dialog when create button clicked', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    const createButton = screen.getByRole('button', { name: /create snapshot/i });
+    await user.click(createButton);
+
+    expect(screen.getByRole('heading', { name: 'Create Snapshot' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/label.*optional/i)).toBeInTheDocument();
+  });
+
+  it('allows entering snapshot label in create dialog', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    const createButton = screen.getByRole('button', { name: /create snapshot/i });
+    await user.click(createButton);
+
+    const labelInput = screen.getByPlaceholderText(/label.*optional/i);
+    await user.type(labelInput, 'My custom label');
+
+    expect(screen.getByDisplayValue('My custom label')).toBeInTheDocument();
+  });
+
+  it('creates snapshot with label when create confirmed', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(window.betaflight.listSnapshots).toHaveBeenCalled();
+    });
+
+    const createButton = screen.getByRole('button', { name: /create snapshot/i });
+    await user.click(createButton);
+
+    const labelInput = screen.getByPlaceholderText(/label.*optional/i);
+    await user.type(labelInput, 'My snapshot');
+
+    const confirmButton = screen.getByRole('button', { name: /^create$/i });
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(window.betaflight.createSnapshot).toHaveBeenCalledWith('My snapshot');
+    });
+  });
+
+  it('creates snapshot without label when none provided', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(window.betaflight.listSnapshots).toHaveBeenCalled();
+    });
+
+    const createButton = screen.getByRole('button', { name: /create snapshot/i });
+    await user.click(createButton);
+
+    const confirmButton = screen.getByRole('button', { name: /^create$/i });
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(window.betaflight.createSnapshot).toHaveBeenCalledWith(undefined);
+    });
+  });
+
+  it('closes create dialog on cancel', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    const createButton = screen.getByRole('button', { name: /create snapshot/i });
+    await user.click(createButton);
+
+    expect(screen.getByRole('heading', { name: 'Create Snapshot' })).toBeInTheDocument();
+
+    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    await user.click(cancelButton);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Create Snapshot' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes create dialog after successful creation', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(window.betaflight.listSnapshots).toHaveBeenCalled();
+    });
+
+    const createButton = screen.getByRole('button', { name: /create snapshot/i });
+    await user.click(createButton);
+
+    const confirmButton = screen.getByRole('button', { name: /^create$/i });
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Create Snapshot' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('displays export button for each snapshot', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const exportButtons = screen.getAllByRole('button', { name: /export/i });
+      expect(exportButtons.length).toBe(2); // One for each snapshot
+    });
+  });
+
+  it('displays delete button only for non-baseline snapshots', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+      expect(deleteButtons.length).toBe(1); // Only for manual snapshot
+    });
+  });
+
+  it('shows confirmation before deleting snapshot', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+    await user.click(deleteButtons[0]);
+
+    expect(global.confirm).toHaveBeenCalledWith('Are you sure you want to delete this snapshot?');
+  });
+
+  it('deletes snapshot when confirmed', async () => {
+    const user = userEvent.setup();
+    global.confirm = vi.fn(() => true);
+
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+    await user.click(deleteButtons[0]);
+
+    await waitFor(() => {
+      expect(window.betaflight.deleteSnapshot).toHaveBeenCalledWith('snapshot-2');
+    });
+  });
+
+  it('does not delete snapshot when cancelled', async () => {
+    const user = userEvent.setup();
+    global.confirm = vi.fn(() => false);
+
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+    await user.click(deleteButtons[0]);
+
+    expect(window.betaflight.deleteSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('loads and exports snapshot when export clicked', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const snapshots = screen.getAllByRole('button', { name: /export/i });
+      expect(snapshots.length).toBeGreaterThan(0);
+    });
+
+    const exportButtons = screen.getAllByRole('button', { name: /export/i });
+    await user.click(exportButtons[0]);
+
+    await waitFor(() => {
+      expect(window.betaflight.loadSnapshot).toHaveBeenCalledWith('snapshot-1');
+    });
+  });
+
+  it('displays FC info for each snapshot', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('BTFL 4.4.0').length).toBe(2);
+      expect(screen.getAllByText('MATEKF405').length).toBe(2);
+    });
+  });
+
+  it('displays error message when loading fails', async () => {
+    const errorMessage = 'Failed to load snapshots';
+    vi.mocked(window.betaflight.listSnapshots).mockRejectedValue(new Error(errorMessage));
+
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+    });
+  });
+});

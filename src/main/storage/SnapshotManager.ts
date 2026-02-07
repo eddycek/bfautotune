@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { FileStorage } from './FileStorage';
 import type { MSPClient } from '../msp/MSPClient';
+import type { ProfileManager } from './ProfileManager';
 import type { ConfigurationSnapshot, SnapshotMetadata, FCInfo } from '@shared/types/common.types';
 import { SnapshotError } from '../utils/errors';
 import { logger } from '../utils/logger';
@@ -9,11 +10,16 @@ import { APP_VERSION, SNAPSHOT } from '@shared/constants';
 export class SnapshotManager {
   private storage: FileStorage;
   private mspClient: MSPClient;
+  private profileManager: ProfileManager | null = null;
   private baselineId: string | null = null;
 
   constructor(storagePath: string, mspClient: MSPClient) {
     this.storage = new FileStorage(storagePath);
     this.mspClient = mspClient;
+  }
+
+  setProfileManager(profileManager: ProfileManager): void {
+    this.profileManager = profileManager;
   }
 
   async initialize(): Promise<void> {
@@ -50,6 +56,14 @@ export class SnapshotManager {
 
       // Save to storage
       await this.storage.saveSnapshot(snapshot);
+
+      // Link to current profile
+      if (this.profileManager) {
+        const currentProfileId = this.profileManager.getCurrentProfileId();
+        if (currentProfileId) {
+          await this.profileManager.linkSnapshot(currentProfileId, snapshot.id, type === 'baseline');
+        }
+      }
 
       // Track baseline
       if (type === 'baseline') {
@@ -88,8 +102,24 @@ export class SnapshotManager {
       throw new SnapshotError('Cannot delete baseline snapshot');
     }
 
+    // Prevent deleting profile's baseline
+    if (this.profileManager) {
+      const currentProfile = await this.profileManager.getCurrentProfile();
+      if (currentProfile?.baselineSnapshotId === id) {
+        throw new SnapshotError('Cannot delete baseline snapshot');
+      }
+    }
+
     try {
       await this.storage.deleteSnapshot(id);
+
+      // Unlink from current profile
+      if (this.profileManager) {
+        const currentProfileId = this.profileManager.getCurrentProfileId();
+        if (currentProfileId) {
+          await this.profileManager.unlinkSnapshot(currentProfileId, id);
+        }
+      }
     } catch (error) {
       throw new SnapshotError(`Failed to delete snapshot ${id}`, error);
     }
@@ -97,7 +127,16 @@ export class SnapshotManager {
 
   async listSnapshots(): Promise<SnapshotMetadata[]> {
     try {
-      const ids = await this.storage.listSnapshots();
+      let ids = await this.storage.listSnapshots();
+
+      // Filter by current profile if profile manager is set
+      if (this.profileManager) {
+        const currentProfile = await this.profileManager.getCurrentProfile();
+        if (currentProfile) {
+          ids = ids.filter(id => currentProfile.snapshotIds.includes(id));
+        }
+      }
+
       const snapshots: SnapshotMetadata[] = [];
 
       for (const id of ids) {
@@ -133,6 +172,15 @@ export class SnapshotManager {
   }
 
   async getBaseline(): Promise<ConfigurationSnapshot | null> {
+    // Try to get baseline from current profile first
+    if (this.profileManager) {
+      const currentProfile = await this.profileManager.getCurrentProfile();
+      if (currentProfile?.baselineSnapshotId) {
+        return await this.loadSnapshot(currentProfile.baselineSnapshotId);
+      }
+    }
+
+    // Fallback to old method for backward compatibility
     if (!this.baselineId) {
       const snapshots = await this.listSnapshots();
       const baseline = snapshots.find(s => s.type === 'baseline');

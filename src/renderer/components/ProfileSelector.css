@@ -1,0 +1,117 @@
+.profile-selector {
+  margin-bottom: 16px;
+}
+
+.profile-selector-container {
+  background-color: #2a2a2a;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.profile-selector-header {
+  padding: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 0.2s;
+}
+
+.profile-selector-header:hover {
+  background-color: #2f2f2f;
+}
+
+.profile-selector-current {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-selector-label {
+  font-size: 11px;
+  color: #999999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.profile-selector-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.profile-selector-details {
+  font-size: 13px;
+  color: #666666;
+}
+
+.profile-selector-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 16px;
+}
+
+.profile-selector-count {
+  font-size: 12px;
+  color: #999999;
+  padding: 4px 8px;
+  background-color: #1f1f1f;
+  border-radius: 4px;
+}
+
+.profile-selector-icon {
+  width: 20px;
+  height: 20px;
+  color: #999999;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.profile-selector-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.profile-selector-list {
+  padding: 16px;
+  border-top: 1px solid #404040;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-selector-empty {
+  text-align: center;
+  color: #666666;
+  padding: 24px;
+  font-size: 14px;
+}
+
+.profile-selector-loading {
+  text-align: center;
+  color: #999999;
+  padding: 24px;
+  font-size: 14px;
+}
+
+.profile-selector-error {
+  text-align: center;
+  color: #ef4444;
+  padding: 24px;
+  font-size: 14px;
+}
+
+.profile-selector-lock-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #1e3a5f;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #93c5fd;
+}

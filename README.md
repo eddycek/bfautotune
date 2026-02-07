@@ -61,6 +61,26 @@ This will:
 - Launch Electron with the app
 - Open DevTools automatically
 
+### Testing
+
+All UI changes must include tests. Tests automatically run before commits.
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Run tests once
+npm run test:run
+
+# Open interactive UI
+npm run test:ui
+
+# Generate coverage report
+npm run test:coverage
+```
+
+**📖 See [TESTING.md](./TESTING.md) for complete testing guidelines and best practices.**
+
 ## Building
 
 Build the application for your platform:

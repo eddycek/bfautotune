@@ -3,25 +3,36 @@ import { join } from 'path';
 import { createWindow, getMainWindow } from './window';
 import { MSPClient } from './msp/MSPClient';
 import { SnapshotManager } from './storage/SnapshotManager';
-import { registerIPCHandlers, setMSPClient, setSnapshotManager, sendConnectionChanged } from './ipc/handlers';
+import { ProfileManager } from './storage/ProfileManager';
+import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected } from './ipc/handlers';
 import { logger } from './utils/logger';
-import { SNAPSHOT } from '@shared/constants';
+import { SNAPSHOT, PROFILE } from '@shared/constants';
 
 let mspClient: MSPClient;
 let snapshotManager: SnapshotManager;
+let profileManager: ProfileManager;
 
 async function initialize(): Promise<void> {
   // Create MSP client
   mspClient = new MSPClient();
 
+  // Create profile manager
+  const profileStoragePath = join(app.getPath('userData'), PROFILE.STORAGE_DIR);
+  profileManager = new ProfileManager(profileStoragePath);
+  await profileManager.initialize();
+
   // Create snapshot manager
-  const storagePath = join(app.getPath('userData'), SNAPSHOT.STORAGE_DIR);
-  snapshotManager = new SnapshotManager(storagePath, mspClient);
+  const snapshotStoragePath = join(app.getPath('userData'), SNAPSHOT.STORAGE_DIR);
+  snapshotManager = new SnapshotManager(snapshotStoragePath, mspClient);
   await snapshotManager.initialize();
+
+  // Link profile manager to snapshot manager
+  snapshotManager.setProfileManager(profileManager);
 
   // Set up IPC handlers
   setMSPClient(mspClient);
   setSnapshotManager(snapshotManager);
+  setProfileManager(profileManager);
   registerIPCHandlers();
 
   // Listen for connection changes
@@ -32,12 +43,45 @@ async function initialize(): Promise<void> {
     }
   });
 
-  // Auto-create baseline on first connection
+  // Auto-detect profile and create baseline on connection
   mspClient.on('connected', async () => {
     try {
-      await snapshotManager.createBaselineIfMissing();
+      // Get FC serial number
+      const fcSerial = await mspClient.getFCSerialNumber();
+      const fcInfo = await mspClient.getFCInfo();
+      logger.info(`Connected to FC with serial: ${fcSerial}`);
+
+      // Find or prompt for profile
+      const existingProfile = await profileManager.findProfileBySerial(fcSerial);
+
+      const window = getMainWindow();
+      if (existingProfile) {
+        // Known drone - set as current profile
+        const profile = await profileManager.setCurrentProfile(existingProfile.id);
+        logger.info(`Profile loaded: ${existingProfile.name}`);
+
+        // Notify UI of profile change
+        if (window) {
+          sendProfileChanged(window, profile);
+        }
+
+        // Create baseline ONLY for existing profiles
+        // For new FCs, baseline will be created after profile is created
+        logger.info('Creating baseline for existing profile...');
+        await snapshotManager.createBaselineIfMissing();
+      } else {
+        // New drone - notify UI to show ProfileWizard modal
+        // DO NOT create baseline yet - wait until profile is created
+        logger.info('New FC detected - profile creation needed (baseline will be created later)');
+        if (window) {
+          logger.info(`Sending new FC detected event: ${fcSerial}`);
+          sendNewFCDetected(window, fcSerial, fcInfo);
+        } else {
+          logger.error('Window is null, cannot send new FC detected event');
+        }
+      }
     } catch (error) {
-      logger.error('Failed to create baseline:', error);
+      logger.error('Failed to handle connection:', error);
     }
   });
 

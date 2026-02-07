@@ -75,8 +75,42 @@ export class MSPClient extends EventEmitter {
       // Wait a bit for FC to stabilize
       await this.delay(500);
 
-      // Get FC information
-      const fcInfo = await this.getFCInfo();
+      // Try to exit CLI mode if FC is stuck there from previous session
+      try {
+        await this.connection.forceExitCLI();
+        await this.delay(500);
+      } catch (error) {
+        // Ignore errors - FC might not be in CLI mode
+        logger.debug('CLI exit attempt (this is normal):', error);
+      }
+
+      // Try to get FC information with retry logic
+      let fcInfo;
+      let retries = 2;
+
+      while (retries > 0) {
+        try {
+          fcInfo = await this.getFCInfo();
+          break; // Success!
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            // Last attempt failed - close port and throw error
+            logger.error('Failed to get FC info after retries, closing port');
+            await this.connection.close();
+            this.connectionStatus = { connected: false };
+            this.currentPort = null;
+            throw new ConnectionError('FC not responding to MSP commands. Please disconnect and reconnect the FC.', error);
+          }
+
+          // Retry - try to reset FC state
+          logger.warn(`FC not responding, attempting reset (${retries} retries left)...`);
+          try {
+            await this.connection.forceExitCLI();
+            await this.delay(1000);
+          } catch {}
+        }
+      }
 
       this.connectionStatus = {
         connected: true,
@@ -107,6 +141,11 @@ export class MSPClient extends EventEmitter {
     try {
       logger.info('Closing connection...');
       await this.connection.close();
+
+      // Wait a bit for the port to fully release
+      // This prevents "FC not responding" errors when reconnecting immediately
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       this.connectionStatus = { connected: false };
       this.currentPort = null;
       logger.info('Emitting connection-changed event (disconnected)');
@@ -186,23 +225,59 @@ export class MSPClient extends EventEmitter {
     const targetName = response.data.toString('utf-8', offset, offset + targetNameLength);
     offset += targetNameLength;
 
-    const boardNameLength = response.data[offset];
-    offset += 1;
-    const boardName = response.data.toString('utf-8', offset, offset + boardNameLength);
-    offset += boardNameLength;
+    let boardName = '';
+    let manufacturerId = '';
+    let signature: number[] = [];
+    let mcuTypeId = 0;
+    let configurationState = 0;
 
-    const manufacturerIdLength = response.data[offset];
-    offset += 1;
-    const manufacturerId = response.data.toString('utf-8', offset, offset + manufacturerIdLength);
-    offset += manufacturerIdLength;
+    // Some boards don't have boardName field, check if we have enough data
+    if (offset < response.data.length) {
+      const boardNameLength = response.data[offset];
+      offset += 1;
 
-    const signatureLength = response.data[offset];
-    offset += 1;
-    const signature = Array.from(response.data.slice(offset, offset + signatureLength));
-    offset += signatureLength;
+      if (boardNameLength > 0 && offset + boardNameLength <= response.data.length) {
+        const rawBoardName = response.data.toString('utf-8', offset, offset + boardNameLength);
+        // Filter out null bytes and control characters
+        boardName = rawBoardName.replace(/[\x00-\x1F\x7F]/g, '').trim();
+        offset += boardNameLength;
+      }
+    }
 
-    const mcuTypeId = response.data[offset];
-    const configurationState = response.data[offset + 1];
+    // Get manufacturer ID if available
+    if (offset < response.data.length) {
+      const manufacturerIdLength = response.data[offset];
+      offset += 1;
+
+      if (manufacturerIdLength > 0 && offset + manufacturerIdLength <= response.data.length) {
+        manufacturerId = response.data.toString('utf-8', offset, offset + manufacturerIdLength);
+        offset += manufacturerIdLength;
+      }
+    }
+
+    // Get signature if available
+    if (offset < response.data.length) {
+      const signatureLength = response.data[offset];
+      offset += 1;
+
+      if (signatureLength > 0 && offset + signatureLength <= response.data.length) {
+        signature = Array.from(response.data.slice(offset, offset + signatureLength));
+        offset += signatureLength;
+      }
+    }
+
+    // Get MCU type and configuration state if available
+    if (offset < response.data.length) {
+      mcuTypeId = response.data[offset];
+      if (offset + 1 < response.data.length) {
+        configurationState = response.data[offset + 1];
+      }
+    }
+
+    // Fallback: use targetName if boardName is empty
+    if (!boardName) {
+      boardName = targetName;
+    }
 
     return {
       boardIdentifier,
@@ -215,6 +290,21 @@ export class MSPClient extends EventEmitter {
       mcuTypeId,
       configurationState
     };
+  }
+
+  async getUID(): Promise<string> {
+    const response = await this.connection.sendCommand(MSPCommand.MSP_UID);
+
+    if (response.data.length < 12) {
+      throw new MSPError('Invalid UID response');
+    }
+
+    // Convert UID bytes to hex string
+    const uid = Array.from(response.data.slice(0, 12))
+      .map(byte => byte.toString(16).padStart(2, '0').toUpperCase())
+      .join('');
+
+    return uid;
   }
 
   async getFCInfo(): Promise<FCInfo> {
@@ -232,6 +322,10 @@ export class MSPClient extends EventEmitter {
       boardName: boardInfo.boardName,
       apiVersion
     };
+  }
+
+  async getFCSerialNumber(): Promise<string> {
+    return this.getUID();
   }
 
   async exportCLIDiff(): Promise<string> {
