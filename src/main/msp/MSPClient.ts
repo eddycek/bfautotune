@@ -4,6 +4,7 @@ import { MSPConnection } from './MSPConnection';
 import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { BlackboxInfo } from '@shared/types/blackbox.types';
 import { ConnectionError, MSPError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP, BETAFLIGHT } from '@shared/constants';
@@ -457,6 +458,66 @@ export class MSPClient extends EventEmitter {
     }
 
     logger.info('PID configuration updated successfully:', config);
+  }
+
+  /**
+   * Get Blackbox dataflash storage information
+   * Returns flash capacity, used space, and whether logs are available
+   */
+  async getBlackboxInfo(): Promise<BlackboxInfo> {
+    this.ensureConnected();
+
+    try {
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_SUMMARY);
+
+      if (response.error || response.data.length < 13) {
+        logger.warn('Blackbox not supported or no response');
+        return {
+          supported: false,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Parse dataflash summary response
+      // Bytes 0-3: flags (bit 0 = ready, bit 1 = supported)
+      // Bytes 4-7: total size in bytes
+      // Bytes 8-11: used size in bytes
+      const flags = response.data.readUInt32LE(0);
+      const totalSize = response.data.readUInt32LE(4);
+      const usedSize = response.data.readUInt32LE(8);
+
+      const supported = (flags & 0x02) !== 0;
+      const hasLogs = usedSize > 0;
+      const freeSize = totalSize - usedSize;
+      const usagePercent = totalSize > 0 ? Math.round((usedSize / totalSize) * 100) : 0;
+
+      const info: BlackboxInfo = {
+        supported,
+        totalSize,
+        usedSize,
+        hasLogs,
+        freeSize,
+        usagePercent
+      };
+
+      logger.info('Blackbox info:', info);
+      return info;
+    } catch (error) {
+      logger.error('Failed to get Blackbox info:', error);
+      // Return unsupported state instead of throwing
+      return {
+        supported: false,
+        totalSize: 0,
+        usedSize: 0,
+        hasLogs: false,
+        freeSize: 0,
+        usagePercent: 0
+      };
+    }
   }
 
   private cleanCLIOutput(output: string): string {
