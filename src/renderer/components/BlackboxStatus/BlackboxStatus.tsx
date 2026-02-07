@@ -39,6 +39,24 @@ export function BlackboxStatus() {
     );
   }
 
+  // Blackbox supported but size info not available (SD card or external storage)
+  if (info.supported && info.totalSize === 0) {
+    return (
+      <div className="blackbox-status">
+        <h3>Blackbox Storage</h3>
+        <div className="storage-info">
+          <div className="info-message">
+            <span className="icon">ℹ️</span>
+            <div>
+              <strong>Blackbox is supported</strong>
+              <p>Storage size unavailable - your FC might use SD card logging instead of onboard flash.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const formatSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
     const k = 1024;

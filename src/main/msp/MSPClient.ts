@@ -503,20 +503,52 @@ export class MSPClient extends EventEmitter {
         };
       }
 
-      // Parse dataflash summary response
-      // Bytes 0-3: flags (bit 0 = ready, bit 1 = supported)
-      // Bytes 4-7: total size in bytes
-      // Bytes 8-11: used size in bytes
-      const flags = response.data.readUInt32LE(0);
-      const totalSize = response.data.readUInt32LE(4);
-      const usedSize = response.data.readUInt32LE(8);
+      // Parse dataflash summary response (13 bytes total)
+      // Byte 0: ready flag (bit 0 = flash ready, bit 1 = supported)
+      // Bytes 1-4: flags (uint32)
+      // Bytes 5-8: total size in bytes (uint32)
+      // Bytes 9-12: used size in bytes (uint32)
+      const ready = response.data.readUInt8(0);
+      const flags = response.data.readUInt32LE(1);
+      const totalSize = response.data.readUInt32LE(5);
+      const usedSize = response.data.readUInt32LE(9);
 
-      logger.debug('Blackbox parsed:', { flags, totalSize, usedSize, flagsHex: flags.toString(16) });
+      logger.debug('Blackbox parsed:', { ready, flags, totalSize, usedSize, readyHex: ready.toString(16), flagsHex: flags.toString(16) });
+
+      // Check if supported (ready bit 1 = 0x02)
+      const supported = (ready & 0x02) !== 0;
 
       // Check for invalid values (0x80000000 = "not available" on some FCs)
       const INVALID_SIZE = 0x80000000;
       if (totalSize === INVALID_SIZE || usedSize === INVALID_SIZE) {
-        logger.warn('Blackbox returns invalid size markers (0x80000000) - not supported');
+        if (supported) {
+          // Blackbox is supported but size info not available (possibly SD card or external storage)
+          logger.warn('Blackbox supported but size info invalid (0x80000000) - might use SD card');
+          return {
+            supported: true,
+            totalSize: 0,
+            usedSize: 0,
+            hasLogs: false,
+            freeSize: 0,
+            usagePercent: 0
+          };
+        } else {
+          // Not supported and invalid sizes
+          logger.warn('Blackbox not supported (invalid sizes and flag not set)');
+          return {
+            supported: false,
+            totalSize: 0,
+            usedSize: 0,
+            hasLogs: false,
+            freeSize: 0,
+            usagePercent: 0
+          };
+        }
+      }
+
+      // If not supported by flags, return false
+      if (!supported) {
+        logger.warn('Blackbox not supported (flags bit 1 not set)');
         return {
           supported: false,
           totalSize: 0,
@@ -527,9 +559,21 @@ export class MSPClient extends EventEmitter {
         };
       }
 
-      // Check if supported (bit 1 = 0x02) and totalSize > 0
-      const supported = (flags & 0x02) !== 0 && totalSize > 0;
-      const hasLogs = usedSize > 0 && usedSize < totalSize;
+      // Blackbox is supported by flags, but totalSize is 0
+      if (totalSize === 0) {
+        logger.warn('Blackbox supported but totalSize is 0 - flash not configured or empty');
+        return {
+          supported: true,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Normal case with valid sizes
+      const hasLogs = usedSize > 0; // Logs exist if any space is used (even if 100% full)
       const freeSize = totalSize - usedSize;
       const usagePercent = totalSize > 0 ? Math.round((usedSize / totalSize) * 100) : 0;
 

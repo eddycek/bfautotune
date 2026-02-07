@@ -122,3 +122,31 @@
 .icon {
   font-size: 14px;
 }
+
+.info-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--info-bg, #1a2a3a);
+  border-radius: 4px;
+}
+
+.info-message .icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.info-message strong {
+  display: block;
+  color: var(--info-color, #74c0fc);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.info-message p {
+  margin: 0;
+  color: var(--text-secondary, #aaa);
+  font-size: 12px;
+  line-height: 1.4;
+}
