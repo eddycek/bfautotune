@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { ConfigurationSnapshot, SnapshotMetadata } from '@shared/types/common.types';
+import { useToast } from './useToast';
 
 export function useSnapshots() {
   const [snapshots, setSnapshots] = useState<SnapshotMetadata[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const loadSnapshots = useCallback(async () => {
     setLoading(true);
@@ -25,14 +27,21 @@ export function useSnapshots() {
     try {
       const snapshot = await window.betaflight.createSnapshot(label);
       await loadSnapshots(); // Refresh list
+      if (label) {
+        toast.success(`Snapshot '${label}' created`);
+      } else {
+        toast.success('Snapshot created');
+      }
       return snapshot;
     } catch (err: any) {
-      setError(err.message);
+      const message = err.message || 'Failed to create snapshot';
+      setError(message);
+      toast.error(`Failed to create snapshot: ${message}`);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [loadSnapshots]);
+  }, [loadSnapshots]); // toast is stable
 
   const deleteSnapshot = useCallback(async (id: string) => {
     setLoading(true);
@@ -40,12 +49,15 @@ export function useSnapshots() {
     try {
       await window.betaflight.deleteSnapshot(id);
       await loadSnapshots(); // Refresh list
+      toast.success('Snapshot deleted');
     } catch (err: any) {
-      setError(err.message);
+      const message = err.message || 'Failed to delete snapshot';
+      setError(message);
+      toast.error(`Failed to delete snapshot: ${message}`);
     } finally {
       setLoading(false);
     }
-  }, [loadSnapshots]);
+  }, [loadSnapshots]); // toast is stable
 
   const loadSnapshot = useCallback(async (id: string): Promise<ConfigurationSnapshot | null> => {
     setLoading(true);

@@ -3,6 +3,7 @@ import { SerialPort } from 'serialport';
 import { MSPConnection } from './MSPConnection';
 import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
+import type { PIDConfiguration } from '@shared/types/pid.types';
 import { ConnectionError, MSPError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP, BETAFLIGHT } from '@shared/constants';
@@ -387,6 +388,75 @@ export class MSPClient extends EventEmitter {
       logger.error('Failed to save and reboot:', error);
       throw error;
     }
+  }
+
+  /**
+   * Read PID configuration from flight controller
+   * @returns Current PID values for roll, pitch, yaw axes
+   */
+  async getPIDConfiguration(): Promise<PIDConfiguration> {
+    const response = await this.connection.sendCommand(MSPCommand.MSP_PID);
+
+    if (response.data.length < 9) {
+      throw new MSPError('Invalid MSP_PID response - expected at least 9 bytes');
+    }
+
+    // Parse roll, pitch, yaw (first 9 bytes)
+    // Format: Roll P/I/D (0-2), Pitch P/I/D (3-5), Yaw P/I/D (6-8)
+    const config: PIDConfiguration = {
+      roll: {
+        P: response.data[0],
+        I: response.data[1],
+        D: response.data[2]
+      },
+      pitch: {
+        P: response.data[3],
+        I: response.data[4],
+        D: response.data[5]
+      },
+      yaw: {
+        P: response.data[6],
+        I: response.data[7],
+        D: response.data[8]
+      }
+    };
+
+    logger.info('PID configuration read:', config);
+    return config;
+  }
+
+  /**
+   * Write PID configuration to flight controller RAM (not persisted)
+   * @param config PID values to write
+   */
+  async setPIDConfiguration(config: PIDConfiguration): Promise<void> {
+    // Create 30-byte buffer for all PID values (Betaflight MSP_SET_PID format)
+    const data = Buffer.alloc(30);
+
+    // Roll (bytes 0-2)
+    data[0] = Math.round(config.roll.P);
+    data[1] = Math.round(config.roll.I);
+    data[2] = Math.round(config.roll.D);
+
+    // Pitch (bytes 3-5)
+    data[3] = Math.round(config.pitch.P);
+    data[4] = Math.round(config.pitch.I);
+    data[5] = Math.round(config.pitch.D);
+
+    // Yaw (bytes 6-8)
+    data[6] = Math.round(config.yaw.P);
+    data[7] = Math.round(config.yaw.I);
+    data[8] = Math.round(config.yaw.D);
+
+    // Bytes 9-29: other PIDs (leave as 0 - won't affect FC if unchanged)
+
+    const response = await this.connection.sendCommand(MSPCommand.MSP_SET_PID, data);
+
+    if (response.error) {
+      throw new MSPError('Failed to set PID configuration');
+    }
+
+    logger.info('PID configuration updated successfully:', config);
   }
 
   private cleanCLIOutput(output: string): string {

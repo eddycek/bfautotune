@@ -217,6 +217,13 @@ export class ProfileManager {
   }
 
   /**
+   * Clear current profile (used when FC is disconnected)
+   */
+  clearCurrentProfile(): void {
+    this.currentProfileId = null;
+  }
+
+  /**
    * Link snapshot to profile
    */
   async linkSnapshot(profileId: string, snapshotId: string, isBaseline: boolean = false): Promise<void> {

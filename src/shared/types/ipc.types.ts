@@ -12,6 +12,7 @@ import type {
   ProfileUpdateInput,
   PresetProfile
 } from './profile.types';
+import type { PIDConfiguration } from './pid.types';
 
 export enum IPCChannel {
   // Connection
@@ -43,10 +44,16 @@ export enum IPCChannel {
   PROFILE_EXPORT = 'profile:export',
   PROFILE_GET_FC_SERIAL = 'profile:get-fc-serial',
 
+  // PID Configuration
+  PID_GET_CONFIG = 'pid:get-config',
+  PID_UPDATE_CONFIG = 'pid:update-config',
+  PID_SAVE_CONFIG = 'pid:save-config',
+
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
   EVENT_PROFILE_CHANGED = 'event:profile-changed',
   EVENT_NEW_FC_DETECTED = 'event:new-fc-detected',
+  EVENT_PID_CHANGED = 'event:pid-changed',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log'
 }
@@ -88,11 +95,17 @@ export interface BetaflightAPI {
   exportProfile(id: string, filePath: string): Promise<void>;
   getFCSerialNumber(): Promise<string>;
 
+  // PID Configuration
+  getPIDConfig(): Promise<PIDConfiguration>;
+  updatePIDConfig(config: PIDConfiguration): Promise<void>;
+  savePIDConfig(): Promise<void>;
+
   // Events
   onError(callback: (error: string) => void): () => void;
   onLog(callback: (message: string, level: string) => void): () => void;
   onProfileChanged(callback: (profile: DroneProfile | null) => void): () => void;
   onNewFCDetected(callback: (fcSerial: string, fcInfo: FCInfo) => void): () => void;
+  onPIDChanged(callback: (config: PIDConfiguration) => void): () => void;
 }
 
 declare global {
