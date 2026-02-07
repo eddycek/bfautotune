@@ -1,7 +1,7 @@
 # TODO - Beta PIDTune
 
 **Last Updated:** February 7, 2026
-**Current Status:** Phase 1 - 100% Complete ✅
+**Current Status:** Phase 1 - 100% Complete ✅ | Multi-Drone Profile System - 100% Complete ✅
 **GitHub:** https://github.com/eddycek/beta-pidtune
 **Workflow:** All changes via Pull Requests (main branch protected)
 
@@ -61,6 +61,100 @@ All core Phase 1 features implemented:
 - ✅ Disconnect button working properly
 - ✅ Baseline snapshot appears immediately after connection
 - ✅ Snapshot list auto-refreshes on connection
+
+---
+
+## ✅ Multi-Drone Profile System - Completed
+
+### Overview
+**Status:** 100% Complete ✅
+**Branch:** `feature/drone-profiles`
+**PR:** Pending merge to main
+
+Complete multi-drone profile system allowing users to manage multiple drones with:
+- Unique identification via FC serial number (MSP_UID)
+- Preset profiles for common drone types (5" freestyle, 7" long range, etc.)
+- Custom profile creation with smart defaults
+- Profile-specific snapshot tracking
+- Auto-detection of known/new drones on connection
+
+### Task #13: Backend Implementation ✅
+**Status:** Completed
+
+#### 13.1 TypeScript Types ✅
+- ✅ Profile types (DroneProfile, DroneProfileMetadata, ProfileCreationInput, etc.)
+- ✅ Preset profile definitions (6 common drone configurations)
+- ✅ Size-based defaults (weight, motor KV, battery, prop size)
+- ✅ Optional advanced fields (frame type, flight style, stiffness)
+
+#### 13.2 Storage Layer ✅
+- ✅ ProfileStorage: File-based JSON storage
+- ✅ ProfileManager: Business logic and validation
+- ✅ Profile CRUD operations (create, read, update, delete)
+- ✅ Profile-snapshot linking
+- ✅ Export/import functionality
+
+#### 13.3 MSP Integration ✅
+- ✅ FC serial number retrieval via MSP_UID command
+- ✅ UID parsing (12-byte to hex string)
+- ✅ Auto-detection on connection
+- ✅ Profile matching by serial number
+
+#### 13.4 IPC Layer ✅
+- ✅ 10 new IPC channels for profile operations
+- ✅ Event channels (profile-changed, new-fc-detected)
+- ✅ Handler implementations with error handling
+- ✅ Preload script API exposure
+
+#### 13.5 SnapshotManager Integration ✅
+- ✅ Snapshots linked to profiles automatically
+- ✅ Filter snapshots by current profile
+- ✅ Profile-specific baseline snapshots
+- ✅ Delete protection for baseline snapshots
+
+### Task #14: UI Implementation ✅
+**Status:** Completed
+
+#### 14.1 ProfileWizard Component ✅
+- ✅ Multi-step wizard (5 steps)
+- ✅ Method selection (preset vs custom)
+- ✅ Preset selector with 6 preset profiles
+- ✅ Custom configuration (basic + advanced)
+- ✅ Smart defaults based on drone size
+- ✅ Review step before creation
+- ✅ Modal design with backdrop
+- ✅ Auto-show on new FC detection
+
+#### 14.2 Profile Management UI ✅
+- ✅ ProfileSelector: Collapsible dropdown with all profiles
+- ✅ ProfileCard: Individual profile display with metadata
+- ✅ Active profile indicator
+- ✅ Recent connection indicator
+- ✅ Delete and export actions
+- ✅ Relative time formatting
+- ✅ useProfiles hook for state management
+
+#### 14.3 Integration ✅
+- ✅ Integrated into main App.tsx
+- ✅ Event listeners for profile changes
+- ✅ Auto-show wizard on new FC
+- ✅ Profile selector in main layout
+
+### Features
+- ✅ 6 preset profiles (5" freestyle, 5" race, 7" long range, etc.)
+- ✅ Smart defaults: changing size auto-fills weight, motor KV, battery, prop size
+- ✅ Required fields: name, size, prop size, battery, weight, motor KV
+- ✅ Optional advanced: frame type, flight style, frame stiffness, notes
+- ✅ Profile-specific snapshots (each drone has its own snapshots)
+- ✅ Auto-detection: known drones auto-load profile, new drones show wizard
+- ✅ Connection tracking: last connected timestamp, connection count
+- ✅ Delete protection: cannot delete active profile or baseline snapshots
+
+### Testing
+- ✅ Backend compiles without errors
+- ✅ UI components render correctly
+- ✅ ProfileWizard modal displays on new FC
+- ⏳ Hardware testing pending (requires real FC)
 
 ---
 
