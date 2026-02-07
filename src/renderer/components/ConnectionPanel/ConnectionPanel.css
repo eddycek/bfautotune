@@ -1,0 +1,42 @@
+.connection-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.port-selection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.port-selection label {
+  color: #999999;
+  min-width: 80px;
+}
+
+.port-selection select {
+  flex: 1;
+  max-width: 400px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.status-label {
+  color: #999999;
+  font-weight: 500;
+}
+
+.connection-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.connection-actions button {
+  min-width: 120px;
+}

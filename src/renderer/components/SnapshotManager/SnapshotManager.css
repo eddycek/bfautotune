@@ -1,0 +1,86 @@
+.snapshot-actions {
+  margin-bottom: 16px;
+}
+
+.create-dialog {
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.create-dialog h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.create-dialog input {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.snapshot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.no-snapshots {
+  color: #999999;
+  text-align: center;
+  padding: 24px;
+}
+
+.snapshot-item {
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.snapshot-info {
+  flex: 1;
+}
+
+.snapshot-label {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.snapshot-meta {
+  font-size: 12px;
+  color: #999999;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.snapshot-actions-item {
+  display: flex;
+  gap: 8px;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.badge.baseline {
+  background-color: #0066cc;
+  color: white;
+}

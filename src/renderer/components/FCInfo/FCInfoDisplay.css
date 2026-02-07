@@ -1,0 +1,15 @@
+.fc-actions {
+  margin-top: 24px;
+}
+
+.fc-actions h3 {
+  font-size: 16px;
+  color: #999999;
+  margin-bottom: 12px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
