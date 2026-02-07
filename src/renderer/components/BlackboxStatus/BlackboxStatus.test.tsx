@@ -1,0 +1,166 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { BlackboxStatus } from './BlackboxStatus';
+import type { BlackboxInfo } from '@shared/types/blackbox.types';
+
+describe('BlackboxStatus', () => {
+  const mockBlackboxInfoSupported: BlackboxInfo = {
+    supported: true,
+    totalSize: 16 * 1024 * 1024, // 16 MB
+    usedSize: 8 * 1024 * 1024, // 8 MB
+    hasLogs: true,
+    freeSize: 8 * 1024 * 1024, // 8 MB
+    usagePercent: 50
+  };
+
+  const mockBlackboxInfoEmpty: BlackboxInfo = {
+    supported: true,
+    totalSize: 16 * 1024 * 1024,
+    usedSize: 0,
+    hasLogs: false,
+    freeSize: 16 * 1024 * 1024,
+    usagePercent: 0
+  };
+
+  const mockBlackboxInfoNotSupported: BlackboxInfo = {
+    supported: false,
+    totalSize: 0,
+    usedSize: 0,
+    hasLogs: false,
+    freeSize: 0,
+    usagePercent: 0
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders loading state initially', () => {
+    vi.mocked(window.betaflight.getBlackboxInfo).mockImplementation(
+      () => new Promise(() => {}) // Never resolves
+    );
+
+    render(<BlackboxStatus />);
+
+    expect(screen.getByText('Blackbox Storage')).toBeInTheDocument();
+    expect(screen.getByText('Loading Blackbox info...')).toBeInTheDocument();
+  });
+
+  it('displays Blackbox info when supported and has logs', async () => {
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Blackbox Storage')).toBeInTheDocument();
+    });
+
+    // Check storage stats
+    expect(screen.getByText('16.00 MB')).toBeInTheDocument(); // Total (unique)
+    const usedAndFree = screen.getAllByText('8.00 MB'); // Used and Free (same value)
+    expect(usedAndFree).toHaveLength(2);
+    expect(screen.getByText('50%')).toBeInTheDocument(); // Usage
+
+    // Check logs available message
+    expect(screen.getByText('Logs available for download')).toBeInTheDocument();
+  });
+
+  it('displays no logs message when storage is empty', async () => {
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoEmpty);
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      expect(screen.getByText('No logs recorded yet')).toBeInTheDocument();
+    });
+  });
+
+  it('displays not supported message when Blackbox not available', async () => {
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoNotSupported);
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Blackbox not supported/i)).toBeInTheDocument();
+    });
+  });
+
+  it('displays error message on fetch failure', async () => {
+    vi.mocked(window.betaflight.getBlackboxInfo).mockRejectedValue(
+      new Error('Failed to get Blackbox info')
+    );
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to get Blackbox info')).toBeInTheDocument();
+    });
+  });
+
+  it('formats bytes correctly', async () => {
+    const largeStorageInfo: BlackboxInfo = {
+      supported: true,
+      totalSize: 128 * 1024 * 1024, // 128 MB
+      usedSize: 64 * 1024 * 1024, // 64 MB
+      hasLogs: true,
+      freeSize: 64 * 1024 * 1024,
+      usagePercent: 50
+    };
+
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(largeStorageInfo);
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      expect(screen.getByText('128.00 MB')).toBeInTheDocument();
+      const usedAndFree = screen.getAllByText('64.00 MB'); // Used and Free (same value)
+      expect(usedAndFree).toHaveLength(2);
+    });
+  });
+
+  it('shows correct usage indicator color for low usage', async () => {
+    const lowUsageInfo: BlackboxInfo = {
+      ...mockBlackboxInfoSupported,
+      usedSize: 4 * 1024 * 1024, // 4 MB
+      freeSize: 12 * 1024 * 1024, // 12 MB
+      usagePercent: 25
+    };
+
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(lowUsageInfo);
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      const indicator = document.querySelector('.usage-indicator.low');
+      expect(indicator).toBeInTheDocument();
+    });
+  });
+
+  it('shows correct usage indicator color for high usage', async () => {
+    const highUsageInfo: BlackboxInfo = {
+      ...mockBlackboxInfoSupported,
+      usedSize: 14 * 1024 * 1024, // 14 MB
+      freeSize: 2 * 1024 * 1024, // 2 MB
+      usagePercent: 87
+    };
+
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(highUsageInfo);
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      const indicator = document.querySelector('.usage-indicator.high');
+      expect(indicator).toBeInTheDocument();
+    });
+  });
+
+  it('calls getBlackboxInfo on mount', async () => {
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+    render(<BlackboxStatus />);
+
+    await waitFor(() => {
+      expect(window.betaflight.getBlackboxInfo).toHaveBeenCalledTimes(1);
+    });
+  });
+});

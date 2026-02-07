@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConnectionPanel } from './components/ConnectionPanel/ConnectionPanel';
 import { FCInfoDisplay } from './components/FCInfo/FCInfoDisplay';
+import { BlackboxStatus } from './components/BlackboxStatus/BlackboxStatus';
 import { SnapshotManager } from './components/SnapshotManager/SnapshotManager';
 import { ProfileWizard } from './components/ProfileWizard';
 import { ProfileSelector } from './components/ProfileSelector';
@@ -71,6 +72,7 @@ function AppContent() {
           {isConnected && currentProfile && <ProfileSelector />}
           <ConnectionPanel />
           {isConnected && <FCInfoDisplay />}
+          {isConnected && <BlackboxStatus />}
           {isConnected && currentProfile && <SnapshotManager />}
         </div>
       </main>
