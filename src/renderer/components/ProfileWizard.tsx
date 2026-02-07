@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PresetSelector } from './PresetSelector';
-import { SIZE_DEFAULTS } from '@shared/constants';
+import { SIZE_DEFAULTS, PRESET_PROFILES } from '@shared/constants';
 import type {
   DroneSize,
   BatteryType,
@@ -11,18 +11,18 @@ import type {
   ProfileCreationInput
 } from '@shared/types/profile.types';
 import type { FCInfo } from '@shared/types/common.types';
+import './ProfileWizard.css';
 
 interface ProfileWizardProps {
   fcSerial: string;
   fcInfo: FCInfo;
   onComplete: (input: ProfileCreationInput | { presetId: string; customName?: string }) => void;
-  onCancel: () => void;
 }
 
 type WizardStep = 'method' | 'preset' | 'basic' | 'advanced' | 'review';
 type CreationMethod = 'preset' | 'custom';
 
-export function ProfileWizard({ fcSerial, fcInfo, onComplete, onCancel }: ProfileWizardProps) {
+export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardProps) {
   const [step, setStep] = useState<WizardStep>('method');
   const [method, setMethod] = useState<CreationMethod | null>(null);
 
@@ -108,29 +108,13 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete, onCancel }: Profil
   const canContinuePreset = selectedPresetId !== null;
 
   const modalContent = (
-    <div className="profile-wizard" style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999
-    }}>
-      <div style={{
-        backgroundColor: '#1a1a1a',
-        borderRadius: '8px',
-        padding: '24px',
-        width: '100%',
-        maxWidth: '800px',
-        maxHeight: '90vh',
-        overflowY: 'auto'
-      }}>
+    <div className="profile-wizard-overlay">
+      <div className="profile-wizard-modal">
         {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Create Drone Profile</h2>
-          <p className="text-gray-400 text-sm">
-            New flight controller detected: <span className="text-blue-400">{fcInfo.boardName || 'Unknown'}</span>
+        <div className="profile-wizard-header">
+          <h2>Create Drone Profile</h2>
+          <p>
+            New flight controller detected: <span className="fc-name">{fcInfo.boardName || 'Unknown'}</span>
           </p>
         </div>
 
@@ -138,7 +122,6 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete, onCancel }: Profil
         {step === 'method' && (
           <MethodStep
             onSelect={handleMethodSelect}
-            onCancel={onCancel}
           />
         )}
 
@@ -220,42 +203,24 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete, onCancel }: Profil
 }
 
 // Method selection step
-function MethodStep({ onSelect, onCancel }: {
+function MethodStep({ onSelect }: {
   onSelect: (method: CreationMethod) => void;
-  onCancel: () => void;
 }) {
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4">How would you like to create your profile?</h3>
-
-      <div className="space-y-3 mb-6">
-        <button
-          onClick={() => onSelect('preset')}
-          className="w-full p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-gray-700 hover:border-blue-500 transition-all text-left"
-        >
-          <div className="font-semibold text-white mb-1">Use a Preset</div>
-          <div className="text-sm text-gray-400">
+      <div className="method-options">
+        <button onClick={() => onSelect('preset')} className="method-option">
+          <div className="method-option-title">Use a Preset</div>
+          <div className="method-option-description">
             Quick setup with pre-configured values for common drone types
           </div>
         </button>
 
-        <button
-          onClick={() => onSelect('custom')}
-          className="w-full p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-gray-700 hover:border-blue-500 transition-all text-left"
-        >
-          <div className="font-semibold text-white mb-1">Custom Configuration</div>
-          <div className="text-sm text-gray-400">
+        <button onClick={() => onSelect('custom')} className="method-option">
+          <div className="method-option-title">Custom Configuration</div>
+          <div className="method-option-description">
             Manually configure all parameters for maximum control
           </div>
-        </button>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-        >
-          Cancel
         </button>
       </div>
     </div>
@@ -288,31 +253,25 @@ function PresetStep({
       />
 
       {selectedPresetId && (
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Custom Name (optional)
-          </label>
+        <div className="wizard-form-group">
+          <label>Custom Name (optional)</label>
           <input
             type="text"
             value={customName}
             onChange={(e) => onNameChange(e.target.value)}
             placeholder="Leave empty to use preset name"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       )}
 
-      <div className="flex justify-between mt-6">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-        >
+      <div className="wizard-actions">
+        <button onClick={onBack} className="wizard-btn wizard-btn-secondary">
           Back
         </button>
         <button
           onClick={onContinue}
           disabled={!canContinue}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+          className="wizard-btn wizard-btn-primary"
         >
           Continue
         </button>
@@ -355,111 +314,98 @@ function BasicStep({
   onContinue: () => void;
   canContinue: boolean;
 }) {
-  const sizes: DroneSize[] = ['2.5"', '3"', '4"', '5"', '6"', '7"', '10"'];
-  const batteries: BatteryType[] = ['3S', '4S', '6S'];
+  const sizes: DroneSize[] = ['1"', '2"', '2.5"', '3"', '4"', '5"', '6"', '7"', '10"'];
+  const batteries: BatteryType[] = ['1S', '2S', '3S', '4S', '6S'];
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4">Basic Configuration</h3>
+      <div className="wizard-form-group">
+        <label>
+          Profile Name <span className="required">*</span>
+        </label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          placeholder="e.g., My 5 inch freestyle"
+        />
+      </div>
 
-      <div className="space-y-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Profile Name <span className="text-red-500">*</span>
+      <div className="wizard-form-grid">
+        <div className="wizard-form-group">
+          <label>
+            Drone Size <span className="required">*</span>
+          </label>
+          <select
+            value={size}
+            onChange={(e) => onSizeChange(e.target.value as DroneSize)}
+          >
+            {sizes.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="wizard-form-group">
+          <label>
+            Prop Size <span className="required">*</span>
           </label>
           <input
             type="text"
-            value={name}
-            onChange={(e) => onNameChange(e.target.value)}
-            placeholder="e.g., My 5 inch freestyle"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Drone Size <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={size}
-              onChange={(e) => onSizeChange(e.target.value as DroneSize)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {sizes.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Prop Size <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={propSize}
-              onChange={(e) => onPropSizeChange(e.target.value)}
-              placeholder="e.g., 5.1"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Battery <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={battery}
-              onChange={(e) => onBatteryChange(e.target.value as BatteryType)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {batteries.map(b => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Weight (grams) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              value={weight}
-              onChange={(e) => onWeightChange(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Motor KV <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            value={motorKV}
-            onChange={(e) => onMotorKVChange(parseInt(e.target.value) || 0)}
-            placeholder="e.g., 2400"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={propSize}
+            onChange={(e) => onPropSizeChange(e.target.value)}
+            placeholder='e.g., 5.1"'
           />
         </div>
       </div>
 
-      <div className="flex justify-between">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-        >
+      <div className="wizard-form-grid">
+        <div className="wizard-form-group">
+          <label>
+            Battery <span className="required">*</span>
+          </label>
+          <select
+            value={battery}
+            onChange={(e) => onBatteryChange(e.target.value as BatteryType)}
+          >
+            {batteries.map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="wizard-form-group">
+          <label>
+            Weight (grams) <span className="required">*</span>
+          </label>
+          <input
+            type="number"
+            value={weight}
+            onChange={(e) => onWeightChange(parseInt(e.target.value) || 0)}
+          />
+        </div>
+      </div>
+
+      <div className="wizard-form-group">
+        <label>
+          Motor KV <span className="required">*</span>
+        </label>
+        <input
+          type="number"
+          value={motorKV}
+          onChange={(e) => onMotorKVChange(parseInt(e.target.value) || 0)}
+          placeholder="e.g., 2400"
+        />
+      </div>
+
+      <div className="wizard-actions">
+        <button onClick={onBack} className="wizard-btn wizard-btn-secondary">
           Back
         </button>
         <button
           onClick={onContinue}
           disabled={!canContinue}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+          className="wizard-btn wizard-btn-primary"
         >
           Continue
         </button>
@@ -495,97 +441,69 @@ function AdvancedStep({
   onSkip: () => void;
 }) {
   const frameTypes: FrameType[] = ['freestyle', 'race', 'cinematic', 'long-range'];
-  const flightStyles: FlightStyle[] = ['freestyle', 'race', 'cruising', 'cinematic'];
+  const flightStyles: FlightStyle[] = ['smooth', 'balanced', 'aggressive'];
   const frameStiffnesses: FrameStiffness[] = ['soft', 'medium', 'stiff'];
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-2">Advanced Settings (Optional)</h3>
-      <p className="text-sm text-gray-400 mb-4">
-        These settings help fine-tune PID recommendations
-      </p>
-
-      <div className="space-y-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Frame Type
-          </label>
-          <select
-            value={frameType || ''}
-            onChange={(e) => onFrameTypeChange(e.target.value as FrameType || undefined)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select...</option>
-            {frameTypes.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Flight Style
-          </label>
-          <select
-            value={flightStyle || ''}
-            onChange={(e) => onFlightStyleChange(e.target.value as FlightStyle || undefined)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select...</option>
-            {flightStyles.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Frame Stiffness
-          </label>
-          <select
-            value={frameStiffness || ''}
-            onChange={(e) => onFrameStiffnessChange(e.target.value as FrameStiffness || undefined)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select...</option>
-            {frameStiffnesses.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Notes
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => onNotesChange(e.target.value)}
-            placeholder="Any additional information about this drone..."
-            rows={3}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+      <div className="wizard-form-group">
+        <label>Frame Type</label>
+        <select
+          value={frameType || ''}
+          onChange={(e) => onFrameTypeChange(e.target.value as FrameType || undefined)}
+        >
+          <option value="">Select...</option>
+          {frameTypes.map(t => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
       </div>
 
-      <div className="flex justify-between">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+      <div className="wizard-form-group">
+        <label>Flight Style</label>
+        <select
+          value={flightStyle || ''}
+          onChange={(e) => onFlightStyleChange(e.target.value as FlightStyle || undefined)}
         >
+          <option value="">Select...</option>
+          {flightStyles.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="wizard-form-group">
+        <label>Frame Stiffness</label>
+        <select
+          value={frameStiffness || ''}
+          onChange={(e) => onFrameStiffnessChange(e.target.value as FrameStiffness || undefined)}
+        >
+          <option value="">Select...</option>
+          {frameStiffnesses.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="wizard-form-group">
+        <label>Notes</label>
+        <textarea
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          placeholder="Any additional information about this drone..."
+          rows={3}
+        />
+      </div>
+
+      <div className="wizard-actions">
+        <button onClick={onBack} className="wizard-btn wizard-btn-secondary">
           Back
         </button>
-        <div className="space-x-2">
-          <button
-            onClick={onSkip}
-            className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-          >
+        <div className="wizard-actions-left">
+          <button onClick={onSkip} className="wizard-btn wizard-btn-secondary">
             Skip
           </button>
-          <button
-            onClick={onContinue}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
+          <button onClick={onContinue} className="wizard-btn wizard-btn-primary">
             Continue
           </button>
         </div>
@@ -635,91 +553,78 @@ function ReviewStep({
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4">Review Profile</h3>
-
-      <div className="bg-gray-800 rounded-lg p-4 mb-6 space-y-3">
+      <div className="review-section">
         {method === 'preset' && (
-          <div className="pb-3 border-b border-gray-700">
-            <div className="text-sm text-gray-400">Source</div>
-            <div className="text-white font-medium">Preset: {preset?.name}</div>
+          <div className="review-row">
+            <div className="review-label">Source</div>
+            <div className="review-value">Preset: {preset?.name}</div>
           </div>
         )}
 
-        <div>
-          <div className="text-sm text-gray-400">Name</div>
-          <div className="text-white font-medium">{displayName}</div>
+        <div className="review-row">
+          <div className="review-label">Name</div>
+          <div className="review-value">{displayName}</div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <div className="text-sm text-gray-400">Size</div>
-            <div className="text-white">{method === 'preset' ? preset?.size : size}</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-400">Props</div>
-            <div className="text-white">{method === 'preset' ? preset?.propSize : propSize}</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-400">Battery</div>
-            <div className="text-white">{method === 'preset' ? preset?.battery : battery}</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-400">Weight</div>
-            <div className="text-white">{method === 'preset' ? preset?.weight : weight}g</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-400">Motor KV</div>
-            <div className="text-white">{method === 'preset' ? preset?.motorKV : motorKV}</div>
-          </div>
+        <div className="review-row">
+          <div className="review-label">Size</div>
+          <div className="review-value">{method === 'preset' ? preset?.size : size}</div>
         </div>
 
-        {(frameType || flightStyle || frameStiffness) && (
-          <>
-            <div className="border-t border-gray-700 pt-3">
-              <div className="text-sm text-gray-400 mb-2">Advanced Settings</div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {frameType && (
-                  <div>
-                    <span className="text-gray-400">Frame:</span>{' '}
-                    <span className="text-white capitalize">{frameType}</span>
-                  </div>
-                )}
-                {flightStyle && (
-                  <div>
-                    <span className="text-gray-400">Style:</span>{' '}
-                    <span className="text-white capitalize">{flightStyle}</span>
-                  </div>
-                )}
-                {frameStiffness && (
-                  <div>
-                    <span className="text-gray-400">Stiffness:</span>{' '}
-                    <span className="text-white capitalize">{frameStiffness}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
+        <div className="review-row">
+          <div className="review-label">Prop Size</div>
+          <div className="review-value">{method === 'preset' ? preset?.propSize : propSize}</div>
+        </div>
+
+        <div className="review-row">
+          <div className="review-label">Battery</div>
+          <div className="review-value">{method === 'preset' ? preset?.battery : battery}</div>
+        </div>
+
+        <div className="review-row">
+          <div className="review-label">Weight</div>
+          <div className="review-value">{method === 'preset' ? preset?.weight : weight}g</div>
+        </div>
+
+        <div className="review-row">
+          <div className="review-label">Motor KV</div>
+          <div className="review-value">{method === 'preset' ? preset?.motorKV : motorKV}</div>
+        </div>
+
+        {frameType && (
+          <div className="review-row">
+            <div className="review-label">Frame Type</div>
+            <div className="review-value">{frameType}</div>
+          </div>
+        )}
+
+        {flightStyle && (
+          <div className="review-row">
+            <div className="review-label">Flight Style</div>
+            <div className="review-value">{flightStyle}</div>
+          </div>
+        )}
+
+        {frameStiffness && (
+          <div className="review-row">
+            <div className="review-label">Frame Stiffness</div>
+            <div className="review-value">{frameStiffness}</div>
+          </div>
         )}
 
         {notes && (
-          <div className="border-t border-gray-700 pt-3">
-            <div className="text-sm text-gray-400 mb-1">Notes</div>
-            <div className="text-white text-sm">{notes}</div>
+          <div className="review-row">
+            <div className="review-label">Notes</div>
+            <div className="review-value">{notes}</div>
           </div>
         )}
       </div>
 
-      <div className="flex justify-between">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-        >
+      <div className="wizard-actions">
+        <button onClick={onBack} className="wizard-btn wizard-btn-secondary">
           Back
         </button>
-        <button
-          onClick={onCreate}
-          className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-        >
+        <button onClick={onCreate} className="wizard-btn wizard-btn-success">
           Create Profile
         </button>
       </div>

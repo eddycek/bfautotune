@@ -1,0 +1,146 @@
+.profile-card {
+  background-color: #2a2a2a;
+  border: 2px solid #404040;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.profile-card:hover {
+  border-color: #60a5fa;
+  background-color: #2f2f2f;
+}
+
+.profile-card.active {
+  border-color: #60a5fa;
+  background-color: rgba(96, 165, 250, 0.1);
+}
+
+.profile-card.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.profile-card.locked .profile-card-actions {
+  pointer-events: auto;
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.profile-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.profile-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-card-badge {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.profile-card-badge.active {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.profile-card-badge.recent {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.profile-card-serial {
+  font-size: 11px;
+  color: #666666;
+  font-family: 'Courier New', monospace;
+}
+
+.profile-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.profile-card-action-btn {
+  padding: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999999;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-card-action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.profile-card-action-btn.edit:hover {
+  color: #60a5fa;
+}
+
+.profile-card-action-btn.delete:hover {
+  color: #ef4444;
+}
+
+.profile-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #404040;
+  border-bottom: 1px solid #404040;
+}
+
+.profile-card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-card-stat-label {
+  font-size: 11px;
+  color: #999999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-card-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.profile-card-footer {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #666666;
+}

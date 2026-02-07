@@ -10,8 +10,8 @@ import type { FCInfo } from './common.types';
 // Enums
 // ============================================================================
 
-export type DroneSize = '2.5"' | '3"' | '4"' | '5"' | '6"' | '7"' | '10"';
-export type BatteryType = '3S' | '4S' | '6S';
+export type DroneSize = '1"' | '2"' | '2.5"' | '3"' | '4"' | '5"' | '6"' | '7"' | '10"';
+export type BatteryType = '1S' | '2S' | '3S' | '4S' | '6S';
 export type FrameType = 'freestyle' | 'race' | 'cinematic' | 'long-range';
 export type FlightStyle = 'smooth' | 'balanced' | 'aggressive';
 export type FrameStiffness = 'soft' | 'medium' | 'stiff';

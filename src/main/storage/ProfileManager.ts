@@ -122,17 +122,26 @@ export class ProfileManager {
   }
 
   /**
-   * Delete a profile
+   * Delete a profile and all its snapshots
    */
   async deleteProfile(id: string): Promise<void> {
-    // Don't allow deleting current profile
-    if (id === this.currentProfileId) {
-      throw new Error('Cannot delete currently active profile');
+    // Get profile to find associated snapshots
+    const profile = await this.storage.loadProfile(id);
+    if (!profile) {
+      throw new Error(`Profile ${id} not found`);
     }
 
+    // If deleting current profile, clear it
+    const wasActive = id === this.currentProfileId;
+    if (wasActive) {
+      this.currentProfileId = null;
+      logger.info(`Cleared current profile as it's being deleted: ${id}`);
+    }
+
+    // Delete the profile
     await this.storage.deleteProfile(id);
 
-    logger.info(`Profile deleted: ${id}`);
+    logger.info(`Profile deleted: ${id} (snapshots: ${profile.snapshotIds.length}, wasActive: ${wasActive})`);
   }
 
   /**

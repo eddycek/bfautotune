@@ -52,11 +52,15 @@ export function FCInfoDisplay() {
             <span className="info-label">Version:</span>
             <span className="info-value">{info.version}</span>
 
-            <span className="info-label">Board:</span>
-            <span className="info-value">{info.boardName}</span>
-
             <span className="info-label">Target:</span>
             <span className="info-value">{info.target}</span>
+
+            {info.boardName && info.boardName !== info.target && (
+              <>
+                <span className="info-label">Board:</span>
+                <span className="info-value">{info.boardName}</span>
+              </>
+            )}
 
             <span className="info-label">API Version:</span>
             <span className="info-value">

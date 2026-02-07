@@ -73,6 +73,26 @@ export function useSnapshots() {
         setTimeout(() => {
           loadSnapshots();
         }, 1000);
+      } else {
+        // Clear snapshots on disconnect
+        setSnapshots([]);
+      }
+    });
+
+    return unsubscribe;
+  }, [loadSnapshots]);
+
+  // Refresh snapshots when profile changes
+  useEffect(() => {
+    const unsubscribe = window.betaflight.onProfileChanged((profile) => {
+      if (profile) {
+        // Profile changed, reload snapshots for new profile
+        setTimeout(() => {
+          loadSnapshots();
+        }, 500);
+      } else {
+        // No profile, clear snapshots
+        setSnapshots([]);
       }
     });
 

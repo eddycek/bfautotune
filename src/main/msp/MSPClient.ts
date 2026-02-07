@@ -141,6 +141,11 @@ export class MSPClient extends EventEmitter {
     try {
       logger.info('Closing connection...');
       await this.connection.close();
+
+      // Wait a bit for the port to fully release
+      // This prevents "FC not responding" errors when reconnecting immediately
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       this.connectionStatus = { connected: false };
       this.currentPort = null;
       logger.info('Emitting connection-changed event (disconnected)');
@@ -220,23 +225,59 @@ export class MSPClient extends EventEmitter {
     const targetName = response.data.toString('utf-8', offset, offset + targetNameLength);
     offset += targetNameLength;
 
-    const boardNameLength = response.data[offset];
-    offset += 1;
-    const boardName = response.data.toString('utf-8', offset, offset + boardNameLength);
-    offset += boardNameLength;
+    let boardName = '';
+    let manufacturerId = '';
+    let signature: number[] = [];
+    let mcuTypeId = 0;
+    let configurationState = 0;
 
-    const manufacturerIdLength = response.data[offset];
-    offset += 1;
-    const manufacturerId = response.data.toString('utf-8', offset, offset + manufacturerIdLength);
-    offset += manufacturerIdLength;
+    // Some boards don't have boardName field, check if we have enough data
+    if (offset < response.data.length) {
+      const boardNameLength = response.data[offset];
+      offset += 1;
 
-    const signatureLength = response.data[offset];
-    offset += 1;
-    const signature = Array.from(response.data.slice(offset, offset + signatureLength));
-    offset += signatureLength;
+      if (boardNameLength > 0 && offset + boardNameLength <= response.data.length) {
+        const rawBoardName = response.data.toString('utf-8', offset, offset + boardNameLength);
+        // Filter out null bytes and control characters
+        boardName = rawBoardName.replace(/[\x00-\x1F\x7F]/g, '').trim();
+        offset += boardNameLength;
+      }
+    }
 
-    const mcuTypeId = response.data[offset];
-    const configurationState = response.data[offset + 1];
+    // Get manufacturer ID if available
+    if (offset < response.data.length) {
+      const manufacturerIdLength = response.data[offset];
+      offset += 1;
+
+      if (manufacturerIdLength > 0 && offset + manufacturerIdLength <= response.data.length) {
+        manufacturerId = response.data.toString('utf-8', offset, offset + manufacturerIdLength);
+        offset += manufacturerIdLength;
+      }
+    }
+
+    // Get signature if available
+    if (offset < response.data.length) {
+      const signatureLength = response.data[offset];
+      offset += 1;
+
+      if (signatureLength > 0 && offset + signatureLength <= response.data.length) {
+        signature = Array.from(response.data.slice(offset, offset + signatureLength));
+        offset += signatureLength;
+      }
+    }
+
+    // Get MCU type and configuration state if available
+    if (offset < response.data.length) {
+      mcuTypeId = response.data[offset];
+      if (offset + 1 < response.data.length) {
+        configurationState = response.data[offset + 1];
+      }
+    }
+
+    // Fallback: use targetName if boardName is empty
+    if (!boardName) {
+      boardName = targetName;
+    }
 
     return {
       boardIdentifier,

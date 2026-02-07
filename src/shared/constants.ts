@@ -33,7 +33,9 @@ export const PROFILE = {
 
 // Default values based on drone size
 export const SIZE_DEFAULTS = {
-  '2.5"': { weight: 120, motorKV: 3000, battery: '4S' as const, propSize: '2.5"', frameStiffness: 'soft' as const },
+  '1"': { weight: 25, motorKV: 19000, battery: '1S' as const, propSize: '31mm', frameStiffness: 'soft' as const },
+  '2"': { weight: 50, motorKV: 8000, battery: '1S' as const, propSize: '40mm', frameStiffness: 'soft' as const },
+  '2.5"': { weight: 120, motorKV: 3000, battery: '3S' as const, propSize: '2.5"', frameStiffness: 'soft' as const },
   '3"': { weight: 180, motorKV: 3000, battery: '4S' as const, propSize: '3"', frameStiffness: 'soft' as const },
   '4"': { weight: 350, motorKV: 2650, battery: '4S' as const, propSize: '4"', frameStiffness: 'medium' as const },
   '5"': { weight: 650, motorKV: 2400, battery: '4S' as const, propSize: '5.1"', frameStiffness: 'medium' as const },
@@ -44,6 +46,51 @@ export const SIZE_DEFAULTS = {
 
 // Preset profiles
 export const PRESET_PROFILES = {
+  'tiny-whoop': {
+    presetId: 'tiny-whoop',
+    name: 'Tiny Whoop (1")',
+    size: '1"' as const,
+    propSize: '31mm',
+    battery: '1S' as const,
+    weight: 25,
+    motorKV: 19000,
+    frameType: 'freestyle' as const,
+    flightStyle: 'balanced' as const,
+    frameStiffness: 'soft' as const,
+    notes: '',
+    description: 'Ultra micro indoor whoop, 1S battery'
+  },
+
+  'micro-whoop': {
+    presetId: 'micro-whoop',
+    name: 'Micro Whoop (2")',
+    size: '2"' as const,
+    propSize: '40mm',
+    battery: '1S' as const,
+    weight: 50,
+    motorKV: 8000,
+    frameType: 'freestyle' as const,
+    flightStyle: 'balanced' as const,
+    frameStiffness: 'soft' as const,
+    notes: '',
+    description: 'Micro whoop for indoor flying, 1S battery'
+  },
+
+  '4inch-toothpick': {
+    presetId: '4inch-toothpick',
+    name: '4" Toothpick',
+    size: '4"' as const,
+    propSize: '4"',
+    battery: '3S' as const,
+    weight: 300,
+    motorKV: 2800,
+    frameType: 'freestyle' as const,
+    flightStyle: 'balanced' as const,
+    frameStiffness: 'medium' as const,
+    notes: '',
+    description: 'Lightweight 4 inch toothpick for indoor/outdoor'
+  },
+
   '5inch-freestyle': {
     presetId: '5inch-freestyle',
     name: '5" Freestyle',
@@ -87,6 +134,21 @@ export const PRESET_PROFILES = {
     frameStiffness: 'medium' as const,
     notes: '',
     description: 'Heavy cinematic quad with GoPro, smooth tuning'
+  },
+
+  '6inch-longrange': {
+    presetId: '6inch-longrange',
+    name: '6" Long Range',
+    size: '6"' as const,
+    propSize: '6"',
+    battery: '6S' as const,
+    weight: 800,
+    motorKV: 2000,
+    frameType: 'long-range' as const,
+    flightStyle: 'smooth' as const,
+    frameStiffness: 'medium' as const,
+    notes: '',
+    description: 'Mid-range cruiser with 6S power'
   },
 
   '7inch-longrange': {

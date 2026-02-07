@@ -53,12 +53,6 @@ function App() {
     }
   };
 
-  const handleProfileWizardCancel = () => {
-    setShowProfileWizard(false);
-    setNewFCSerial(null);
-    setNewFCInfo(null);
-  };
-
   return (
     <div className="app">
       <header className="app-header">
@@ -80,7 +74,6 @@ function App() {
           fcSerial={newFCSerial}
           fcInfo={newFCInfo}
           onComplete={handleProfileWizardComplete}
-          onCancel={handleProfileWizardCancel}
         />
       )}
     </div>

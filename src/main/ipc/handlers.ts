@@ -144,8 +144,24 @@ export function registerIPCHandlers(): void {
       if (!snapshotManager) {
         throw new Error('Snapshot manager not initialized');
       }
-      const snapshots = await snapshotManager.listSnapshots();
-      return createResponse<SnapshotMetadata[]>(snapshots);
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+
+      // Get current profile to filter snapshots
+      const currentProfile = await profileManager.getCurrentProfile();
+      if (!currentProfile) {
+        // No profile selected, return empty list
+        return createResponse<SnapshotMetadata[]>([]);
+      }
+
+      // Get all snapshots and filter by current profile's snapshot IDs
+      const allSnapshots = await snapshotManager.listSnapshots();
+      const profileSnapshots = allSnapshots.filter(snapshot =>
+        currentProfile.snapshotIds.includes(snapshot.id)
+      );
+
+      return createResponse<SnapshotMetadata[]>(profileSnapshots);
     } catch (error) {
       logger.error('Failed to list snapshots:', error);
       return createResponse<SnapshotMetadata[]>(undefined, getErrorMessage(error));
@@ -197,12 +213,26 @@ export function registerIPCHandlers(): void {
       if (!profileManager) {
         throw new Error('Profile manager not initialized');
       }
+      if (!snapshotManager) {
+        throw new Error('Snapshot manager not initialized');
+      }
+
       const profile = await profileManager.createProfile(input);
 
       // Notify UI of the new profile
       const window = getMainWindow();
       if (window) {
         sendProfileChanged(window, profile);
+      }
+
+      // Create baseline snapshot for new profile
+      logger.info('Creating baseline snapshot for new profile...');
+      try {
+        await snapshotManager.createBaselineIfMissing();
+        logger.info('Baseline snapshot created successfully');
+      } catch (err) {
+        logger.error('Failed to create baseline snapshot:', err);
+        // Don't fail profile creation if baseline fails
       }
 
       return createResponse<DroneProfile>(profile);
@@ -216,6 +246,9 @@ export function registerIPCHandlers(): void {
     try {
       if (!profileManager || !mspClient) {
         throw new Error('Profile manager or MSP client not initialized');
+      }
+      if (!snapshotManager) {
+        throw new Error('Snapshot manager not initialized');
       }
 
       const preset = PRESET_PROFILES[presetId as keyof typeof PRESET_PROFILES];
@@ -232,6 +265,16 @@ export function registerIPCHandlers(): void {
       const window = getMainWindow();
       if (window) {
         sendProfileChanged(window, profile);
+      }
+
+      // Create baseline snapshot for new profile
+      logger.info('Creating baseline snapshot for new profile from preset...');
+      try {
+        await snapshotManager.createBaselineIfMissing();
+        logger.info('Baseline snapshot created successfully');
+      } catch (err) {
+        logger.error('Failed to create baseline snapshot:', err);
+        // Don't fail profile creation if baseline fails
       }
 
       return createResponse<DroneProfile>(profile);
@@ -259,7 +302,56 @@ export function registerIPCHandlers(): void {
       if (!profileManager) {
         throw new Error('Profile manager not initialized');
       }
+      if (!snapshotManager) {
+        throw new Error('Snapshot manager not initialized');
+      }
+
+      // Get profile before deleting to access snapshot IDs
+      const profile = await profileManager.getProfile(id);
+      if (!profile) {
+        throw new Error(`Profile ${id} not found`);
+      }
+
+      const wasActive = profileManager.getCurrentProfileId() === id;
+
+      // Delete all snapshots associated with this profile
+      for (const snapshotId of profile.snapshotIds) {
+        try {
+          await snapshotManager.deleteSnapshot(snapshotId);
+          logger.info(`Deleted snapshot ${snapshotId} from profile ${id}`);
+        } catch (err) {
+          logger.error(`Failed to delete snapshot ${snapshotId}:`, err);
+          // Continue deleting other snapshots even if one fails
+        }
+      }
+
+      // Delete the profile
       await profileManager.deleteProfile(id);
+
+      // Notify UI that profile was deleted
+      const window = getMainWindow();
+      if (wasActive && window) {
+        sendProfileChanged(window, null);
+      }
+
+      // If it was the active profile, disconnect
+      if (wasActive && mspClient) {
+        try {
+          await mspClient.disconnect();
+          logger.info('Disconnected after deleting active profile');
+
+          // Send connection status update
+          if (window) {
+            sendConnectionStatus(window, {
+              connected: false,
+              port: null
+            });
+          }
+        } catch (err) {
+          logger.error('Failed to disconnect after profile deletion:', err);
+        }
+      }
+
       return createResponse<void>(undefined);
     } catch (error) {
       logger.error('Failed to delete profile:', error);
