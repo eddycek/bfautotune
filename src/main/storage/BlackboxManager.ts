@@ -3,9 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { BlackboxLogMetadata } from '@shared/types/blackbox.types';
-import { createLogger } from '../utils/logger';
-
-const logger = createLogger('BlackboxManager');
+import { logger } from '../utils/logger';
 
 export class BlackboxManager {
   private dataDir: string;
@@ -19,18 +17,18 @@ export class BlackboxManager {
   }
 
   async initialize(): Promise<void> {
-    logger.info(`Creating Blackbox logs directory: ${this.logsDir}`);
+    logger.info('[BlackboxManager](`Creating Blackbox logs directory: ${this.logsDir}`);
     await fs.mkdir(this.logsDir, { recursive: true });
 
     // Create metadata file if it doesn't exist
     try {
       await fs.access(this.metadataFile);
-      logger.info('Metadata file already exists');
+      logger.info('[BlackboxManager]('Metadata file already exists');
     } catch {
-      logger.info(`Creating metadata file: ${this.metadataFile}`);
+      logger.info('[BlackboxManager](`Creating metadata file: ${this.metadataFile}`);
       await fs.writeFile(this.metadataFile, JSON.stringify([]));
     }
-    logger.info('BlackboxManager initialization complete');
+    logger.info('[BlackboxManager]('BlackboxManager initialization complete');
   }
 
   /**
@@ -66,7 +64,7 @@ export class BlackboxManager {
     logs.push(metadata);
     await this.saveMetadata(logs);
 
-    logger.info(`Saved Blackbox log: ${filename} (${data.length} bytes) for profile ${profileId}`);
+    logger.info('[BlackboxManager](`Saved Blackbox log: ${filename} (${data.length} bytes) for profile ${profileId}`);
 
     return metadata;
   }
@@ -108,9 +106,9 @@ export class BlackboxManager {
     // Delete file
     try {
       await fs.unlink(log.filepath);
-      logger.info(`Deleted Blackbox log file: ${log.filename}`);
+      logger.info('[BlackboxManager](`Deleted Blackbox log file: ${log.filename}`);
     } catch (error) {
-      logger.warn(`Failed to delete Blackbox log file: ${error}`);
+      logger.warn('[BlackboxManager](`Failed to delete Blackbox log file: ${error}`);
       // Continue anyway to remove from metadata
     }
 
@@ -118,7 +116,7 @@ export class BlackboxManager {
     const updatedLogs = logs.filter(l => l.id !== id);
     await this.saveMetadata(updatedLogs);
 
-    logger.info(`Deleted Blackbox log: ${id}`);
+    logger.info('[BlackboxManager](`Deleted Blackbox log: ${id}`);
   }
 
   /**
@@ -131,7 +129,7 @@ export class BlackboxManager {
       try {
         await fs.unlink(log.filepath);
       } catch (error) {
-        logger.warn(`Failed to delete log file ${log.filename}: ${error}`);
+        logger.warn('[BlackboxManager](`Failed to delete log file ${log.filename}: ${error}`);
       }
     }
 
@@ -140,7 +138,7 @@ export class BlackboxManager {
     const remainingLogs = allLogs.filter(l => l.profileId !== profileId);
     await this.saveMetadata(remainingLogs);
 
-    logger.info(`Deleted ${logs.length} Blackbox logs for profile ${profileId}`);
+    logger.info('[BlackboxManager](`Deleted ${logs.length} Blackbox logs for profile ${profileId}`);
   }
 
   /**
@@ -154,7 +152,7 @@ export class BlackboxManager {
     }
 
     await fs.copyFile(log.filepath, destinationPath);
-    logger.info(`Exported Blackbox log to: ${destinationPath}`);
+    logger.info('[BlackboxManager](`Exported Blackbox log to: ${destinationPath}`);
   }
 
   private async loadMetadata(): Promise<BlackboxLogMetadata[]> {
@@ -162,7 +160,7 @@ export class BlackboxManager {
       const data = await fs.readFile(this.metadataFile, 'utf-8');
       return JSON.parse(data);
     } catch (error) {
-      logger.warn('Failed to load Blackbox logs metadata, returning empty array');
+      logger.warn('[BlackboxManager]('Failed to load Blackbox logs metadata, returning empty array');
       return [];
     }
   }
