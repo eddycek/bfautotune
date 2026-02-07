@@ -664,12 +664,8 @@ export class MSPClient extends EventEmitter {
       request.writeUInt32LE(address, 0);
       request.writeUInt16LE(size, 4);
 
-      logger.debug(`Reading Blackbox chunk: address=${address}, size=${size}, requestHex=${request.toString('hex')}`);
-
       // Increase timeout for Blackbox read (10 seconds instead of default 2)
       const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 10000);
-
-      logger.debug(`Received Blackbox chunk: ${response.data.length} bytes, dataHex=${response.data.slice(0, 32).toString('hex')}...`);
 
       return response.data;
     } catch (error) {
@@ -699,8 +695,9 @@ export class MSPClient extends EventEmitter {
       logger.info(`Starting Blackbox download: ${info.usedSize} bytes`);
 
       const chunks: Buffer[] = [];
-      // Use 4096 bytes with MSP jumbo frames for fast download
-      const chunkSize = 4096;
+      // Use 200 bytes - safe middle ground between 128 (works) and 256 (timeout)
+      // Some FCs don't support responses > 255 bytes (MSP v1 limit)
+      const chunkSize = 200;
       let bytesRead = 0;
 
       // Read flash in chunks
@@ -716,12 +713,15 @@ export class MSPClient extends EventEmitter {
         if (onProgress) {
           const progress = Math.round((bytesRead / info.usedSize) * 100);
           onProgress(progress);
+
+          // Log only at 10% intervals to reduce overhead
+          if (progress % 10 === 0) {
+            logger.debug(`Downloaded ${bytesRead}/${info.usedSize} bytes (${progress}%)`);
+          }
         }
 
-        logger.debug(`Downloaded ${bytesRead}/${info.usedSize} bytes (${Math.round((bytesRead / info.usedSize) * 100)}%)`);
-
-        // Small delay to avoid overwhelming FC (increased for smaller chunks)
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Small delay to avoid overwhelming FC
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
 
       const fullLog = Buffer.concat(chunks);
