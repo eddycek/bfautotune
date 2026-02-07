@@ -32,9 +32,15 @@ async function initialize(): Promise<void> {
   snapshotManager.setProfileManager(profileManager);
 
   // Create Blackbox manager
-  blackboxManager = new BlackboxManager();
-  await blackboxManager.initialize();
-  logger.info('BlackboxManager initialized');
+  try {
+    logger.info('Initializing BlackboxManager...');
+    blackboxManager = new BlackboxManager();
+    await blackboxManager.initialize();
+    logger.info('BlackboxManager initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize BlackboxManager:', error);
+    throw error;
+  }
 
   // Set up IPC handlers
   setMSPClient(mspClient);

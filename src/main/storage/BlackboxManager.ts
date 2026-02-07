@@ -19,14 +19,18 @@ export class BlackboxManager {
   }
 
   async initialize(): Promise<void> {
+    logger.info(`Creating Blackbox logs directory: ${this.logsDir}`);
     await fs.mkdir(this.logsDir, { recursive: true });
 
     // Create metadata file if it doesn't exist
     try {
       await fs.access(this.metadataFile);
+      logger.info('Metadata file already exists');
     } catch {
+      logger.info(`Creating metadata file: ${this.metadataFile}`);
       await fs.writeFile(this.metadataFile, JSON.stringify([]));
     }
+    logger.info('BlackboxManager initialization complete');
   }
 
   /**
