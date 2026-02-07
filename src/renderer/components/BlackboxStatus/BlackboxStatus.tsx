@@ -245,9 +245,9 @@ export function BlackboxStatus() {
       </div>
 
       {/* Downloaded Logs Section */}
-      {logs.length > 0 && (
-        <div className="downloaded-logs">
-          <h4>Downloaded Logs ({logs.length})</h4>
+      <div className="downloaded-logs">
+        <h4>Downloaded Logs ({logs.length})</h4>
+        {logs.length > 0 ? (
           <div className="logs-list">
             {logs.map((log) => (
               <div key={log.id} className="log-item">
@@ -280,8 +280,13 @@ export function BlackboxStatus() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="no-downloaded-logs">
+            <span className="icon">📦</span>
+            <span>No downloaded logs yet. Download from FC to see them here.</span>
+          </div>
+        )}
+      </div>
 
       {/* Erase Flash Confirmation Dialog */}
       {showEraseConfirm && (

@@ -526,8 +526,17 @@ export function registerIPCHandlers(): void {
 
   ipcMain.handle(IPCChannel.BLACKBOX_DOWNLOAD_LOG, async (event): Promise<IPCResponse<BlackboxLogMetadata>> => {
     try {
-      if (!mspClient || !blackboxManager || !profileManager) {
-        return createResponse<BlackboxLogMetadata>(undefined, 'Services not initialized');
+      if (!mspClient) {
+        logger.error('MSPClient not initialized');
+        return createResponse<BlackboxLogMetadata>(undefined, 'MSPClient not initialized');
+      }
+      if (!blackboxManager) {
+        logger.error('BlackboxManager not initialized');
+        return createResponse<BlackboxLogMetadata>(undefined, 'BlackboxManager not initialized');
+      }
+      if (!profileManager) {
+        logger.error('ProfileManager not initialized');
+        return createResponse<BlackboxLogMetadata>(undefined, 'ProfileManager not initialized');
       }
 
       // Get current profile
