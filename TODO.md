@@ -1,40 +1,71 @@
-# TODO - Betaflight Autotuning App
+# TODO - Beta PIDTune
 
 **Last Updated:** February 7, 2026
-**Current Status:** Phase 1 - 85% Complete
-**Priority:** Complete Tasks #11 and #12 before hardware testing
+**Current Status:** Phase 1 - 100% Complete ✅
+**GitHub:** https://github.com/eddycek/beta-pidtune
+**Workflow:** All changes via Pull Requests (main branch protected)
 
 ---
 
-## 🎯 Phase 1 - Remaining Tasks
+## 🚀 Development Workflow
 
-### Task #11: Implement Reconnection Logic ⏳
-**Priority:** HIGH | **Estimate:** 2-3 hours | **Status:** Not Started
+**Repository:** https://github.com/eddycek/beta-pidtune
 
-#### Requirements:
-- [ ] Detect FC disconnection (serial port disconnect event)
-- [ ] Automatic reconnection after FC reboot
-- [ ] Retry logic with exponential backoff
-- [ ] UI feedback during reconnection process
-- [ ] Support "save-and-reboot" flow
-- [ ] Timeout for reconnection attempts
-- [ ] User notifications about connection status
+### Branch Protection Rules
+- ✅ Main branch is protected
+- ✅ All changes must go through Pull Requests
+- ✅ No direct pushes to main
 
-#### Files to Modify:
-- `src/main/msp/MSPConnection.ts` - disconnect detection
-- `src/main/msp/MSPClient.ts` - retry logic
-- `src/main/ipc/handlers.ts` - IPC events for UI
-- `src/renderer/hooks/useConnection.ts` - UI state
+### Making Changes
+1. Create feature branch: `git checkout -b feature/your-feature-name`
+2. Make changes and commit
+3. Push branch: `git push -u origin feature/your-feature-name`
+4. Create Pull Request via GitHub or `gh pr create`
+5. Review and merge PR
 
-#### Notes:
-- Implement as new `ReconnectionManager` module?
-- Use exponential backoff: 1s, 2s, 4s, 8s, 16s (max 5 attempts)
-- Add configuration constants to `src/shared/constants.ts`
+### Commit Message Format
+```
+<type>: <subject>
+
+<body>
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 ---
 
-### Task #12: Polish & Testing ⏳
-**Priority:** MEDIUM | **Estimate:** 4-6 hours | **Status:** Partial (40%)
+## ✅ Phase 1 - Completed Tasks
+
+### Task #1-10: Core Implementation ✅
+**Status:** Completed
+
+All core Phase 1 features implemented:
+- ✅ Electron + Vite + TypeScript + React setup
+- ✅ MSP Protocol implementation
+- ✅ Serial connection management
+- ✅ FC information display
+- ✅ Configuration export (diff/dump)
+- ✅ Snapshot system with baseline
+- ✅ UI components and hooks
+- ✅ IPC architecture
+
+### Task #11: CLI Mode & Port Management ✅
+**Priority:** HIGH | **Status:** Completed
+
+#### Completed:
+- ✅ Fixed port closing after CLI operations
+- ✅ CLI mode doesn't call exitCLI() to prevent port closure
+- ✅ Auto-exit CLI mode when MSP command is needed
+- ✅ Disconnect button working properly
+- ✅ Baseline snapshot appears immediately after connection
+- ✅ Snapshot list auto-refreshes on connection
+
+---
+
+### Task #12: Initial Testing ✅
+**Priority:** MEDIUM | **Status:** Basic testing completed
 
 #### 12.1 UI Improvements
 - [ ] Toast notification system
