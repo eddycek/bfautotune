@@ -664,8 +664,8 @@ export class MSPClient extends EventEmitter {
       request.writeUInt32LE(address, 0);
       request.writeUInt16LE(size, 4);
 
-      // Increase timeout for Blackbox read (10 seconds instead of default 2)
-      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 10000);
+      // Use 5 second timeout - fail fast so adaptive chunking can adjust quickly
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 5000);
 
       return response.data;
     } catch (error) {
@@ -695,37 +695,70 @@ export class MSPClient extends EventEmitter {
       logger.info(`Starting Blackbox download: ${info.usedSize} bytes`);
 
       const chunks: Buffer[] = [];
-      // Use 200 bytes - safe middle ground between 128 (works) and 256 (timeout)
-      // Some FCs don't support responses > 255 bytes (MSP v1 limit)
-      const chunkSize = 200;
       let bytesRead = 0;
 
-      // Read flash in chunks
+      // Adaptive chunking - automatically find optimal chunk size
+      // Start optimistic (250 bytes), reduce on failure, increase on sustained success
+      let currentChunkSize = 250;
+      const minChunkSize = 128; // Known working minimum
+      const maxChunkSize = 255; // MSP v1 theoretical maximum
+      let consecutiveSuccesses = 0;
+      let consecutiveFailures = 0;
+
+      // Read flash in chunks with adaptive sizing
       while (bytesRead < info.usedSize) {
         const remaining = info.usedSize - bytesRead;
-        const currentChunkSize = Math.min(chunkSize, remaining);
+        const requestSize = Math.min(currentChunkSize, remaining);
 
-        const chunk = await this.readBlackboxChunk(bytesRead, currentChunkSize);
-        chunks.push(chunk);
-        bytesRead += chunk.length;
+        try {
+          const chunk = await this.readBlackboxChunk(bytesRead, requestSize);
+          chunks.push(chunk);
+          bytesRead += chunk.length;
+          consecutiveSuccesses++;
+          consecutiveFailures = 0;
 
-        // Report progress
-        if (onProgress) {
-          const progress = Math.round((bytesRead / info.usedSize) * 100);
-          onProgress(progress);
-
-          // Log only at 10% intervals to reduce overhead
-          if (progress % 10 === 0) {
-            logger.debug(`Downloaded ${bytesRead}/${info.usedSize} bytes (${progress}%)`);
+          // After 20 successful chunks, try increasing chunk size
+          if (consecutiveSuccesses >= 20 && currentChunkSize < maxChunkSize) {
+            const newSize = Math.min(currentChunkSize + 20, maxChunkSize);
+            logger.debug(`Increasing chunk size: ${currentChunkSize} → ${newSize} bytes`);
+            currentChunkSize = newSize;
+            consecutiveSuccesses = 0;
           }
-        }
 
-        // Small delay to avoid overwhelming FC
-        await new Promise(resolve => setTimeout(resolve, 10));
+          // Report progress
+          if (onProgress) {
+            const progress = Math.round((bytesRead / info.usedSize) * 100);
+            onProgress(progress);
+
+            // Log only at 5% intervals to reduce overhead
+            if (progress % 5 === 0 && progress > 0) {
+              logger.info(`Downloaded ${bytesRead}/${info.usedSize} bytes (${progress}%) - chunk size: ${currentChunkSize}B`);
+            }
+          }
+
+          // NO delay - maximize throughput!
+        } catch (error) {
+          // Chunk failed - reduce size and retry
+          consecutiveFailures++;
+          consecutiveSuccesses = 0;
+
+          if (consecutiveFailures > 3) {
+            // Too many failures, abort
+            logger.error(`Too many consecutive failures at chunk size ${currentChunkSize}, aborting`);
+            throw error;
+          }
+
+          const newSize = Math.max(Math.floor(currentChunkSize * 0.7), minChunkSize);
+          logger.warn(`Chunk failed at size ${currentChunkSize}, reducing to ${newSize} bytes and retrying`);
+          currentChunkSize = newSize;
+
+          // Don't increment bytesRead - retry same address
+          continue;
+        }
       }
 
       const fullLog = Buffer.concat(chunks);
-      logger.info(`Blackbox download complete: ${fullLog.length} bytes`);
+      logger.info(`Blackbox download complete: ${fullLog.length} bytes (final chunk size: ${currentChunkSize}B)`);
 
       return fullLog;
     } catch (error) {
