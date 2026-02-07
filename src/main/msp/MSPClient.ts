@@ -465,7 +465,9 @@ export class MSPClient extends EventEmitter {
    * Returns flash capacity, used space, and whether logs are available
    */
   async getBlackboxInfo(): Promise<BlackboxInfo> {
-    this.ensureConnected();
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
 
     try {
       const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_SUMMARY);
