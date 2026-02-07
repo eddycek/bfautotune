@@ -699,8 +699,8 @@ export class MSPClient extends EventEmitter {
       logger.info(`Starting Blackbox download: ${info.usedSize} bytes`);
 
       const chunks: Buffer[] = [];
-      // Balanced chunk size - works on most FCs while being reasonably fast
-      const chunkSize = 256; // Doubled from 128 for better speed
+      // Conservative chunk size - 256 times out, 128 works (slow but reliable)
+      const chunkSize = 128;
       let bytesRead = 0;
 
       // Read flash in chunks
