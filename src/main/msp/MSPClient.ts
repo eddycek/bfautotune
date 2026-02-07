@@ -653,8 +653,9 @@ export class MSPClient extends EventEmitter {
       throw new ConnectionError('Flight controller not connected');
     }
 
-    if (size > 4096) {
-      throw new Error('Chunk size cannot exceed 4096 bytes');
+    // Conservative max size - some FCs don't support large chunks
+    if (size > 256) {
+      throw new Error('Chunk size cannot exceed 256 bytes');
     }
 
     try {
@@ -698,7 +699,8 @@ export class MSPClient extends EventEmitter {
       logger.info(`Starting Blackbox download: ${info.usedSize} bytes`);
 
       const chunks: Buffer[] = [];
-      const chunkSize = 4096; // Max chunk size for MSP_DATAFLASH_READ
+      // Start with smaller chunk size - some FCs don't support 4096 bytes
+      const chunkSize = 128; // Conservative chunk size that most FCs support
       let bytesRead = 0;
 
       // Read flash in chunks
@@ -718,8 +720,8 @@ export class MSPClient extends EventEmitter {
 
         logger.debug(`Downloaded ${bytesRead}/${info.usedSize} bytes (${Math.round((bytesRead / info.usedSize) * 100)}%)`);
 
-        // Small delay to avoid overwhelming FC
-        await new Promise(resolve => setTimeout(resolve, 10));
+        // Small delay to avoid overwhelming FC (increased for smaller chunks)
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
       const fullLog = Buffer.concat(chunks);
