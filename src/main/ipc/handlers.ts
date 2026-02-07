@@ -7,11 +7,19 @@ import type {
   SnapshotMetadata,
   ConnectionStatus
 } from '@shared/types/common.types';
+import type {
+  DroneProfile,
+  DroneProfileMetadata,
+  ProfileCreationInput,
+  ProfileUpdateInput
+} from '@shared/types/profile.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
+import { PRESET_PROFILES } from '@shared/constants';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
+let profileManager: any = null; // Will be set from main
 
 export function setMSPClient(client: any): void {
   mspClient = client;
@@ -19,6 +27,10 @@ export function setMSPClient(client: any): void {
 
 export function setSnapshotManager(manager: any): void {
   snapshotManager = manager;
+}
+
+export function setProfileManager(manager: any): void {
+  profileManager = manager;
 }
 
 function createResponse<T>(data: T | undefined, error?: string): IPCResponse<T> {
@@ -178,6 +190,146 @@ export function registerIPCHandlers(): void {
     }
   });
 
+  // Profile handlers
+  ipcMain.handle(IPCChannel.PROFILE_CREATE, async (_, input: ProfileCreationInput): Promise<IPCResponse<DroneProfile>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      const profile = await profileManager.createProfile(input);
+      return createResponse<DroneProfile>(profile);
+    } catch (error) {
+      logger.error('Failed to create profile:', error);
+      return createResponse<DroneProfile>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_CREATE_FROM_PRESET, async (_, presetId: string, customName?: string): Promise<IPCResponse<DroneProfile>> => {
+    try {
+      if (!profileManager || !mspClient) {
+        throw new Error('Profile manager or MSP client not initialized');
+      }
+
+      const preset = PRESET_PROFILES[presetId as keyof typeof PRESET_PROFILES];
+      if (!preset) {
+        throw new Error(`Preset ${presetId} not found`);
+      }
+
+      const fcSerial = await mspClient.getFCSerialNumber();
+      const fcInfo = await mspClient.getFCInfo();
+
+      const profile = await profileManager.createProfileFromPreset(preset, fcSerial, fcInfo, customName);
+      return createResponse<DroneProfile>(profile);
+    } catch (error) {
+      logger.error('Failed to create profile from preset:', error);
+      return createResponse<DroneProfile>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_UPDATE, async (_, id: string, updates: ProfileUpdateInput): Promise<IPCResponse<DroneProfile>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      const profile = await profileManager.updateProfile(id, updates);
+      return createResponse<DroneProfile>(profile);
+    } catch (error) {
+      logger.error('Failed to update profile:', error);
+      return createResponse<DroneProfile>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_DELETE, async (_, id: string): Promise<IPCResponse<void>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      await profileManager.deleteProfile(id);
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to delete profile:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_LIST, async (): Promise<IPCResponse<DroneProfileMetadata[]>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      const profiles = await profileManager.listProfiles();
+      return createResponse<DroneProfileMetadata[]>(profiles);
+    } catch (error) {
+      logger.error('Failed to list profiles:', error);
+      return createResponse<DroneProfileMetadata[]>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_GET, async (_, id: string): Promise<IPCResponse<DroneProfile | null>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      const profile = await profileManager.getProfile(id);
+      return createResponse<DroneProfile | null>(profile);
+    } catch (error) {
+      logger.error('Failed to get profile:', error);
+      return createResponse<DroneProfile | null>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_GET_CURRENT, async (): Promise<IPCResponse<DroneProfile | null>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      const profile = await profileManager.getCurrentProfile();
+      return createResponse<DroneProfile | null>(profile);
+    } catch (error) {
+      logger.error('Failed to get current profile:', error);
+      return createResponse<DroneProfile | null>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_SET_CURRENT, async (_, id: string): Promise<IPCResponse<DroneProfile>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      const profile = await profileManager.setCurrentProfile(id);
+      return createResponse<DroneProfile>(profile);
+    } catch (error) {
+      logger.error('Failed to set current profile:', error);
+      return createResponse<DroneProfile>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_EXPORT, async (_, id: string, filePath: string): Promise<IPCResponse<void>> => {
+    try {
+      if (!profileManager) {
+        throw new Error('Profile manager not initialized');
+      }
+      await profileManager.exportProfile(id, filePath);
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to export profile:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PROFILE_GET_FC_SERIAL, async (): Promise<IPCResponse<string>> => {
+    try {
+      if (!mspClient) {
+        throw new Error('MSP client not initialized');
+      }
+      const serial = await mspClient.getFCSerialNumber();
+      return createResponse<string>(serial);
+    } catch (error) {
+      logger.error('Failed to get FC serial:', error);
+      return createResponse<string>(undefined, getErrorMessage(error));
+    }
+  });
+
   logger.info('IPC handlers registered');
 }
 
@@ -191,4 +343,12 @@ export function sendError(window: BrowserWindow, error: string): void {
 
 export function sendLog(window: BrowserWindow, message: string, level: string): void {
   window.webContents.send(IPCChannel.EVENT_LOG, message, level);
+}
+
+export function sendProfileChanged(window: BrowserWindow, profile: DroneProfile | null): void {
+  window.webContents.send(IPCChannel.EVENT_PROFILE_CHANGED, profile);
+}
+
+export function sendNewFCDetected(window: BrowserWindow, fcSerial: string, fcInfo: FCInfo): void {
+  window.webContents.send(IPCChannel.EVENT_NEW_FC_DETECTED, fcSerial, fcInfo);
 }

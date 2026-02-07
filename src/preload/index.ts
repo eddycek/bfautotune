@@ -7,6 +7,12 @@ import type {
   SnapshotMetadata,
   ConnectionStatus
 } from '@shared/types/common.types';
+import type {
+  DroneProfile,
+  DroneProfileMetadata,
+  ProfileCreationInput,
+  ProfileUpdateInput
+} from '@shared/types/profile.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -104,6 +110,85 @@ const betaflightAPI: BetaflightAPI = {
     return response.data;
   },
 
+  // Profiles
+  async createProfile(input: ProfileCreationInput): Promise<DroneProfile> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_CREATE, input);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async createProfileFromPreset(presetId: string, customName?: string): Promise<DroneProfile> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_CREATE_FROM_PRESET, presetId, customName);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async updateProfile(id: string, updates: ProfileUpdateInput): Promise<DroneProfile> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_UPDATE, id, updates);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async deleteProfile(id: string): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_DELETE, id);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+  },
+
+  async listProfiles(): Promise<DroneProfileMetadata[]> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_LIST);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async getProfile(id: string): Promise<DroneProfile | null> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_GET, id);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async getCurrentProfile(): Promise<DroneProfile | null> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_GET_CURRENT);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async setCurrentProfile(id: string): Promise<DroneProfile> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_SET_CURRENT, id);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async exportProfile(id: string, filePath: string): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_EXPORT, id, filePath);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+  },
+
+  async getFCSerialNumber(): Promise<string> {
+    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_GET_FC_SERIAL);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    return response.data;
+  },
+
   // Events
   onError(callback: (error: string) => void): () => void {
     const listener = (_: any, error: string) => callback(error);
@@ -118,6 +203,22 @@ const betaflightAPI: BetaflightAPI = {
     ipcRenderer.on(IPCChannel.EVENT_LOG, listener);
     return () => {
       ipcRenderer.removeListener(IPCChannel.EVENT_LOG, listener);
+    };
+  },
+
+  onProfileChanged(callback: (profile: DroneProfile | null) => void): () => void {
+    const listener = (_: any, profile: DroneProfile | null) => callback(profile);
+    ipcRenderer.on(IPCChannel.EVENT_PROFILE_CHANGED, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_PROFILE_CHANGED, listener);
+    };
+  },
+
+  onNewFCDetected(callback: (fcSerial: string, fcInfo: FCInfo) => void): () => void {
+    const listener = (_: any, fcSerial: string, fcInfo: FCInfo) => callback(fcSerial, fcInfo);
+    ipcRenderer.on(IPCChannel.EVENT_NEW_FC_DETECTED, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_NEW_FC_DETECTED, listener);
     };
   }
 };
