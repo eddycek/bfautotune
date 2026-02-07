@@ -14,7 +14,7 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
-import type { BlackboxInfo } from '@shared/types/blackbox.types';
+import type { BlackboxInfo, BlackboxLogMetadata } from '@shared/types/blackbox.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -256,7 +256,7 @@ const betaflightAPI: BetaflightAPI = {
     return response.data;
   },
 
-  async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<string> {
+  async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<BlackboxLogMetadata> {
     // Set up progress listener if callback provided
     let progressListener: ((event: any, progress: number) => void) | null = null;
     if (onProgress) {
@@ -275,6 +275,28 @@ const betaflightAPI: BetaflightAPI = {
       if (progressListener) {
         ipcRenderer.removeListener(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progressListener);
       }
+    }
+  },
+
+  async listBlackboxLogs(): Promise<BlackboxLogMetadata[]> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_LIST_LOGS);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to list Blackbox logs');
+    }
+    return response.data;
+  },
+
+  async deleteBlackboxLog(logId: string): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_DELETE_LOG, logId);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete Blackbox log');
+    }
+  },
+
+  async eraseBlackboxFlash(): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_ERASE_FLASH);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to erase Blackbox flash');
     }
   },
 

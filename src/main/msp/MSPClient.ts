@@ -772,6 +772,32 @@ export class MSPClient extends EventEmitter {
     }
   }
 
+  /**
+   * Erase all data from Blackbox flash storage
+   * WARNING: This permanently deletes all logged flight data!
+   */
+  async eraseBlackboxFlash(): Promise<void> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    try {
+      logger.warn('Erasing Blackbox flash - all logged data will be permanently deleted');
+
+      // MSP_DATAFLASH_ERASE has no payload
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_ERASE, Buffer.alloc(0), 30000);
+
+      if (response.error) {
+        throw new MSPError('Failed to erase Blackbox flash');
+      }
+
+      logger.info('Blackbox flash erased successfully');
+    } catch (error) {
+      logger.error('Failed to erase Blackbox flash:', error);
+      throw error;
+    }
+  }
+
   private cleanCLIOutput(output: string): string {
     // Remove CLI prompt characters and clean up
     return output

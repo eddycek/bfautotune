@@ -53,6 +53,9 @@ export enum IPCChannel {
   // Blackbox
   BLACKBOX_GET_INFO = 'blackbox:get-info',
   BLACKBOX_DOWNLOAD_LOG = 'blackbox:download-log',
+  BLACKBOX_LIST_LOGS = 'blackbox:list-logs',
+  BLACKBOX_DELETE_LOG = 'blackbox:delete-log',
+  BLACKBOX_ERASE_FLASH = 'blackbox:erase-flash',
   BLACKBOX_OPEN_FOLDER = 'blackbox:open-folder',
   BLACKBOX_TEST_READ = 'blackbox:test-read',
 
@@ -110,7 +113,10 @@ export interface BetaflightAPI {
 
   // Blackbox
   getBlackboxInfo(): Promise<BlackboxInfo>;
-  downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<string>;
+  downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<BlackboxLogMetadata>;
+  listBlackboxLogs(): Promise<BlackboxLogMetadata[]>;
+  deleteBlackboxLog(logId: string): Promise<void>;
+  eraseBlackboxFlash(): Promise<void>;
   openBlackboxFolder(filepath: string): Promise<void>;
   testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }>;
 

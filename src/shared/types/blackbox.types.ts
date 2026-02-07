@@ -110,3 +110,29 @@ export interface BlackboxDownloadProgress {
   /** Estimated time remaining in seconds */
   estimatedSecondsRemaining?: number;
 }
+
+/**
+ * Metadata for a saved Blackbox log file
+ */
+export interface BlackboxLogMetadata {
+  /** Unique log ID */
+  id: string;
+  /** Profile this log belongs to */
+  profileId: string;
+  /** FC serial number */
+  fcSerial: string;
+  /** Download timestamp (ISO format) */
+  timestamp: string;
+  /** Log filename */
+  filename: string;
+  /** Full filepath on disk */
+  filepath: string;
+  /** Log size in bytes */
+  size: number;
+  /** FC info at time of download */
+  fcInfo: {
+    variant: string;
+    version: string;
+    target: string;
+  };
+}

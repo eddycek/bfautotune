@@ -4,13 +4,15 @@ import { createWindow, getMainWindow } from './window';
 import { MSPClient } from './msp/MSPClient';
 import { SnapshotManager } from './storage/SnapshotManager';
 import { ProfileManager } from './storage/ProfileManager';
-import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected } from './ipc/handlers';
+import { BlackboxManager } from './storage/BlackboxManager';
+import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected } from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
 
 let mspClient: MSPClient;
 let snapshotManager: SnapshotManager;
 let profileManager: ProfileManager;
+let blackboxManager: BlackboxManager;
 
 async function initialize(): Promise<void> {
   // Create MSP client
@@ -29,10 +31,16 @@ async function initialize(): Promise<void> {
   // Link profile manager to snapshot manager
   snapshotManager.setProfileManager(profileManager);
 
+  // Create Blackbox manager
+  blackboxManager = new BlackboxManager();
+  await blackboxManager.initialize();
+  logger.info('BlackboxManager initialized');
+
   // Set up IPC handlers
   setMSPClient(mspClient);
   setSnapshotManager(snapshotManager);
   setProfileManager(profileManager);
+  setBlackboxManager(blackboxManager);
   registerIPCHandlers();
 
   // Listen for connection changes
