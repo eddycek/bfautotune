@@ -653,9 +653,9 @@ export class MSPClient extends EventEmitter {
       throw new ConnectionError('Flight controller not connected');
     }
 
-    // Conservative max size - some FCs don't support large chunks
-    if (size > 256) {
-      throw new Error('Chunk size cannot exceed 256 bytes');
+    // Max size with MSP jumbo frames
+    if (size > 8192) {
+      throw new Error('Chunk size cannot exceed 8192 bytes (MSP jumbo frame limit)');
     }
 
     try {
@@ -699,8 +699,8 @@ export class MSPClient extends EventEmitter {
       logger.info(`Starting Blackbox download: ${info.usedSize} bytes`);
 
       const chunks: Buffer[] = [];
-      // Conservative chunk size - 256 times out, 128 works (slow but reliable)
-      const chunkSize = 128;
+      // Use 4096 bytes with MSP jumbo frames for fast download
+      const chunkSize = 4096;
       let bytesRead = 0;
 
       // Read flash in chunks

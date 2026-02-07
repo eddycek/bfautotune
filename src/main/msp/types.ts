@@ -35,5 +35,7 @@ export const MSP_PROTOCOL = {
   DIRECTION_TO_FC: 0x3c, // '<'
   DIRECTION_FROM_FC: 0x3e, // '>'
   ERROR: 0x21, // '!'
-  MAX_PAYLOAD_SIZE: 256
+  JUMBO_FRAME_MIN_SIZE: 0xff, // 255 - use jumbo frames for larger payloads
+  MAX_PAYLOAD_SIZE: 256, // MSP v1 limit
+  MAX_JUMBO_PAYLOAD_SIZE: 8192 // MSP v2 jumbo frame limit
 } as const;
