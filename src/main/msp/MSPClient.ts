@@ -217,6 +217,21 @@ export class MSPClient extends EventEmitter {
     };
   }
 
+  async getUID(): Promise<string> {
+    const response = await this.connection.sendCommand(MSPCommand.MSP_UID);
+
+    if (response.data.length < 12) {
+      throw new MSPError('Invalid UID response');
+    }
+
+    // Convert UID bytes to hex string
+    const uid = Array.from(response.data.slice(0, 12))
+      .map(byte => byte.toString(16).padStart(2, '0').toUpperCase())
+      .join('');
+
+    return uid;
+  }
+
   async getFCInfo(): Promise<FCInfo> {
     const [apiVersion, variant, version, boardInfo] = await Promise.all([
       this.getApiVersion(),
@@ -232,6 +247,10 @@ export class MSPClient extends EventEmitter {
       boardName: boardInfo.boardName,
       apiVersion
     };
+  }
+
+  async getFCSerialNumber(): Promise<string> {
+    return this.getUID();
   }
 
   async exportCLIDiff(): Promise<string> {
