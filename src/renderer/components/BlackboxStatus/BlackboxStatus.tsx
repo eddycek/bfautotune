@@ -44,6 +44,22 @@ export function BlackboxStatus() {
     }
   };
 
+  const handleTestRead = async () => {
+    try {
+      toast.info('Testing Blackbox read (10 bytes from address 0)...');
+      const result = await window.betaflight.testBlackboxRead();
+
+      if (result.success) {
+        toast.success(`✅ Test passed! FC responded with: ${result.data?.substring(0, 20)}...`);
+      } else {
+        toast.error(`❌ Test failed: ${result.message}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Test failed';
+      toast.error(`❌ ${message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="blackbox-status">
@@ -147,6 +163,16 @@ export function BlackboxStatus() {
               <span className="icon">📊</span>
               <span>Logs available for download</span>
             </div>
+
+            {/* Debug button for testing MSP_DATAFLASH_READ */}
+            <button
+              className="test-read-button"
+              onClick={handleTestRead}
+              title="Test if FC supports MSP_DATAFLASH_READ (reads 10 bytes)"
+            >
+              <span className="icon">🔬</span>
+              <span>Test Read (Debug)</span>
+            </button>
 
             <div className="action-buttons">
               <button

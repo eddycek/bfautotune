@@ -151,6 +151,35 @@
   line-height: 1.4;
 }
 
+.test-read-button {
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #ffd43b, #fab005);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+  opacity: 0.8;
+}
+
+.test-read-button:hover {
+  opacity: 1;
+  background: linear-gradient(135deg, #fab005, #f59f00);
+  transform: translateY(-1px);
+}
+
+.test-read-button:active {
+  transform: translateY(0);
+}
+
 .action-buttons {
   display: flex;
   gap: 8px;

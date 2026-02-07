@@ -603,6 +603,46 @@ export class MSPClient extends EventEmitter {
   }
 
   /**
+   * Test if FC supports MSP_DATAFLASH_READ by attempting minimal read
+   * @returns Object with success status and diagnostic info
+   */
+  async testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }> {
+    if (!this.isConnected()) {
+      return { success: false, message: 'FC not connected' };
+    }
+
+    try {
+      logger.info('Testing MSP_DATAFLASH_READ with minimal request (10 bytes from address 0)...');
+
+      // Try to read just 10 bytes from address 0
+      const request = Buffer.alloc(6);
+      request.writeUInt32LE(0, 0); // address = 0
+      request.writeUInt16LE(10, 4); // size = 10 bytes
+
+      logger.debug(`Test request hex: ${request.toString('hex')}`);
+
+      // Short timeout for test (5 seconds)
+      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 5000);
+
+      logger.info(`Test SUCCESS! Received ${response.data.length} bytes: ${response.data.toString('hex')}`);
+
+      return {
+        success: true,
+        message: `FC responded with ${response.data.length} bytes`,
+        data: response.data.toString('hex')
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`Test FAILED: ${message}`);
+
+      return {
+        success: false,
+        message: `Test failed: ${message}`
+      };
+    }
+  }
+
+  /**
    * Read a chunk of Blackbox data from flash storage
    * @param address - Start address to read from
    * @param size - Number of bytes to read (max 4096)

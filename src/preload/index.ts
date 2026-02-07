@@ -272,6 +272,14 @@ const betaflightAPI: BetaflightAPI = {
     }
   },
 
+  async testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_TEST_READ);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to test Blackbox read');
+    }
+    return response.data;
+  },
+
   onPIDChanged(callback: (config: PIDConfiguration) => void): () => void {
     const listener = (_: any, config: PIDConfiguration) => callback(config);
     ipcRenderer.on(IPCChannel.EVENT_PID_CHANGED, listener);

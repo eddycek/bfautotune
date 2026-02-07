@@ -563,6 +563,20 @@ export function registerIPCHandlers(): void {
     }
   });
 
+  ipcMain.handle(IPCChannel.BLACKBOX_TEST_READ, async (): Promise<IPCResponse<{ success: boolean; message: string; data?: string }>> => {
+    try {
+      if (!mspClient) {
+        return createResponse<{ success: boolean; message: string }>(undefined, 'MSP client not initialized');
+      }
+
+      const result = await mspClient.testBlackboxRead();
+      return createResponse<{ success: boolean; message: string; data?: string }>(result);
+    } catch (error) {
+      logger.error('Failed to test Blackbox read:', error);
+      return createResponse<{ success: boolean; message: string }>(undefined, getErrorMessage(error));
+    }
+  });
+
   logger.info('IPC handlers registered');
 }
 
