@@ -17,7 +17,7 @@ export const FRAME_MARKER = {
 } as const;
 
 /** Set of all valid frame marker bytes for resync after corruption */
-export const VALID_FRAME_MARKERS = new Set([
+export const VALID_FRAME_MARKERS: Set<number> = new Set([
   FRAME_MARKER.INTRA,
   FRAME_MARKER.INTER,
   FRAME_MARKER.GPS_HOME,
