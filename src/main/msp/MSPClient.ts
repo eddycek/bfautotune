@@ -472,8 +472,27 @@ export class MSPClient extends EventEmitter {
     try {
       const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_SUMMARY);
 
-      if (response.error || response.data.length < 13) {
-        logger.warn('Blackbox not supported or no response');
+      logger.debug('Blackbox response:', {
+        error: response.error,
+        dataLength: response.data.length,
+        dataHex: response.data.toString('hex')
+      });
+
+      if (response.error) {
+        logger.warn('Blackbox MSP error response');
+        return {
+          supported: false,
+          totalSize: 0,
+          usedSize: 0,
+          hasLogs: false,
+          freeSize: 0,
+          usagePercent: 0
+        };
+      }
+
+      // Some FCs return shorter responses - handle gracefully
+      if (response.data.length < 13) {
+        logger.warn(`Blackbox response too short: ${response.data.length} bytes`);
         return {
           supported: false,
           totalSize: 0,
@@ -492,6 +511,9 @@ export class MSPClient extends EventEmitter {
       const totalSize = response.data.readUInt32LE(4);
       const usedSize = response.data.readUInt32LE(8);
 
+      logger.debug('Blackbox parsed:', { flags, totalSize, usedSize });
+
+      // Check if supported (bit 1 = 0x02)
       const supported = (flags & 0x02) !== 0;
       const hasLogs = usedSize > 0;
       const freeSize = totalSize - usedSize;
