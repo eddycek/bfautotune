@@ -10,6 +10,16 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock useToast hook (tests can override this)
+vi.mock('../hooks/useToast', () => ({
+  useToast: vi.fn(() => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn()
+  }))
+}));
+
 // Mock window.betaflight API
 global.window.betaflight = {
   // Connection
@@ -22,8 +32,6 @@ global.window.betaflight = {
   // FC Info
   getFCInfo: vi.fn(),
   exportCLI: vi.fn(),
-  exportCLIDiff: vi.fn(),
-  exportCLIDump: vi.fn(),
 
   // Snapshots
   createSnapshot: vi.fn(),
@@ -42,7 +50,7 @@ global.window.betaflight = {
   getCurrentProfile: vi.fn(),
   setCurrentProfile: vi.fn(),
   exportProfile: vi.fn(),
-  getFCSerial: vi.fn(),
+  getFCSerialNumber: vi.fn(),
   onProfileChanged: vi.fn(() => () => {}),
   onNewFCDetected: vi.fn(() => () => {}),
 

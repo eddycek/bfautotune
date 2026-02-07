@@ -85,6 +85,23 @@ async function initialize(): Promise<void> {
     }
   });
 
+  // Handle unexpected disconnection (USB unplugged, etc.)
+  mspClient.on('disconnected', () => {
+    logger.info('FC unexpectedly disconnected');
+
+    // Clear current profile
+    profileManager.clearCurrentProfile();
+
+    // Notify renderer
+    const window = getMainWindow();
+    if (window) {
+      // Send disconnected status
+      sendConnectionChanged(window, { connected: false });
+      // Clear profile in UI
+      sendProfileChanged(window, null);
+    }
+  });
+
   logger.info('Application initialized');
 }
 

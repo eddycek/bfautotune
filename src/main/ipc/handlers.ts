@@ -13,6 +13,7 @@ import type {
   ProfileCreationInput,
   ProfileUpdateInput
 } from '@shared/types/profile.types';
+import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
@@ -437,7 +438,78 @@ export function registerIPCHandlers(): void {
     }
   });
 
+  // PID Configuration handlers
+  ipcMain.handle(IPCChannel.PID_GET_CONFIG, async (): Promise<IPCResponse<PIDConfiguration>> => {
+    try {
+      if (!mspClient) throw new Error('MSP client not initialized');
+      if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
+
+      const config = await mspClient.getPIDConfiguration();
+      return createResponse<PIDConfiguration>(config);
+    } catch (error) {
+      logger.error('Failed to get PID configuration:', error);
+      return createResponse<PIDConfiguration>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PID_UPDATE_CONFIG, async (_, config: PIDConfiguration): Promise<IPCResponse<void>> => {
+    try {
+      if (!mspClient) throw new Error('MSP client not initialized');
+      if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
+
+      // Validate config (0-255 range for all values)
+      validatePIDConfiguration(config);
+
+      await mspClient.setPIDConfiguration(config);
+
+      // Broadcast to all renderer windows
+      const window = getMainWindow();
+      if (window) {
+        sendPIDChanged(window, config);
+      }
+
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to update PID configuration:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.PID_SAVE_CONFIG, async (): Promise<IPCResponse<void>> => {
+    try {
+      if (!mspClient) throw new Error('MSP client not initialized');
+      if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
+
+      await mspClient.saveAndReboot();  // Uses existing CLI save command
+
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to save PID configuration:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
   logger.info('IPC handlers registered');
+}
+
+function validatePIDConfiguration(config: PIDConfiguration): void {
+  const axes: Array<keyof PIDConfiguration> = ['roll', 'pitch', 'yaw'];
+  const terms: Array<keyof PIDTerm> = ['P', 'I', 'D'];
+
+  for (const axis of axes) {
+    const term = config[axis];
+    if (!term) throw new Error(`Missing ${axis} configuration`);
+
+    for (const t of terms) {
+      const value = term[t];
+      if (typeof value !== 'number' || isNaN(value)) {
+        throw new Error(`Invalid ${axis} ${t} value: ${value}`);
+      }
+      if (value < 0 || value > 255) {
+        throw new Error(`${axis} ${t} value out of range (0-255): ${value}`);
+      }
+    }
+  }
 }
 
 export function sendConnectionChanged(window: BrowserWindow, status: ConnectionStatus): void {
@@ -458,4 +530,8 @@ export function sendProfileChanged(window: BrowserWindow, profile: DroneProfile 
 
 export function sendNewFCDetected(window: BrowserWindow, fcSerial: string, fcInfo: FCInfo): void {
   window.webContents.send(IPCChannel.EVENT_NEW_FC_DETECTED, fcSerial, fcInfo);
+}
+
+export function sendPIDChanged(window: BrowserWindow, config: PIDConfiguration): void {
+  window.webContents.send(IPCChannel.EVENT_PID_CHANGED, config);
 }

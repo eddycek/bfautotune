@@ -4,17 +4,21 @@ import { FCInfoDisplay } from './components/FCInfo/FCInfoDisplay';
 import { SnapshotManager } from './components/SnapshotManager/SnapshotManager';
 import { ProfileWizard } from './components/ProfileWizard';
 import { ProfileSelector } from './components/ProfileSelector';
+import { ToastProvider } from './contexts/ToastContext';
+import { ToastContainer } from './components/Toast/ToastContainer';
 import { useProfiles } from './hooks/useProfiles';
+import { useToast } from './hooks/useToast';
 import type { FCInfo } from '@shared/types/common.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
 import './App.css';
 
-function App() {
+function AppContent() {
   const [showProfileWizard, setShowProfileWizard] = useState(false);
   const [newFCSerial, setNewFCSerial] = useState<string | null>(null);
   const [newFCInfo, setNewFCInfo] = useState<FCInfo | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
+  const toast = useToast();
 
   useEffect(() => {
     // Listen for connection changes
@@ -49,6 +53,8 @@ function App() {
       setNewFCInfo(null);
     } catch (error) {
       console.error('Failed to create profile:', error);
+      const message = error instanceof Error ? error.message : 'Failed to create profile';
+      toast.error(message);
       // Keep wizard open on error so user can retry
     }
   };
@@ -76,7 +82,17 @@ function App() {
           onComplete={handleProfileWizardComplete}
         />
       )}
+
+      <ToastContainer />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
 

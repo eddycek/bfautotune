@@ -13,6 +13,7 @@ import type {
   ProfileCreationInput,
   ProfileUpdateInput
 } from '@shared/types/profile.types';
+import type { PIDConfiguration } from '@shared/types/pid.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -219,6 +220,37 @@ const betaflightAPI: BetaflightAPI = {
     ipcRenderer.on(IPCChannel.EVENT_NEW_FC_DETECTED, listener);
     return () => {
       ipcRenderer.removeListener(IPCChannel.EVENT_NEW_FC_DETECTED, listener);
+    };
+  },
+
+  // PID Configuration
+  async getPIDConfig(): Promise<PIDConfiguration> {
+    const response = await ipcRenderer.invoke(IPCChannel.PID_GET_CONFIG);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get PID configuration');
+    }
+    return response.data;
+  },
+
+  async updatePIDConfig(config: PIDConfiguration): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.PID_UPDATE_CONFIG, config);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update PID configuration');
+    }
+  },
+
+  async savePIDConfig(): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.PID_SAVE_CONFIG);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to save PID configuration');
+    }
+  },
+
+  onPIDChanged(callback: (config: PIDConfiguration) => void): () => void {
+    const listener = (_: any, config: PIDConfiguration) => callback(config);
+    ipcRenderer.on(IPCChannel.EVENT_PID_CHANGED, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_PID_CHANGED, listener);
     };
   }
 };

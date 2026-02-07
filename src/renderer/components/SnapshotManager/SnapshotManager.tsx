@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useConnection } from '../../hooks/useConnection';
 import { useSnapshots } from '../../hooks/useSnapshots';
+import { useToast } from '../../hooks/useToast';
 import './SnapshotManager.css';
 
 export function SnapshotManager() {
   const { status } = useConnection();
   const { snapshots, loading, error, createSnapshot, deleteSnapshot, loadSnapshot } = useSnapshots();
+  const toast = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [snapshotLabel, setSnapshotLabel] = useState('');
   const [selectedSnapshot, setSelectedSnapshot] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export function SnapshotManager() {
       a.download = `snapshot-${snapshot.label}-${new Date(snapshot.timestamp).toISOString().split('T')[0]}.txt`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success('Snapshot exported');
     }
   };
 

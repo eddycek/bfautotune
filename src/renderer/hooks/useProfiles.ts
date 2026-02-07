@@ -5,12 +5,14 @@ import type {
   ProfileCreationInput,
   ProfileUpdateInput
 } from '@shared/types/profile.types';
+import { useToast } from './useToast';
 
 export function useProfiles() {
   const [profiles, setProfiles] = useState<DroneProfileMetadata[]>([]);
   const [currentProfile, setCurrentProfile] = useState<DroneProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const loadProfiles = useCallback(async () => {
     try {
@@ -41,15 +43,17 @@ export function useProfiles() {
       const profile = await window.betaflight.createProfile(input);
       await loadProfiles();
       setCurrentProfile(profile);
+      toast.success(`Profile '${profile.name}' created`);
       return profile;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create profile';
       setError(message);
+      toast.error(message);
       throw new Error(message);
     } finally {
       setLoading(false);
     }
-  }, [loadProfiles]);
+  }, [loadProfiles]); // toast is stable
 
   const createProfileFromPreset = useCallback(async (presetId: string, customName?: string): Promise<DroneProfile> => {
     try {
@@ -58,15 +62,17 @@ export function useProfiles() {
       const profile = await window.betaflight.createProfileFromPreset(presetId, customName);
       await loadProfiles();
       setCurrentProfile(profile);
+      toast.success(`Profile '${profile.name}' created`);
       return profile;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create profile from preset';
       setError(message);
+      toast.error(message);
       throw new Error(message);
     } finally {
       setLoading(false);
     }
-  }, [loadProfiles]);
+  }, [loadProfiles]); // toast is stable
 
   const updateProfile = useCallback(async (id: string, updates: ProfileUpdateInput): Promise<DroneProfile> => {
     try {
@@ -77,15 +83,17 @@ export function useProfiles() {
       if (currentProfile?.id === id) {
         setCurrentProfile(profile);
       }
+      toast.success('Profile updated');
       return profile;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update profile';
       setError(message);
+      toast.error(message);
       throw new Error(message);
     } finally {
       setLoading(false);
     }
-  }, [loadProfiles, currentProfile]);
+  }, [loadProfiles, currentProfile]); // toast is stable
 
   const deleteProfile = useCallback(async (id: string): Promise<void> => {
     try {
@@ -96,14 +104,16 @@ export function useProfiles() {
       if (currentProfile?.id === id) {
         setCurrentProfile(null);
       }
+      toast.success('Profile deleted');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete profile';
       setError(message);
+      toast.error(message);
       throw new Error(message);
     } finally {
       setLoading(false);
     }
-  }, [loadProfiles, currentProfile]);
+  }, [loadProfiles, currentProfile]); // toast is stable
 
   const setAsCurrentProfile = useCallback(async (id: string): Promise<DroneProfile> => {
     try {
@@ -112,15 +122,17 @@ export function useProfiles() {
       const profile = await window.betaflight.setCurrentProfile(id);
       setCurrentProfile(profile);
       await loadProfiles();
+      toast.info(`Switched to profile '${profile.name}'`);
       return profile;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to set current profile';
       setError(message);
+      toast.error(message);
       throw new Error(message);
     } finally {
       setLoading(false);
     }
-  }, [loadProfiles]);
+  }, [loadProfiles]); // toast is stable
 
   const getProfile = useCallback(async (id: string): Promise<DroneProfile | null> => {
     try {
@@ -134,12 +146,14 @@ export function useProfiles() {
   const exportProfile = useCallback(async (id: string, filePath: string): Promise<void> => {
     try {
       await window.betaflight.exportProfile(id, filePath);
+      toast.success('Profile exported successfully');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to export profile';
       setError(message);
+      toast.error(message);
       throw new Error(message);
     }
-  }, []);
+  }, []); // toast is stable
 
   useEffect(() => {
     loadProfiles();
