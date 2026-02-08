@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RecommendationCard } from './RecommendationCard';
+import { SpectrumChart } from './charts/SpectrumChart';
 import type { FilterAnalysisResult, AnalysisProgress } from '@shared/types/analysis.types';
 
 interface FilterAnalysisStepProps {
@@ -105,6 +106,7 @@ export function FilterAnalysisStep({
 
         {noiseDetailsOpen && (
           <div className="noise-details">
+            <SpectrumChart noise={filterResult.noise} />
             <div className="axis-summary">
               {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
                 const profile = filterResult.noise[axis];
