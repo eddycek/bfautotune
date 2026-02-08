@@ -1,0 +1,208 @@
+/**
+ * Compute step response metrics from gyro data aligned to a step event.
+ *
+ * For each detected step, we extract the gyro response window and measure:
+ * - Rise time (10% → 90% of final value)
+ * - Overshoot percentage
+ * - Settling time (time to stay within ±2% of target)
+ * - Latency (delay from setpoint change to first gyro movement)
+ * - Ringing count (oscillations before settling)
+ */
+import type { TimeSeries } from '@shared/types/blackbox.types';
+import type { StepEvent, StepResponse, AxisStepProfile } from '@shared/types/analysis.types';
+import {
+  SETTLING_TOLERANCE,
+  RISE_TIME_LOW,
+  RISE_TIME_HIGH,
+  LATENCY_THRESHOLD,
+} from './constants';
+
+/**
+ * Compute response metrics for a single step event.
+ */
+export function computeStepResponse(
+  setpoint: TimeSeries,
+  gyro: TimeSeries,
+  step: StepEvent,
+  sampleRate: number
+): StepResponse {
+  const { startIndex, endIndex, magnitude } = step;
+  const msPerSample = 1000 / sampleRate;
+
+  // Extract baseline (gyro value just before the step)
+  const baseline = startIndex > 0 ? gyro.values[startIndex - 1] : gyro.values[startIndex];
+
+  // Compute steady state: average of last 20% of the response window
+  const windowLen = endIndex - startIndex;
+  const tailStart = startIndex + Math.floor(windowLen * 0.8);
+  const tailEnd = endIndex;
+  const steadyStateValue = mean(gyro.values, tailStart, tailEnd);
+
+  // Expected target: baseline + magnitude
+  const target = baseline + magnitude;
+
+  // Use steadyState for metric computation (what the gyro actually converges to)
+  const effectiveTarget = steadyStateValue;
+  const effectiveMagnitude = effectiveTarget - baseline;
+
+  // Handle near-zero magnitude (no meaningful response)
+  if (Math.abs(effectiveMagnitude) < 1) {
+    return {
+      step,
+      riseTimeMs: windowLen * msPerSample,
+      overshootPercent: 0,
+      settlingTimeMs: windowLen * msPerSample,
+      latencyMs: windowLen * msPerSample,
+      ringingCount: 0,
+      peakValue: baseline,
+      steadyStateValue,
+    };
+  }
+
+  // Latency: first sample where gyro moves > LATENCY_THRESHOLD * |magnitude| from baseline
+  const latencyThreshold = LATENCY_THRESHOLD * Math.abs(magnitude);
+  let latencyMs = windowLen * msPerSample; // default: entire window
+  for (let i = startIndex; i < endIndex; i++) {
+    if (Math.abs(gyro.values[i] - baseline) > latencyThreshold) {
+      latencyMs = (i - startIndex) * msPerSample;
+      break;
+    }
+  }
+
+  // Rise time: time from RISE_TIME_LOW to RISE_TIME_HIGH of effectiveMagnitude
+  const lowThreshold = baseline + effectiveMagnitude * RISE_TIME_LOW;
+  const highThreshold = baseline + effectiveMagnitude * RISE_TIME_HIGH;
+  let riseLowIdx = -1;
+  let riseHighIdx = -1;
+
+  for (let i = startIndex; i < endIndex; i++) {
+    const val = gyro.values[i];
+    if (riseLowIdx < 0 && crossedThreshold(val, baseline, lowThreshold, effectiveMagnitude > 0)) {
+      riseLowIdx = i;
+    }
+    if (riseHighIdx < 0 && crossedThreshold(val, baseline, highThreshold, effectiveMagnitude > 0)) {
+      riseHighIdx = i;
+    }
+    if (riseLowIdx >= 0 && riseHighIdx >= 0) break;
+  }
+
+  const riseTimeMs = (riseLowIdx >= 0 && riseHighIdx >= 0)
+    ? (riseHighIdx - riseLowIdx) * msPerSample
+    : windowLen * msPerSample;
+
+  // Peak value: max deviation from baseline in the step direction
+  let peakValue = baseline;
+  for (let i = startIndex; i < endIndex; i++) {
+    const val = gyro.values[i];
+    if (effectiveMagnitude > 0) {
+      if (val > peakValue) peakValue = val;
+    } else {
+      if (val < peakValue) peakValue = val;
+    }
+  }
+
+  // Overshoot: how much the peak exceeds the target
+  const overshootPercent = Math.abs(effectiveMagnitude) > 1
+    ? Math.max(0, ((effectiveMagnitude > 0 ? peakValue - effectiveTarget : effectiveTarget - peakValue) / Math.abs(effectiveMagnitude)) * 100)
+    : 0;
+
+  // Settling time: last time the signal exits the ±SETTLING_TOLERANCE band around steady state
+  const settlingBand = Math.abs(effectiveMagnitude) * SETTLING_TOLERANCE;
+  let settlingTimeMs = windowLen * msPerSample;
+  // Scan from end to find last time outside the band
+  for (let i = endIndex - 1; i >= startIndex; i--) {
+    if (Math.abs(gyro.values[i] - effectiveTarget) > settlingBand) {
+      settlingTimeMs = (i - startIndex + 1) * msPerSample;
+      break;
+    }
+    if (i === startIndex) {
+      settlingTimeMs = 0; // Never left the band
+    }
+  }
+
+  // Ringing: count zero-crossings of (gyro - steadyState) in response tail
+  // Start counting after the first rise
+  const ringingStartIdx = riseHighIdx >= 0 ? riseHighIdx : startIndex + Math.floor(windowLen * 0.3);
+  let ringingCount = 0;
+  let prevSign = 0;
+  for (let i = ringingStartIdx; i < endIndex; i++) {
+    const diff = gyro.values[i] - effectiveTarget;
+    const sign = diff > 0 ? 1 : diff < 0 ? -1 : 0;
+    if (sign !== 0 && prevSign !== 0 && sign !== prevSign) {
+      ringingCount++;
+    }
+    if (sign !== 0) prevSign = sign;
+  }
+  // Each full oscillation is 2 zero crossings, report oscillation count
+  ringingCount = Math.floor(ringingCount / 2);
+
+  return {
+    step,
+    riseTimeMs,
+    overshootPercent,
+    settlingTimeMs,
+    latencyMs,
+    ringingCount,
+    peakValue,
+    steadyStateValue,
+  };
+}
+
+/**
+ * Aggregate step responses for one axis into an AxisStepProfile.
+ */
+export function aggregateAxisMetrics(responses: StepResponse[]): AxisStepProfile {
+  if (responses.length === 0) {
+    return {
+      responses,
+      meanOvershoot: 0,
+      meanRiseTimeMs: 0,
+      meanSettlingTimeMs: 0,
+      meanLatencyMs: 0,
+    };
+  }
+
+  return {
+    responses,
+    meanOvershoot: mean(
+      new Float64Array(responses.map(r => r.overshootPercent)),
+      0,
+      responses.length
+    ),
+    meanRiseTimeMs: mean(
+      new Float64Array(responses.map(r => r.riseTimeMs)),
+      0,
+      responses.length
+    ),
+    meanSettlingTimeMs: mean(
+      new Float64Array(responses.map(r => r.settlingTimeMs)),
+      0,
+      responses.length
+    ),
+    meanLatencyMs: mean(
+      new Float64Array(responses.map(r => r.latencyMs)),
+      0,
+      responses.length
+    ),
+  };
+}
+
+/** Check if value has crossed a threshold in the correct direction */
+function crossedThreshold(value: number, baseline: number, threshold: number, isPositive: boolean): boolean {
+  if (isPositive) {
+    return value >= threshold;
+  } else {
+    return value <= threshold;
+  }
+}
+
+/** Compute mean of a Float64Array slice */
+function mean(arr: Float64Array, start: number, end: number): number {
+  const len = end - start;
+  if (len <= 0) return 0;
+  let sum = 0;
+  for (let i = start; i < end; i++) {
+    sum += arr[i];
+  }
+  return sum / len;
+}
