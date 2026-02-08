@@ -29,13 +29,15 @@ const DEFAULT_PIDS: PIDConfiguration = {
  * @param sessionIndex - Which session is being analyzed
  * @param currentPIDs - Current PID configuration from the FC
  * @param onProgress - Optional progress callback
+ * @param flightPIDs - PIDs from the BBL header (flight-time PIDs) for convergent recommendations
  * @returns Complete PID analysis result with recommendations
  */
 export async function analyzePID(
   flightData: BlackboxFlightData,
   sessionIndex: number = 0,
   currentPIDs: PIDConfiguration = DEFAULT_PIDS,
-  onProgress?: (progress: AnalysisProgress) => void
+  onProgress?: (progress: AnalysisProgress) => void,
+  flightPIDs?: PIDConfiguration
 ): Promise<PIDAnalysisResult> {
   const startTime = performance.now();
 
@@ -86,7 +88,7 @@ export async function analyzePID(
 
   // Step 3: Generate recommendations
   onProgress?.({ step: 'scoring', percent: 80 });
-  const recommendations = recommendPID(roll, pitch, yaw, currentPIDs);
+  const recommendations = recommendPID(roll, pitch, yaw, currentPIDs, flightPIDs);
   const summary = generatePIDSummary(roll, pitch, yaw, recommendations);
 
   onProgress?.({ step: 'scoring', percent: 100 });

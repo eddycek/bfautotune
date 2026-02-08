@@ -448,11 +448,11 @@ UI displays error message to user
 
 ## Testing Strategy
 
-### Unit Tests (544 tests across 32 files)
+### Unit Tests (558 tests across 32 files)
 - MSP protocol encoding/decoding, filter config parsing (3 tests)
 - Blackbox parser pipeline (171 tests)
-- FFT analysis pipeline (91 tests)
-- Step response analysis pipeline (58 tests)
+- FFT analysis pipeline (98 tests) — includes convergent noise-based filter targets
+- Step response analysis pipeline (65 tests) — includes flight PID anchoring & convergence
 - UI components and hooks
 - Tuning wizard flow
 

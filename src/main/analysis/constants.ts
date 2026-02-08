@@ -78,13 +78,14 @@ export const DTERM_LPF1_MIN_HZ = 70;
 /** Absolute maximum D-term lowpass 1 cutoff in Hz */
 export const DTERM_LPF1_MAX_HZ = 200;
 
-/** Adjustment step for high noise: reduce by this many Hz (BF guide: 20 Hz steps) */
-export const HIGH_NOISE_GYRO_REDUCTION_HZ = 20;
-export const HIGH_NOISE_DTERM_REDUCTION_HZ = 20;
+/** dB level for extreme noise (maps to minimum cutoff in noise-based targeting) */
+export const NOISE_FLOOR_VERY_NOISY_DB = -10;
 
-/** Adjustment step for low noise: increase by this many Hz (BF guide: 20 Hz steps) */
-export const LOW_NOISE_GYRO_INCREASE_HZ = 20;
-export const LOW_NOISE_DTERM_INCREASE_HZ = 20;
+/** dB level for very clean signal (maps to maximum cutoff in noise-based targeting) */
+export const NOISE_FLOOR_VERY_CLEAN_DB = -70;
+
+/** Minimum difference to recommend a noise-based filter change (Hz) */
+export const NOISE_TARGET_DEADZONE_HZ = 5;
 
 /** Resonance peak amplitude threshold for notch/cutoff recommendation (dB above floor) */
 export const RESONANCE_ACTION_THRESHOLD_DB = 12;

@@ -16,10 +16,9 @@ import {
   GYRO_LPF1_MAX_HZ,
   DTERM_LPF1_MIN_HZ,
   DTERM_LPF1_MAX_HZ,
-  HIGH_NOISE_GYRO_REDUCTION_HZ,
-  HIGH_NOISE_DTERM_REDUCTION_HZ,
-  LOW_NOISE_GYRO_INCREASE_HZ,
-  LOW_NOISE_DTERM_INCREASE_HZ,
+  NOISE_FLOOR_VERY_NOISY_DB,
+  NOISE_FLOOR_VERY_CLEAN_DB,
+  NOISE_TARGET_DEADZONE_HZ,
   RESONANCE_ACTION_THRESHOLD_DB,
   RESONANCE_CUTOFF_MARGIN_HZ,
 } from './constants';
@@ -51,7 +50,20 @@ export function recommend(
 }
 
 /**
- * Adjust lowpass filters based on overall noise level.
+ * Compute an absolute target cutoff from the noise floor dB level.
+ * Linear interpolation: VERY_NOISY_DB → minHz, VERY_CLEAN_DB → maxHz.
+ * Result is clamped to [minHz, maxHz] and rounded.
+ */
+export function computeNoiseBasedTarget(worstNoiseFloorDb: number, minHz: number, maxHz: number): number {
+  // Linear interpolation: noisyDb maps to minHz, cleanDb maps to maxHz
+  const t = (worstNoiseFloorDb - NOISE_FLOOR_VERY_NOISY_DB) / (NOISE_FLOOR_VERY_CLEAN_DB - NOISE_FLOOR_VERY_NOISY_DB);
+  const target = minHz + t * (maxHz - minHz);
+  return Math.round(clamp(target, minHz, maxHz));
+}
+
+/**
+ * Adjust lowpass filters based on overall noise level using absolute noise-based targets.
+ * Targets depend only on the noise floor dB, NOT on current settings → convergent.
  */
 function recommendNoiseFloorAdjustments(
   noise: NoiseProfile,
@@ -60,80 +72,66 @@ function recommendNoiseFloorAdjustments(
 ): void {
   const { overallLevel } = noise;
 
+  // Skip medium noise — no lowpass changes needed
+  if (overallLevel === 'medium') return;
+
   // Skip gyro LPF noise-floor adjustment when gyro_lpf1 is disabled (0 = common in BF 4.4+ with RPM filter)
   const gyroLpfDisabled = current.gyro_lpf1_static_hz === 0;
 
+  // Compute worst noise floor across roll and pitch (the critical axes)
+  const worstFloor = Math.max(noise.roll.noiseFloorDb, noise.pitch.noiseFloorDb);
+
+  // Compute absolute targets from noise data (independent of current settings)
+  const targetGyroLpf1 = computeNoiseBasedTarget(worstFloor, GYRO_LPF1_MIN_HZ, GYRO_LPF1_MAX_HZ);
+  const targetDtermLpf1 = computeNoiseBasedTarget(worstFloor, DTERM_LPF1_MIN_HZ, DTERM_LPF1_MAX_HZ);
+
   if (overallLevel === 'high') {
-    // Noise is high → more filtering (lower cutoffs)
-    if (!gyroLpfDisabled) {
-      const newGyroLpf1 = clamp(
-        current.gyro_lpf1_static_hz - HIGH_NOISE_GYRO_REDUCTION_HZ,
-        GYRO_LPF1_MIN_HZ,
-        GYRO_LPF1_MAX_HZ
-      );
-      if (newGyroLpf1 !== current.gyro_lpf1_static_hz) {
-        out.push({
-          setting: 'gyro_lpf1_static_hz',
-          currentValue: current.gyro_lpf1_static_hz,
-          recommendedValue: newGyroLpf1,
-          reason:
-            'Your gyro data has a lot of noise. Lowering the gyro lowpass filter will clean up the signal, ' +
-            'which helps your flight controller respond to real movement instead of vibrations.',
-          impact: 'both',
-          confidence: 'high',
-        });
-      }
+    // High noise → recommend noise-based targets (typically lower cutoffs)
+    if (!gyroLpfDisabled && Math.abs(targetGyroLpf1 - current.gyro_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ) {
+      out.push({
+        setting: 'gyro_lpf1_static_hz',
+        currentValue: current.gyro_lpf1_static_hz,
+        recommendedValue: targetGyroLpf1,
+        reason:
+          'Your gyro data has a lot of noise. Adjusting the gyro lowpass filter will clean up the signal, ' +
+          'which helps your flight controller respond to real movement instead of vibrations.',
+        impact: 'both',
+        confidence: 'high',
+      });
     }
 
-    const newDtermLpf1 = clamp(
-      current.dterm_lpf1_static_hz - HIGH_NOISE_DTERM_REDUCTION_HZ,
-      DTERM_LPF1_MIN_HZ,
-      DTERM_LPF1_MAX_HZ
-    );
-    if (newDtermLpf1 !== current.dterm_lpf1_static_hz) {
+    if (Math.abs(targetDtermLpf1 - current.dterm_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ) {
       out.push({
         setting: 'dterm_lpf1_static_hz',
         currentValue: current.dterm_lpf1_static_hz,
-        recommendedValue: newDtermLpf1,
+        recommendedValue: targetDtermLpf1,
         reason:
-          'High noise is reaching the D-term (derivative) calculation. Lowering this filter reduces motor ' +
+          'High noise is reaching the D-term (derivative) calculation. Adjusting this filter reduces motor ' +
           'heating and oscillation caused by noisy D-term output.',
         impact: 'both',
         confidence: 'high',
       });
     }
   } else if (overallLevel === 'low') {
-    // Noise is low → less filtering (higher cutoffs = less latency)
-    if (!gyroLpfDisabled) {
-      const newGyroLpf1 = clamp(
-        current.gyro_lpf1_static_hz + LOW_NOISE_GYRO_INCREASE_HZ,
-        GYRO_LPF1_MIN_HZ,
-        GYRO_LPF1_MAX_HZ
-      );
-      if (newGyroLpf1 !== current.gyro_lpf1_static_hz) {
-        out.push({
-          setting: 'gyro_lpf1_static_hz',
-          currentValue: current.gyro_lpf1_static_hz,
-          recommendedValue: newGyroLpf1,
-          reason:
-            'Your quad is very clean with minimal vibrations. Raising the gyro filter cutoff will give you ' +
-            'faster response and sharper control with almost no downside.',
-          impact: 'latency',
-          confidence: 'medium',
-        });
-      }
+    // Low noise → recommend noise-based targets (typically higher cutoffs = less latency)
+    if (!gyroLpfDisabled && Math.abs(targetGyroLpf1 - current.gyro_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ) {
+      out.push({
+        setting: 'gyro_lpf1_static_hz',
+        currentValue: current.gyro_lpf1_static_hz,
+        recommendedValue: targetGyroLpf1,
+        reason:
+          'Your quad is very clean with minimal vibrations. Adjusting the gyro filter cutoff will give you ' +
+          'faster response and sharper control with almost no downside.',
+        impact: 'latency',
+        confidence: 'medium',
+      });
     }
 
-    const newDtermLpf1 = clamp(
-      current.dterm_lpf1_static_hz + LOW_NOISE_DTERM_INCREASE_HZ,
-      DTERM_LPF1_MIN_HZ,
-      DTERM_LPF1_MAX_HZ
-    );
-    if (newDtermLpf1 !== current.dterm_lpf1_static_hz) {
+    if (Math.abs(targetDtermLpf1 - current.dterm_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ) {
       out.push({
         setting: 'dterm_lpf1_static_hz',
         currentValue: current.dterm_lpf1_static_hz,
-        recommendedValue: newDtermLpf1,
+        recommendedValue: targetDtermLpf1,
         reason:
           'Low noise means the D-term filter can be relaxed for sharper stick response. ' +
           'This makes your quad feel more locked-in during fast moves.',
@@ -142,7 +140,6 @@ function recommendNoiseFloorAdjustments(
       });
     }
   }
-  // 'medium' → no changes needed for lowpass
 }
 
 /**

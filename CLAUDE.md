@@ -156,7 +156,7 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 - **SegmentSelector**: Finds stable hover segments (excludes takeoff/landing/acro)
 - **FFTCompute**: Hanning window, Welch's method (50% overlap), power spectral density
 - **NoiseAnalyzer**: Noise floor estimation, peak detection (prominence-based), source classification (frame resonance 80-200 Hz, motor harmonics, electrical >500 Hz)
-- **FilterRecommender**: Rule-based recommendations with safety bounds (min gyro LPF 100 Hz, min D-term LPF 80 Hz), beginner-friendly explanations
+- **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, beginner-friendly explanations
 - **FilterAnalyzer**: Orchestrator with async progress reporting
 - IPC: `ANALYSIS_RUN_FILTER` + `EVENT_ANALYSIS_PROGRESS`
 - Dependency: `fft.js`
@@ -170,8 +170,8 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 
 - **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation
 - **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
-- **PIDRecommender**: Rule-based P/D recommendations with safety bounds (P: 20-120, D: 15-80), beginner-friendly explanations
-- **PIDAnalyzer**: Orchestrator with async progress reporting
+- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, safety bounds (P: 20-120, D: 15-80)
+- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
 ### Tuning Wizard (`src/renderer/components/TuningWizard/`)
@@ -208,13 +208,13 @@ Guided multi-step wizard for automated tuning workflow.
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 544 tests total across 32 test files
+- 558 tests total across 32 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
 - MSP Client: MSPClient (3 tests - filter config parsing)
 - Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (171 tests)
-- FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (91 tests)
-- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (58 tests)
+- FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (98 tests)
+- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (65 tests)
 - See `TESTING.md` for detailed guidelines
 
 ### Mock Setup

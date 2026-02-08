@@ -26,6 +26,7 @@ import { getMainWindow } from '../window';
 import { BlackboxParser } from '../blackbox/BlackboxParser';
 import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
 import { analyzePID } from '../analysis/PIDAnalyzer';
+import { extractFlightPIDs } from '../analysis/PIDRecommender';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -812,6 +813,9 @@ export function registerIPCHandlers(): void {
 
         const session = parseResult.sessions[idx];
 
+        // Extract flight-time PIDs from BBL header for convergent recommendations
+        const flightPIDs = extractFlightPIDs(session.header.rawHeaders);
+
         // Run PID analysis with progress reporting
         const result = await analyzePID(
           session.flightData,
@@ -819,7 +823,8 @@ export function registerIPCHandlers(): void {
           currentPIDs,
           (progress) => {
             event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
-          }
+          },
+          flightPIDs
         );
 
         logger.info(

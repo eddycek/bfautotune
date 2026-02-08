@@ -184,7 +184,7 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Total: 544 tests across 32 test files
+### Total: 558 tests across 32 test files
 
 ### UI Components (97+ tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
@@ -216,17 +216,17 @@ it('displays error when API fails', async () => {
 - ✅ **PredictorApplier** (27 tests) - 10 predictor types
 - ✅ **FrameParser** (15 tests) - I/P/S frame decoding
 
-### FFT Analysis (91 tests)
+### FFT Analysis (98 tests)
 - ✅ **FFTCompute** (20 tests) - Hanning window, Welch's method, sine detection, spectral leakage
 - ✅ **SegmentSelector** (18 tests) - Hover detection, throttle normalization, multi-format support
 - ✅ **NoiseAnalyzer** (25 tests) - Peak detection, classification, noise floor estimation
-- ✅ **FilterRecommender** (21 tests) - Rule engine, safety bounds, deduplication, friendly messages
+- ✅ **FilterRecommender** (28 tests) - Absolute noise-based targets, convergence, safety bounds, deduplication
 - ✅ **FilterAnalyzer** (9 tests) - End-to-end pipeline, progress reporting, edge cases
 
-### Step Response Analysis (58 tests)
+### Step Response Analysis (65 tests)
 - ✅ **StepDetector** (16 tests) - Derivative-based step detection, hold/cooldown validation
 - ✅ **StepMetrics** (15 tests) - Rise time, overshoot, settling, latency, ringing
-- ✅ **PIDRecommender** (18 tests) - Rule engine, safety bounds, P/D balance recommendations
+- ✅ **PIDRecommender** (25 tests) - Flight PID anchoring, convergence, extractFlightPIDs, safety bounds
 - ✅ **PIDAnalyzer** (9 tests) - End-to-end pipeline, progress reporting
 
 ### Coverage Goals
@@ -429,7 +429,7 @@ src/main/analysis/
   FFTCompute.test.ts                 ← 20 tests
   SegmentSelector.test.ts            ← 18 tests
   NoiseAnalyzer.test.ts              ← 25 tests
-  FilterRecommender.test.ts          ← 21 tests
+  FilterRecommender.test.ts          ← 28 tests
   FilterAnalyzer.test.ts             ← 9 tests
 ```
 
@@ -438,7 +438,7 @@ src/main/analysis/
 src/main/analysis/
   StepDetector.test.ts               ← 16 tests
   StepMetrics.test.ts                ← 15 tests
-  PIDRecommender.test.ts             ← 18 tests
+  PIDRecommender.test.ts             ← 25 tests
   PIDAnalyzer.test.ts                ← 9 tests
 ```
 

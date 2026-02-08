@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { recommendPID, generatePIDSummary } from './PIDRecommender';
+import { recommendPID, generatePIDSummary, extractFlightPIDs } from './PIDRecommender';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { AxisStepProfile, StepResponse, StepEvent } from '@shared/types/analysis.types';
 import { P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
@@ -235,6 +235,111 @@ describe('PIDRecommender', () => {
       const dRec = recs.find(r => r.setting === 'pid_roll_d');
       expect(dRec).toBeDefined();
       expect(dRec!.reason).toContain('settle');
+    });
+
+    // --- flightPIDs convergence tests ---
+
+    it('should anchor targets to flightPIDs when provided', () => {
+      const flightPIDs: PIDConfiguration = {
+        roll: { P: 40, I: 80, D: 25 },
+        pitch: { P: 42, I: 84, D: 27 },
+        yaw: { P: 40, I: 80, D: 0 },
+      };
+      // Current PIDs are different (already applied a previous recommendation)
+      const currentPIDs: PIDConfiguration = {
+        roll: { P: 40, I: 80, D: 30 },
+        pitch: { P: 42, I: 84, D: 32 },
+        yaw: { P: 40, I: 80, D: 0 },
+      };
+
+      const profile = makeProfile({ meanOvershoot: 20 }); // moderate overshoot → D+5
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), currentPIDs, flightPIDs);
+
+      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      // Target: flightD + 5 = 25 + 5 = 30, current = 30 → no recommendation (already at target)
+      expect(dRec).toBeUndefined();
+    });
+
+    it('should converge: applying recommendations as currentPIDs with same flightPIDs yields no recommendations', () => {
+      const flightPIDs: PIDConfiguration = {
+        roll: { P: 45, I: 80, D: 30 },
+        pitch: { P: 47, I: 84, D: 32 },
+        yaw: { P: 45, I: 80, D: 0 },
+      };
+
+      const overshootProfile = makeProfile({ meanOvershoot: 35 });
+
+      // First run: get recommendations
+      const recs1 = recommendPID(overshootProfile, emptyProfile(), emptyProfile(), flightPIDs, flightPIDs);
+      expect(recs1.length).toBeGreaterThan(0);
+
+      // Apply recommendations to current PIDs
+      const appliedPIDs: PIDConfiguration = JSON.parse(JSON.stringify(flightPIDs));
+      for (const rec of recs1) {
+        const match = rec.setting.match(/^pid_(roll|pitch|yaw)_(p|i|d)$/i);
+        if (match) {
+          const axis = match[1] as 'roll' | 'pitch' | 'yaw';
+          const term = match[2].toUpperCase() as 'P' | 'I' | 'D';
+          appliedPIDs[axis][term] = rec.recommendedValue;
+        }
+      }
+
+      // Second run: same flight data, same flightPIDs, but applied as current
+      const recs2 = recommendPID(overshootProfile, emptyProfile(), emptyProfile(), appliedPIDs, flightPIDs);
+      expect(recs2.length).toBe(0);
+    });
+
+    it('should still work without flightPIDs (fallback to currentPIDs)', () => {
+      const profile = makeProfile({ meanOvershoot: 35 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      // Should still produce recommendations when flightPIDs is undefined
+      expect(recs.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('extractFlightPIDs', () => {
+    it('should extract PIDs from valid BBL header', () => {
+      const headers = new Map<string, string>();
+      headers.set('rollPID', '45,80,30');
+      headers.set('pitchPID', '47,84,32');
+      headers.set('yawPID', '45,80,0');
+
+      const result = extractFlightPIDs(headers);
+      expect(result).toBeDefined();
+      expect(result!.roll).toEqual({ P: 45, I: 80, D: 30 });
+      expect(result!.pitch).toEqual({ P: 47, I: 84, D: 32 });
+      expect(result!.yaw).toEqual({ P: 45, I: 80, D: 0 });
+    });
+
+    it('should return undefined when PIDs are missing from header', () => {
+      const headers = new Map<string, string>();
+      headers.set('rollPID', '45,80,30');
+      // Missing pitchPID and yawPID
+
+      expect(extractFlightPIDs(headers)).toBeUndefined();
+    });
+
+    it('should return undefined for empty header map', () => {
+      expect(extractFlightPIDs(new Map())).toBeUndefined();
+    });
+
+    it('should handle malformed PID values gracefully', () => {
+      const headers = new Map<string, string>();
+      headers.set('rollPID', '45,abc,30');
+      headers.set('pitchPID', '47,,32');
+      headers.set('yawPID', '45,80');
+
+      const result = extractFlightPIDs(headers);
+      expect(result).toBeDefined();
+      // NaN from "abc" → 0 fallback
+      expect(result!.roll).toEqual({ P: 45, I: 0, D: 30 });
+      // Empty string → NaN → 0
+      expect(result!.pitch).toEqual({ P: 47, I: 0, D: 32 });
+      // Missing D → undefined → 0
+      expect(result!.yaw).toEqual({ P: 45, I: 80, D: 0 });
     });
   });
 
