@@ -15,6 +15,7 @@ import type {
 } from '@shared/types/profile.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from '@shared/types/blackbox.types';
+import type { FilterAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -341,6 +342,37 @@ const betaflightAPI: BetaflightAPI = {
     return () => {
       ipcRenderer.removeListener(IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS, listener);
     };
+  },
+
+  // Analysis
+  async analyzeFilters(
+    logId: string,
+    sessionIndex?: number,
+    currentSettings?: CurrentFilterSettings,
+    onProgress?: (progress: AnalysisProgress) => void
+  ): Promise<FilterAnalysisResult> {
+    let progressListener: ((event: any, progress: AnalysisProgress) => void) | null = null;
+    if (onProgress) {
+      progressListener = (_event: any, progress: AnalysisProgress) => onProgress(progress);
+      ipcRenderer.on(IPCChannel.EVENT_ANALYSIS_PROGRESS, progressListener);
+    }
+
+    try {
+      const response = await ipcRenderer.invoke(
+        IPCChannel.ANALYSIS_RUN_FILTER,
+        logId,
+        sessionIndex,
+        currentSettings
+      );
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to run filter analysis');
+      }
+      return response.data;
+    } finally {
+      if (progressListener) {
+        ipcRenderer.removeListener(IPCChannel.EVENT_ANALYSIS_PROGRESS, progressListener);
+      }
+    }
   },
 
   onPIDChanged(callback: (config: PIDConfiguration) => void): () => void {

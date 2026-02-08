@@ -13,7 +13,8 @@ import type {
   PresetProfile
 } from './profile.types';
 import type { PIDConfiguration } from './pid.types';
-import type { BlackboxInfo, BlackboxParseResult, BlackboxParseProgress } from './blackbox.types';
+import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from './blackbox.types';
+import type { FilterAnalysisResult, AnalysisProgress, CurrentFilterSettings } from './analysis.types';
 
 export enum IPCChannel {
   // Connection
@@ -60,6 +61,9 @@ export enum IPCChannel {
   BLACKBOX_TEST_READ = 'blackbox:test-read',
   BLACKBOX_PARSE_LOG = 'blackbox:parse-log',
 
+  // Analysis
+  ANALYSIS_RUN_FILTER = 'analysis:run-filter',
+
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
   EVENT_PROFILE_CHANGED = 'event:profile-changed',
@@ -67,6 +71,7 @@ export enum IPCChannel {
   EVENT_PID_CHANGED = 'event:pid-changed',
   EVENT_BLACKBOX_DOWNLOAD_PROGRESS = 'event:blackbox-download-progress',
   EVENT_BLACKBOX_PARSE_PROGRESS = 'event:blackbox-parse-progress',
+  EVENT_ANALYSIS_PROGRESS = 'event:analysis-progress',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log'
 }
@@ -123,6 +128,9 @@ export interface BetaflightAPI {
   testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }>;
   parseBlackboxLog(logId: string, onProgress?: (progress: BlackboxParseProgress) => void): Promise<BlackboxParseResult>;
   onBlackboxParseProgress(callback: (progress: BlackboxParseProgress) => void): () => void;
+
+  // Analysis
+  analyzeFilters(logId: string, sessionIndex?: number, currentSettings?: CurrentFilterSettings, onProgress?: (progress: AnalysisProgress) => void): Promise<FilterAnalysisResult>;
 
   // Events
   onError(callback: (error: string) => void): () => void;

@@ -71,6 +71,9 @@ global.window.betaflight = {
   savePIDConfig: vi.fn(),
   onPIDChanged: vi.fn(() => () => {}),
 
+  // Analysis
+  analyzeFilters: vi.fn(),
+
   // Events
   onError: vi.fn(() => () => {}),
   onLog: vi.fn(() => () => {})
