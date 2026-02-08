@@ -1,0 +1,364 @@
+.tuning-wizard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+.tuning-wizard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.tuning-wizard-header-left h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0;
+}
+
+.tuning-wizard-log-id {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  margin-top: 2px;
+  display: block;
+}
+
+/* Progress bar */
+.wizard-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+  padding: 16px 0;
+}
+
+.wizard-progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.wizard-progress-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.wizard-progress-step.done .wizard-progress-indicator {
+  background: var(--success-color, #51cf66);
+  color: #fff;
+}
+
+.wizard-progress-step.current .wizard-progress-indicator {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25);
+}
+
+.wizard-progress-step.upcoming .wizard-progress-indicator {
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #aaa);
+  border: 1px solid var(--border-color, #444);
+}
+
+.wizard-progress-label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.wizard-progress-step.done .wizard-progress-label {
+  color: var(--success-color, #51cf66);
+}
+
+.wizard-progress-step.current .wizard-progress-label {
+  color: #4dabf7;
+}
+
+.wizard-progress-step.upcoming .wizard-progress-label {
+  color: var(--text-secondary, #aaa);
+}
+
+.wizard-progress-line {
+  flex: 1;
+  height: 2px;
+  max-width: 80px;
+  margin: 0 8px;
+  margin-bottom: 22px;
+  background: var(--border-color, #444);
+  transition: background 0.2s ease;
+}
+
+.wizard-progress-line.done {
+  background: var(--success-color, #51cf66);
+}
+
+/* Content area */
+.tuning-wizard-content {
+  background: var(--bg-secondary, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+/* Shared step styles */
+.analysis-section {
+  margin-bottom: 24px;
+}
+
+.analysis-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0 0 8px 0;
+}
+
+.analysis-section p {
+  font-size: 13px;
+  color: var(--text-secondary, #aaa);
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.analysis-progress {
+  margin: 16px 0;
+}
+
+.analysis-progress-label {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.analysis-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-tertiary, #333);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.analysis-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #4dabf7);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.analysis-error {
+  padding: 12px;
+  background: var(--error-bg, #3a1a1a);
+  color: var(--error-color, #ff6b6b);
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.analysis-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #aaa);
+  font-size: 13px;
+}
+
+.analysis-empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.analysis-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* Noise level badge */
+.noise-level-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.noise-level-badge.low {
+  background: rgba(81, 207, 102, 0.15);
+  color: #51cf66;
+}
+
+.noise-level-badge.medium {
+  background: rgba(255, 212, 59, 0.15);
+  color: #ffd43b;
+}
+
+.noise-level-badge.high {
+  background: rgba(255, 135, 135, 0.15);
+  color: #ff8787;
+}
+
+/* Recommendation list */
+.recommendation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Session list */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-tertiary, #333);
+  border: 2px solid var(--border-color, #444);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.session-item:hover {
+  border-color: #4dabf7;
+  background: #2f2f2f;
+}
+
+.session-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+}
+
+.session-item-meta {
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+  display: flex;
+  gap: 8px;
+}
+
+/* Axis summary */
+.axis-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.axis-summary-card {
+  padding: 12px;
+  background: var(--bg-tertiary, #333);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.axis-summary-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #aaa);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.axis-summary-card-stat {
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+  margin-bottom: 4px;
+}
+
+.axis-summary-card-stat span {
+  color: var(--text-secondary, #aaa);
+}
+
+/* Summary step */
+.summary-section {
+  margin-bottom: 24px;
+}
+
+.summary-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0 0 4px 0;
+}
+
+.summary-section-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  margin: 0 0 12px 0;
+}
+
+.summary-divider {
+  border: none;
+  border-top: 1px solid var(--border-color, #444);
+  margin: 24px 0;
+}
+
+/* Button overrides for wizard context */
+.tuning-wizard .wizard-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.tuning-wizard .wizard-btn-secondary {
+  background-color: transparent;
+  color: #999;
+}
+
+.tuning-wizard .wizard-btn-secondary:hover {
+  color: #fff;
+  background-color: #2a2a2a;
+}
+
+.tuning-wizard .wizard-btn-primary {
+  background-color: #2563eb;
+  color: #fff;
+}
+
+.tuning-wizard .wizard-btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.tuning-wizard .wizard-btn-primary:disabled {
+  background-color: #404040;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tuning-wizard .wizard-btn-success {
+  background-color: #16a34a;
+  color: #fff;
+}
+
+.tuning-wizard .wizard-btn-success:hover {
+  background-color: #15803d;
+}

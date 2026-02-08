@@ -1,0 +1,89 @@
+.recommendation-card {
+  background: var(--bg-tertiary, #333);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 16px;
+  transition: border-color 0.2s ease;
+}
+
+.recommendation-card:hover {
+  border-color: var(--primary-color, #4dabf7);
+}
+
+.recommendation-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.recommendation-card-setting {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  font-family: monospace;
+}
+
+.recommendation-card-confidence {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.recommendation-card-confidence.high {
+  background: rgba(81, 207, 102, 0.15);
+  color: #51cf66;
+}
+
+.recommendation-card-confidence.medium {
+  background: rgba(255, 212, 59, 0.15);
+  color: #ffd43b;
+}
+
+.recommendation-card-confidence.low {
+  background: rgba(255, 135, 135, 0.15);
+  color: #ff8787;
+}
+
+.recommendation-card-values {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.recommendation-card-current {
+  color: var(--text-secondary, #aaa);
+}
+
+.recommendation-card-arrow {
+  color: var(--primary-color, #4dabf7);
+  font-size: 16px;
+}
+
+.recommendation-card-recommended {
+  color: var(--primary-color, #4dabf7);
+}
+
+.recommendation-card-reason {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  line-height: 1.5;
+}
+
+.recommendation-card-impact {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(77, 171, 247, 0.1);
+  color: var(--primary-color, #4dabf7);
+  text-transform: lowercase;
+}

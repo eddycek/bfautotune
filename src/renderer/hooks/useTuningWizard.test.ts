@@ -148,9 +148,9 @@ const mockPIDResult: PIDAnalysisResult = {
   sessionIndex: 0,
   stepsDetected: 12,
   currentPIDs: {
-    roll: { p: 45, i: 80, d: 30, f: 120 },
-    pitch: { p: 47, i: 84, d: 32, f: 125 },
-    yaw: { p: 45, i: 80, d: 0, f: 0 },
+    roll: { P: 45, I: 80, D: 30 },
+    pitch: { P: 47, I: 84, D: 32 },
+    yaw: { P: 45, I: 80, D: 0 },
   },
 };
 
