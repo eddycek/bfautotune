@@ -1,0 +1,255 @@
+/**
+ * Noise analysis module — detects noise floor, resonance peaks, and classifies noise sources.
+ *
+ * Takes power spectra (from FFTCompute) and produces noise profiles with peak
+ * detection and source classification (frame resonance, motor harmonics, electrical).
+ */
+import type { PowerSpectrum, NoisePeak, AxisNoiseProfile, NoiseProfile } from '@shared/types/analysis.types';
+import {
+  PEAK_PROMINENCE_DB,
+  PEAK_LOCAL_WINDOW_BINS,
+  NOISE_FLOOR_PERCENTILE,
+  NOISE_LEVEL_HIGH_DB,
+  NOISE_LEVEL_MEDIUM_DB,
+  FRAME_RESONANCE_MIN_HZ,
+  FRAME_RESONANCE_MAX_HZ,
+  ELECTRICAL_NOISE_MIN_HZ,
+  MOTOR_HARMONIC_TOLERANCE_HZ,
+  MOTOR_HARMONIC_MIN_PEAKS,
+} from './constants';
+
+/**
+ * Estimate the noise floor of a magnitude spectrum.
+ * Uses the lower percentile of magnitudes as the floor estimate.
+ */
+export function estimateNoiseFloor(magnitudes: Float64Array): number {
+  if (magnitudes.length === 0) return -240;
+
+  const sorted = Array.from(magnitudes).sort((a, b) => a - b);
+  const idx = Math.floor(sorted.length * NOISE_FLOOR_PERCENTILE);
+  return sorted[Math.max(0, idx)];
+}
+
+/**
+ * Estimate the local noise floor around a specific bin.
+ * Uses median of surrounding bins (excluding the immediate neighborhood).
+ */
+export function localNoiseFloor(
+  magnitudes: Float64Array,
+  binIndex: number,
+  windowBins: number = PEAK_LOCAL_WINDOW_BINS
+): number {
+  const start = Math.max(0, binIndex - windowBins);
+  const end = Math.min(magnitudes.length, binIndex + windowBins + 1);
+
+  // Collect bins excluding 3 bins immediately around the peak
+  const values: number[] = [];
+  for (let i = start; i < end; i++) {
+    if (Math.abs(i - binIndex) > 3) {
+      values.push(magnitudes[i]);
+    }
+  }
+
+  if (values.length === 0) return magnitudes[binIndex];
+
+  values.sort((a, b) => a - b);
+  return values[Math.floor(values.length / 2)]; // median
+}
+
+/**
+ * Detect peaks in a power spectrum using prominence-based detection.
+ *
+ * A peak is a local maximum where its magnitude exceeds the local noise
+ * floor by more than the prominence threshold.
+ */
+export function detectPeaks(
+  spectrum: PowerSpectrum,
+  prominenceDb: number = PEAK_PROMINENCE_DB
+): Array<{ frequency: number; amplitude: number; binIndex: number }> {
+  const { frequencies, magnitudes } = spectrum;
+  if (magnitudes.length < 3) return [];
+
+  const peaks: Array<{ frequency: number; amplitude: number; binIndex: number }> = [];
+
+  for (let i = 1; i < magnitudes.length - 1; i++) {
+    // Local maximum check
+    if (magnitudes[i] <= magnitudes[i - 1] || magnitudes[i] <= magnitudes[i + 1]) {
+      continue;
+    }
+
+    // Check prominence above local noise floor
+    const localFloor = localNoiseFloor(magnitudes, i);
+    const prominence = magnitudes[i] - localFloor;
+
+    if (prominence >= prominenceDb) {
+      peaks.push({
+        frequency: frequencies[i],
+        amplitude: prominence,
+        binIndex: i,
+      });
+    }
+  }
+
+  // Sort by amplitude (strongest first)
+  peaks.sort((a, b) => b.amplitude - a.amplitude);
+
+  return peaks;
+}
+
+/**
+ * Classify a noise peak based on its frequency.
+ */
+export function classifyPeak(
+  frequency: number,
+  allPeaks: Array<{ frequency: number }>
+): NoisePeak['type'] {
+  // Check for motor harmonics: equally-spaced peaks
+  if (isMotorHarmonic(frequency, allPeaks)) {
+    return 'motor_harmonic';
+  }
+
+  // Frame resonance band
+  if (frequency >= FRAME_RESONANCE_MIN_HZ && frequency <= FRAME_RESONANCE_MAX_HZ) {
+    return 'frame_resonance';
+  }
+
+  // Electrical noise band
+  if (frequency >= ELECTRICAL_NOISE_MIN_HZ) {
+    return 'electrical';
+  }
+
+  return 'unknown';
+}
+
+/**
+ * Check if a peak frequency is part of a motor harmonic series.
+ * Motor harmonics are equally-spaced peaks (e.g., 150, 300, 450 Hz).
+ */
+function isMotorHarmonic(
+  frequency: number,
+  allPeaks: Array<{ frequency: number }>
+): boolean {
+  if (allPeaks.length < MOTOR_HARMONIC_MIN_PEAKS) return false;
+
+  const peakFreqs = allPeaks.map((p) => p.frequency).sort((a, b) => a - b);
+
+  // Check if this frequency is a harmonic of any fundamental
+  for (const fundamental of peakFreqs) {
+    if (fundamental < 30) continue; // Too low to be a meaningful fundamental
+
+    let harmonicCount = 0;
+    for (const pf of peakFreqs) {
+      const ratio = pf / fundamental;
+      const nearestInt = Math.round(ratio);
+      if (nearestInt >= 1 && Math.abs(pf - fundamental * nearestInt) < MOTOR_HARMONIC_TOLERANCE_HZ) {
+        harmonicCount++;
+      }
+    }
+
+    if (harmonicCount >= MOTOR_HARMONIC_MIN_PEAKS) {
+      // Check if our frequency matches one of these harmonics
+      const ratio = frequency / fundamental;
+      const nearestInt = Math.round(ratio);
+      if (nearestInt >= 1 && Math.abs(frequency - fundamental * nearestInt) < MOTOR_HARMONIC_TOLERANCE_HZ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Analyze noise for a single axis from one or more segment spectra.
+ *
+ * When multiple spectra are provided (from different segments), they are
+ * averaged for a more robust noise estimate.
+ */
+export function analyzeAxisNoise(spectra: PowerSpectrum[]): AxisNoiseProfile {
+  if (spectra.length === 0) {
+    return {
+      spectrum: { frequencies: new Float64Array(0), magnitudes: new Float64Array(0) },
+      noiseFloorDb: -240,
+      peaks: [],
+    };
+  }
+
+  // Average the spectra
+  const averaged = averageSpectra(spectra);
+
+  // Estimate noise floor
+  const noiseFloorDb = estimateNoiseFloor(averaged.magnitudes);
+
+  // Detect peaks
+  const rawPeaks = detectPeaks(averaged);
+
+  // Classify peaks
+  const peaks: NoisePeak[] = rawPeaks.map((p) => ({
+    frequency: p.frequency,
+    amplitude: p.amplitude,
+    type: classifyPeak(p.frequency, rawPeaks),
+  }));
+
+  return {
+    spectrum: averaged,
+    noiseFloorDb,
+    peaks,
+  };
+}
+
+/**
+ * Average multiple power spectra (they must have identical frequency bins).
+ */
+export function averageSpectra(spectra: PowerSpectrum[]): PowerSpectrum {
+  if (spectra.length === 1) return spectra[0];
+
+  const numBins = spectra[0].frequencies.length;
+  const avgMagnitudes = new Float64Array(numBins);
+
+  // Average in linear domain
+  for (const s of spectra) {
+    for (let i = 0; i < numBins; i++) {
+      avgMagnitudes[i] += Math.pow(10, s.magnitudes[i] / 20);
+    }
+  }
+
+  const magnitudes = new Float64Array(numBins);
+  for (let i = 0; i < numBins; i++) {
+    const avg = avgMagnitudes[i] / spectra.length;
+    magnitudes[i] = avg > 1e-12 ? 20 * Math.log10(avg) : -240;
+  }
+
+  return { frequencies: spectra[0].frequencies, magnitudes };
+}
+
+/**
+ * Determine overall noise level from axis noise profiles.
+ */
+export function categorizeNoiseLevel(
+  roll: AxisNoiseProfile,
+  pitch: AxisNoiseProfile,
+  yaw: AxisNoiseProfile
+): NoiseProfile['overallLevel'] {
+  // Use the worst (highest) noise floor across roll and pitch (yaw is typically noisier, less relevant)
+  const worstFloor = Math.max(roll.noiseFloorDb, pitch.noiseFloorDb);
+
+  if (worstFloor > NOISE_LEVEL_HIGH_DB) return 'high';
+  if (worstFloor > NOISE_LEVEL_MEDIUM_DB) return 'medium';
+  return 'low';
+}
+
+/**
+ * Build a complete noise profile from axis profiles.
+ */
+export function buildNoiseProfile(
+  roll: AxisNoiseProfile,
+  pitch: AxisNoiseProfile,
+  yaw: AxisNoiseProfile
+): NoiseProfile {
+  return {
+    roll,
+    pitch,
+    yaw,
+    overallLevel: categorizeNoiseLevel(roll, pitch, yaw),
+  };
+}
