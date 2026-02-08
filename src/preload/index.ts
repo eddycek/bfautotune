@@ -16,6 +16,7 @@ import type {
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
+import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress } from '@shared/types/ipc.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -403,6 +404,23 @@ const betaflightAPI: BetaflightAPI = {
         ipcRenderer.removeListener(IPCChannel.EVENT_ANALYSIS_PROGRESS, progressListener);
       }
     }
+  },
+
+  // Tuning
+  async applyRecommendations(input: ApplyRecommendationsInput): Promise<ApplyRecommendationsResult> {
+    const response = await ipcRenderer.invoke(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, input);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to apply recommendations');
+    }
+    return response.data;
+  },
+
+  onApplyProgress(callback: (progress: ApplyRecommendationsProgress) => void): () => void {
+    const listener = (_: any, progress: ApplyRecommendationsProgress) => callback(progress);
+    ipcRenderer.on(IPCChannel.EVENT_TUNING_APPLY_PROGRESS, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_TUNING_APPLY_PROGRESS, listener);
+    };
   },
 
   onPIDChanged(callback: (config: PIDConfiguration) => void): () => void {

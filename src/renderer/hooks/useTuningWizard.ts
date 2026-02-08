@@ -1,10 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { BlackboxLogSession, BlackboxParseProgress } from '@shared/types/blackbox.types';
 import type {
   FilterAnalysisResult,
   PIDAnalysisResult,
   AnalysisProgress
 } from '@shared/types/analysis.types';
+import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
+import { markIntentionalDisconnect } from './useConnection';
+
+export type ApplyState = 'idle' | 'confirming' | 'applying' | 'done' | 'error';
 
 export type WizardStep = 'guide' | 'session' | 'filter' | 'pid' | 'summary';
 
@@ -35,6 +39,15 @@ export interface UseTuningWizardReturn {
   pidProgress: AnalysisProgress | null;
   pidError: string | null;
   runPIDAnalysis: () => Promise<void>;
+
+  // Apply
+  applyState: ApplyState;
+  applyProgress: ApplyRecommendationsProgress | null;
+  applyResult: ApplyRecommendationsResult | null;
+  applyError: string | null;
+  startApply: () => void;
+  confirmApply: (createSnapshot: boolean) => Promise<void>;
+  cancelApply: () => void;
 }
 
 export function useTuningWizard(logId: string): UseTuningWizardReturn {
@@ -58,6 +71,12 @@ export function useTuningWizard(logId: string): UseTuningWizardReturn {
   const [pidAnalyzing, setPidAnalyzing] = useState(false);
   const [pidProgress, setPidProgress] = useState<AnalysisProgress | null>(null);
   const [pidError, setPidError] = useState<string | null>(null);
+
+  // Apply state
+  const [applyState, setApplyState] = useState<ApplyState>('idle');
+  const [applyProgress, setApplyProgress] = useState<ApplyRecommendationsProgress | null>(null);
+  const [applyResult, setApplyResult] = useState<ApplyRecommendationsResult | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   const parseLog = useCallback(async () => {
     setParsing(true);
@@ -137,6 +156,48 @@ export function useTuningWizard(logId: string): UseTuningWizardReturn {
     }
   }, [logId, sessionIndex]);
 
+  // Subscribe to apply progress events
+  useEffect(() => {
+    const cleanup = window.betaflight.onApplyProgress((progress) => {
+      setApplyProgress(progress);
+    });
+    return cleanup;
+  }, []);
+
+  const startApply = useCallback(() => {
+    setApplyState('confirming');
+  }, []);
+
+  const cancelApply = useCallback(() => {
+    setApplyState('idle');
+  }, []);
+
+  const confirmApply = useCallback(async (createSnapshot: boolean) => {
+    setApplyState('applying');
+    setApplyProgress(null);
+    setApplyError(null);
+    setApplyResult(null);
+
+    // Mark the upcoming disconnect as intentional so useConnection
+    // shows "Disconnected" instead of "FC disconnected unexpectedly"
+    markIntentionalDisconnect();
+
+    try {
+      const result = await window.betaflight.applyRecommendations({
+        filterRecommendations: filterResult?.recommendations ?? [],
+        pidRecommendations: pidResult?.recommendations ?? [],
+        createSnapshot,
+      });
+
+      setApplyResult(result);
+      setApplyState('done');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to apply recommendations';
+      setApplyError(message);
+      setApplyState('error');
+    }
+  }, [filterResult, pidResult]);
+
   return {
     step,
     setStep,
@@ -158,5 +219,12 @@ export function useTuningWizard(logId: string): UseTuningWizardReturn {
     pidProgress,
     pidError,
     runPIDAnalysis,
+    applyState,
+    applyProgress,
+    applyResult,
+    applyError,
+    startApply,
+    confirmApply,
+    cancelApply,
   };
 }

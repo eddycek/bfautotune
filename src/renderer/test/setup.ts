@@ -75,6 +75,10 @@ global.window.betaflight = {
   analyzeFilters: vi.fn(),
   analyzePID: vi.fn(),
 
+  // Tuning
+  applyRecommendations: vi.fn(),
+  onApplyProgress: vi.fn(() => () => {}),
+
   // Events
   onError: vi.fn(() => () => {}),
   onLog: vi.fn(() => () => {})

@@ -184,7 +184,7 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Total: 530 tests across 31 test files
+### Total: 544 tests across 32 test files
 
 ### UI Components (97+ tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
@@ -195,14 +195,18 @@ it('displays error when API fails', async () => {
 - ✅ **SnapshotManager** (22 tests) - Snapshot creation, deletion, export, baseline handling
 - ✅ **BlackboxStatus** - Blackbox status display and download trigger
 - ✅ **Toast / ToastContainer** - Toast notification rendering and lifecycle
-- ✅ **TuningWizard** (22 tests) - Multi-step tuning wizard flow, results display, noise details, summary table
+- ✅ **TuningWizard** (22+ tests) - Multi-step tuning wizard flow, results display, apply confirmation, progress
+- ✅ **ApplyConfirmationModal** - Apply confirmation dialog with snapshot option
 - ✅ **TuningWorkflowModal** - Tuning preparation guide modal
 
 ### Hooks (45+ tests)
 - ✅ **useConnection** (15 tests) - Connection state, port management, error handling
 - ✅ **useProfiles** (14 tests) - Profile CRUD operations, event subscriptions
 - ✅ **useSnapshots** (16 tests) - Snapshot management, event-driven updates
-- ✅ **useTuningWizard** - Wizard state management, parse/analyze lifecycle
+- ✅ **useTuningWizard** - Wizard state management, parse/analyze/apply lifecycle
+
+### MSP Client (3 tests)
+- ✅ **MSPClient** (3 tests) - Filter configuration parsing, byte layout validation
 
 ### Blackbox Parser (171 tests)
 - ✅ **BlackboxParser** (16 tests) - End-to-end parsing, multi-session, corruption recovery
@@ -385,12 +389,18 @@ src/renderer/components/
     Toast.test.tsx
     ToastContainer.test.tsx
   TuningWizard/
-    TuningWizard.test.tsx
+    TuningWizard.test.tsx            ← 22+ tests (incl. apply flow)
   TuningWorkflowModal/
     TuningWorkflowModal.test.tsx
   ProfileSelector.test.tsx           ← 11 tests
   ProfileEditModal.test.tsx          ← 18 tests
   ProfileDeleteModal.test.tsx        ← 14 tests
+```
+
+### MSP Client Tests
+```
+src/main/msp/
+  MSPClient.test.ts                  ← 3 tests
 ```
 
 ### Hook Tests

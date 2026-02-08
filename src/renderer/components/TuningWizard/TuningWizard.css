@@ -513,3 +513,14 @@
   margin: 0 0 8px 0;
 }
 
+/* Apply success message */
+.apply-success {
+  padding: 12px;
+  background: rgba(81, 207, 102, 0.1);
+  border: 1px solid rgba(81, 207, 102, 0.25);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #51cf66;
+  margin-bottom: 16px;
+}
+

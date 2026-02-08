@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow, app, shell } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { IPCChannel, IPCResponse } from '@shared/types/ipc.types';
+import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress } from '@shared/types/ipc.types';
 import type {
   PortInfo,
   FCInfo,
@@ -716,6 +717,16 @@ export function registerIPCHandlers(): void {
 
         logger.info(`Running filter analysis on: ${logMeta.filename}`);
 
+        // Auto-read current filter settings from FC if not provided
+        if (!currentSettings && mspClient?.isConnected()) {
+          try {
+            currentSettings = await mspClient.getFilterConfiguration();
+            logger.info('Read current filter settings from FC');
+          } catch (e) {
+            logger.warn('Could not read filter settings from FC, using defaults');
+          }
+        }
+
         // Parse the log first
         const data = await fs.readFile(logMeta.filepath);
         const parseResult = await BlackboxParser.parse(data);
@@ -773,6 +784,16 @@ export function registerIPCHandlers(): void {
 
         logger.info(`Running PID analysis on: ${logMeta.filename}`);
 
+        // Auto-read current PID settings from FC if not provided
+        if (!currentPIDs && mspClient?.isConnected()) {
+          try {
+            currentPIDs = await mspClient.getPIDConfiguration();
+            logger.info('Read current PID settings from FC');
+          } catch (e) {
+            logger.warn('Could not read PID settings from FC, using defaults');
+          }
+        }
+
         // Parse the log first
         const data = await fs.readFile(logMeta.filepath);
         const parseResult = await BlackboxParser.parse(data);
@@ -810,6 +831,114 @@ export function registerIPCHandlers(): void {
       } catch (error) {
         logger.error('Failed to run PID analysis:', error);
         return createResponse<PIDAnalysisResult>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
+  // Tuning apply handler
+  ipcMain.handle(
+    IPCChannel.TUNING_APPLY_RECOMMENDATIONS,
+    async (event, input: ApplyRecommendationsInput): Promise<IPCResponse<ApplyRecommendationsResult>> => {
+      try {
+        if (!mspClient) throw new Error('MSP client not initialized');
+        if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
+
+        const totalRecs = input.filterRecommendations.length + input.pidRecommendations.length;
+        if (totalRecs === 0) throw new Error('No recommendations to apply');
+
+        const sendProgress = (progress: ApplyRecommendationsProgress) => {
+          event.sender.send(IPCChannel.EVENT_TUNING_APPLY_PROGRESS, progress);
+        };
+
+        // Order matters: MSP commands first (PIDs), then CLI operations
+        // (snapshot, filters, save). createSnapshot() enters CLI mode via
+        // exportCLIDiff() and does NOT exit — so any MSP commands after it
+        // would time out (the FC only processes CLI input while in CLI mode).
+
+        // Stage 1: Apply PID recommendations via MSP (must happen before CLI)
+        let appliedPIDs = 0;
+        if (input.pidRecommendations.length > 0) {
+          sendProgress({ stage: 'pid', message: 'Applying PID changes via MSP...', percent: 5 });
+
+          const currentConfig = await mspClient.getPIDConfiguration();
+          const newConfig: PIDConfiguration = JSON.parse(JSON.stringify(currentConfig));
+
+          for (const rec of input.pidRecommendations) {
+            const match = rec.setting.match(/^pid_(roll|pitch|yaw)_(p|i|d)$/i);
+            if (!match) {
+              logger.warn(`Unknown PID setting: ${rec.setting}, skipping`);
+              continue;
+            }
+            const axis = match[1] as 'roll' | 'pitch' | 'yaw';
+            const term = match[2].toUpperCase() as 'P' | 'I' | 'D';
+            const value = Math.round(Math.max(0, Math.min(255, rec.recommendedValue)));
+            newConfig[axis][term] = value;
+            appliedPIDs++;
+          }
+
+          if (appliedPIDs > 0) {
+            await mspClient.setPIDConfiguration(newConfig);
+            logger.info(`Applied ${appliedPIDs} PID changes`);
+          }
+        }
+
+        sendProgress({ stage: 'pid', message: `Applied ${appliedPIDs} PID changes`, percent: 20 });
+
+        // Stage 2: Create safety snapshot (enters CLI mode — no MSP after this)
+        let snapshotId: string | undefined;
+        if (input.createSnapshot) {
+          sendProgress({ stage: 'snapshot', message: 'Creating pre-tuning snapshot...', percent: 30 });
+          if (!snapshotManager) throw new Error('Snapshot manager not initialized');
+          const snapshot = await snapshotManager.createSnapshot('Pre-tuning (auto)');
+          snapshotId = snapshot.id;
+          logger.info(`Pre-tuning snapshot created: ${snapshotId}`);
+        }
+
+        // Stage 3: Apply filter recommendations via CLI
+        let appliedFilters = 0;
+        if (input.filterRecommendations.length > 0) {
+          sendProgress({ stage: 'filter', message: 'Entering CLI mode...', percent: 50 });
+
+          // If snapshot was created, we may already be in CLI mode;
+          // enterCLI() is safe to call again (it just waits for the # prompt).
+          await mspClient.connection.enterCLI();
+
+          for (const rec of input.filterRecommendations) {
+            const value = Math.round(rec.recommendedValue);
+            const cmd = `set ${rec.setting} = ${value}`;
+            sendProgress({
+              stage: 'filter',
+              message: `Setting ${rec.setting} = ${value}...`,
+              percent: 50 + Math.round((appliedFilters / input.filterRecommendations.length) * 30),
+            });
+            await mspClient.connection.sendCLICommand(cmd);
+            appliedFilters++;
+          }
+
+          logger.info(`Applied ${appliedFilters} filter changes via CLI`);
+        }
+
+        sendProgress({ stage: 'filter', message: `Applied ${appliedFilters} filter changes`, percent: 80 });
+
+        // Stage 4: Save and reboot
+        sendProgress({ stage: 'save', message: 'Saving and rebooting FC...', percent: 90 });
+        await mspClient.saveAndReboot();
+
+        sendProgress({ stage: 'save', message: 'FC is rebooting', percent: 100 });
+
+        const result: ApplyRecommendationsResult = {
+          success: true,
+          snapshotId,
+          appliedPIDs,
+          appliedFilters,
+          rebooted: true,
+        };
+
+        logger.info(`Tuning applied: ${appliedPIDs} PIDs, ${appliedFilters} filters, rebooted`);
+        return createResponse<ApplyRecommendationsResult>(result);
+      } catch (error) {
+        logger.error('Failed to apply recommendations:', error);
+        return createResponse<ApplyRecommendationsResult>(undefined, getErrorMessage(error));
       }
     }
   );
@@ -860,3 +989,4 @@ export function sendNewFCDetected(window: BrowserWindow, fcSerial: string, fcInf
 export function sendPIDChanged(window: BrowserWindow, config: PIDConfiguration): void {
   window.webContents.send(IPCChannel.EVENT_PID_CHANGED, config);
 }
+

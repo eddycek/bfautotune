@@ -332,4 +332,82 @@ describe('useTuningWizard', () => {
 
     expect(result.current.parsing).toBe(false);
   });
+
+  // ---- Apply recommendation tests ----
+
+  it('startApply sets confirming state', () => {
+    const { result } = renderHook(() => useTuningWizard('log-1'));
+
+    expect(result.current.applyState).toBe('idle');
+
+    act(() => {
+      result.current.startApply();
+    });
+
+    expect(result.current.applyState).toBe('confirming');
+  });
+
+  it('cancelApply resets state to idle', () => {
+    const { result } = renderHook(() => useTuningWizard('log-1'));
+
+    act(() => {
+      result.current.startApply();
+    });
+    expect(result.current.applyState).toBe('confirming');
+
+    act(() => {
+      result.current.cancelApply();
+    });
+    expect(result.current.applyState).toBe('idle');
+  });
+
+  it('confirmApply calls IPC with correct params', async () => {
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      snapshotId: 'snap-1',
+      appliedPIDs: 1,
+      appliedFilters: 1,
+      rebooted: true,
+    });
+
+    const { result } = renderHook(() => useTuningWizard('log-1'));
+
+    // Run analyses to populate results
+    await act(async () => {
+      await result.current.runFilterAnalysis();
+    });
+    await act(async () => {
+      await result.current.runPIDAnalysis();
+    });
+
+    await act(async () => {
+      await result.current.confirmApply(true);
+    });
+
+    expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
+      filterRecommendations: mockFilterResult.recommendations,
+      pidRecommendations: mockPIDResult.recommendations,
+      createSnapshot: true,
+    });
+    expect(result.current.applyState).toBe('done');
+    expect(result.current.applyResult?.success).toBe(true);
+  });
+
+  it('confirmApply sets error state on failure', async () => {
+    vi.mocked(window.betaflight.applyRecommendations).mockRejectedValue(
+      new Error('Connection lost')
+    );
+
+    const { result } = renderHook(() => useTuningWizard('log-1'));
+
+    await act(async () => {
+      await result.current.confirmApply(false);
+    });
+
+    expect(result.current.applyState).toBe('error');
+    expect(result.current.applyError).toBe('Connection lost');
+    expect(result.current.applyResult).toBeNull();
+  });
 });

@@ -180,21 +180,38 @@ Guided multi-step wizard for automated tuning workflow.
 
 **Steps**: Flight Guide → Session Select → Filter Analysis → PID Analysis → Summary
 
-- **useTuningWizard hook**: State management for parse/filter/PID analysis lifecycle
+- **useTuningWizard hook**: State management for parse/filter/PID analysis and apply lifecycle
 - **WizardProgress**: Visual step indicator with done/current/upcoming states
 - **FlightGuideContent**: Shared flight phase instructions (hover, roll/pitch/yaw snaps)
+- **ApplyConfirmationModal**: Confirmation dialog before applying changes (snapshot option, reboot warning)
 - **TuningWorkflowModal**: Standalone modal for tuning preparation guide
 - Flight guide data in `src/shared/constants/flightGuide.ts`
 - Triggered from BlackboxStatus component when log is available
+
+### Auto-Apply Recommendations
+
+**Apply Flow** (orchestrated in `TUNING_APPLY_RECOMMENDATIONS` IPC handler):
+1. Stage 1: Apply PID changes via MSP (must happen before CLI mode)
+2. Stage 2: Create pre-tuning safety snapshot (enters CLI mode)
+3. Stage 3: Apply filter changes via CLI `set` commands
+4. Stage 4: Save to EEPROM and reboot FC
+
+**MSP Filter Config** (`MSP_FILTER_CONFIG`, command 92):
+- Reads current filter settings directly from FC (gyro LPF1/2, D-term LPF1/2, dynamic notch)
+- Auto-read in analysis handlers when FC connected and settings not provided
+- Byte layout verified against betaflight-configurator MSPHelper.js
+
+**Important**: Stage ordering matters — MSP commands must execute before CLI mode, because FC only processes CLI input while in CLI mode (MSP timeouts). Snapshot creation enters CLI mode via `exportCLIDiff()`.
 
 ## Testing Requirements
 
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 530 tests total across 31 test files
-- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, TuningWorkflowModal
+- 544 tests total across 32 test files
+- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
+- MSP Client: MSPClient (3 tests - filter config parsing)
 - Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (171 tests)
 - FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (91 tests)
 - Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (58 tests)
