@@ -61,6 +61,9 @@ export class BlackboxParser {
       throw new BlackboxParseError('Empty file');
     }
 
+    // Strip dataflash page headers if present (MSP download artifacts)
+    data = BlackboxParser.stripFlashHeaders(data);
+
     // Find all log session boundaries
     const sessionBoundaries = BlackboxParser.findSessionBoundaries(data);
 
@@ -183,6 +186,16 @@ export class BlackboxParser {
         switch (markerByte) {
           case FRAME_MARKER.INTRA: {
             const values = frameParser.parseIFrame(reader);
+
+            // Sanity check I-frames too - flash corruption can produce
+            // wild absolute values
+            if (BlackboxParser.isFrameCorrupted(values)) {
+              corruptedFrameCount++;
+              // Don't update previous - wait for a clean I-frame
+              BlackboxParser.resync(reader);
+              break;
+            }
+
             iFrames.push(values);
             previousFrame2 = previousFrame;
             previousFrame = values;
@@ -193,13 +206,23 @@ export class BlackboxParser {
 
           case FRAME_MARKER.INTER: {
             if (!previousFrame) {
-              // Can't decode P-frame without a reference I-frame
-              // Try to skip ahead and resync
               BlackboxParser.resync(reader);
               corruptedFrameCount++;
               break;
             }
             const values = frameParser.parsePFrame(reader, previousFrame, previousFrame2);
+
+            // Sanity check: detect corrupted P-frames via unreasonable values.
+            // A bad byte in delta decoding cascades into wild values.
+            // Reset to next I-frame when detected.
+            if (BlackboxParser.isFrameCorrupted(values)) {
+              corruptedFrameCount++;
+              previousFrame = null; // Force wait for next I-frame
+              previousFrame2 = null;
+              BlackboxParser.resync(reader);
+              break;
+            }
+
             pFrames.push(values);
             previousFrame2 = previousFrame;
             previousFrame = values;
@@ -560,6 +583,74 @@ export class BlackboxParser {
       }
     }
     return result;
+  }
+
+  /**
+   * Check if a decoded frame has unreasonable values indicating corruption.
+   *
+   * Skip fields 0 and 1 (loopIteration and time) which are legitimately large.
+   * For remaining fields (gyro, PID, motor, etc.), values above 50000 are
+   * physically impossible and indicate decoder error from corrupted bytes.
+   */
+  private static isFrameCorrupted(values: number[]): boolean {
+    // Skip first 2 fields (loopIteration, time) which can be large
+    for (let i = 2; i < values.length; i++) {
+      const v = values[i];
+      if (v > 50000 || v < -50000) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Strip Betaflight dataflash page headers from raw flash dump.
+   *
+   * When downloading via MSP DATAFLASH_READ, the raw flash data includes
+   * per-page headers: [address_LE_4bytes, data_size, 0x00, 0x00].
+   * The data_size byte (offset 4) tells how many payload bytes follow
+   * the 7-byte header. We detect this structure and strip the headers,
+   * returning only the concatenated payload data.
+   */
+  static stripFlashHeaders(data: Buffer): Buffer {
+    if (data.length < 7) return data;
+
+    // Check if the file starts with a valid flash page header
+    // Signature: bytes[5] == 0x00 && bytes[6] == 0x00 && bytes[4] > 0
+    // and the data after the header starts with 'H' (0x48) for BBL header
+    const firstDataSize = data[4];
+    if (data[5] !== 0x00 || data[6] !== 0x00 || firstDataSize === 0) {
+      return data; // Not a flash dump with page headers
+    }
+
+    // Verify: data after first header should start with 'H' (BBL header)
+    if (data.length > 7 && data[7] !== 0x48) {
+      return data; // First payload byte isn't 'H', probably not paged
+    }
+
+    // Strip page headers by extracting only payload data
+    const chunks: Buffer[] = [];
+    let offset = 0;
+
+    while (offset + 7 <= data.length) {
+      const dataSize = data[offset + 4];
+
+      // Validate page header: bytes[5:7] must be 0x00 0x00, dataSize > 0
+      if (data[offset + 5] !== 0x00 || data[offset + 6] !== 0x00 || dataSize === 0) {
+        // Invalid header - append remaining data as-is
+        chunks.push(data.subarray(offset));
+        break;
+      }
+
+      // Extract payload (skip 7-byte header)
+      const payloadStart = offset + 7;
+      const payloadEnd = Math.min(payloadStart + dataSize, data.length);
+      chunks.push(data.subarray(payloadStart, payloadEnd));
+
+      offset = payloadEnd;
+    }
+
+    return Buffer.concat(chunks);
   }
 
   /**

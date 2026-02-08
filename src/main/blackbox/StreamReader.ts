@@ -144,6 +144,45 @@ export class StreamReader {
   }
 
   /**
+   * Read a header line, stripping flash corruption blocks.
+   *
+   * Betaflight dataflash writes page markers (~7 bytes with 0x00 and 0xB4)
+   * into the data stream. These appear mid-line in header text and must be
+   * removed to recover the original ASCII content.
+   *
+   * Pattern: any run of bytes where most are < 0x20 (except tab) or = 0xB4,
+   * surrounded by printable ASCII on both sides.
+   */
+  readHeaderLine(): string | null {
+    if (this._offset >= this._end) return null;
+
+    const chars: number[] = [];
+    const start = this._offset;
+
+    while (this._offset < this._end) {
+      const b = this.buffer[this._offset];
+
+      if (b === 0x0A) { // newline
+        this._offset++;
+        break;
+      }
+
+      this._offset++;
+
+      // Skip non-printable bytes (flash corruption), keep printable ASCII
+      // Printable range: 0x20-0x7E, plus tab (0x09)
+      if ((b >= 0x20 && b <= 0x7E) || b === 0x09) {
+        chars.push(b);
+      }
+      // else: silently drop the byte (corruption)
+    }
+
+    if (chars.length === 0 && this._offset === start) return null;
+
+    return String.fromCharCode(...chars).replace(/\r$/, '');
+  }
+
+  /**
    * Read n raw bytes into a new Buffer.
    */
   readBytes(n: number): Buffer {

@@ -18,10 +18,10 @@ export class HeaderParser {
   static parse(reader: StreamReader): BBLLogHeader {
     const rawHeaders = new Map<string, string>();
 
-    // Read header lines
+    // Read header lines, using readHeaderLine() to strip flash corruption
     while (!reader.eof) {
       const savedOffset = reader.offset;
-      const line = reader.readLine();
+      const line = reader.readHeaderLine();
 
       if (line === null) break;
 
@@ -104,6 +104,22 @@ export class HeaderParser {
       HEADER_KEYS.P_SIGNED
     );
 
+    // Fallback: if P-frame has no field names but has encodings/predictors,
+    // inherit field names from I-frame (common in Betaflight BBL format)
+    if (header.pFieldDefs.length === 0 && header.iFieldDefs.length > 0) {
+      const pEncodings = rawHeaders.get(HEADER_KEYS.P_ENCODING);
+      const pPredictors = rawHeaders.get(HEADER_KEYS.P_PREDICTOR);
+      if (pEncodings || pPredictors) {
+        header.pFieldDefs = HeaderParser.parseFieldDefsWithNames(
+          rawHeaders,
+          header.iFieldDefs.map(d => d.name),
+          HEADER_KEYS.P_ENCODING,
+          HEADER_KEYS.P_PREDICTOR,
+          HEADER_KEYS.P_SIGNED
+        );
+      }
+    }
+
     header.sFieldDefs = HeaderParser.parseFieldDefs(
       rawHeaders,
       HEADER_KEYS.S_FIELD_NAME,
@@ -150,6 +166,34 @@ export class HeaderParser {
 
       defs.push({
         name,
+        encoding: HeaderParser.parseEncoding(encodings[i]),
+        predictor: HeaderParser.parsePredictor(predictors[i]),
+        signed: HeaderParser.parseSigned(signeds[i]),
+      });
+    }
+
+    return defs;
+  }
+
+  /**
+   * Parse field definitions using externally-provided field names
+   * (used when P-frame inherits names from I-frame).
+   */
+  private static parseFieldDefsWithNames(
+    rawHeaders: Map<string, string>,
+    names: string[],
+    encodingKey: string,
+    predictorKey: string,
+    signedKey: string
+  ): BBLFieldDefinition[] {
+    const encodings = (rawHeaders.get(encodingKey) || '').split(',');
+    const predictors = (rawHeaders.get(predictorKey) || '').split(',');
+    const signeds = (rawHeaders.get(signedKey) || '').split(',');
+
+    const defs: BBLFieldDefinition[] = [];
+    for (let i = 0; i < names.length; i++) {
+      defs.push({
+        name: names[i],
         encoding: HeaderParser.parseEncoding(encodings[i]),
         predictor: HeaderParser.parsePredictor(predictors[i]),
         signed: HeaderParser.parseSigned(signeds[i]),
