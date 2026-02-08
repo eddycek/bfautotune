@@ -7,11 +7,12 @@ Desktop application that automatically tunes filter and PID settings by analyzin
 ## Current Status
 
 - **Phase 1:** ✅ Complete - MSP connection, profile management, snapshots
-- **Phase 2:** 🚧 In Progress - Blackbox analysis, automated tuning
+- **Phase 2:** ✅ Complete - Blackbox analysis, automated tuning, rollback
+- **Tests:** 569 across 32 files
 
 ## Features
 
-### Phase 1 (Released)
+### Phase 1
 - ✅ Multi-drone profile management (auto-detection by FC serial)
 - ✅ USB serial connection to Betaflight flight controllers
 - ✅ Configuration snapshots with versioning and rollback
@@ -19,12 +20,14 @@ Desktop application that automatically tunes filter and PID settings by analyzin
 - ✅ Toast notifications for user feedback
 - ✅ Cross-platform (Windows, macOS, Linux)
 
-### Phase 2 (In Development)
+### Phase 2
 - ✅ Blackbox log download and parsing (171 tests)
-- ✅ Automated filter tuning (FFT noise analysis, 91 tests)
-- ✅ Automated PID tuning (step response analysis, 58 tests)
-- 🚧 Guided tuning wizard with flight instructions
-- 🚧 One-click apply changes with rollback
+- ✅ Automated filter tuning (FFT noise analysis, 98 tests)
+- ✅ Automated PID tuning (step response analysis, 65 tests)
+- ✅ Guided tuning wizard with flight instructions
+- ✅ One-click apply changes with automatic safety snapshot
+- ✅ Snapshot restore/rollback to any previous configuration
+- ✅ Convergent recommendations (idempotent — rerunning produces same result)
 
 ## Tech Stack
 
@@ -263,7 +266,8 @@ Snapshots are stored as JSON files in:
 ## Development Roadmap
 
 - **Phase 1**: ✅ MSP connection, profiles, snapshots
-- **Phase 2**: 🚧 Blackbox analysis, automated tuning (current)
+- **Phase 2**: ✅ Blackbox analysis, automated tuning, rollback
+- **Phase 2.5**: 🚧 UX polish — profile simplification, charts, visual aids (current)
 - **Phase 3**: 📋 AI recommendations (optional, via user API key)
 - **Phase 4**: 📋 Cloud analysis service (Kubernetes deployment)
 

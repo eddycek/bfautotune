@@ -1,7 +1,7 @@
 # TODO - Beta PIDTune
 
 **Last Updated:** February 8, 2026
-**Current Status:** Phase 2 - Blackbox Analysis In Progress 🚧 | Tuning Wizard UI ✅ | Auto-Apply ⏳
+**Current Status:** Phase 2 - Blackbox Analysis Complete ✅ | Tuning Wizard ✅ | Auto-Apply ✅ | Snapshot Restore ✅
 **GitHub:** https://github.com/eddycek/beta-pidtune
 **Workflow:** All changes via Pull Requests (main branch protected)
 
@@ -169,20 +169,23 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 - ✅ **Empty board name**: Filter null bytes, fallback to target, conditional display
 
 ### Testing Infrastructure ✅
-**Total: 522 tests across 31 test files**
+**Total: 569 tests across 32 test files**
 
-#### Components (77 tests)
+#### Components (97+ tests)
 - ✅ ConnectionPanel.test.tsx (12 tests)
 - ✅ ProfileSelector.test.tsx (11 tests)
 - ✅ FCInfoDisplay.test.tsx (12 tests)
 - ✅ ProfileEditModal.test.tsx (18 tests)
 - ✅ ProfileDeleteModal.test.tsx (14 tests)
-- ✅ SnapshotManager.test.tsx (22 tests)
+- ✅ SnapshotManager.test.tsx (30 tests)
+- ✅ TuningWizard.test.tsx (22+ tests)
+- ✅ ApplyConfirmationModal, TuningWorkflowModal, BlackboxStatus, Toast, ToastContainer
 
-#### Hooks (45 tests)
+#### Hooks (48+ tests)
 - ✅ useConnection.test.ts (15 tests)
 - ✅ useProfiles.test.ts (14 tests)
-- ✅ useSnapshots.test.ts (16 tests)
+- ✅ useSnapshots.test.ts (19 tests)
+- ✅ useTuningWizard.test.ts
 
 #### Automation
 - ✅ Pre-commit hooks via Husky + lint-staged
@@ -323,17 +326,20 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 7. ✅ 8 critical bug fixes
 8. ✅ 128 UI tests with pre-commit hooks
 
-### 🚧 Phase 2 In Progress (5/6 tasks complete):
+### ✅ Phase 2 Completed (8/8 tasks):
 - ✅ Task #15: Blackbox MSP commands (download, erase, info) — PR #2, #3
 - ✅ Task #16: Blackbox binary log parser (171 tests) — PR #4 merged
-- ✅ Task #17: FFT analysis engine (91 tests) — PR #5 merged
-- ✅ Task #18: Step response analyzer (58 tests) — PR #6 merged
-- ✅ Task #19: Guided wizard UI (22 wizard tests, 530 total) — PR #7
-- ⏳ Task #20: Auto-apply recommendations
+- ✅ Task #17: FFT analysis engine (98 tests) — PR #5 merged
+- ✅ Task #18: Step response analyzer (65 tests) — PR #6 merged
+- ✅ Task #19: Guided wizard UI (22 wizard tests) — PR #8 merged
+- ✅ Task #20: Auto-apply recommendations (544 tests) — PR #9 merged
+- ✅ Recommendation convergence fix (558 tests)
+- ✅ Task #21: Snapshot restore/rollback (569 tests) — PR #10 merged
 
-### ⏭️ Up Next:
-- Task #20: Auto-apply filter/PID changes to FC via MSP
+### ⏭️ Up Next (Phase 2.5 — UX Polish):
+- Profile bloat reduction (remove unused fields, simplify wizard)
 - Advanced graphs (FFT spectrum, step response visualization)
+- Snapshot diff/comparison view
 
 ---
 
@@ -373,9 +379,9 @@ class ReconnectionManager {
 
 ## 🎯 Phase 2 - Blackbox Analysis System
 
-**Status:** In Progress 🚧 (5/6 tasks complete)
-**Branches:** `feature/auto-pid-tuning`, `feature/blackbox-parser`, `feature/fft-analysis`, `feature/step-response`, `feature/tuning-wizard`
-**Started:** February 7, 2026
+**Status:** Complete ✅ (8/8 tasks)
+**Branches:** `feature/auto-pid-tuning`, `feature/blackbox-parser`, `feature/fft-analysis`, `feature/step-response`, `feature/tuning-wizard`, `feature/auto-apply`, `feature/recommendation-convergence`, `feature/snapshot-restore`
+**Started:** February 7, 2026 | **Completed:** February 8, 2026
 
 ### Overview
 Automated FPV drone tuning via Blackbox log analysis. No manual PID editor - fully automated filter and PID tuning based on FFT analysis and step response metrics.
@@ -514,37 +520,81 @@ Automated FPV drone tuning via Blackbox log analysis. No manual PID editor - ful
 - [ ] Advanced graphs (FFT spectrum, step response) — requires charting library
 - [ ] Export report (PDF/HTML)
 
-### Task #20: Auto-Apply Changes
-**Priority:** HIGH | **Status:** Not Started
+### Task #20: Auto-Apply Changes ✅
+**Priority:** HIGH | **Status:** Completed
+**Branch:** `feature/auto-apply` | **PR:** #9 (merged)
+**Tests:** 544 total after completion
 
-#### 20.1 Configuration Write
-- [ ] Apply filter changes via MSP
-- [ ] Apply PID changes via MSP
-- [ ] Verify changes written successfully
-- [ ] Handle write errors
+#### 20.1 Configuration Write ✅
+- ✅ Apply PID changes via MSP (`MSP_SET_PID`)
+- ✅ Apply filter changes via CLI `set` commands
+- ✅ Read current filter settings via MSP_FILTER_CONFIG (cmd 92)
+- ✅ Handle write errors with progress reporting
 
-#### 20.2 Snapshot Integration
-- [ ] Auto-create snapshot before changes
-- [ ] Auto-create snapshot after changes
-- [ ] Store tuning metadata (filter/PID)
-- [ ] Generate CLI diff for review
+#### 20.2 Snapshot Integration ✅
+- ✅ Auto-create pre-tuning safety snapshot before changes
+- ✅ Stage ordering: MSP PIDs → snapshot → CLI filters → save
+- ✅ ApplyConfirmationModal with snapshot option + reboot warning
 
-#### 20.3 Safety & Rollback
-- [ ] Validation before apply
-- [ ] Bounds checking (no extreme values)
-- [ ] One-click rollback to previous snapshot
-- [ ] Warning on risky changes
+#### 20.3 Safety & Rollback ✅
+- ✅ Safety bounds in recommendations (P: 20-120, D: 15-80, filters min 80-100 Hz)
+- ✅ Convergent recommendations (idempotent — rerunning produces same result)
+- ✅ One-click rollback via snapshot restore (PR #10)
+- ✅ Pre-restore safety backup
+
+### Task #21: Snapshot Restore (Rollback) ✅
+**Priority:** HIGH | **Status:** Completed
+**Branch:** `feature/snapshot-restore` | **PR:** #10 (merged)
+**Tests:** 569 total after completion (11 new tests)
+
+#### 21.1 Restore Implementation ✅
+- ✅ Parse CLI diff → extract restorable commands (`set`, `feature`, `serial`, `aux`, `beacon`, `map`, `resource`, `timer`, `dma`)
+- ✅ Enter CLI mode → send each command → save & reboot
+- ✅ Pre-restore safety backup snapshot ("Pre-restore (auto)")
+- ✅ Progress events via EVENT_SNAPSHOT_RESTORE_PROGRESS
+
+#### 21.2 UI ✅
+- ✅ Restore button on each snapshot item (disabled when not connected)
+- ✅ Confirmation dialog with backup checkbox (default checked)
+- ✅ Progress bar during restore operation
+
+#### 21.3 Bug Fixes ✅
+- ✅ CLI prompt detection: `data.includes('#')` → buffer-based `\n#` detection
+- ✅ Save command timeout: `sendCLICommand('save')` → `writeCLIRaw('save')` (FC reboots, no prompt)
 
 ---
 
+## 🎯 Phase 2.5 - UX Polish (Next)
+
+**Profile & Wizard simplification:**
+- [ ] Remove unused profile fields (`frameType`, `flightStyle`, `frameStiffness`)
+- [ ] Make `weight`, `motorKV`, `propSize` optional
+- [ ] Simplify ProfileWizard steps (fewer required fields)
+- [ ] Update presets and SIZE_DEFAULTS
+
+**Visualization:**
+- [ ] Add chart library (recharts or chart.js)
+- [ ] FFT spectrum graph in filter analysis step
+- [ ] Step response graph in PID analysis step
+- [ ] Snapshot diff/comparison view
+
+**UX Enhancements:**
+- [ ] UI tooltips for technical terms
+- [ ] Visual aids for flight instructions (diagrams)
+- [ ] Snapshot comparison before/after tuning
+
 ## 🎯 Long-term Goals (Phase 3+)
 
-**After Phase 2 completion:**
+**After Phase 2.5 completion:**
+- [ ] D sweep multi-log comparison
+- [ ] Master gain step (P/D scaling)
+- [ ] FF/I/secondary parameter tuning
+- [ ] RPM filtering validation
 - [ ] AI-powered tuning recommendations (optional, via API key)
 - [ ] Cloud analysis service (Kubernetes deployment)
 - [ ] Export session reports (PDF/HTML)
 - [ ] Advanced metrics dashboard
-- [ ] Fleet management (multiple drones)
+- [ ] Cross-platform build testing (Windows, Linux)
 
 ---
 
