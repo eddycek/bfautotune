@@ -382,8 +382,12 @@ export class MSPClient extends EventEmitter {
   async saveAndReboot(): Promise<void> {
     try {
       await this.connection.enterCLI();
-      await this.connection.sendCLICommand(CLI_COMMANDS.SAVE);
-      // Don't exit CLI - FC will reboot
+      // Use writeCLIRaw instead of sendCLICommand because `save` causes
+      // FC to reboot — the CLI prompt never comes back, so waiting for
+      // it would always time out.
+      await this.connection.writeCLIRaw(CLI_COMMANDS.SAVE);
+      // Give FC a moment to process the save command before we update state
+      await new Promise(resolve => setTimeout(resolve, 500));
       this.connectionStatus = { connected: false };
       this.emit('connection-changed', this.connectionStatus);
     } catch (error) {
