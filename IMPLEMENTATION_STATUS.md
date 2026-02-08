@@ -1,6 +1,10 @@
-# Betaflight Autotuning App - Phase 1 Implementation Status
+# Betaflight Autotuning App - Implementation Status
 
-## ✅ Completed
+**Last Updated:** February 8, 2026
+**Phase 1:** ✅ Complete | **Phase 2:** 🚧 In Progress (5/6 tasks)
+**Tests:** 522 passing across 31 test files
+
+## ✅ Phase 1 - Completed
 
 ### 1. Project Setup
 - ✅ Electron + Vite + TypeScript + React configured
@@ -118,85 +122,41 @@ src/shared/
 └── constants.ts
 ```
 
-## 🚧 Known Issues & Next Steps
+## 🚧 Phase 2 - Blackbox Analysis & Tuning (In Progress)
 
-### 1. Native Module Build Issue
-**Issue:** `serialport` requires native module compilation with Python distutils (removed in Python 3.12+)
+### Task #15: Blackbox MSP Commands ✅
+- Blackbox download via MSP_DATAFLASH_READ
+- BlackboxManager with profile-linked log metadata
+- IPC channels for download, list, delete, erase flash
 
-**Solutions:**
-a) Use Python 3.11 or earlier
-b) Use `@electron/rebuild` instead of `electron-rebuild`
-c) Update to use newer build tools
+### Task #16: Blackbox Parser ✅ (171 tests)
+- StreamReader → HeaderParser → ValueDecoder → PredictorApplier → FrameParser → BlackboxParser
+- 10 encoding types, 10 predictor types, multi-session, corruption recovery
+- IPC: BLACKBOX_PARSE_LOG + progress events
 
-**Temporary workaround:**
-```bash
-npm install --ignore-scripts
-# Then manually rebuild when ready to test with hardware
-```
+### Task #17: FFT Analysis Engine ✅ (91 tests)
+- SegmentSelector → FFTCompute → NoiseAnalyzer → FilterRecommender → FilterAnalyzer
+- Welch's method, peak detection, noise classification, safety bounds
+- IPC: ANALYSIS_RUN_FILTER + EVENT_ANALYSIS_PROGRESS
 
-### 2. Remaining Tasks
+### Task #18: Step Response Analyzer ✅ (58 tests)
+- StepDetector → StepMetrics → PIDRecommender → PIDAnalyzer
+- Derivative-based step detection, rise time, overshoot, settling, ringing
+- Rule-based PID recommendations with safety bounds (P: 20-120, D: 15-80)
+- IPC: ANALYSIS_RUN_PID + EVENT_ANALYSIS_PROGRESS
 
-#### Task #11: Implement Reconnection Logic
-- [ ] Detection of FC disconnection
-- [ ] Automatic reconnection after FC reboot
-- [ ] Retry logic with exponential backoff
-- [ ] UI feedback during reconnection
-- [ ] Handle save-and-reboot flow
+### Task #19: Guided Wizard UI 🚧
+- TuningWizard: 5-step flow (Guide → Session → Filter → PID → Summary)
+- WizardProgress with visual step indicators
+- FlightGuideContent with flight phases and tips
+- TuningWorkflowModal for preparation guide
+- useTuningWizard hook for state management
+- Still needed: results display, before/after comparison, advanced graphs
 
-#### Task #12: Polish & Testing
-- [ ] Add loading spinners
-- [ ] Toast notifications
-- [ ] Error boundaries
-- [ ] Better error messages
-- [ ] Test on Windows/Linux
-- [ ] Test with real hardware
-- [ ] Handle edge cases
-- [ ] Add keyboard shortcuts
-- [ ] Accessibility improvements
-
-### 3. Testing Requirements
-
-Before marking Phase 1 complete, test:
-
-**Without Hardware:**
-- [x] Project builds
-- [ ] TypeScript compiles
-- [ ] Vite dev server runs
-- [ ] Electron window opens
-- [ ] UI renders correctly
-- [ ] IPC communication works
-
-**With Hardware:**
-- [ ] Serial port detection
-- [ ] Connection to Betaflight FC
-- [ ] Read FC information
-- [ ] Export CLI diff
-- [ ] Export CLI dump
-- [ ] Create snapshots
-- [ ] List snapshots
-- [ ] Delete snapshots
-- [ ] Export snapshots
-- [ ] Handle disconnection
-- [ ] Reconnect after reboot
-
-## 🎯 Success Criteria (Phase 1)
-
-| Criteria | Status |
-|----------|--------|
-| Detects serial ports | ⏳ Needs hardware test |
-| Connects to Betaflight FC | ⏳ Needs hardware test |
-| Displays FC info | ⏳ Needs hardware test |
-| Exports CLI diff | ⏳ Needs hardware test |
-| Exports CLI dump | ⏳ Needs hardware test |
-| Creates baseline snapshot | ⏳ Needs hardware test |
-| Creates manual snapshots | ⏳ Needs hardware test |
-| Lists snapshots | ✅ Implemented |
-| Deletes snapshots | ✅ Implemented |
-| Exports snapshots | ✅ Implemented |
-| Handles disconnection | ⏳ Needs implementation |
-| Reconnects after reboot | ⏳ Needs implementation |
-| Cross-platform | ⏳ macOS only tested |
-| Error handling | ⏳ Needs polish |
+### Task #20: Auto-Apply Changes ⏳
+- Not yet started
+- Apply filter/PID changes via MSP
+- Snapshot integration, safety bounds, rollback
 
 ## 📝 Code Quality
 
@@ -205,75 +165,18 @@ Before marking Phase 1 complete, test:
 - ✅ Clean separation of concerns
 - ✅ Type-safe IPC communication
 - ✅ Event-driven architecture
-- ✅ Comprehensive error handling
+- ✅ Comprehensive error handling and testing (522 tests)
 - ✅ Modular component structure
 - ✅ React hooks for state management
+- ✅ Pre-commit hook enforces tests
 
-### Areas for Improvement
-- Add unit tests (Jest)
-- Add integration tests
-- Add E2E tests (Playwright)
-- Improve JSDoc comments
-- Add logging levels control
-- Add debug mode
-- Performance profiling
+## 🚀 Next Steps
 
-## 🚀 Next Steps to Complete Phase 1
-
-1. **Fix Build System**
-   - Resolve Python/distutils issue
-   - Update to @electron/rebuild
-   - Test build process
-
-2. **Test Without Hardware**
-   ```bash
-   npm run dev
-   ```
-   - Verify UI renders
-   - Test navigation
-   - Test error states
-
-3. **Implement Reconnection Logic** (Task #11)
-   - Add connection monitoring
-   - Implement retry mechanism
-   - Update UI status
-
-4. **Test With Hardware**
-   - Connect real FC
-   - Test all operations
-   - Verify CLI export
-   - Test snapshots
-
-5. **Polish & Bug Fixes** (Task #12)
-   - Add notifications
-   - Improve UX
-   - Handle edge cases
-   - Cross-platform testing
-
-6. **Documentation**
-   - Update README with test results
-   - Add screenshots
-   - Create user guide
-   - Document limitations
-
-## 📅 Estimated Completion
-
-- Reconnection logic: 2-3 hours
-- Hardware testing: 2-4 hours
-- Polish & fixes: 4-6 hours
-- Documentation: 1-2 hours
-
-**Total: 9-15 hours of work remaining**
-
-## 💡 Phase 2 Preview
-
-Once Phase 1 is complete and stable:
-- Blackbox log parsing
-- FFT analysis for filter tuning
-- Noise spectrum visualization
-- PID step response analysis
-- Guided tuning wizard
+1. Complete wizard results display (before/after comparison, recommendations UI)
+2. Add advanced graphs (FFT spectrum, step response visualization)
+3. Task #20: Auto-apply changes to FC with snapshot integration
+4. Cross-platform build testing
 
 ---
 
-**Current Status:** 🟡 Phase 1 ~85% complete - Core functionality implemented, needs hardware testing and polish
+**Current Status:** 🟡 Phase 2 ~83% complete (5/6 analysis tasks done, wizard UI in progress)

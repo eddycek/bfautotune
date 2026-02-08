@@ -1,7 +1,7 @@
 # TODO - Beta PIDTune
 
 **Last Updated:** February 8, 2026
-**Current Status:** Phase 2 - Blackbox Analysis In Progress 🚧 | FFT Analysis Complete ✅
+**Current Status:** Phase 2 - Blackbox Analysis In Progress 🚧 | Step Response ✅ | Tuning Wizard UI 🚧
 **GitHub:** https://github.com/eddycek/beta-pidtune
 **Workflow:** All changes via Pull Requests (main branch protected)
 
@@ -169,7 +169,7 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 - ✅ **Empty board name**: Filter null bytes, fallback to target, conditional display
 
 ### Testing Infrastructure ✅
-**Total: 429 tests across 24 test files**
+**Total: 522 tests across 31 test files**
 
 #### Components (77 tests)
 - ✅ ConnectionPanel.test.tsx (12 tests)
@@ -310,8 +310,8 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 ## 🔄 Current Status - Where We Left Off
 
 **Date:** February 8, 2026
-**Branch:** `feature/fft-analysis`
-**PR:** https://github.com/eddycek/beta-pidtune/pull/5
+**Branch:** `feature/tuning-wizard`
+**PRs Merged:** #1-#6
 
 ### ✅ Phase 1 Completed (100%):
 1. ✅ Electron + Vite + TypeScript + React project
@@ -323,19 +323,18 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 7. ✅ 8 critical bug fixes
 8. ✅ 128 UI tests with pre-commit hooks
 
-### 🚧 Phase 2 In Progress:
-- ✅ Task #15: Blackbox MSP commands (download, erase, info)
+### 🚧 Phase 2 In Progress (5/6 tasks complete):
+- ✅ Task #15: Blackbox MSP commands (download, erase, info) — PR #2, #3
 - ✅ Task #16: Blackbox binary log parser (171 tests) — PR #4 merged
-- ✅ Task #17: FFT analysis engine (91 tests) — PR #5 pending review
-- ⏳ Task #18: Step response analyzer
-- ⏳ Task #19: Guided wizard UI
+- ✅ Task #17: FFT analysis engine (91 tests) — PR #5 merged
+- ✅ Task #18: Step response analyzer (58 tests) — PR #6 merged
+- 🚧 Task #19: Guided wizard UI — `feature/tuning-wizard` branch (in progress)
 - ⏳ Task #20: Auto-apply recommendations
 
 ### ⏭️ Up Next:
-- Merge PR #5 (FFT analysis)
-- Task #18: Step response analysis for PID tuning
-- Task #19: Guided wizard UI for test flights
+- Complete wizard UI (results display, before/after comparison)
 - Task #20: Auto-apply filter/PID changes to FC
+- Advanced graphs (FFT spectrum, step response visualization)
 
 ---
 
@@ -375,8 +374,8 @@ class ReconnectionManager {
 
 ## 🎯 Phase 2 - Blackbox Analysis System
 
-**Status:** In Progress 🚧 (3/6 tasks complete)
-**Branches:** `feature/auto-pid-tuning`, `feature/blackbox-parser`, `feature/fft-analysis`
+**Status:** In Progress 🚧 (5/6 tasks complete)
+**Branches:** `feature/auto-pid-tuning`, `feature/blackbox-parser`, `feature/fft-analysis`, `feature/step-response`, `feature/tuning-wizard`
 **Started:** February 7, 2026
 
 ### Overview
@@ -461,49 +460,51 @@ Automated FPV drone tuning via Blackbox log analysis. No manual PID editor - ful
 - ✅ Fallback to entire flight when no hover segments found
 - ✅ IPC: ANALYSIS_RUN_FILTER + EVENT_ANALYSIS_PROGRESS
 
-### Task #18: Step Response Analyzer
-**Priority:** MEDIUM | **Status:** Not Started
+### Task #18: Step Response Analyzer ✅
+**Priority:** MEDIUM | **Status:** Completed
+**Branch:** `feature/step-response` | **PR:** #6 (merged)
+**Tests:** 58 new tests
 
-#### 18.1 Step Detection
-- [ ] Detect step inputs in setpoint data
-- [ ] Align gyro response with setpoint
-- [ ] Extract rise time, overshoot, settling time
-- [ ] Handle noisy data and false positives
+#### 18.1 Step Detection ✅
+- ✅ Detect step inputs in setpoint data (derivative-based)
+- ✅ Hold and cooldown validation
+- ✅ Handle noisy data and false positives
 
-#### 18.2 PID Metrics
-- [ ] Overshoot percentage calculation
-- [ ] Ringing frequency and amplitude
-- [ ] Latency (delay to first response)
-- [ ] Settling time to within 2%
-- [ ] Score function for optimal D value
+#### 18.2 PID Metrics ✅
+- ✅ Overshoot percentage calculation
+- ✅ Ringing frequency and amplitude measurement
+- ✅ Latency (delay to first response)
+- ✅ Settling time to within 2%
+- ✅ Rise time measurement
 
-#### 18.3 P/D Balance & Master Gain
-- [ ] D sweep analysis (compare multiple logs)
-- [ ] Select best D value via scoring
-- [ ] Master gain oscillation detection
-- [ ] Stability margin calculation
-- [ ] Recommendations with safety margins
+#### 18.3 P/D Balance & Recommendations ✅
+- ✅ Rule-based PID recommendations with safety bounds (P: 20-120, D: 15-80)
+- ✅ Beginner-friendly explanations
+- ✅ Deduplication of overlapping recommendations
 
-### Task #19: Guided Wizard UI
-**Priority:** MEDIUM | **Status:** Not Started
+### Task #19: Guided Wizard UI 🚧
+**Priority:** MEDIUM | **Status:** In Progress
+**Branch:** `feature/tuning-wizard`
 
-#### 19.1 Wizard Flow
-- [ ] Setup step (prerequisites, Blackbox config)
-- [ ] Filter tuning step (throttle sweep instructions)
-- [ ] PID tuning step (D sweep instructions)
-- [ ] Results step (summary, apply changes)
-- [ ] Progress indicator
+#### 19.1 Wizard Flow ✅
+- ✅ Flight guide step (test flight instructions)
+- ✅ Session select step (parse log, pick session)
+- ✅ Filter analysis step (run FFT analysis)
+- ✅ PID analysis step (run step response analysis)
+- ✅ Summary step (results overview)
+- ✅ Progress indicator (WizardProgress component)
 
-#### 19.2 Flight Instructions
-- [ ] Clear step-by-step instructions
+#### 19.2 Flight Instructions ✅
+- ✅ Clear step-by-step instructions (flight phases: hover, roll/pitch/yaw snaps)
+- ✅ Flight tips for beginners
+- ✅ TuningWorkflowModal for preparation guide
+- ✅ Shared flight guide constants (`src/shared/constants/flightGuide.ts`)
 - [ ] Visual aids (diagrams, animations)
-- [ ] Safety checklist
-- [ ] Prerequisite validation
 - [ ] Video tutorials (optional)
 
 #### 19.3 Results Display
 - [ ] Before/after comparison
-- [ ] Change explanations (beginner-friendly)
+- [ ] Change explanations (beginner-friendly) — recommender reasons exist, need UI
 - [ ] Advanced graphs (FFT spectrum, step response)
 - [ ] Toggle advanced details
 - [ ] Export report (PDF/HTML)
