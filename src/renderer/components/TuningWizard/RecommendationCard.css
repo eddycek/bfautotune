@@ -13,15 +13,23 @@
 .recommendation-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 8px;
 }
 
-.recommendation-card-setting {
-  font-size: 13px;
+.recommendation-card-label {
+  display: block;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary, #fff);
+}
+
+.recommendation-card-setting {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary, #777);
   font-family: monospace;
+  margin-top: 2px;
 }
 
 .recommendation-card-confidence {
@@ -31,6 +39,7 @@
   border-radius: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 .recommendation-card-confidence.high {
@@ -68,6 +77,24 @@
 
 .recommendation-card-recommended {
   color: var(--primary-color, #4dabf7);
+}
+
+.recommendation-card-change {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.recommendation-card-change.increase {
+  background: rgba(81, 207, 102, 0.12);
+  color: #51cf66;
+}
+
+.recommendation-card-change.decrease {
+  background: rgba(255, 135, 135, 0.12);
+  color: #ff8787;
 }
 
 .recommendation-card-reason {

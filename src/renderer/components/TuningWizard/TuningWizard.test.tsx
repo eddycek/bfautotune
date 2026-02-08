@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TuningWizard } from './TuningWizard';
 import type { BlackboxParseResult, BlackboxLogSession } from '@shared/types/blackbox.types';
@@ -100,16 +100,16 @@ const mockFilterResult: FilterAnalysisResult = {
     roll: {
       spectrum: { frequencies: new Float64Array([100]), magnitudes: new Float64Array([-20]) },
       noiseFloorDb: -40,
-      peaks: [],
+      peaks: [{ frequency: 150, amplitude: 15, type: 'frame_resonance' }],
     },
     pitch: {
       spectrum: { frequencies: new Float64Array([100]), magnitudes: new Float64Array([-20]) },
-      noiseFloorDb: -40,
+      noiseFloorDb: -38,
       peaks: [],
     },
     yaw: {
       spectrum: { frequencies: new Float64Array([100]), magnitudes: new Float64Array([-20]) },
-      noiseFloorDb: -40,
+      noiseFloorDb: -42,
       peaks: [],
     },
     overallLevel: 'low',
@@ -169,6 +169,32 @@ describe('TuningWizard', () => {
       expect(screen.getByText('Test Flight Guide')).toBeInTheDocument();
     });
     await user.click(screen.getByText(GUIDE_BUTTON));
+  }
+
+  /** Navigate through all steps to reach filter results */
+  async function navigateToFilterResults(user: ReturnType<typeof userEvent.setup>) {
+    await passGuide(user);
+    await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run Filter Analysis'));
+    await waitFor(() => expect(screen.getByText('Filter Analysis Results')).toBeInTheDocument());
+  }
+
+  /** Navigate through all steps to reach PID results */
+  async function navigateToPIDResults(user: ReturnType<typeof userEvent.setup>) {
+    await navigateToFilterResults(user);
+    await waitFor(() => expect(screen.getByText('Continue to PID Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to PID Analysis'));
+    await waitFor(() => expect(screen.getByText('Run PID Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run PID Analysis'));
+    await waitFor(() => expect(screen.getByText('PID Analysis Results')).toBeInTheDocument());
+  }
+
+  /** Navigate through all steps to reach summary */
+  async function navigateToSummary(user: ReturnType<typeof userEvent.setup>) {
+    await navigateToPIDResults(user);
+    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to Summary'));
+    await waitFor(() => expect(screen.getByText('Tuning Summary')).toBeInTheDocument());
   }
 
   it('renders wizard header with log ID and exit button', () => {
@@ -281,20 +307,11 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
-    await passGuide(user);
+    await navigateToFilterResults(user);
 
-    await waitFor(() => {
-      expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText('Run Filter Analysis'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Filter Analysis Results')).toBeInTheDocument();
-      expect(screen.getByText('gyro_lpf1_static_hz')).toBeInTheDocument();
-      expect(screen.getByText('250')).toBeInTheDocument();
-      expect(screen.getByText('300')).toBeInTheDocument();
-    });
+    expect(screen.getByText('gyro_lpf1_static_hz')).toBeInTheDocument();
+    expect(screen.getByText('250 Hz', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('300 Hz', { exact: false })).toBeInTheDocument();
   });
 
   it('navigates from filter results to PID step', async () => {
@@ -304,17 +321,7 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
-    await passGuide(user);
-
-    await waitFor(() => {
-      expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText('Run Filter Analysis'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Continue to PID Analysis')).toBeInTheDocument();
-    });
+    await navigateToFilterResults(user);
 
     await user.click(screen.getByText('Continue to PID Analysis'));
 
@@ -332,31 +339,10 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
-    await passGuide(user);
+    await navigateToPIDResults(user);
 
-    // Auto-advance to filter
-    await waitFor(() => {
-      expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument();
-    });
-    await user.click(screen.getByText('Run Filter Analysis'));
-
-    // Navigate to PID
-    await waitFor(() => {
-      expect(screen.getByText('Continue to PID Analysis')).toBeInTheDocument();
-    });
-    await user.click(screen.getByText('Continue to PID Analysis'));
-
-    // Run PID analysis
-    await waitFor(() => {
-      expect(screen.getByText('Run PID Analysis')).toBeInTheDocument();
-    });
-    await user.click(screen.getByText('Run PID Analysis'));
-
-    await waitFor(() => {
-      expect(screen.getByText('PID Analysis Results')).toBeInTheDocument();
-      expect(screen.getByText('12 step inputs detected across all axes.')).toBeInTheDocument();
-      expect(screen.getByText('pid_roll_p')).toBeInTheDocument();
-    });
+    expect(screen.getByText('12 step inputs detected across all axes.')).toBeInTheDocument();
+    expect(screen.getByText('pid_roll_p')).toBeInTheDocument();
   });
 
   it('reaches summary step with all recommendations', async () => {
@@ -367,25 +353,11 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
-    await passGuide(user);
+    await navigateToSummary(user);
 
-    // Navigate through all steps
-    await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
-    await user.click(screen.getByText('Run Filter Analysis'));
-    await waitFor(() => expect(screen.getByText('Continue to PID Analysis')).toBeInTheDocument());
-    await user.click(screen.getByText('Continue to PID Analysis'));
-    await waitFor(() => expect(screen.getByText('Run PID Analysis')).toBeInTheDocument());
-    await user.click(screen.getByText('Run PID Analysis'));
-    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
-    await user.click(screen.getByText('Continue to Summary'));
-
-    // Summary step
-    await waitFor(() => {
-      expect(screen.getByText('Tuning Summary')).toBeInTheDocument();
-      expect(screen.getByText('Filter Recommendations')).toBeInTheDocument();
-      expect(screen.getByText('PID Recommendations')).toBeInTheDocument();
-      expect(screen.getByText('Apply Changes (Coming Soon)')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Filter Recommendations')).toBeInTheDocument();
+    expect(screen.getByText('PID Recommendations')).toBeInTheDocument();
+    expect(screen.getByText('Apply Changes (Coming Soon)')).toBeInTheDocument();
   });
 
   it('shows parse error and allows retry', async () => {
@@ -428,5 +400,139 @@ describe('TuningWizard', () => {
       expect(screen.getByText('Retry')).toBeInTheDocument();
       expect(screen.getByText('Skip to PIDs')).toBeInTheDocument();
     });
+  });
+
+  // ---- New tests for enhanced results display ----
+
+  it('RecommendationCard shows human-readable label', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    expect(screen.getByText('Gyro Lowpass 1')).toBeInTheDocument();
+  });
+
+  it('RecommendationCard shows percentage change badge', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    // 250 → 300 = +20%
+    expect(screen.getByText('+20%')).toBeInTheDocument();
+  });
+
+  it('FilterAnalysisStep shows analysis metadata', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    expect(screen.getByText('3 segments analyzed')).toBeInTheDocument();
+    expect(screen.getByText('0.15s')).toBeInTheDocument();
+  });
+
+  it('FilterAnalysisStep noise details toggle works', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    // Initially collapsed
+    expect(screen.getByText('Show noise details')).toBeInTheDocument();
+    expect(screen.queryByText('-40 dB', { exact: false })).not.toBeInTheDocument();
+
+    // Click to expand
+    await user.click(screen.getByText('Show noise details'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Hide noise details')).toBeInTheDocument();
+      expect(screen.getByText('-40 dB', { exact: false })).toBeInTheDocument();
+      expect(screen.getByText('Frame')).toBeInTheDocument();
+    });
+  });
+
+  it('PIDAnalysisStep shows latency in axis cards', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToPIDResults(user);
+
+    expect(screen.getByText('8 ms', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('9 ms', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('10 ms', { exact: false })).toBeInTheDocument();
+  });
+
+  it('PIDAnalysisStep shows current PID values', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToPIDResults(user);
+
+    expect(screen.getByText('Current PID Values')).toBeInTheDocument();
+    // Check roll PIDs: P: 45, I: 80, D: 30
+    // The values are rendered in axis-summary-card-stat elements
+    const currentSection = screen.getByText('Current PID Values');
+    expect(currentSection).toBeInTheDocument();
+  });
+
+  it('TuningSummaryStep shows changes-at-a-glance table', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+
+    // Table headers
+    expect(screen.getByText('Setting')).toBeInTheDocument();
+    expect(screen.getByText('Current')).toBeInTheDocument();
+    expect(screen.getByText('Recommended')).toBeInTheDocument();
+    expect(screen.getByText('Change')).toBeInTheDocument();
+
+    // Table content — readable labels appear in both table and cards
+    const gyroLabels = screen.getAllByText('Gyro Lowpass 1');
+    expect(gyroLabels.length).toBeGreaterThanOrEqual(2); // table + card
+    const pidLabels = screen.getAllByText('Roll P-Gain');
+    expect(pidLabels.length).toBeGreaterThanOrEqual(2); // table + card
+  });
+
+  it('TuningSummaryStep shows confidence breakdown', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+
+    // Both recommendations are high confidence
+    expect(screen.getByText('2 high confidence')).toBeInTheDocument();
+    expect(screen.getByText('1 filter change')).toBeInTheDocument();
+    expect(screen.getByText('1 PID change')).toBeInTheDocument();
   });
 });

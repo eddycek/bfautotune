@@ -363,3 +363,153 @@
   background-color: #15803d;
 }
 
+/* Analysis metadata pills */
+.analysis-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.analysis-meta-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #aaa);
+}
+
+.analysis-meta-pill.confidence-high {
+  background: rgba(81, 207, 102, 0.12);
+  color: #51cf66;
+}
+
+.analysis-meta-pill.confidence-medium {
+  background: rgba(255, 212, 59, 0.12);
+  color: #ffd43b;
+}
+
+.analysis-meta-pill.confidence-low {
+  background: rgba(255, 135, 135, 0.12);
+  color: #ff8787;
+}
+
+/* Noise details toggle */
+.noise-details-toggle {
+  background: none;
+  border: none;
+  color: var(--primary-color, #4dabf7);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 8px;
+}
+
+.noise-details-toggle:hover {
+  text-decoration: underline;
+}
+
+/* Noise details container */
+.noise-details {
+  margin-bottom: 16px;
+}
+
+/* Noise peak type badge */
+.noise-peak-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.noise-peak-badge.frame_resonance {
+  background: rgba(255, 135, 135, 0.15);
+  color: #ff8787;
+}
+
+.noise-peak-badge.motor_harmonic {
+  background: rgba(255, 212, 59, 0.15);
+  color: #ffd43b;
+}
+
+.noise-peak-badge.electrical {
+  background: rgba(77, 171, 247, 0.15);
+  color: #4dabf7;
+}
+
+.noise-peak-badge.unknown {
+  background: rgba(170, 170, 170, 0.15);
+  color: #aaa;
+}
+
+/* Current PIDs heading */
+.current-pids-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 16px 0 0 0;
+}
+
+/* Summary stats row */
+.summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* Changes-at-a-glance table */
+.changes-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+
+.changes-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #aaa);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color, #444);
+}
+
+.changes-table td {
+  padding: 8px 12px;
+  color: var(--text-primary, #fff);
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.changes-table tbody tr:hover {
+  background: rgba(77, 171, 247, 0.05);
+}
+
+/* Change badge in table */
+.change-badge {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.change-badge.positive {
+  color: #51cf66;
+}
+
+.change-badge.negative {
+  color: #ff8787;
+}
+
+/* Section detail text */
+.analysis-section-detail {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  margin: 0 0 8px 0;
+}
+

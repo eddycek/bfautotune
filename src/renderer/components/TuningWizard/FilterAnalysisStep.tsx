@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RecommendationCard } from './RecommendationCard';
 import type { FilterAnalysisResult, AnalysisProgress } from '@shared/types/analysis.types';
 
@@ -18,6 +18,13 @@ const STEP_LABELS: Record<string, string> = {
   recommending: 'Generating recommendations...',
 };
 
+const PEAK_TYPE_LABELS: Record<string, string> = {
+  frame_resonance: 'Frame',
+  motor_harmonic: 'Motor',
+  electrical: 'Electrical',
+  unknown: 'Unknown',
+};
+
 export function FilterAnalysisStep({
   filterResult,
   filterAnalyzing,
@@ -26,6 +33,8 @@ export function FilterAnalysisStep({
   runFilterAnalysis,
   onContinue,
 }: FilterAnalysisStepProps) {
+  const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(false);
+
   if (filterAnalyzing) {
     return (
       <div className="analysis-section">
@@ -78,6 +87,51 @@ export function FilterAnalysisStep({
           {' '}&mdash; {filterResult.summary}
         </p>
 
+        <div className="analysis-meta">
+          <span className="analysis-meta-pill">
+            {filterResult.segmentsUsed} segment{filterResult.segmentsUsed !== 1 ? 's' : ''} analyzed
+          </span>
+          <span className="analysis-meta-pill">
+            {(filterResult.analysisTimeMs / 1000).toFixed(2)}s
+          </span>
+        </div>
+
+        <button
+          className="noise-details-toggle"
+          onClick={() => setNoiseDetailsOpen(!noiseDetailsOpen)}
+        >
+          {noiseDetailsOpen ? 'Hide noise details' : 'Show noise details'}
+        </button>
+
+        {noiseDetailsOpen && (
+          <div className="noise-details">
+            <div className="axis-summary">
+              {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
+                const profile = filterResult.noise[axis];
+                return (
+                  <div key={axis} className="axis-summary-card">
+                    <div className="axis-summary-card-title">{axis}</div>
+                    <div className="axis-summary-card-stat">
+                      <span>Noise floor: </span>{profile.noiseFloorDb.toFixed(0)} dB
+                    </div>
+                    <div className="axis-summary-card-stat">
+                      <span>Peaks: </span>{profile.peaks.length}
+                    </div>
+                    {profile.peaks.map((peak, i) => (
+                      <div key={i} className="axis-summary-card-stat">
+                        <span>{peak.frequency.toFixed(0)} Hz </span>
+                        <span className={`noise-peak-badge ${peak.type}`}>
+                          {PEAK_TYPE_LABELS[peak.type] || peak.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {filterResult.recommendations.length > 0 ? (
           <div className="recommendation-list">
             {filterResult.recommendations.map((rec) => (
@@ -89,6 +143,7 @@ export function FilterAnalysisStep({
                 reason={rec.reason}
                 impact={rec.impact}
                 confidence={rec.confidence}
+                unit="Hz"
               />
             ))}
           </div>
