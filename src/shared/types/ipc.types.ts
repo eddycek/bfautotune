@@ -14,7 +14,7 @@ import type {
 } from './profile.types';
 import type { PIDConfiguration } from './pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from './blackbox.types';
-import type { FilterAnalysisResult, AnalysisProgress, CurrentFilterSettings } from './analysis.types';
+import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from './analysis.types';
 
 export enum IPCChannel {
   // Connection
@@ -63,6 +63,7 @@ export enum IPCChannel {
 
   // Analysis
   ANALYSIS_RUN_FILTER = 'analysis:run-filter',
+  ANALYSIS_RUN_PID = 'analysis:run-pid',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -131,6 +132,7 @@ export interface BetaflightAPI {
 
   // Analysis
   analyzeFilters(logId: string, sessionIndex?: number, currentSettings?: CurrentFilterSettings, onProgress?: (progress: AnalysisProgress) => void): Promise<FilterAnalysisResult>;
+  analyzePID(logId: string, sessionIndex?: number, currentPIDs?: PIDConfiguration, onProgress?: (progress: AnalysisProgress) => void): Promise<PIDAnalysisResult>;
 
   // Events
   onError(callback: (error: string) => void): () => void;

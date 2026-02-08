@@ -1,5 +1,5 @@
 /**
- * Constants for FFT analysis and filter tuning.
+ * Constants for FFT analysis, filter tuning, and PID step-response analysis.
  * All thresholds are tunable — adjust based on real-world data.
  */
 
@@ -91,3 +91,68 @@ export const RESONANCE_ACTION_THRESHOLD_DB = 12;
 
 /** Margin below a resonance peak when lowering cutoff (Hz) */
 export const RESONANCE_CUTOFF_MARGIN_HZ = 20;
+
+// ---- Step Detection ----
+
+/** Minimum setpoint change to count as a step (deg/s) */
+export const STEP_MIN_MAGNITUDE_DEG_S = 100;
+
+/** Minimum setpoint derivative (deg/s per second) for edge detection */
+export const STEP_DERIVATIVE_THRESHOLD = 500;
+
+/** Window after step to measure response (ms) */
+export const STEP_RESPONSE_WINDOW_MS = 300;
+
+/** Minimum gap between steps to avoid rapid reversals (ms) */
+export const STEP_COOLDOWN_MS = 100;
+
+/** Step must hold for at least this long (ms) */
+export const STEP_MIN_HOLD_MS = 50;
+
+// ---- Step Response Metrics ----
+
+/** Settling tolerance: +/-2% of target */
+export const SETTLING_TOLERANCE = 0.02;
+
+/** Rise time low threshold (10% of final value) */
+export const RISE_TIME_LOW = 0.1;
+
+/** Rise time high threshold (90% of final value) */
+export const RISE_TIME_HIGH = 0.9;
+
+/** Threshold for detecting first movement (5% of step magnitude) */
+export const LATENCY_THRESHOLD = 0.05;
+
+// ---- PID Scoring ----
+
+/** Target overshoot percentage (ideal) */
+export const OVERSHOOT_IDEAL_PERCENT = 5;
+
+/** Maximum acceptable overshoot percentage */
+export const OVERSHOOT_MAX_PERCENT = 30;
+
+/** Maximum acceptable ringing count */
+export const RINGING_MAX_COUNT = 3;
+
+/** Maximum acceptable settling time (ms) */
+export const SETTLING_MAX_MS = 150;
+
+// ---- PID Safety Bounds ----
+
+/** Minimum P gain */
+export const P_GAIN_MIN = 20;
+
+/** Maximum P gain */
+export const P_GAIN_MAX = 120;
+
+/** Minimum D gain */
+export const D_GAIN_MIN = 15;
+
+/** Maximum D gain */
+export const D_GAIN_MAX = 80;
+
+/** Minimum I gain */
+export const I_GAIN_MIN = 30;
+
+/** Maximum I gain */
+export const I_GAIN_MAX = 120;

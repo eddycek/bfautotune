@@ -17,13 +17,14 @@ import type {
 } from '@shared/types/profile.types';
 import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult } from '@shared/types/blackbox.types';
-import type { FilterAnalysisResult, CurrentFilterSettings } from '@shared/types/analysis.types';
+import type { FilterAnalysisResult, PIDAnalysisResult, CurrentFilterSettings } from '@shared/types/analysis.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
 import { getMainWindow } from '../window';
 import { BlackboxParser } from '../blackbox/BlackboxParser';
 import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
+import { analyzePID } from '../analysis/PIDAnalyzer';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -752,6 +753,63 @@ export function registerIPCHandlers(): void {
       } catch (error) {
         logger.error('Failed to run filter analysis:', error);
         return createResponse<FilterAnalysisResult>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
+  // PID analysis handler
+  ipcMain.handle(
+    IPCChannel.ANALYSIS_RUN_PID,
+    async (event, logId: string, sessionIndex?: number, currentPIDs?: PIDConfiguration): Promise<IPCResponse<PIDAnalysisResult>> => {
+      try {
+        if (!blackboxManager) {
+          return createResponse<PIDAnalysisResult>(undefined, 'BlackboxManager not initialized');
+        }
+
+        const logMeta = await blackboxManager.getLog(logId);
+        if (!logMeta) {
+          return createResponse<PIDAnalysisResult>(undefined, `Blackbox log not found: ${logId}`);
+        }
+
+        logger.info(`Running PID analysis on: ${logMeta.filename}`);
+
+        // Parse the log first
+        const data = await fs.readFile(logMeta.filepath);
+        const parseResult = await BlackboxParser.parse(data);
+
+        if (!parseResult.success || parseResult.sessions.length === 0) {
+          return createResponse<PIDAnalysisResult>(undefined, 'Failed to parse Blackbox log for PID analysis');
+        }
+
+        const idx = sessionIndex ?? 0;
+        if (idx >= parseResult.sessions.length) {
+          return createResponse<PIDAnalysisResult>(
+            undefined,
+            `Session index ${idx} out of range (log has ${parseResult.sessions.length} sessions)`
+          );
+        }
+
+        const session = parseResult.sessions[idx];
+
+        // Run PID analysis with progress reporting
+        const result = await analyzePID(
+          session.flightData,
+          idx,
+          currentPIDs,
+          (progress) => {
+            event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
+          }
+        );
+
+        logger.info(
+          `PID analysis complete: ${result.recommendations.length} recommendations, ` +
+          `${result.stepsDetected} steps detected, ${result.analysisTimeMs}ms`
+        );
+
+        return createResponse<PIDAnalysisResult>(result);
+      } catch (error) {
+        logger.error('Failed to run PID analysis:', error);
+        return createResponse<PIDAnalysisResult>(undefined, getErrorMessage(error));
       }
     }
   );

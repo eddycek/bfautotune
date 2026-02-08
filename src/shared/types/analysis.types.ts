@@ -1,6 +1,9 @@
 /**
- * Types for FFT-based noise analysis and filter tuning recommendations.
+ * Types for FFT-based noise analysis, filter tuning, and PID step-response analysis.
  */
+
+import type { PIDConfiguration } from './pid.types';
+
 
 /** Power spectrum for one axis */
 export interface PowerSpectrum {
@@ -86,7 +89,7 @@ export interface FlightSegment {
 /** Progress during analysis pipeline */
 export interface AnalysisProgress {
   /** Current pipeline step */
-  step: 'segmenting' | 'fft' | 'analyzing' | 'recommending';
+  step: 'segmenting' | 'fft' | 'analyzing' | 'recommending' | 'detecting' | 'measuring' | 'scoring';
   /** Completion percentage (0-100) */
   percent: number;
 }
@@ -116,3 +119,91 @@ export const DEFAULT_FILTER_SETTINGS: CurrentFilterSettings = {
   dyn_notch_min_hz: 150,
   dyn_notch_max_hz: 600,
 };
+
+// ---- PID Step Response Analysis Types ----
+
+/** A detected step input event in the setpoint */
+export interface StepEvent {
+  /** Axis index: 0=roll, 1=pitch, 2=yaw */
+  axis: 0 | 1 | 2;
+  /** Sample index where the step begins */
+  startIndex: number;
+  /** Sample index for the end of the response window */
+  endIndex: number;
+  /** Step size in deg/s */
+  magnitude: number;
+  /** Direction of the step */
+  direction: 'positive' | 'negative';
+}
+
+/** Metrics extracted from a single step response */
+export interface StepResponse {
+  /** The step event this response corresponds to */
+  step: StepEvent;
+  /** Time from 10% to 90% of final value in ms */
+  riseTimeMs: number;
+  /** (peak - target) / target * 100 */
+  overshootPercent: number;
+  /** Time to stay within +/-2% of target in ms */
+  settlingTimeMs: number;
+  /** Delay from setpoint change to first gyro movement in ms */
+  latencyMs: number;
+  /** Number of oscillations before settling */
+  ringingCount: number;
+  /** Absolute max gyro value in response window */
+  peakValue: number;
+  /** Final settled gyro value */
+  steadyStateValue: number;
+}
+
+/** Aggregated step response metrics for one axis */
+export interface AxisStepProfile {
+  /** Individual step responses */
+  responses: StepResponse[];
+  /** Mean overshoot percentage across all steps */
+  meanOvershoot: number;
+  /** Mean rise time in ms */
+  meanRiseTimeMs: number;
+  /** Mean settling time in ms */
+  meanSettlingTimeMs: number;
+  /** Mean latency in ms */
+  meanLatencyMs: number;
+}
+
+/** A single PID recommendation */
+export interface PIDRecommendation {
+  /** Betaflight CLI setting name (e.g. "pid_roll_d") */
+  setting: string;
+  /** Current value on the FC */
+  currentValue: number;
+  /** Recommended new value */
+  recommendedValue: number;
+  /** Beginner-friendly explanation */
+  reason: string;
+  /** What aspect this affects */
+  impact: 'response' | 'stability' | 'both';
+  /** How confident the recommendation is */
+  confidence: 'high' | 'medium' | 'low';
+}
+
+/** Complete PID analysis result */
+export interface PIDAnalysisResult {
+  /** Step response profile for roll axis */
+  roll: AxisStepProfile;
+  /** Step response profile for pitch axis */
+  pitch: AxisStepProfile;
+  /** Step response profile for yaw axis */
+  yaw: AxisStepProfile;
+  /** PID tuning recommendations */
+  recommendations: PIDRecommendation[];
+  /** 1-2 sentence summary for beginners */
+  summary: string;
+  /** Time taken for analysis in ms */
+  analysisTimeMs: number;
+  /** Which session was analyzed */
+  sessionIndex: number;
+  /** Total steps detected across all axes */
+  stepsDetected: number;
+  /** Current PID configuration used for analysis */
+  currentPIDs: PIDConfiguration;
+}
