@@ -152,6 +152,32 @@ Resolve promise with response data
 MSPClient processes and returns version string
 ```
 
+### 4. Auto-Apply Tuning Flow
+
+```
+User clicks "Apply" in TuningSummaryStep
+  ↓
+ApplyConfirmationModal shown (snapshot option + reboot warning)
+  ↓
+useTuningWizard.confirmApply()
+  ↓
+window.betaflight.applyRecommendations(input)
+  ↓
+IPC: tuning:apply-recommendations
+  ↓
+Main: TUNING_APPLY_RECOMMENDATIONS handler
+  ↓
+Stage 1: MSPClient.setPIDConfiguration() → MSP_SET_PID (must be before CLI)
+  ↓
+Stage 2: SnapshotManager.createSnapshot() → enters CLI mode
+  ↓
+Stage 3: CLI "set" commands for each filter recommendation
+  ↓
+Stage 4: CLI "save" → FC reboots
+  ↓
+Progress events → renderer updates progress bar
+```
+
 ## Component Hierarchy
 
 ```
@@ -189,7 +215,8 @@ App
 │   ├── SessionSelectStep
 │   ├── FilterAnalysisStep
 │   ├── PIDAnalysisStep
-│   └── TuningSummaryStep
+│   ├── TuningSummaryStep
+│   └── ApplyConfirmationModal
 │
 ├── TuningWorkflowModal (help modal)
 │   ├── Workflow steps
@@ -421,8 +448,8 @@ UI displays error message to user
 
 ## Testing Strategy
 
-### Unit Tests (522 tests across 31 files)
-- MSP protocol encoding/decoding
+### Unit Tests (544 tests across 32 files)
+- MSP protocol encoding/decoding, filter config parsing (3 tests)
 - Blackbox parser pipeline (171 tests)
 - FFT analysis pipeline (91 tests)
 - Step response analysis pipeline (58 tests)
