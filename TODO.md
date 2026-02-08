@@ -1,7 +1,7 @@
 # TODO - Beta PIDTune
 
-**Last Updated:** February 7, 2026
-**Current Status:** Phase 1 - 100% Complete ✅ | Multi-Drone Profile System - 100% Complete ✅
+**Last Updated:** February 8, 2026
+**Current Status:** Phase 2 - Blackbox Analysis In Progress 🚧 | FFT Analysis Complete ✅
 **GitHub:** https://github.com/eddycek/beta-pidtune
 **Workflow:** All changes via Pull Requests (main branch protected)
 
@@ -169,7 +169,7 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 - ✅ **Empty board name**: Filter null bytes, fallback to target, conditional display
 
 ### Testing Infrastructure ✅
-**Total: 128 tests across 9 test files**
+**Total: 429 tests across 24 test files**
 
 #### Components (77 tests)
 - ✅ ConnectionPanel.test.tsx (12 tests)
@@ -309,36 +309,33 @@ Complete multi-drone profile system allowing users to manage multiple drones wit
 
 ## 🔄 Current Status - Where We Left Off
 
-**Date:** February 7, 2026
-**Branch:** `feature/drone-profiles`
-**PR:** https://github.com/eddycek/beta-pidtune/pull/1
+**Date:** February 8, 2026
+**Branch:** `feature/fft-analysis`
+**PR:** https://github.com/eddycek/beta-pidtune/pull/5
 
 ### ✅ Phase 1 Completed (100%):
 1. ✅ Electron + Vite + TypeScript + React project
-2. ✅ Folder structure
-3. ✅ TypeScript configuration
-4. ✅ IPC foundation (channels, handlers, preload)
-5. ✅ MSP Protocol layer (MSPProtocol, MSPConnection)
-6. ✅ MSP Client (high-level API)
-7. ✅ Snapshot System (FileStorage, SnapshotManager)
-8. ✅ Connection UI components
-9. ✅ FC Info UI components
-10. ✅ Snapshot Manager UI components
-11. ✅ CLI mode & Port management
-12. ✅ Multi-drone profile system
-13. ✅ Profile management UI (wizard, editing, deletion)
-14. ✅ 8 critical bug fixes
-15. ✅ Comprehensive testing (128 tests)
-16. ✅ Documentation (CLAUDE.md, TESTING.md)
+2. ✅ MSP Protocol + Serial connection
+3. ✅ FC info display + CLI export
+4. ✅ Snapshot versioning system
+5. ✅ Multi-drone profile system (auto-detect by FC serial)
+6. ✅ Profile management UI (wizard, editing, deletion)
+7. ✅ 8 critical bug fixes
+8. ✅ 128 UI tests with pre-commit hooks
 
-### 🚧 In Progress:
-- ⏳ PR #1 pending review and merge
+### 🚧 Phase 2 In Progress:
+- ✅ Task #15: Blackbox MSP commands (download, erase, info)
+- ✅ Task #16: Blackbox binary log parser (171 tests) — PR #4 merged
+- ✅ Task #17: FFT analysis engine (91 tests) — PR #5 pending review
+- ⏳ Task #18: Step response analyzer
+- ⏳ Task #19: Guided wizard UI
+- ⏳ Task #20: Auto-apply recommendations
 
 ### ⏭️ Up Next:
-**After PR #1 merges:**
-- Phase 2 planning
-- Consider implementing suggestions from Task #12 (UI improvements)
-- Hardware testing with real FC (verify all functionality)
+- Merge PR #5 (FFT analysis)
+- Task #18: Step response analysis for PID tuning
+- Task #19: Guided wizard UI for test flights
+- Task #20: Auto-apply filter/PID changes to FC
 
 ---
 
@@ -378,79 +375,91 @@ class ReconnectionManager {
 
 ## 🎯 Phase 2 - Blackbox Analysis System
 
-**Status:** In Progress 🚧
-**Branch:** `feature/auto-pid-tuning`
+**Status:** In Progress 🚧 (3/6 tasks complete)
+**Branches:** `feature/auto-pid-tuning`, `feature/blackbox-parser`, `feature/fft-analysis`
 **Started:** February 7, 2026
 
 ### Overview
 Automated FPV drone tuning via Blackbox log analysis. No manual PID editor - fully automated filter and PID tuning based on FFT analysis and step response metrics.
 
-### Task #15: Blackbox MSP Commands ⏳
-**Priority:** HIGH | **Status:** In Progress
+### Task #15: Blackbox MSP Commands ✅
+**Priority:** HIGH | **Status:** Completed
+**Branch:** `feature/auto-pid-tuning` | **PR:** #2, #3
 
-#### 15.1 Blackbox Capability Detection
-- [ ] Implement MSP_DATAFLASH_SUMMARY command
-- [ ] Check if onboard flash storage available
-- [ ] Detect total capacity and used space
-- [ ] Add to MSPClient.ts with types
+#### 15.1 Blackbox Capability Detection ✅
+- ✅ Implement MSP_DATAFLASH_SUMMARY command
+- ✅ Check if onboard flash storage available
+- ✅ Detect total capacity and used space
+- ✅ Add to MSPClient.ts with types
 
-#### 15.2 Blackbox Download
-- [ ] Implement MSP_DATAFLASH_READ command
-- [ ] Stream log data from flash storage
-- [ ] Progress tracking for large logs
-- [ ] Save to local file (.bbl format)
-- [ ] Handle download errors/timeouts
+#### 15.2 Blackbox Download ✅
+- ✅ Implement MSP_DATAFLASH_READ command
+- ✅ Stream log data from flash storage
+- ✅ Progress tracking for large logs
+- ✅ Save to local file (.bbl format)
+- ✅ Handle download errors/timeouts
 
-#### 15.3 Blackbox Configuration
-- [ ] Read current Blackbox settings (rate, debug mode)
-- [ ] Set optimal logging rate for analysis
-- [ ] Configure debug modes (GYRO_SCALED for filter, etc.)
-- [ ] Validate prerequisites before test flights
+#### 15.3 Blackbox Configuration ✅
+- ✅ Read current Blackbox settings (rate, debug mode)
+- ✅ BlackboxManager storage with profile-linked log metadata
+- ✅ IPC channels for download, list, delete, erase flash
 
-### Task #16: Blackbox Parser
-**Priority:** HIGH | **Status:** Not Started
+### Task #16: Blackbox Parser ✅
+**Priority:** HIGH | **Status:** Completed
+**Branch:** `feature/blackbox-parser` | **PR:** #4 (merged)
+**Tests:** 171 new tests
 
-#### 16.1 Parser Core
-- [ ] Create BlackboxParser module
-- [ ] Parse .bbl file headers
-- [ ] Decode main frames (P, I, G frames)
-- [ ] Extract gyro data (gyroADC[0-2])
-- [ ] Extract setpoint data for step response
-- [ ] Handle different Betaflight versions
+#### 16.1 Parser Core ✅
+- ✅ StreamReader → HeaderParser → ValueDecoder → PredictorApplier → FrameParser → BlackboxParser
+- ✅ 10 encoding types (SIGNED_VB, UNSIGNED_VB, TAG8_8SVB, TAG2_3S32, etc.)
+- ✅ 10 predictor types (ZERO, PREVIOUS, STRAIGHT_LINE, AVERAGE_2, etc.)
+- ✅ I-frame and P-frame decoding with delta decompression
+- ✅ Multi-session support (multiple flights per file)
+- ✅ Corruption recovery with resync logic
 
-#### 16.2 Data Extraction
-- [ ] Time series extraction for gyro channels
-- [ ] Filter data by flight segments (exclude takeoff/landing)
-- [ ] Resample data for consistent rate
-- [ ] Export to analysis-friendly format (typed arrays)
+#### 16.2 Data Extraction ✅
+- ✅ Time series extraction (gyro, setpoint, PID, motor, debug) as Float64Array
+- ✅ Sample rate calculation from header looptime
+- ✅ Duration calculation with corruption tolerance
+- ✅ Flash header stripping for MSP-downloaded logs
 
-#### 16.3 Multi-log Support
-- [ ] Load multiple logs for D sweep analysis
-- [ ] Correlate logs by timestamp/label
-- [ ] Batch processing for comparative analysis
+#### 16.3 IPC Integration ✅
+- ✅ BLACKBOX_PARSE_LOG IPC channel with progress events
+- ✅ Preload bridge: parseBlackboxLog(logId, onProgress)
 
-### Task #17: FFT Analysis Engine
-**Priority:** HIGH | **Status:** Not Started
+### Task #17: FFT Analysis Engine ✅
+**Priority:** HIGH | **Status:** Completed
+**Branch:** `feature/fft-analysis` | **PR:** #5
+**Tests:** 91 new tests
 
-#### 17.1 FFT Implementation
-- [ ] Choose FFT library (fft.js or similar)
-- [ ] Compute power spectrum for gyro data
-- [ ] Window functions (Hanning, Blackman)
-- [ ] Frequency resolution optimization
+#### 17.1 FFT Implementation ✅
+- ✅ `fft.js` library (lightweight, no native modules)
+- ✅ Welch's method: overlapping windowed FFT → averaged power spectrum
+- ✅ Hanning window function
+- ✅ Configurable window size (default 4096), 50% overlap
+- ✅ Frequency range trimming (20-1000 Hz)
 
-#### 17.2 Noise Analysis
-- [ ] Detect overall noise floor
-- [ ] Identify resonance peaks (frame, motors)
-- [ ] Motor harmonics detection
-- [ ] Noise level categorization (low/medium/high)
+#### 17.2 Noise Analysis ✅
+- ✅ Noise floor estimation (lower quartile of magnitudes)
+- ✅ Prominence-based peak detection (>6 dB above local floor)
+- ✅ Peak classification: frame resonance (80-200 Hz), motor harmonics (spacing detection), electrical (>500 Hz)
+- ✅ Noise level categorization (low/medium/high)
+- ✅ Multi-segment spectrum averaging for robust estimates
 
-#### 17.3 Filter Recommendations
-- [ ] Gyro lowpass cutoff adjustment logic
-- [ ] D-term lowpass cutoff adjustment logic
-- [ ] Dynamic notch validation
-- [ ] RPM filtering validation
-- [ ] Safety bounds (minimum filtering levels)
-- [ ] Plain-English explanations per change
+#### 17.3 Filter Recommendations ✅
+- ✅ Gyro lowpass cutoff adjustment (raise for low noise, lower for high noise)
+- ✅ D-term lowpass cutoff adjustment (more aggressive than gyro)
+- ✅ Dynamic notch min/max validation against detected peaks
+- ✅ Resonance peak → cutoff lowering when peak below current filter
+- ✅ Safety bounds (gyro LPF min 100 Hz, D-term LPF min 80 Hz)
+- ✅ Beginner-friendly plain-English explanations
+- ✅ Deduplication when multiple rules target same setting
+
+#### 17.4 Pipeline ✅
+- ✅ SegmentSelector → FFTCompute → NoiseAnalyzer → FilterRecommender → FilterAnalyzer
+- ✅ Async progress reporting (segmenting/fft/analyzing/recommending)
+- ✅ Fallback to entire flight when no hover segments found
+- ✅ IPC: ANALYSIS_RUN_FILTER + EVENT_ANALYSIS_PROGRESS
 
 ### Task #18: Step Response Analyzer
 **Priority:** MEDIUM | **Status:** Not Started
