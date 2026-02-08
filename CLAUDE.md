@@ -203,12 +203,24 @@ Guided multi-step wizard for automated tuning workflow.
 
 **Important**: Stage ordering matters — MSP commands must execute before CLI mode, because FC only processes CLI input while in CLI mode (MSP timeouts). Snapshot creation enters CLI mode via `exportCLIDiff()`.
 
+### Snapshot Restore (Rollback)
+
+**Restore Flow** (orchestrated in `SNAPSHOT_RESTORE` IPC handler):
+1. Load snapshot and parse `cliDiff` — extract restorable CLI commands
+2. Stage 1 (backup): Create "Pre-restore (auto)" safety snapshot
+3. Stage 2 (cli): Enter CLI mode, send each command
+4. Stage 3 (save): Save and reboot FC
+
+**Restorable commands**: `set`, `feature`, `serial`, `aux`, `beacon`, `map`, `resource`, `timer`, `dma` — everything except identity (`board_name`, `mcu_id`), control (`diff`, `batch`, `defaults`, `save`), and profile selection commands.
+
+**CLI prompt detection fix** (`MSPConnection.sendCLICommand`): Previously used `data.includes('#')` which false-matched `# comment` lines in `diff all` output, truncating snapshots. Fixed to check accumulated buffer ending with `\n#` (actual CLI prompt).
+
 ## Testing Requirements
 
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 558 tests total across 32 test files
+- 569 tests total across 32 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
 - MSP Client: MSPClient (3 tests - filter config parsing)
@@ -259,6 +271,8 @@ await waitFor(() => {
 - **Baseline** type cannot be deleted via UI
 - **Auto-created baseline** when profile first connects
 - **Export** downloads CLI diff as `.txt` file
+- **Restore** sends `set` commands from snapshot CLI diff to FC via CLI, then saves and reboots
+- **Restore safety backup** auto-creates "Pre-restore (auto)" snapshot before applying
 - **Server-side filtering** by current profile's snapshotIds
 
 ### Event-Driven UI Updates

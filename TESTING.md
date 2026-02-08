@@ -184,7 +184,7 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Total: 558 tests across 32 test files
+### Total: 569 tests across 32 test files
 
 ### UI Components (97+ tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
@@ -192,7 +192,7 @@ it('displays error when API fails', async () => {
 - ✅ **FCInfoDisplay** (12 tests) - FC information display, CLI export
 - ✅ **ProfileEditModal** (18 tests) - Profile editing, validation, form handling
 - ✅ **ProfileDeleteModal** (14 tests) - Deletion confirmation, warnings, active profile handling
-- ✅ **SnapshotManager** (22 tests) - Snapshot creation, deletion, export, baseline handling
+- ✅ **SnapshotManager** (30 tests) - Snapshot creation, deletion, export, restore, baseline handling
 - ✅ **BlackboxStatus** - Blackbox status display and download trigger
 - ✅ **Toast / ToastContainer** - Toast notification rendering and lifecycle
 - ✅ **TuningWizard** (22+ tests) - Multi-step tuning wizard flow, results display, apply confirmation, progress
@@ -202,7 +202,7 @@ it('displays error when API fails', async () => {
 ### Hooks (45+ tests)
 - ✅ **useConnection** (15 tests) - Connection state, port management, error handling
 - ✅ **useProfiles** (14 tests) - Profile CRUD operations, event subscriptions
-- ✅ **useSnapshots** (16 tests) - Snapshot management, event-driven updates
+- ✅ **useSnapshots** (19 tests) - Snapshot management, restore, event-driven updates
 - ✅ **useTuningWizard** - Wizard state management, parse/analyze/apply lifecycle
 
 ### MSP Client (3 tests)
@@ -382,7 +382,7 @@ src/renderer/components/
   FCInfo/
     FCInfoDisplay.test.tsx           ← 12 tests
   SnapshotManager/
-    SnapshotManager.test.tsx         ← 22 tests
+    SnapshotManager.test.tsx         ← 30 tests
   BlackboxStatus/
     BlackboxStatus.test.tsx
   Toast/
@@ -408,7 +408,7 @@ src/main/msp/
 src/renderer/hooks/
   useConnection.test.ts              ← 15 tests
   useProfiles.test.ts                ← 14 tests
-  useSnapshots.test.ts               ← 16 tests
+  useSnapshots.test.ts               ← 19 tests
   useTuningWizard.test.ts
 ```
 
