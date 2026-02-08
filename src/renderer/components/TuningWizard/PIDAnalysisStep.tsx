@@ -75,6 +75,38 @@ export function PIDAnalysisStep({
           {pidResult.stepsDetected} step inputs detected across all axes.
         </p>
 
+        <div className="analysis-meta">
+          <span className="analysis-meta-pill">
+            {(pidResult.analysisTimeMs / 1000).toFixed(2)}s
+          </span>
+        </div>
+
+        {pidResult.currentPIDs && (
+          <>
+            <h4 className="current-pids-heading">Current PID Values</h4>
+            <div className="axis-summary">
+              {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
+                const pids = pidResult.currentPIDs[axis];
+                return (
+                  <div key={`current-${axis}`} className="axis-summary-card">
+                    <div className="axis-summary-card-title">{axis}</div>
+                    <div className="axis-summary-card-stat">
+                      <span>P: </span>{pids.P}
+                    </div>
+                    <div className="axis-summary-card-stat">
+                      <span>I: </span>{pids.I}
+                    </div>
+                    <div className="axis-summary-card-stat">
+                      <span>D: </span>{pids.D}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <h4 className="current-pids-heading">Step Response Metrics</h4>
         <div className="axis-summary">
           {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
             const profile = pidResult[axis];
@@ -89,6 +121,9 @@ export function PIDAnalysisStep({
                 </div>
                 <div className="axis-summary-card-stat">
                   <span>Settling: </span>{profile.meanSettlingTimeMs.toFixed(0)} ms
+                </div>
+                <div className="axis-summary-card-stat">
+                  <span>Latency: </span>{profile.meanLatencyMs.toFixed(0)} ms
                 </div>
               </div>
             );

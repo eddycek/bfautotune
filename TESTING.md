@@ -184,9 +184,9 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Total: 522 tests across 31 test files
+### Total: 530 tests across 31 test files
 
-### UI Components (89+ tests)
+### UI Components (97+ tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
 - ✅ **ProfileSelector** (11 tests) - Profile switching, locking when FC connected
 - ✅ **FCInfoDisplay** (12 tests) - FC information display, CLI export
@@ -195,7 +195,7 @@ it('displays error when API fails', async () => {
 - ✅ **SnapshotManager** (22 tests) - Snapshot creation, deletion, export, baseline handling
 - ✅ **BlackboxStatus** - Blackbox status display and download trigger
 - ✅ **Toast / ToastContainer** - Toast notification rendering and lifecycle
-- ✅ **TuningWizard** - Multi-step tuning wizard flow and step navigation
+- ✅ **TuningWizard** (22 tests) - Multi-step tuning wizard flow, results display, noise details, summary table
 - ✅ **TuningWorkflowModal** - Tuning preparation guide modal
 
 ### Hooks (45+ tests)

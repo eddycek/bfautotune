@@ -192,7 +192,7 @@ Guided multi-step wizard for automated tuning workflow.
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 522 tests total across 31 test files
+- 530 tests total across 31 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, TuningWorkflowModal
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
 - Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (171 tests)
