@@ -159,10 +159,10 @@ describe('useTuningWizard', () => {
     vi.clearAllMocks();
   });
 
-  it('initializes with session step and default state', () => {
+  it('initializes with guide step and default state', () => {
     const { result } = renderHook(() => useTuningWizard('log-1'));
 
-    expect(result.current.step).toBe('session');
+    expect(result.current.step).toBe('guide');
     expect(result.current.logId).toBe('log-1');
     expect(result.current.sessionIndex).toBe(0);
     expect(result.current.sessions).toBeNull();
@@ -196,7 +196,7 @@ describe('useTuningWizard', () => {
     });
 
     expect(result.current.sessions).toHaveLength(2);
-    expect(result.current.step).toBe('session'); // stays for selection
+    expect(result.current.step).toBe('guide'); // stays — not auto-advanced
   });
 
   it('handles parse error', async () => {

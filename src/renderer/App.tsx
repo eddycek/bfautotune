@@ -6,6 +6,7 @@ import { SnapshotManager } from './components/SnapshotManager/SnapshotManager';
 import { ProfileWizard } from './components/ProfileWizard';
 import { ProfileSelector } from './components/ProfileSelector';
 import { TuningWizard } from './components/TuningWizard/TuningWizard';
+import { TuningWorkflowModal } from './components/TuningWorkflowModal/TuningWorkflowModal';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { useProfiles } from './hooks/useProfiles';
@@ -20,6 +21,7 @@ function AppContent() {
   const [newFCInfo, setNewFCInfo] = useState<FCInfo | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
+  const [showWorkflowHelp, setShowWorkflowHelp] = useState(false);
   const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
   const toast = useToast();
 
@@ -66,7 +68,16 @@ function AppContent() {
     <div className="app">
       <header className="app-header">
         <h1>Beta PIDTune</h1>
-        <span className="version">v0.1.0</span>
+        <div className="app-header-right">
+          <span className="version">v0.1.0</span>
+          <button
+            className="app-help-button"
+            onClick={() => setShowWorkflowHelp(true)}
+            title="How to prepare Blackbox data"
+          >
+            How to tune ?
+          </button>
+        </div>
       </header>
 
       <main className="app-main">
@@ -89,6 +100,10 @@ function AppContent() {
           fcInfo={newFCInfo}
           onComplete={handleProfileWizardComplete}
         />
+      )}
+
+      {showWorkflowHelp && (
+        <TuningWorkflowModal onClose={() => setShowWorkflowHelp(false)} />
       )}
 
       <ToastContainer />

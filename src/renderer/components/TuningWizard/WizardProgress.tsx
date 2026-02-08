@@ -6,6 +6,7 @@ interface WizardProgressProps {
 }
 
 const STEPS: { key: WizardStep; label: string }[] = [
+  { key: 'guide', label: 'Flight Guide' },
   { key: 'session', label: 'Session' },
   { key: 'filter', label: 'Filters' },
   { key: 'pid', label: 'PIDs' },
@@ -13,10 +14,11 @@ const STEPS: { key: WizardStep; label: string }[] = [
 ];
 
 const stepOrder: Record<WizardStep, number> = {
-  session: 0,
-  filter: 1,
-  pid: 2,
-  summary: 3,
+  guide: 0,
+  session: 1,
+  filter: 2,
+  pid: 3,
+  summary: 4,
 };
 
 export function WizardProgress({ currentStep }: WizardProgressProps) {

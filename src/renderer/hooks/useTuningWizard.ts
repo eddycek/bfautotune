@@ -6,7 +6,7 @@ import type {
   AnalysisProgress
 } from '@shared/types/analysis.types';
 
-export type WizardStep = 'session' | 'filter' | 'pid' | 'summary';
+export type WizardStep = 'guide' | 'session' | 'filter' | 'pid' | 'summary';
 
 export interface UseTuningWizardReturn {
   step: WizardStep;
@@ -38,7 +38,7 @@ export interface UseTuningWizardReturn {
 }
 
 export function useTuningWizard(logId: string): UseTuningWizardReturn {
-  const [step, setStep] = useState<WizardStep>('session');
+  const [step, setStep] = useState<WizardStep>('guide');
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessions, setSessions] = useState<BlackboxLogSession[] | null>(null);
 

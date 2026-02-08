@@ -26,6 +26,30 @@
   font-size: 14px;
 }
 
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-help-button {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid #2563eb;
+  background: rgba(37, 99, 235, 0.15);
+  color: #4dabf7;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.app-help-button:hover {
+  background: rgba(37, 99, 235, 0.3);
+  border-color: #4dabf7;
+  color: #fff;
+}
+
 .app-main {
   flex: 1;
   overflow-y: auto;

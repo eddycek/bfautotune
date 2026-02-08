@@ -157,16 +157,21 @@ const mockPIDResult: PIDAnalysisResult = {
 
 describe('TuningWizard', () => {
   const onExit = vi.fn();
+  const GUIDE_BUTTON = 'Got it — Start Analysis';
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders wizard header with log ID and exit button', () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(
-      () => new Promise(() => {})
-    );
+  /** Click through the guide step to advance to session/parse */
+  async function passGuide(user: ReturnType<typeof userEvent.setup>) {
+    await waitFor(() => {
+      expect(screen.getByText('Test Flight Guide')).toBeInTheDocument();
+    });
+    await user.click(screen.getByText(GUIDE_BUTTON));
+  }
 
+  it('renders wizard header with log ID and exit button', () => {
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
     expect(screen.getByText('Tuning Wizard')).toBeInTheDocument();
@@ -175,10 +180,6 @@ describe('TuningWizard', () => {
   });
 
   it('calls onExit when Exit button is clicked', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(
-      () => new Promise(() => {})
-    );
-
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
@@ -186,12 +187,39 @@ describe('TuningWizard', () => {
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 
+  it('shows test flight guide as first step', () => {
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    expect(screen.getByText('Test Flight Guide')).toBeInTheDocument();
+    expect(screen.getByText('Take off & Hover')).toBeInTheDocument();
+    expect(screen.getByText('Roll Snaps')).toBeInTheDocument();
+    expect(screen.getByText(GUIDE_BUTTON)).toBeInTheDocument();
+  });
+
+  it('advances to session step when guide is acknowledged', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(
+      () => new Promise(() => {})
+    );
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
+
+    await waitFor(() => {
+      expect(screen.getByText('Parsing Blackbox Log')).toBeInTheDocument();
+    });
+  });
+
   it('shows progress bar during parsing', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(
       () => new Promise(() => {})
     );
 
+    const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     await waitFor(() => {
       expect(screen.getByText('Parsing Blackbox Log')).toBeInTheDocument();
@@ -201,7 +229,10 @@ describe('TuningWizard', () => {
   it('auto-advances to filter step for single session log', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
 
+    const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     await waitFor(() => {
       expect(screen.getByText('Filter Analysis')).toBeInTheDocument();
@@ -212,7 +243,10 @@ describe('TuningWizard', () => {
   it('shows session selection for multi-session log', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockMultiSessionResult);
 
+    const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     await waitFor(() => {
       expect(screen.getByText('Select Flight Session')).toBeInTheDocument();
@@ -226,6 +260,8 @@ describe('TuningWizard', () => {
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     await waitFor(() => {
       expect(screen.getByText('Session 1')).toBeInTheDocument();
@@ -244,6 +280,8 @@ describe('TuningWizard', () => {
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     await waitFor(() => {
       expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument();
@@ -265,6 +303,8 @@ describe('TuningWizard', () => {
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     await waitFor(() => {
       expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument();
@@ -291,6 +331,8 @@ describe('TuningWizard', () => {
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     // Auto-advance to filter
     await waitFor(() => {
@@ -325,6 +367,8 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
+    await passGuide(user);
+
     // Navigate through all steps
     await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run Filter Analysis'));
@@ -352,6 +396,8 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
+    await passGuide(user);
+
     await waitFor(() => {
       expect(screen.getByText('File not found')).toBeInTheDocument();
     });
@@ -371,6 +417,8 @@ describe('TuningWizard', () => {
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
 
     await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run Filter Analysis'));

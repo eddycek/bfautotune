@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTuningWizard } from '../../hooks/useTuningWizard';
 import { WizardProgress } from './WizardProgress';
+import { TestFlightGuideStep } from './TestFlightGuideStep';
 import { SessionSelectStep } from './SessionSelectStep';
 import { FilterAnalysisStep } from './FilterAnalysisStep';
 import { PIDAnalysisStep } from './PIDAnalysisStep';
@@ -17,6 +18,8 @@ export function TuningWizard({ logId, onExit }: TuningWizardProps) {
 
   const renderStep = () => {
     switch (wizard.step) {
+      case 'guide':
+        return <TestFlightGuideStep onContinue={() => wizard.setStep('session')} />;
       case 'session':
         return (
           <SessionSelectStep
