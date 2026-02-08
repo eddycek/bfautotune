@@ -95,7 +95,7 @@ export function ProfileCard({ profile, isActive, isLocked, onSelect, onEdit, onD
           <div className="profile-card-stat-value">{profile.battery}</div>
         </div>
         <div className="profile-card-stat">
-          <div className="profile-card-stat-label">Flights</div>
+          <div className="profile-card-stat-label">Connections</div>
           <div className="profile-card-stat-value">{profile.connectionCount}</div>
         </div>
       </div>

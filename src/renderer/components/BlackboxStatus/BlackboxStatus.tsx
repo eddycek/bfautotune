@@ -71,17 +71,16 @@ export function BlackboxStatus({ onAnalyze }: BlackboxStatusProps) {
 
   const handleTestRead = async () => {
     try {
-      toast.info('Testing Blackbox read (10 bytes from address 0)...');
       const result = await window.betaflight.testBlackboxRead();
 
       if (result.success) {
-        toast.success(`✅ Test passed! FC responded with: ${result.data?.substring(0, 20)}...`);
+        toast.success('Blackbox read OK');
       } else {
-        toast.error(`❌ Test failed: ${result.message}`);
+        toast.error(`Test failed: ${result.message}`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Test failed';
-      toast.error(`❌ ${message}`);
+      toast.error(message);
     }
   };
 
@@ -253,7 +252,7 @@ export function BlackboxStatus({ onAnalyze }: BlackboxStatusProps) {
         <h4>Downloaded Logs ({logs.length})</h4>
         {logs.length > 0 ? (
           <div className="logs-list">
-            {logs.map((log) => (
+            {[...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log) => (
               <div key={log.id} className="log-item">
                 <div className="log-info">
                   <div className="log-filename">{log.filename}</div>

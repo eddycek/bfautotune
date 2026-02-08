@@ -14,9 +14,6 @@ describe('ProfileEditModal', () => {
     weight: 650,
     motorKV: 2400,
     propSize: '5.1"',
-    frameStiffness: 'medium',
-    frameType: 'freestyle',
-    flightStyle: 'aggressive',
     notes: 'My racing quad',
     snapshotIds: [],
     connectionCount: 10,
@@ -61,9 +58,6 @@ describe('ProfileEditModal', () => {
     expect(screen.getByDisplayValue('4S')).toBeInTheDocument();
     expect(screen.getByDisplayValue('650')).toBeInTheDocument();
     expect(screen.getByDisplayValue('2400')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('freestyle')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('aggressive')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('medium')).toBeInTheDocument();
     expect(screen.getByDisplayValue('My racing quad')).toBeInTheDocument();
   });
 
@@ -284,9 +278,9 @@ describe('ProfileEditModal', () => {
   it('renders correctly for profile without optional fields', () => {
     const minimalProfile: DroneProfile = {
       ...mockProfile,
-      frameType: undefined,
-      flightStyle: undefined,
-      frameStiffness: undefined,
+      propSize: undefined,
+      weight: undefined,
+      motorKV: undefined,
       notes: undefined
     };
 
@@ -299,7 +293,7 @@ describe('ProfileEditModal', () => {
     );
 
     expect(screen.getByText('Edit Profile')).toBeInTheDocument();
-    // Optional selects should show "Select..." option
+    // Selects for size and battery should still render
     const selects = screen.getAllByRole('combobox');
     expect(selects.length).toBeGreaterThan(0);
   });

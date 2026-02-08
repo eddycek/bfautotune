@@ -146,6 +146,7 @@ export class SnapshotManager {
           timestamp: snapshot.timestamp,
           label: snapshot.label,
           type: snapshot.type,
+          sizeBytes: new TextEncoder().encode(JSON.stringify(snapshot)).length,
           fcInfo: {
             variant: snapshot.fcInfo.variant,
             version: snapshot.fcInfo.version,

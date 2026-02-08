@@ -32,7 +32,6 @@ describe('useProfiles', () => {
     weight: 650,
     motorKV: 2400,
     propSize: '5.1"',
-    frameStiffness: 'medium',
     snapshotIds: [],
     fcInfo: { variant: 'BTFL', version: '4.4.0' }
   };
@@ -102,8 +101,7 @@ describe('useProfiles', () => {
       battery: '4S' as const,
       weight: 650,
       motorKV: 2400,
-      propSize: '5.1"',
-      frameStiffness: 'medium' as const
+      propSize: '5.1"'
     };
 
     const profile = await result.current.createProfile(input);
@@ -239,8 +237,7 @@ describe('useProfiles', () => {
       battery: '4S' as const,
       weight: 650,
       motorKV: 2400,
-      propSize: '5.1"',
-      frameStiffness: 'medium' as const
+      propSize: '5.1"'
     };
 
     await expect(result.current.createProfile(input)).rejects.toThrow(errorMessage);

@@ -12,6 +12,7 @@ describe('SnapshotManager', () => {
       timestamp: new Date('2024-01-01').toISOString(),
       label: 'Baseline',
       type: 'baseline',
+      sizeBytes: 2048,
       fcInfo: {
         variant: 'BTFL',
         version: '4.4.0',
@@ -23,6 +24,7 @@ describe('SnapshotManager', () => {
       timestamp: new Date('2024-01-02').toISOString(),
       label: 'After PID tune',
       type: 'manual',
+      sizeBytes: 3072,
       fcInfo: {
         variant: 'BTFL',
         version: '4.4.0',
@@ -322,12 +324,13 @@ describe('SnapshotManager', () => {
     });
   });
 
-  it('displays FC info for each snapshot', async () => {
+  it('displays FC version and size for each snapshot', async () => {
     render(<SnapshotManager />);
 
     await waitFor(() => {
       expect(screen.getAllByText('BTFL 4.4.0').length).toBe(2);
-      expect(screen.getAllByText('MATEKF405').length).toBe(2);
+      expect(screen.getByText('2.0 KB')).toBeInTheDocument();
+      expect(screen.getByText('3.0 KB')).toBeInTheDocument();
     });
   });
 

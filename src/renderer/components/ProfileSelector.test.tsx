@@ -37,7 +37,6 @@ describe('ProfileSelector', () => {
       weight: 650,
       motorKV: 2400,
       propSize: '5.1"',
-      frameStiffness: 'medium' as const,
       snapshotIds: [],
       fcInfo: { variant: 'BTFL', version: '4.4.0' }
     });
@@ -94,7 +93,6 @@ describe('ProfileSelector', () => {
       weight: 50,
       motorKV: 8000,
       propSize: '40mm',
-      frameStiffness: 'soft' as const,
       snapshotIds: [],
       fcInfo: { variant: 'BTFL', version: '4.4.0' }
     });

@@ -75,7 +75,7 @@ function AppContent() {
             onClick={() => setShowWorkflowHelp(true)}
             title="How to prepare Blackbox data"
           >
-            How to tune ?
+            How to tune?
           </button>
         </div>
       </header>
