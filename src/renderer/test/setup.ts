@@ -73,6 +73,7 @@ global.window.betaflight = {
 
   // Analysis
   analyzeFilters: vi.fn(),
+  analyzePID: vi.fn(),
 
   // Events
   onError: vi.fn(() => () => {}),
