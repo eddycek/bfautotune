@@ -122,6 +122,16 @@ export const DEFAULT_FILTER_SETTINGS: CurrentFilterSettings = {
 
 // ---- PID Step Response Analysis Types ----
 
+/** Raw trace data for visualization of a single step response */
+export interface StepResponseTrace {
+  /** Time relative to step start in ms */
+  timeMs: number[];
+  /** Setpoint values (deg/s) */
+  setpoint: number[];
+  /** Gyro response values (deg/s) */
+  gyro: number[];
+}
+
 /** A detected step input event in the setpoint */
 export interface StepEvent {
   /** Axis index: 0=roll, 1=pitch, 2=yaw */
@@ -154,6 +164,8 @@ export interface StepResponse {
   peakValue: number;
   /** Final settled gyro value */
   steadyStateValue: number;
+  /** Raw trace data for chart visualization */
+  trace?: StepResponseTrace;
 }
 
 /** Aggregated step response metrics for one axis */
