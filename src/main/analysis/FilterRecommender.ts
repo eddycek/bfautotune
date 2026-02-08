@@ -60,24 +60,29 @@ function recommendNoiseFloorAdjustments(
 ): void {
   const { overallLevel } = noise;
 
+  // Skip gyro LPF noise-floor adjustment when gyro_lpf1 is disabled (0 = common in BF 4.4+ with RPM filter)
+  const gyroLpfDisabled = current.gyro_lpf1_static_hz === 0;
+
   if (overallLevel === 'high') {
     // Noise is high → more filtering (lower cutoffs)
-    const newGyroLpf1 = clamp(
-      current.gyro_lpf1_static_hz - HIGH_NOISE_GYRO_REDUCTION_HZ,
-      GYRO_LPF1_MIN_HZ,
-      GYRO_LPF1_MAX_HZ
-    );
-    if (newGyroLpf1 !== current.gyro_lpf1_static_hz) {
-      out.push({
-        setting: 'gyro_lpf1_static_hz',
-        currentValue: current.gyro_lpf1_static_hz,
-        recommendedValue: newGyroLpf1,
-        reason:
-          'Your gyro data has a lot of noise. Lowering the gyro lowpass filter will clean up the signal, ' +
-          'which helps your flight controller respond to real movement instead of vibrations.',
-        impact: 'both',
-        confidence: 'high',
-      });
+    if (!gyroLpfDisabled) {
+      const newGyroLpf1 = clamp(
+        current.gyro_lpf1_static_hz - HIGH_NOISE_GYRO_REDUCTION_HZ,
+        GYRO_LPF1_MIN_HZ,
+        GYRO_LPF1_MAX_HZ
+      );
+      if (newGyroLpf1 !== current.gyro_lpf1_static_hz) {
+        out.push({
+          setting: 'gyro_lpf1_static_hz',
+          currentValue: current.gyro_lpf1_static_hz,
+          recommendedValue: newGyroLpf1,
+          reason:
+            'Your gyro data has a lot of noise. Lowering the gyro lowpass filter will clean up the signal, ' +
+            'which helps your flight controller respond to real movement instead of vibrations.',
+          impact: 'both',
+          confidence: 'high',
+        });
+      }
     }
 
     const newDtermLpf1 = clamp(
@@ -99,22 +104,24 @@ function recommendNoiseFloorAdjustments(
     }
   } else if (overallLevel === 'low') {
     // Noise is low → less filtering (higher cutoffs = less latency)
-    const newGyroLpf1 = clamp(
-      current.gyro_lpf1_static_hz + LOW_NOISE_GYRO_INCREASE_HZ,
-      GYRO_LPF1_MIN_HZ,
-      GYRO_LPF1_MAX_HZ
-    );
-    if (newGyroLpf1 !== current.gyro_lpf1_static_hz) {
-      out.push({
-        setting: 'gyro_lpf1_static_hz',
-        currentValue: current.gyro_lpf1_static_hz,
-        recommendedValue: newGyroLpf1,
-        reason:
-          'Your quad is very clean with minimal vibrations. Raising the gyro filter cutoff will give you ' +
-          'faster response and sharper control with almost no downside.',
-        impact: 'latency',
-        confidence: 'medium',
-      });
+    if (!gyroLpfDisabled) {
+      const newGyroLpf1 = clamp(
+        current.gyro_lpf1_static_hz + LOW_NOISE_GYRO_INCREASE_HZ,
+        GYRO_LPF1_MIN_HZ,
+        GYRO_LPF1_MAX_HZ
+      );
+      if (newGyroLpf1 !== current.gyro_lpf1_static_hz) {
+        out.push({
+          setting: 'gyro_lpf1_static_hz',
+          currentValue: current.gyro_lpf1_static_hz,
+          recommendedValue: newGyroLpf1,
+          reason:
+            'Your quad is very clean with minimal vibrations. Raising the gyro filter cutoff will give you ' +
+            'faster response and sharper control with almost no downside.',
+          impact: 'latency',
+          confidence: 'medium',
+        });
+      }
     }
 
     const newDtermLpf1 = clamp(
@@ -161,28 +168,34 @@ function recommendResonanceFixes(
   // Find the lowest significant peak frequency
   const lowestPeakFreq = Math.min(...significantPeaks.map((p) => p.frequency));
 
-  // If the peak is below the current gyro LPF cutoff, the filter isn't catching it
-  if (lowestPeakFreq < current.gyro_lpf1_static_hz) {
+  // If the gyro LPF is disabled (0) or the peak is below the cutoff, the filter isn't catching it
+  const gyroLpfDisabled = current.gyro_lpf1_static_hz === 0;
+  if (gyroLpfDisabled || lowestPeakFreq < current.gyro_lpf1_static_hz) {
     const targetCutoff = clamp(
       lowestPeakFreq - RESONANCE_CUTOFF_MARGIN_HZ,
       GYRO_LPF1_MIN_HZ,
       GYRO_LPF1_MAX_HZ
     );
 
-    if (targetCutoff < current.gyro_lpf1_static_hz) {
+    // When disabled, always recommend enabling; otherwise check it's lower than current
+    if (gyroLpfDisabled || targetCutoff < current.gyro_lpf1_static_hz) {
       const peakType = significantPeaks.find((p) => p.frequency === lowestPeakFreq)?.type || 'unknown';
       const typeLabel = peakType === 'frame_resonance' ? 'frame resonance'
         : peakType === 'motor_harmonic' ? 'motor harmonic'
         : peakType === 'electrical' ? 'electrical noise'
         : 'noise spike';
 
+      const reasonText = gyroLpfDisabled
+        ? `A strong ${typeLabel} was detected at ${Math.round(lowestPeakFreq)} Hz, but your gyro lowpass filter is disabled. ` +
+          `Enabling it at ${targetCutoff} Hz will block this vibration.`
+        : `A strong ${typeLabel} was detected at ${Math.round(lowestPeakFreq)} Hz, which is below your current ` +
+          `gyro filter cutoff of ${current.gyro_lpf1_static_hz} Hz. Lowering the filter will block this vibration.`;
+
       out.push({
         setting: 'gyro_lpf1_static_hz',
         currentValue: current.gyro_lpf1_static_hz,
         recommendedValue: targetCutoff,
-        reason:
-          `A strong ${typeLabel} was detected at ${Math.round(lowestPeakFreq)} Hz, which is below your current ` +
-          `gyro filter cutoff of ${current.gyro_lpf1_static_hz} Hz. Lowering the filter will block this vibration.`,
+        reason: reasonText,
         impact: 'both',
         confidence: 'high',
       });

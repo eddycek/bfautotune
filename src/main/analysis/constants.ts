@@ -66,24 +66,24 @@ export const MOTOR_HARMONIC_MIN_PEAKS = 2;
 
 // ---- Filter Recommendation Safety Bounds ----
 
-/** Absolute minimum gyro lowpass 1 cutoff in Hz */
-export const GYRO_LPF1_MIN_HZ = 100;
+/** Absolute minimum gyro lowpass 1 cutoff in Hz (BF guide: 50 very noisy, 80 slightly noisy) */
+export const GYRO_LPF1_MIN_HZ = 75;
 
 /** Absolute maximum gyro lowpass 1 cutoff in Hz */
 export const GYRO_LPF1_MAX_HZ = 300;
 
-/** Absolute minimum D-term lowpass 1 cutoff in Hz */
-export const DTERM_LPF1_MIN_HZ = 80;
+/** Absolute minimum D-term lowpass 1 cutoff in Hz (BF guide: "70-90 Hz range") */
+export const DTERM_LPF1_MIN_HZ = 70;
 
 /** Absolute maximum D-term lowpass 1 cutoff in Hz */
 export const DTERM_LPF1_MAX_HZ = 200;
 
-/** Adjustment step for high noise: reduce by this many Hz */
-export const HIGH_NOISE_GYRO_REDUCTION_HZ = 50;
-export const HIGH_NOISE_DTERM_REDUCTION_HZ = 30;
+/** Adjustment step for high noise: reduce by this many Hz (BF guide: 20 Hz steps) */
+export const HIGH_NOISE_GYRO_REDUCTION_HZ = 20;
+export const HIGH_NOISE_DTERM_REDUCTION_HZ = 20;
 
-/** Adjustment step for low noise: increase by this many Hz */
-export const LOW_NOISE_GYRO_INCREASE_HZ = 30;
+/** Adjustment step for low noise: increase by this many Hz (BF guide: 20 Hz steps) */
+export const LOW_NOISE_GYRO_INCREASE_HZ = 20;
 export const LOW_NOISE_DTERM_INCREASE_HZ = 20;
 
 /** Resonance peak amplitude threshold for notch/cutoff recommendation (dB above floor) */
@@ -125,17 +125,17 @@ export const LATENCY_THRESHOLD = 0.05;
 
 // ---- PID Scoring ----
 
-/** Target overshoot percentage (ideal) */
-export const OVERSHOOT_IDEAL_PERCENT = 5;
+/** Target overshoot percentage (ideal) — 10-15% is normal for multirotors (PIDtoolbox) */
+export const OVERSHOOT_IDEAL_PERCENT = 10;
 
-/** Maximum acceptable overshoot percentage */
-export const OVERSHOOT_MAX_PERCENT = 30;
+/** Maximum acceptable overshoot percentage (BF: bounce-back = problematic) */
+export const OVERSHOOT_MAX_PERCENT = 25;
 
-/** Maximum acceptable ringing count */
-export const RINGING_MAX_COUNT = 3;
+/** Maximum acceptable ringing count (BF: any visible bounce-back should be addressed) */
+export const RINGING_MAX_COUNT = 2;
 
-/** Maximum acceptable settling time (ms) */
-export const SETTLING_MAX_MS = 150;
+/** Maximum acceptable settling time (ms) — feed-forward makes 150-200ms normal */
+export const SETTLING_MAX_MS = 200;
 
 // ---- PID Safety Bounds ----
 
