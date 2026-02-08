@@ -16,11 +16,12 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
-import type { BlackboxInfo, BlackboxLogMetadata } from '@shared/types/blackbox.types';
+import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult } from '@shared/types/blackbox.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
 import { getMainWindow } from '../window';
+import { BlackboxParser } from '../blackbox/BlackboxParser';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -662,6 +663,37 @@ export function registerIPCHandlers(): void {
     } catch (error) {
       logger.error('Failed to erase Blackbox flash:', error);
       return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  // Blackbox parse handler
+  ipcMain.handle(IPCChannel.BLACKBOX_PARSE_LOG, async (event, logId: string): Promise<IPCResponse<BlackboxParseResult>> => {
+    try {
+      if (!blackboxManager) {
+        return createResponse<BlackboxParseResult>(undefined, 'BlackboxManager not initialized');
+      }
+
+      const logMeta = await blackboxManager.getLog(logId);
+      if (!logMeta) {
+        return createResponse<BlackboxParseResult>(undefined, `Blackbox log not found: ${logId}`);
+      }
+
+      logger.info(`Parsing Blackbox log: ${logMeta.filename} (${logMeta.size} bytes)`);
+
+      // Read the raw log file
+      const data = await fs.readFile(logMeta.filepath);
+
+      // Parse with progress reporting
+      const result = await BlackboxParser.parse(data, (progress) => {
+        event.sender.send(IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS, progress);
+      });
+
+      logger.info(`Blackbox log parsed: ${result.sessions.length} sessions, ${result.parseTimeMs}ms`);
+
+      return createResponse<BlackboxParseResult>(result);
+    } catch (error) {
+      logger.error('Failed to parse Blackbox log:', error);
+      return createResponse<BlackboxParseResult>(undefined, getErrorMessage(error));
     }
   });
 

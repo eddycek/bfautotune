@@ -136,3 +136,246 @@ export interface BlackboxLogMetadata {
     target: string;
   };
 }
+
+// ============================================================
+// Blackbox Binary Log Parser Types
+// ============================================================
+
+/**
+ * BBL encoding types for field values.
+ * Each encoding defines how raw bytes are decoded into integer values.
+ */
+export enum BBLEncoding {
+  /** Signed variable-byte encoding */
+  SIGNED_VB = 0,
+  /** Unsigned variable-byte encoding */
+  UNSIGNED_VB = 1,
+  /** Negative 14-bit encoding (value = -signedVB - 1) */
+  NEG_14BIT = 2,
+  /** Tag byte + up to 4 signed variable-byte values */
+  TAG8_8SVB = 3,
+  /** Tag2 + 3 signed 32-bit values packed */
+  TAG2_3S32 = 4,
+  /** Tag8 + 4 signed 16-bit values (version 1) */
+  TAG8_4S16_V1 = 5,
+  /** Tag8 + 4 signed 16-bit values (version 2) */
+  TAG8_4S16_V2 = 6,
+  /** Null encoding - always returns zero */
+  NULL = 7,
+  /** Tag2 + 3 signed variable-length values */
+  TAG2_3SVARIABLE = 8,
+  /** Tagged 16-bit encoding */
+  TAGGED_16 = 9,
+}
+
+/**
+ * BBL predictor types for delta decompression.
+ * Predictors define the baseline value that deltas are applied to.
+ */
+export enum BBLPredictor {
+  /** Predicted value is 0 (absolute encoding) */
+  ZERO = 0,
+  /** Predicted value is the previous frame's value */
+  PREVIOUS = 1,
+  /** Predicted value extrapolates linearly from last 2 values */
+  STRAIGHT_LINE = 2,
+  /** Predicted value is the average of last 2 values */
+  AVERAGE_2 = 3,
+  /** Predicted value is minthrottle from header */
+  MINTHROTTLE = 4,
+  /** Predicted value is motor[0] from same frame */
+  MOTOR_0 = 5,
+  /** Predicted value increments by 1 each frame (for loopIteration) */
+  INCREMENT = 6,
+  /** Predicted value is home coordinate from header (GPS) */
+  HOME_COORD = 7,
+  /** Predicted value is 1500 (servo center, not used for quads) */
+  SERVO_CENTER = 8,
+  /** Predicted value is vbatref * 100 from header */
+  VBATREF = 9,
+}
+
+/**
+ * Frame type markers in BBL binary data
+ */
+export enum BBLFrameType {
+  /** Intra frame - contains absolute values */
+  INTRA = 'I',
+  /** Inter frame - contains delta values relative to previous */
+  INTER = 'P',
+  /** GPS home frame */
+  GPS_HOME = 'H',
+  /** GPS frame */
+  GPS = 'G',
+  /** Slow (auxiliary) frame */
+  SLOW = 'S',
+  /** Event frame */
+  EVENT = 'E',
+}
+
+/**
+ * Definition of a single field in a BBL log
+ */
+export interface BBLFieldDefinition {
+  /** Field name (e.g. "gyroADC[0]", "motor[0]") */
+  name: string;
+  /** Encoding type for this field */
+  encoding: BBLEncoding;
+  /** Predictor type for this field */
+  predictor: BBLPredictor;
+  /** Whether the field value is signed */
+  signed: boolean;
+}
+
+/**
+ * Parsed header information from a BBL log session
+ */
+export interface BBLLogHeader {
+  /** Product name (e.g. "Blackbox flight data recorder by Nicholas Sherlock") */
+  product: string;
+  /** Data version (e.g. 2) */
+  dataVersion: number;
+  /** Firmware type (e.g. "Cleanflight", "Betaflight") */
+  firmwareType: string;
+  /** Firmware revision string */
+  firmwareRevision: string;
+  /** Firmware date */
+  firmwareDate: string;
+  /** Board information string */
+  boardInformation: string;
+  /** Log start datetime */
+  logStartDatetime: string;
+  /** Craft name */
+  craftName: string;
+
+  /** I-frame field definitions */
+  iFieldDefs: BBLFieldDefinition[];
+  /** P-frame field definitions */
+  pFieldDefs: BBLFieldDefinition[];
+  /** S-frame (slow) field definitions */
+  sFieldDefs: BBLFieldDefinition[];
+  /** G-frame (GPS) field definitions */
+  gFieldDefs: BBLFieldDefinition[];
+
+  /** I-frame interval (how many loop iterations between I-frames) */
+  iInterval: number;
+  /** P-frame interval numerator */
+  pInterval: number;
+  /** P-frame interval denominator */
+  pDenom: number;
+
+  /** Minimum throttle value (for MINTHROTTLE predictor) */
+  minthrottle: number;
+  /** Maximum throttle value */
+  maxthrottle: number;
+  /** Motor output range */
+  motorOutputRange: number;
+  /** Voltage battery reference in 0.01V (for VBATREF predictor) */
+  vbatref: number;
+  /** Main loop time in microseconds */
+  looptime: number;
+  /** Gyro scale factor */
+  gyroScale: number;
+
+  /** Raw header key-value pairs for any additional metadata */
+  rawHeaders: Map<string, string>;
+}
+
+/**
+ * A single decoded frame of BBL data
+ */
+export interface BBLFrame {
+  /** Frame type */
+  type: BBLFrameType;
+  /** Decoded field values (parallel array with field definitions) */
+  values: number[];
+  /** Frame byte offset in the file (for debugging) */
+  offset: number;
+}
+
+/**
+ * Time series data for a single signal channel
+ */
+export interface TimeSeries {
+  /** Timestamps in seconds from start of log */
+  time: Float64Array;
+  /** Signal values */
+  values: Float64Array;
+}
+
+/**
+ * Extracted flight data from a parsed BBL log session.
+ * Contains the key signals needed for PID/filter analysis.
+ */
+export interface BlackboxFlightData {
+  /** Gyro ADC readings [roll, pitch, yaw] in deg/s */
+  gyro: [TimeSeries, TimeSeries, TimeSeries];
+  /** RC command setpoints [roll, pitch, yaw, throttle] */
+  setpoint: [TimeSeries, TimeSeries, TimeSeries, TimeSeries];
+  /** PID P-term [roll, pitch, yaw] */
+  pidP: [TimeSeries, TimeSeries, TimeSeries];
+  /** PID I-term [roll, pitch, yaw] */
+  pidI: [TimeSeries, TimeSeries, TimeSeries];
+  /** PID D-term [roll, pitch, yaw] */
+  pidD: [TimeSeries, TimeSeries, TimeSeries];
+  /** PID F-term (feedforward) [roll, pitch, yaw] - may be zero-filled if not logged */
+  pidF: [TimeSeries, TimeSeries, TimeSeries];
+  /** Motor outputs [0, 1, 2, 3] */
+  motor: [TimeSeries, TimeSeries, TimeSeries, TimeSeries];
+  /** Debug values (up to 8 channels) */
+  debug: TimeSeries[];
+
+  /** Effective sample rate in Hz */
+  sampleRateHz: number;
+  /** Total flight duration in seconds */
+  durationSeconds: number;
+  /** Total number of decoded frames */
+  frameCount: number;
+}
+
+/**
+ * A single parsed log session within a BBL file.
+ * A BBL file may contain multiple sessions (multiple flights).
+ */
+export interface BlackboxLogSession {
+  /** Session index (0-based) */
+  index: number;
+  /** Parsed header metadata */
+  header: BBLLogHeader;
+  /** Extracted flight data time series */
+  flightData: BlackboxFlightData;
+  /** Number of corrupted frames that were skipped */
+  corruptedFrameCount: number;
+  /** Non-fatal warnings encountered during parsing */
+  warnings: string[];
+}
+
+/**
+ * Complete result of parsing a BBL file
+ */
+export interface BlackboxParseResult {
+  /** Parsed log sessions */
+  sessions: BlackboxLogSession[];
+  /** Original file size in bytes */
+  fileSize: number;
+  /** Time taken to parse in milliseconds */
+  parseTimeMs: number;
+  /** Whether parsing succeeded (at least one session) */
+  success: boolean;
+  /** Error message if parsing failed completely */
+  error?: string;
+}
+
+/**
+ * Progress information during BBL parsing
+ */
+export interface BlackboxParseProgress {
+  /** Bytes processed so far */
+  bytesProcessed: number;
+  /** Total file size in bytes */
+  totalBytes: number;
+  /** Progress percentage (0-100) */
+  percent: number;
+  /** Index of the session currently being parsed */
+  currentSession: number;
+}

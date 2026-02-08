@@ -13,7 +13,7 @@ import type {
   PresetProfile
 } from './profile.types';
 import type { PIDConfiguration } from './pid.types';
-import type { BlackboxInfo } from './blackbox.types';
+import type { BlackboxInfo, BlackboxParseResult, BlackboxParseProgress } from './blackbox.types';
 
 export enum IPCChannel {
   // Connection
@@ -58,6 +58,7 @@ export enum IPCChannel {
   BLACKBOX_ERASE_FLASH = 'blackbox:erase-flash',
   BLACKBOX_OPEN_FOLDER = 'blackbox:open-folder',
   BLACKBOX_TEST_READ = 'blackbox:test-read',
+  BLACKBOX_PARSE_LOG = 'blackbox:parse-log',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -65,6 +66,7 @@ export enum IPCChannel {
   EVENT_NEW_FC_DETECTED = 'event:new-fc-detected',
   EVENT_PID_CHANGED = 'event:pid-changed',
   EVENT_BLACKBOX_DOWNLOAD_PROGRESS = 'event:blackbox-download-progress',
+  EVENT_BLACKBOX_PARSE_PROGRESS = 'event:blackbox-parse-progress',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log'
 }
@@ -119,6 +121,8 @@ export interface BetaflightAPI {
   eraseBlackboxFlash(): Promise<void>;
   openBlackboxFolder(filepath: string): Promise<void>;
   testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }>;
+  parseBlackboxLog(logId: string, onProgress?: (progress: BlackboxParseProgress) => void): Promise<BlackboxParseResult>;
+  onBlackboxParseProgress(callback: (progress: BlackboxParseProgress) => void): () => void;
 
   // Events
   onError(callback: (error: string) => void): () => void;

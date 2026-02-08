@@ -56,6 +56,20 @@ global.window.betaflight = {
 
   // Blackbox
   getBlackboxInfo: vi.fn(),
+  downloadBlackboxLog: vi.fn(),
+  listBlackboxLogs: vi.fn().mockResolvedValue([]),
+  deleteBlackboxLog: vi.fn(),
+  eraseBlackboxFlash: vi.fn(),
+  openBlackboxFolder: vi.fn(),
+  testBlackboxRead: vi.fn(),
+  parseBlackboxLog: vi.fn(),
+  onBlackboxParseProgress: vi.fn(() => () => {}),
+
+  // PID
+  getPIDConfig: vi.fn(),
+  updatePIDConfig: vi.fn(),
+  savePIDConfig: vi.fn(),
+  onPIDChanged: vi.fn(() => () => {}),
 
   // Events
   onError: vi.fn(() => () => {}),
