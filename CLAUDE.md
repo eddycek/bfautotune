@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Beta PIDTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 2 - Blackbox Analysis System (automated filter & PID tuning)
+**Current Phase**: Phase 2 - Blackbox Analysis & Tuning Wizard (automated filter & PID tuning)
 
 **Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 
@@ -50,6 +50,7 @@ npm run rebuild
 - Event-driven architecture: MSPClient emits events → IPC sends to renderer
 - Blackbox parsing: `src/main/blackbox/` (BBL binary log parser)
 - FFT analysis: `src/main/analysis/` (noise analysis & filter tuning)
+- Step response analysis: `src/main/analysis/` (PID tuning via step metrics)
 
 **Preload Script** (`src/preload/index.ts`)
 - Exposes `window.betaflight` API to renderer
@@ -60,6 +61,7 @@ npm run rebuild
 - React application with hooks-based state management
 - No direct IPC access - uses `window.betaflight` API only
 - Event subscriptions via `onConnectionChanged`, `onProfileChanged`, `onNewFCDetected`
+- Tuning wizard: `src/renderer/components/TuningWizard/` (guided tuning flow)
 
 ### Multi-Drone Profile System
 
@@ -160,16 +162,42 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 - Dependency: `fft.js`
 - Constants in `src/main/analysis/constants.ts` (tunable thresholds)
 
+### Step Response Analysis Engine (`src/main/analysis/`)
+
+Analyzes step response metrics from setpoint/gyro data to produce PID tuning recommendations.
+
+**Pipeline**: StepDetector → StepMetrics → PIDRecommender → PIDAnalyzer
+
+- **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation
+- **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
+- **PIDRecommender**: Rule-based P/D recommendations with safety bounds (P: 20-120, D: 15-80), beginner-friendly explanations
+- **PIDAnalyzer**: Orchestrator with async progress reporting
+- IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
+
+### Tuning Wizard (`src/renderer/components/TuningWizard/`)
+
+Guided multi-step wizard for automated tuning workflow.
+
+**Steps**: Flight Guide → Session Select → Filter Analysis → PID Analysis → Summary
+
+- **useTuningWizard hook**: State management for parse/filter/PID analysis lifecycle
+- **WizardProgress**: Visual step indicator with done/current/upcoming states
+- **FlightGuideContent**: Shared flight phase instructions (hover, roll/pitch/yaw snaps)
+- **TuningWorkflowModal**: Standalone modal for tuning preparation guide
+- Flight guide data in `src/shared/constants/flightGuide.ts`
+- Triggered from BlackboxStatus component when log is available
+
 ## Testing Requirements
 
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 429 tests total across 24 test files
-- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal
-- Hooks: useConnection, useProfiles, useSnapshots
+- 522 tests total across 31 test files
+- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, TuningWorkflowModal
+- Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
 - Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (171 tests)
 - FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (91 tests)
+- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (58 tests)
 - See `TESTING.md` for detailed guidelines
 
 ### Mock Setup
@@ -227,6 +255,7 @@ Renderer components subscribe to events:
 ### Important Files
 - `src/shared/constants.ts` - MSP codes, Betaflight vendor IDs, preset profiles, size defaults
 - `src/shared/types/*.types.ts` - Shared type definitions (common, profile, pid, blackbox, analysis)
+- `src/shared/constants/flightGuide.ts` - Flight guide phases, tips, and tuning workflow steps
 - `src/main/analysis/constants.ts` - FFT thresholds, peak detection, safety bounds (tunable)
 - `vitest.config.ts` - Test configuration with jsdom environment
 

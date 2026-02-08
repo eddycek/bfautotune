@@ -86,11 +86,11 @@ describe('recommend', () => {
 
   it('should respect minimum safety bounds', () => {
     const noise = makeNoiseProfile({ level: 'high' });
-    // Already at minimum
+    // Already at minimum (GYRO_LPF1_MIN_HZ=75, DTERM_LPF1_MIN_HZ=70)
     const current: CurrentFilterSettings = {
       ...DEFAULT_FILTER_SETTINGS,
-      gyro_lpf1_static_hz: 100,
-      dterm_lpf1_static_hz: 80,
+      gyro_lpf1_static_hz: 75,
+      dterm_lpf1_static_hz: 70,
     };
 
     const recs = recommend(noise, current);
@@ -204,6 +204,41 @@ describe('recommend', () => {
     const notchRec = recs.find((r) => r.setting === 'dyn_notch_max_hz');
     expect(notchRec).toBeDefined();
     expect(notchRec!.recommendedValue).toBeGreaterThan(700);
+  });
+
+  it('should skip gyro LPF noise-floor adjustment when gyro_lpf1 is disabled (0)', () => {
+    const noise = makeNoiseProfile({ level: 'high' });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      gyro_lpf1_static_hz: 0, // Disabled (common with RPM filter)
+    };
+
+    const recs = recommend(noise, current);
+    // Should NOT recommend gyro LPF adjustment from noise floor rule
+    const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
+    expect(gyroRec).toBeUndefined();
+    // Should still recommend D-term adjustment
+    const dtermRec = recs.find((r) => r.setting === 'dterm_lpf1_static_hz');
+    expect(dtermRec).toBeDefined();
+  });
+
+  it('should recommend enabling gyro LPF for resonance peak when LPF is disabled', () => {
+    const noise = makeNoiseProfile({
+      level: 'medium',
+      rollPeaks: [
+        { frequency: 150, amplitude: 15, type: 'frame_resonance' },
+      ],
+    });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      gyro_lpf1_static_hz: 0, // Disabled
+    };
+
+    const recs = recommend(noise, current);
+    const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
+    expect(gyroRec).toBeDefined();
+    expect(gyroRec!.recommendedValue).toBeLessThan(150);
+    expect(gyroRec!.reason).toContain('disabled');
   });
 
   it('should deduplicate recommendations for the same setting', () => {

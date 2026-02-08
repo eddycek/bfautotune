@@ -20,10 +20,10 @@ Desktop application that automatically tunes filter and PID settings by analyzin
 - ✅ Cross-platform (Windows, macOS, Linux)
 
 ### Phase 2 (In Development)
-- 🚧 Blackbox log download and import
-- 🚧 Automated filter tuning (FFT noise analysis)
-- 🚧 Automated PID tuning (step response analysis)
-- 🚧 Guided wizard for test flights
+- ✅ Blackbox log download and parsing (171 tests)
+- ✅ Automated filter tuning (FFT noise analysis, 91 tests)
+- ✅ Automated PID tuning (step response analysis, 58 tests)
+- 🚧 Guided tuning wizard with flight instructions
 - 🚧 One-click apply changes with rollback
 
 ## Tech Stack
@@ -117,9 +117,9 @@ betaflight-tune/
 │   │   │   ├── MSPClient.ts  # High-level MSP client
 │   │   │   ├── MSPConnection.ts # Serial connection
 │   │   │   └── MSPProtocol.ts # Protocol encoding/decoding
-│   │   ├── storage/
-│   │   │   ├── SnapshotManager.ts
-│   │   │   └── FileStorage.ts
+│   │   ├── blackbox/         # Blackbox log parser
+│   │   ├── analysis/         # FFT + step response analysis
+│   │   ├── storage/          # Profile, snapshot, blackbox managers
 │   │   └── ipc/              # IPC handlers
 │   │
 │   ├── preload/              # Preload script
@@ -130,12 +130,14 @@ betaflight-tune/
 │   │   ├── components/
 │   │   │   ├── ConnectionPanel/
 │   │   │   ├── FCInfo/
-│   │   │   └── SnapshotManager/
+│   │   │   ├── SnapshotManager/
+│   │   │   ├── TuningWizard/   # Multi-step tuning wizard
+│   │   │   └── TuningWorkflowModal/
 │   │   └── hooks/
 │   │
-│   └── shared/               # Shared types
+│   └── shared/               # Shared types & constants
 │       ├── types/
-│       └── constants.ts
+│       └── constants/
 │
 └── data/snapshots/           # Snapshot storage
 ```

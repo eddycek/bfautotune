@@ -1,0 +1,86 @@
+/* Flight guide phases grid + tips — shared between wizard and help modal */
+.flight-guide-phases {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.flight-guide-phase {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg-tertiary, #333);
+  border-radius: 8px;
+}
+
+.flight-guide-phase-number {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.flight-guide-phase-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flight-guide-phase-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flight-guide-phase-header strong {
+  font-size: 13px;
+  color: var(--text-primary, #fff);
+}
+
+.flight-guide-phase-duration {
+  font-size: 11px;
+  color: #4dabf7;
+  background: rgba(37, 99, 235, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.flight-guide-phase-desc {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  line-height: 1.4;
+}
+
+.flight-guide-tips {
+  background: var(--bg-tertiary, #333);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.flight-guide-tips strong {
+  font-size: 13px;
+  color: var(--text-primary, #fff);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.flight-guide-tips ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.flight-guide-tip {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  line-height: 1.6;
+}

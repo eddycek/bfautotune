@@ -116,7 +116,7 @@ export const DEFAULT_FILTER_SETTINGS: CurrentFilterSettings = {
   gyro_lpf2_static_hz: 500,
   dterm_lpf1_static_hz: 150,
   dterm_lpf2_static_hz: 150,
-  dyn_notch_min_hz: 150,
+  dyn_notch_min_hz: 100,
   dyn_notch_max_hz: 600,
 };
 

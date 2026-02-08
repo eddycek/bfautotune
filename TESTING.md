@@ -184,20 +184,25 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Total: 429 tests across 24 test files
+### Total: 522 tests across 31 test files
 
-### UI Components (89 tests)
+### UI Components (89+ tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
 - ✅ **ProfileSelector** (11 tests) - Profile switching, locking when FC connected
 - ✅ **FCInfoDisplay** (12 tests) - FC information display, CLI export
 - ✅ **ProfileEditModal** (18 tests) - Profile editing, validation, form handling
 - ✅ **ProfileDeleteModal** (14 tests) - Deletion confirmation, warnings, active profile handling
 - ✅ **SnapshotManager** (22 tests) - Snapshot creation, deletion, export, baseline handling
+- ✅ **BlackboxStatus** - Blackbox status display and download trigger
+- ✅ **Toast / ToastContainer** - Toast notification rendering and lifecycle
+- ✅ **TuningWizard** - Multi-step tuning wizard flow and step navigation
+- ✅ **TuningWorkflowModal** - Tuning preparation guide modal
 
-### Hooks (45 tests)
+### Hooks (45+ tests)
 - ✅ **useConnection** (15 tests) - Connection state, port management, error handling
 - ✅ **useProfiles** (14 tests) - Profile CRUD operations, event subscriptions
 - ✅ **useSnapshots** (16 tests) - Snapshot management, event-driven updates
+- ✅ **useTuningWizard** - Wizard state management, parse/analyze lifecycle
 
 ### Blackbox Parser (171 tests)
 - ✅ **BlackboxParser** (16 tests) - End-to-end parsing, multi-session, corruption recovery
@@ -211,8 +216,14 @@ it('displays error when API fails', async () => {
 - ✅ **FFTCompute** (20 tests) - Hanning window, Welch's method, sine detection, spectral leakage
 - ✅ **SegmentSelector** (18 tests) - Hover detection, throttle normalization, multi-format support
 - ✅ **NoiseAnalyzer** (25 tests) - Peak detection, classification, noise floor estimation
-- ✅ **FilterRecommender** (19 tests) - Rule engine, safety bounds, deduplication, friendly messages
+- ✅ **FilterRecommender** (21 tests) - Rule engine, safety bounds, deduplication, friendly messages
 - ✅ **FilterAnalyzer** (9 tests) - End-to-end pipeline, progress reporting, edge cases
+
+### Step Response Analysis (58 tests)
+- ✅ **StepDetector** (16 tests) - Derivative-based step detection, hold/cooldown validation
+- ✅ **StepMetrics** (15 tests) - Rise time, overshoot, settling, latency, ringing
+- ✅ **PIDRecommender** (18 tests) - Rule engine, safety bounds, P/D balance recommendations
+- ✅ **PIDAnalyzer** (9 tests) - End-to-end pipeline, progress reporting
 
 ### Coverage Goals
 - **Components**: ≥80% coverage ✅ **Achieved**
@@ -223,6 +234,8 @@ it('displays error when API fails', async () => {
   - ✅ Snapshot creation/restoration (SnapshotManager + useSnapshots)
   - ✅ Blackbox parsing pipeline (all 6 modules)
   - ✅ FFT analysis pipeline (all 5 modules)
+  - ✅ Step response analysis pipeline (all 4 modules)
+  - ✅ Tuning wizard flow (TuningWizard + useTuningWizard)
 
 ## Best Practices
 
@@ -361,15 +374,20 @@ Tests run automatically in CI/CD pipeline:
 ```
 src/renderer/components/
   ConnectionPanel/
-    ConnectionPanel.tsx
     ConnectionPanel.test.tsx         ← 12 tests
-    ConnectionPanel.css
   FCInfo/
-    FCInfoDisplay.tsx
     FCInfoDisplay.test.tsx           ← 12 tests
   SnapshotManager/
-    SnapshotManager.tsx
     SnapshotManager.test.tsx         ← 22 tests
+  BlackboxStatus/
+    BlackboxStatus.test.tsx
+  Toast/
+    Toast.test.tsx
+    ToastContainer.test.tsx
+  TuningWizard/
+    TuningWizard.test.tsx
+  TuningWorkflowModal/
+    TuningWorkflowModal.test.tsx
   ProfileSelector.test.tsx           ← 11 tests
   ProfileEditModal.test.tsx          ← 18 tests
   ProfileDeleteModal.test.tsx        ← 14 tests
@@ -378,12 +396,10 @@ src/renderer/components/
 ### Hook Tests
 ```
 src/renderer/hooks/
-  useConnection.ts
   useConnection.test.ts              ← 15 tests
-  useProfiles.ts
   useProfiles.test.ts                ← 14 tests
-  useSnapshots.ts
   useSnapshots.test.ts               ← 16 tests
+  useTuningWizard.test.ts
 ```
 
 ### Blackbox Parser Tests
@@ -403,8 +419,17 @@ src/main/analysis/
   FFTCompute.test.ts                 ← 20 tests
   SegmentSelector.test.ts            ← 18 tests
   NoiseAnalyzer.test.ts              ← 25 tests
-  FilterRecommender.test.ts          ← 19 tests
+  FilterRecommender.test.ts          ← 21 tests
   FilterAnalyzer.test.ts             ← 9 tests
+```
+
+### Step Response Analysis Tests
+```
+src/main/analysis/
+  StepDetector.test.ts               ← 16 tests
+  StepMetrics.test.ts                ← 15 tests
+  PIDRecommender.test.ts             ← 18 tests
+  PIDAnalyzer.test.ts                ← 9 tests
 ```
 
 ## Examples

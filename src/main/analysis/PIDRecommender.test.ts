@@ -57,8 +57,8 @@ describe('PIDRecommender', () => {
       expect(recs.length).toBe(0);
     });
 
-    it('should recommend D increase for moderate overshoot (>20%)', () => {
-      const profile = makeProfile({ meanOvershoot: 25 });
+    it('should recommend D increase for moderate overshoot (15-25%)', () => {
+      const profile = makeProfile({ meanOvershoot: 20 });
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
 
@@ -66,9 +66,10 @@ describe('PIDRecommender', () => {
       expect(dRec).toBeDefined();
       expect(dRec!.recommendedValue).toBeGreaterThan(DEFAULT_PIDS.roll.D);
       expect(dRec!.reason).toContain('overshoot');
+      expect(dRec!.confidence).toBe('medium');
     });
 
-    it('should recommend both P decrease and D increase for severe overshoot (>30%)', () => {
+    it('should recommend only D increase for severe overshoot when D is low', () => {
       const profile = makeProfile({ meanOvershoot: 35 });
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
@@ -76,9 +77,27 @@ describe('PIDRecommender', () => {
       const dRec = recs.find(r => r.setting === 'pid_roll_d');
       const pRec = recs.find(r => r.setting === 'pid_roll_p');
       expect(dRec).toBeDefined();
+      expect(dRec!.confidence).toBe('high');
+      // D=30 is below 60% of D_GAIN_MAX, so P should NOT be reduced (D-first strategy)
+      expect(pRec).toBeUndefined();
+    });
+
+    it('should recommend both P decrease and D increase for severe overshoot when D is high', () => {
+      const highDPids: PIDConfiguration = {
+        roll: { P: 45, I: 80, D: 50 }, // D ≥ 60% of 80 = 48
+        pitch: { P: 47, I: 84, D: 32 },
+        yaw: { P: 45, I: 80, D: 0 },
+      };
+      const profile = makeProfile({ meanOvershoot: 35 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), highDPids);
+
+      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const pRec = recs.find(r => r.setting === 'pid_roll_p');
+      expect(dRec).toBeDefined();
       expect(pRec).toBeDefined();
       expect(dRec!.confidence).toBe('high');
-      expect(pRec!.recommendedValue).toBeLessThan(DEFAULT_PIDS.roll.P);
+      expect(pRec!.recommendedValue).toBeLessThan(highDPids.roll.P);
     });
 
     it('should recommend P increase for sluggish response', () => {
@@ -182,15 +201,14 @@ describe('PIDRecommender', () => {
 
     it('should use relaxed thresholds for yaw', () => {
       // 25% overshoot on yaw — should NOT trigger the moderate overshoot rule
-      // because yaw uses relaxed threshold (30% instead of 20%)
+      // because yaw uses relaxed moderate threshold (OVERSHOOT_MAX_PERCENT=25 instead of 15)
       const yawProfile = makeProfile({ meanOvershoot: 25 });
 
       const recs = recommendPID(emptyProfile(), emptyProfile(), yawProfile, DEFAULT_PIDS);
 
-      const yawDRec = recs.find(r => r.setting === 'pid_yaw_d');
-      // May or may not have a recommendation depending on exact threshold
-      // But at 25%, it should be below yaw's relaxed threshold
+      // At 25%, yaw moderate threshold is 25, so 25 > 25 is false — no overshoot recs
       expect(recs.filter(r => r.confidence === 'high').length).toBe(0);
+      expect(recs.find(r => r.setting === 'pid_yaw_d')).toBeUndefined();
     });
 
     it('should include beginner-friendly reason strings', () => {
@@ -209,7 +227,7 @@ describe('PIDRecommender', () => {
     it('should recommend D increase for slow settling', () => {
       const profile = makeProfile({
         meanOvershoot: 10,
-        meanSettlingTimeMs: 200,
+        meanSettlingTimeMs: 250,
       });
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);

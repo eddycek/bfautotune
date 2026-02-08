@@ -162,17 +162,41 @@ App
 │   ├── Connection status
 │   └── Connect/Disconnect button
 │
+├── ProfileSelector (when profiles exist)
+│   ├── Profile dropdown
+│   ├── Profile cards
+│   └── Edit/Delete modals
+│
 ├── FCInfoDisplay (when connected)
 │   ├── FC information grid
 │   └── Export buttons (diff/dump)
 │
-└── SnapshotManager
-    ├── Create snapshot button
-    ├── Create dialog (modal)
-    └── Snapshot list
-        └── SnapshotItem (for each)
-            ├── Snapshot info
-            └── Action buttons
+├── BlackboxStatus (when connected)
+│   ├── Flash storage info
+│   ├── Download/Erase buttons
+│   └── Tuning Wizard trigger
+│
+├── SnapshotManager
+│   ├── Create snapshot button
+│   ├── Create dialog (modal)
+│   └── Snapshot list
+│       └── SnapshotItem (for each)
+│
+├── TuningWizard (when triggered)
+│   ├── WizardProgress (5-step indicator)
+│   ├── TestFlightGuideStep
+│   │   └── FlightGuideContent
+│   ├── SessionSelectStep
+│   ├── FilterAnalysisStep
+│   ├── PIDAnalysisStep
+│   └── TuningSummaryStep
+│
+├── TuningWorkflowModal (help modal)
+│   ├── Workflow steps
+│   └── FlightGuideContent
+│
+└── ProfileWizard (modal, on new FC)
+    └── Multi-step wizard
 ```
 
 ## State Management
@@ -395,12 +419,15 @@ UI displays error message to user
 2. Create hook if needed in `renderer/hooks/`
 3. Import in `App.tsx`
 
-## Testing Strategy (Future)
+## Testing Strategy
 
-### Unit Tests
-- MSPProtocol encoding/decoding
-- Snapshot storage operations
-- IPC handler logic
+### Unit Tests (522 tests across 31 files)
+- MSP protocol encoding/decoding
+- Blackbox parser pipeline (171 tests)
+- FFT analysis pipeline (91 tests)
+- Step response analysis pipeline (58 tests)
+- UI components and hooks
+- Tuning wizard flow
 
 ### Integration Tests
 - MSP client with mock serial port

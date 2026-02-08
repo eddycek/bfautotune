@@ -384,6 +384,29 @@
   margin-left: 12px;
 }
 
+.log-analyze-button {
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #4dabf7, #339af0);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.log-analyze-button:hover {
+  background: linear-gradient(135deg, #339af0, #228be6);
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(74, 171, 247, 0.3);
+}
+
+.log-analyze-button:active {
+  transform: scale(1);
+}
+
 .log-action-button {
   width: 32px;
   height: 32px;

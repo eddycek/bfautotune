@@ -4,7 +4,11 @@ import { useBlackboxLogs } from '../../hooks/useBlackboxLogs';
 import { useToast } from '../../hooks/useToast';
 import './BlackboxStatus.css';
 
-export function BlackboxStatus() {
+interface BlackboxStatusProps {
+  onAnalyze?: (logId: string) => void;
+}
+
+export function BlackboxStatus({ onAnalyze }: BlackboxStatusProps) {
   const { info, loading, error, refresh: refreshInfo } = useBlackboxInfo();
   const { logs, deleteLog, openFolder, reload: reloadLogs } = useBlackboxLogs();
   const toast = useToast();
@@ -262,6 +266,15 @@ export function BlackboxStatus() {
                   </div>
                 </div>
                 <div className="log-actions">
+                  {onAnalyze && (
+                    <button
+                      className="log-analyze-button"
+                      onClick={() => onAnalyze(log.id)}
+                      title="Analyze & Tune"
+                    >
+                      Analyze
+                    </button>
+                  )}
                   <button
                     className="log-action-button"
                     onClick={() => openFolder(log.filepath)}

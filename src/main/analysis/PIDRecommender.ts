@@ -44,37 +44,39 @@ export function recommendPID(
     // Yaw is analyzed with relaxed thresholds
     const isYaw = axis === 2;
     const overshootThreshold = isYaw ? OVERSHOOT_MAX_PERCENT * 1.5 : OVERSHOOT_MAX_PERCENT;
-    const highOvershoot = isYaw ? 30 : 20;
-    const sluggishRiseMs = isYaw ? 150 : 100;
+    const moderateOvershoot = isYaw ? OVERSHOOT_MAX_PERCENT : 15;
+    const sluggishRiseMs = isYaw ? 120 : 80;
 
-    // Rule 1: Significant overshoot → reduce P and/or increase D
+    // Rule 1: Severe overshoot → D-first strategy (BF guide: increase D for bounce-back)
     if (profile.meanOvershoot > overshootThreshold) {
-      // Very high overshoot: recommend both P decrease and D increase
-      const newD = clamp(pids.D + 10, D_GAIN_MIN, D_GAIN_MAX);
-      const newP = clamp(pids.P - 5, P_GAIN_MIN, P_GAIN_MAX);
-
+      // Always increase D first
+      const newD = clamp(pids.D + 5, D_GAIN_MIN, D_GAIN_MAX);
       if (newD !== pids.D) {
         recommendations.push({
           setting: `pid_${axisName}_d`,
           currentValue: pids.D,
           recommendedValue: newD,
-          reason: `Significant overshoot detected on ${axisName} (${Math.round(profile.meanOvershoot)}%). Reduce P and increase D for a smoother, more controlled feel.`,
+          reason: `Significant overshoot detected on ${axisName} (${Math.round(profile.meanOvershoot)}%). Increasing D-term dampens the bounce-back for a smoother, more controlled feel.`,
           impact: 'both',
           confidence: 'high',
         });
       }
-      if (newP !== pids.P) {
-        recommendations.push({
-          setting: `pid_${axisName}_p`,
-          currentValue: pids.P,
-          recommendedValue: newP,
-          reason: `Significant overshoot detected on ${axisName} (${Math.round(profile.meanOvershoot)}%). Reducing P-term helps prevent the quad from overshooting its target.`,
-          impact: 'both',
-          confidence: 'high',
-        });
+      // Only also reduce P if D is already high (≥60% of max) — D alone wasn't enough
+      if (pids.D >= D_GAIN_MAX * 0.6) {
+        const newP = clamp(pids.P - 5, P_GAIN_MIN, P_GAIN_MAX);
+        if (newP !== pids.P) {
+          recommendations.push({
+            setting: `pid_${axisName}_p`,
+            currentValue: pids.P,
+            recommendedValue: newP,
+            reason: `Significant overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%) and D-term is already high. Reducing P-term helps prevent the quad from overshooting its target.`,
+            impact: 'both',
+            confidence: 'high',
+          });
+        }
       }
-    } else if (profile.meanOvershoot > highOvershoot) {
-      // Moderate overshoot: increase D only
+    } else if (profile.meanOvershoot > moderateOvershoot) {
+      // Moderate overshoot (15-25%): increase D only
       const newD = clamp(pids.D + 5, D_GAIN_MIN, D_GAIN_MAX);
       if (newD !== pids.D) {
         recommendations.push({
@@ -88,9 +90,9 @@ export function recommendPID(
       }
     }
 
-    // Rule 2: Sluggish response (low overshoot + slow rise) → increase P
+    // Rule 2: Sluggish response (low overshoot + slow rise) → increase P by 5 (FPVSIM guidance)
     if (profile.meanOvershoot < OVERSHOOT_IDEAL_PERCENT && profile.meanRiseTimeMs > sluggishRiseMs) {
-      const newP = clamp(pids.P + 10, P_GAIN_MIN, P_GAIN_MAX);
+      const newP = clamp(pids.P + 5, P_GAIN_MIN, P_GAIN_MAX);
       if (newP !== pids.P) {
         recommendations.push({
           setting: `pid_${axisName}_p`,
@@ -103,7 +105,7 @@ export function recommendPID(
       }
     }
 
-    // Rule 3: Excessive ringing → increase D
+    // Rule 3: Excessive ringing → increase D (BF: any visible bounce-back should be addressed)
     const maxRinging = Math.max(...profile.responses.map(r => r.ringingCount));
     if (maxRinging > RINGING_MAX_COUNT) {
       const newD = clamp(pids.D + 5, D_GAIN_MIN, D_GAIN_MAX);
@@ -124,7 +126,7 @@ export function recommendPID(
     }
 
     // Rule 4: Slow settling → might need more D or less I
-    if (profile.meanSettlingTimeMs > SETTLING_MAX_MS && profile.meanOvershoot < highOvershoot) {
+    if (profile.meanSettlingTimeMs > SETTLING_MAX_MS && profile.meanOvershoot < moderateOvershoot) {
       // Only if overshoot isn't the problem (settling from other causes)
       const existingDRec = recommendations.find(r => r.setting === `pid_${axisName}_d`);
       if (!existingDRec) {
