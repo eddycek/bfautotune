@@ -4,6 +4,7 @@ import { MSPConnection } from './MSPConnection';
 import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { BlackboxInfo } from '@shared/types/blackbox.types';
 import { ConnectionError, MSPError } from '../utils/errors';
 import { logger } from '../utils/logger';
@@ -424,6 +425,63 @@ export class MSPClient extends EventEmitter {
 
     logger.info('PID configuration read:', config);
     return config;
+  }
+
+  /**
+   * Read filter configuration from flight controller
+   * @returns Current filter settings (gyro LPF, D-term LPF, dynamic notch)
+   */
+  async getFilterConfiguration(): Promise<CurrentFilterSettings> {
+    const response = await this.connection.sendCommand(MSPCommand.MSP_FILTER_CONFIG);
+
+    if (response.data.length < 47) {
+      throw new MSPError(
+        `Invalid MSP_FILTER_CONFIG response - expected at least 47 bytes, got ${response.data.length}`
+      );
+    }
+
+    // Betaflight 4.4+ MSP_FILTER_CONFIG binary layout
+    // (from betaflight-configurator MSPHelper.js parsing order):
+    //  0: U8  gyro_lpf1_static_hz (legacy, low byte only)
+    //  1: U16 dterm_lpf1_static_hz
+    //  3: U16 yaw_lowpass_hz
+    //  5: U16 gyro_notch_hz
+    //  7: U16 gyro_notch_cutoff
+    //  9: U16 dterm_notch_hz
+    // 11: U16 dterm_notch_cutoff
+    // 13: U16 gyro_notch2_hz
+    // 15: U16 gyro_notch2_cutoff
+    // 17: U8  dterm_lpf1_type
+    // 18: U8  gyro_hardware_lpf
+    // 19: U8  (deprecated)
+    // 20: U16 gyro_lpf1_static_hz (full uint16)
+    // 22: U16 gyro_lpf2_static_hz
+    // 24: U8  gyro_lpf1_type
+    // 25: U8  gyro_lpf2_type
+    // 26: U16 dterm_lpf2_static_hz
+    // 28: U8  dterm_lpf2_type
+    // 29: U16 gyro_lowpass_dyn_min_hz
+    // 31: U16 gyro_lowpass_dyn_max_hz
+    // 33: U16 dterm_lowpass_dyn_min_hz
+    // 35: U16 dterm_lowpass_dyn_max_hz
+    // 37: U8  dyn_notch_range (deprecated)
+    // 38: U8  dyn_notch_width_percent (deprecated)
+    // 39: U16 dyn_notch_q
+    // 41: U16 dyn_notch_min_hz
+    // 43: U8  rpm_notch_harmonics
+    // 44: U8  rpm_notch_min_hz
+    // 45: U16 dyn_notch_max_hz
+    const settings: CurrentFilterSettings = {
+      gyro_lpf1_static_hz: response.data.readUInt16LE(20),
+      dterm_lpf1_static_hz: response.data.readUInt16LE(1),
+      gyro_lpf2_static_hz: response.data.readUInt16LE(22),
+      dterm_lpf2_static_hz: response.data.readUInt16LE(26),
+      dyn_notch_min_hz: response.data.readUInt16LE(41),
+      dyn_notch_max_hz: response.data.readUInt16LE(45),
+    };
+
+    logger.info('Filter configuration read:', settings);
+    return settings;
   }
 
   /**

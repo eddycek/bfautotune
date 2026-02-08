@@ -14,6 +14,11 @@ export function resetConnectionGlobalState() {
   globalPreviouslyConnected = false;
 }
 
+// Mark next disconnect as intentional (e.g. before FC reboot after apply)
+export function markIntentionalDisconnect() {
+  globalIntentionalDisconnect = true;
+}
+
 export function useConnection() {
   const [ports, setPorts] = useState<PortInfo[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>({ connected: false });

@@ -6,6 +6,7 @@ import { SessionSelectStep } from './SessionSelectStep';
 import { FilterAnalysisStep } from './FilterAnalysisStep';
 import { PIDAnalysisStep } from './PIDAnalysisStep';
 import { TuningSummaryStep } from './TuningSummaryStep';
+import { ApplyConfirmationModal } from './ApplyConfirmationModal';
 import './TuningWizard.css';
 
 interface TuningWizardProps {
@@ -63,6 +64,11 @@ export function TuningWizard({ logId, onExit }: TuningWizardProps) {
             filterResult={wizard.filterResult}
             pidResult={wizard.pidResult}
             onExit={onExit}
+            onApply={wizard.startApply}
+            applyState={wizard.applyState}
+            applyProgress={wizard.applyProgress}
+            applyResult={wizard.applyResult}
+            applyError={wizard.applyError}
           />
         );
     }
@@ -85,6 +91,15 @@ export function TuningWizard({ logId, onExit }: TuningWizardProps) {
       <div className="tuning-wizard-content">
         {renderStep()}
       </div>
+
+      {wizard.applyState === 'confirming' && (
+        <ApplyConfirmationModal
+          filterCount={wizard.filterResult?.recommendations.length ?? 0}
+          pidCount={wizard.pidResult?.recommendations.length ?? 0}
+          onConfirm={wizard.confirmApply}
+          onCancel={wizard.cancelApply}
+        />
+      )}
     </div>
   );
 }

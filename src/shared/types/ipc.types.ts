@@ -14,7 +14,30 @@ import type {
 } from './profile.types';
 import type { PIDConfiguration } from './pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from './blackbox.types';
-import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from './analysis.types';
+import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings, FilterRecommendation, PIDRecommendation } from './analysis.types';
+
+/** Input for applying tuning recommendations to the FC */
+export interface ApplyRecommendationsInput {
+  filterRecommendations: FilterRecommendation[];
+  pidRecommendations: PIDRecommendation[];
+  createSnapshot: boolean;
+}
+
+/** Progress during recommendation application */
+export interface ApplyRecommendationsProgress {
+  stage: 'snapshot' | 'pid' | 'filter' | 'save';
+  message: string;
+  percent: number;
+}
+
+/** Result of applying recommendations */
+export interface ApplyRecommendationsResult {
+  success: boolean;
+  snapshotId?: string;
+  appliedPIDs: number;
+  appliedFilters: number;
+  rebooted: boolean;
+}
 
 export enum IPCChannel {
   // Connection
@@ -65,6 +88,9 @@ export enum IPCChannel {
   ANALYSIS_RUN_FILTER = 'analysis:run-filter',
   ANALYSIS_RUN_PID = 'analysis:run-pid',
 
+  // Tuning
+  TUNING_APPLY_RECOMMENDATIONS = 'tuning:apply-recommendations',
+
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
   EVENT_PROFILE_CHANGED = 'event:profile-changed',
@@ -73,6 +99,7 @@ export enum IPCChannel {
   EVENT_BLACKBOX_DOWNLOAD_PROGRESS = 'event:blackbox-download-progress',
   EVENT_BLACKBOX_PARSE_PROGRESS = 'event:blackbox-parse-progress',
   EVENT_ANALYSIS_PROGRESS = 'event:analysis-progress',
+  EVENT_TUNING_APPLY_PROGRESS = 'event:tuning-apply-progress',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log'
 }
@@ -133,6 +160,10 @@ export interface BetaflightAPI {
   // Analysis
   analyzeFilters(logId: string, sessionIndex?: number, currentSettings?: CurrentFilterSettings, onProgress?: (progress: AnalysisProgress) => void): Promise<FilterAnalysisResult>;
   analyzePID(logId: string, sessionIndex?: number, currentPIDs?: PIDConfiguration, onProgress?: (progress: AnalysisProgress) => void): Promise<PIDAnalysisResult>;
+
+  // Tuning
+  applyRecommendations(input: ApplyRecommendationsInput): Promise<ApplyRecommendationsResult>;
+  onApplyProgress(callback: (progress: ApplyRecommendationsProgress) => void): () => void;
 
   // Events
   onError(callback: (error: string) => void): () => void;

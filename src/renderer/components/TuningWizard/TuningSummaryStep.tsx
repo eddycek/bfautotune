@@ -1,11 +1,18 @@
 import React from 'react';
 import { RecommendationCard, SETTING_LABELS } from './RecommendationCard';
 import type { FilterAnalysisResult, PIDAnalysisResult, FilterRecommendation, PIDRecommendation } from '@shared/types/analysis.types';
+import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
+import type { ApplyState } from '../../hooks/useTuningWizard';
 
 interface TuningSummaryStepProps {
   filterResult: FilterAnalysisResult | null;
   pidResult: PIDAnalysisResult | null;
   onExit: () => void;
+  onApply: () => void;
+  applyState: ApplyState;
+  applyProgress: ApplyRecommendationsProgress | null;
+  applyResult: ApplyRecommendationsResult | null;
+  applyError: string | null;
 }
 
 function getChangeText(current: number, recommended: number): { text: string; className: string } {
@@ -24,6 +31,11 @@ export function TuningSummaryStep({
   filterResult,
   pidResult,
   onExit,
+  onApply,
+  applyState,
+  applyProgress,
+  applyResult,
+  applyError,
 }: TuningSummaryStepProps) {
   const filterRecs = filterResult?.recommendations ?? [];
   const pidRecs = pidResult?.recommendations ?? [];
@@ -34,6 +46,8 @@ export function TuningSummaryStep({
   for (const rec of allRecs) {
     confidenceCounts[rec.confidence]++;
   }
+
+  const isApplyDisabled = totalRecs === 0 || applyState === 'applying' || applyState === 'done';
 
   return (
     <div className="analysis-section">
@@ -141,16 +155,61 @@ export function TuningSummaryStep({
         </div>
       )}
 
+      {applyState === 'applying' && applyProgress && (
+        <div className="analysis-progress">
+          <div className="analysis-progress-label">
+            <span>{applyProgress.message}</span>
+            <span>{applyProgress.percent}%</span>
+          </div>
+          <div className="analysis-progress-bar">
+            <div
+              className="analysis-progress-fill"
+              style={{ width: `${applyProgress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {applyState === 'done' && applyResult && (
+        <div className="apply-success">
+          <strong>Changes applied successfully!</strong>
+          <br />
+          {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} and{' '}
+          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written to FC.
+          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
+          <br />
+          Your FC is rebooting. Close the wizard and reconnect via the Connection panel.
+        </div>
+      )}
+
+      {applyState === 'error' && applyError && (
+        <div className="analysis-error">
+          {applyError}
+        </div>
+      )}
+
       <div className="analysis-actions">
+        {applyState === 'error' ? (
+          <button
+            className="wizard-btn wizard-btn-success"
+            onClick={onApply}
+          >
+            Retry Apply
+          </button>
+        ) : applyState !== 'done' ? (
+          <button
+            className="wizard-btn wizard-btn-success"
+            disabled={isApplyDisabled}
+            onClick={onApply}
+          >
+            {applyState === 'applying' ? 'Applying...' : 'Apply Changes'}
+          </button>
+        ) : null}
         <button
-          className="wizard-btn wizard-btn-primary"
-          disabled
-          title="Applying changes to FC will be available in a future update"
+          className={applyState === 'done' ? 'wizard-btn wizard-btn-primary' : 'wizard-btn wizard-btn-secondary'}
+          onClick={onExit}
         >
-          Apply Changes (Coming Soon)
-        </button>
-        <button className="wizard-btn wizard-btn-secondary" onClick={onExit}>
-          Exit Wizard
+          {applyState === 'done' ? 'Close Wizard' : 'Exit Wizard'}
         </button>
       </div>
     </div>

@@ -357,7 +357,7 @@ describe('TuningWizard', () => {
 
     expect(screen.getByText('Filter Recommendations')).toBeInTheDocument();
     expect(screen.getByText('PID Recommendations')).toBeInTheDocument();
-    expect(screen.getByText('Apply Changes (Coming Soon)')).toBeInTheDocument();
+    expect(screen.getByText('Apply Changes')).toBeInTheDocument();
   });
 
   it('shows parse error and allows retry', async () => {
@@ -534,5 +534,173 @@ describe('TuningWizard', () => {
     expect(screen.getByText('2 high confidence')).toBeInTheDocument();
     expect(screen.getByText('1 filter change')).toBeInTheDocument();
     expect(screen.getByText('1 PID change')).toBeInTheDocument();
+  });
+
+  // ---- Auto-apply tests ----
+
+  it('Apply Changes button is enabled in summary step', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+
+    const applyBtn = screen.getByText('Apply Changes');
+    expect(applyBtn).toBeInTheDocument();
+    expect(applyBtn).not.toBeDisabled();
+  });
+
+  it('clicking Apply Changes opens confirmation modal', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+    await user.click(screen.getByText('Apply Changes'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument();
+    });
+  });
+
+  it('confirmation modal shows change counts and snapshot checkbox', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+    await user.click(screen.getByText('Apply Changes'));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 filter change (via CLI)')).toBeInTheDocument();
+      expect(screen.getByText('1 PID change (via MSP)')).toBeInTheDocument();
+      expect(screen.getByText('Create safety snapshot before applying')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox')).toBeChecked();
+    });
+  });
+
+  it('Cancel in confirmation modal closes it', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+    await user.click(screen.getByText('Apply Changes'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument();
+    });
+
+    // Click Cancel in the modal
+    const cancelButtons = screen.getAllByText('Cancel');
+    await user.click(cancelButtons[cancelButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Apply Tuning Changes')).not.toBeInTheDocument();
+    });
+  });
+
+  it('Confirm calls applyRecommendations IPC', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      snapshotId: 'snap-1',
+      appliedPIDs: 1,
+      appliedFilters: 1,
+      rebooted: true,
+    });
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+    await user.click(screen.getByText('Apply Changes'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument();
+    });
+
+    // Click Apply Changes button inside modal
+    const modalApplyBtns = screen.getAllByText('Apply Changes');
+    await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
+        filterRecommendations: mockFilterResult.recommendations,
+        pidRecommendations: mockPIDResult.recommendations,
+        createSnapshot: true,
+      });
+    });
+  });
+
+  it('shows success message after successful apply', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      snapshotId: 'snap-1',
+      appliedPIDs: 1,
+      appliedFilters: 1,
+      rebooted: true,
+    });
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+    await user.click(screen.getByText('Apply Changes'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument();
+    });
+
+    const modalApplyBtns = screen.getAllByText('Apply Changes');
+    await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Changes applied successfully!', { exact: false })).toBeInTheDocument();
+    });
+  });
+
+  it('shows error message on apply failure', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockRejectedValue(
+      new Error('FC disconnected during apply')
+    );
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToSummary(user);
+    await user.click(screen.getByText('Apply Changes'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument();
+    });
+
+    const modalApplyBtns = screen.getAllByText('Apply Changes');
+    await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText('FC disconnected during apply')).toBeInTheDocument();
+      expect(screen.getByText('Retry Apply')).toBeInTheDocument();
+    });
   });
 });

@@ -1,0 +1,43 @@
+.apply-confirm-modal {
+  max-width: 500px;
+}
+
+.apply-confirm-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.apply-confirm-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-primary, #fff);
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.apply-confirm-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.apply-confirm-warning {
+  padding: 12px;
+  background: rgba(255, 212, 59, 0.1);
+  border: 1px solid rgba(255, 212, 59, 0.25);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #ffd43b;
+  margin-bottom: 24px;
+}
+
+.apply-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
