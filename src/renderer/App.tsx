@@ -5,6 +5,7 @@ import { BlackboxStatus } from './components/BlackboxStatus/BlackboxStatus';
 import { SnapshotManager } from './components/SnapshotManager/SnapshotManager';
 import { ProfileWizard } from './components/ProfileWizard';
 import { ProfileSelector } from './components/ProfileSelector';
+import { TuningWizard } from './components/TuningWizard/TuningWizard';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { useProfiles } from './hooks/useProfiles';
@@ -18,6 +19,7 @@ function AppContent() {
   const [newFCSerial, setNewFCSerial] = useState<string | null>(null);
   const [newFCInfo, setNewFCInfo] = useState<FCInfo | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [activeLogId, setActiveLogId] = useState<string | null>(null);
   const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
   const toast = useToast();
 
@@ -68,13 +70,17 @@ function AppContent() {
       </header>
 
       <main className="app-main">
-        <div className="main-content">
-          {isConnected && currentProfile && <ProfileSelector />}
-          <ConnectionPanel />
-          {isConnected && <FCInfoDisplay />}
-          {isConnected && <BlackboxStatus />}
-          {isConnected && currentProfile && <SnapshotManager />}
-        </div>
+        {activeLogId ? (
+          <TuningWizard logId={activeLogId} onExit={() => setActiveLogId(null)} />
+        ) : (
+          <div className="main-content">
+            {isConnected && currentProfile && <ProfileSelector />}
+            <ConnectionPanel />
+            {isConnected && <FCInfoDisplay />}
+            {isConnected && <BlackboxStatus onAnalyze={setActiveLogId} />}
+            {isConnected && currentProfile && <SnapshotManager />}
+          </div>
+        )}
       </main>
 
       {showProfileWizard && newFCSerial && newFCInfo && (
