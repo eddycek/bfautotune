@@ -375,28 +375,49 @@ export class BlackboxParser {
 
     // Calculate timing
     const timeFieldIdx = fieldMap.get(FIELD_NAMES.TIME);
-    const loopIterIdx = fieldMap.get(FIELD_NAMES.LOOP_ITERATION);
 
     // Compute sample rate from looptime
     const sampleRateHz = 1_000_000 / header.looptime;
+    const dt = header.looptime / 1_000_000; // seconds per loop iteration
 
-    // Pre-allocate time array
+    // Build time array. The raw time field from flash can contain corrupted
+    // values (jumps, negative deltas, huge spikes). We use it when it looks
+    // monotonically increasing, but fall back to synthesized time from frame
+    // index when corruption is detected.
     const timeArray = new Float64Array(frameCount);
     if (timeFieldIdx !== undefined) {
+      // First pass: extract raw times and check for monotonicity
+      let usable = true;
       for (let i = 0; i < frameCount; i++) {
-        timeArray[i] = allFrames[i][timeFieldIdx] / 1_000_000; // µs → seconds
+        timeArray[i] = allFrames[i][timeFieldIdx] / 1_000_000;
+      }
+      // Validate: time should be roughly monotonically increasing.
+      // Allow small jitter but reject large backward jumps or huge forward leaps.
+      for (let i = 1; i < frameCount; i++) {
+        const delta = timeArray[i] - timeArray[i - 1];
+        // Reject if time goes backward by more than 1s, or jumps forward
+        // by more than 10s in a single frame step
+        if (delta < -1 || delta > 10) {
+          usable = false;
+          break;
+        }
+      }
+      if (!usable) {
+        // Time field is corrupted - synthesize from frame index
+        for (let i = 0; i < frameCount; i++) {
+          timeArray[i] = i * dt;
+        }
       }
     } else {
-      // Synthesize time from loop iteration
-      const dt = header.looptime / 1_000_000;
+      // No time field - synthesize from frame index
       for (let i = 0; i < frameCount; i++) {
         timeArray[i] = i * dt;
       }
     }
 
-    const durationSeconds = frameCount > 0
+    const durationSeconds = frameCount > 1
       ? timeArray[frameCount - 1] - timeArray[0]
-      : 0;
+      : frameCount * dt;
 
     // Helper to extract a channel
     function extractChannel(fieldName: string): TimeSeries {
