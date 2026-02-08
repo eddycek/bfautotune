@@ -17,11 +17,13 @@ import type {
 } from '@shared/types/profile.types';
 import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult } from '@shared/types/blackbox.types';
+import type { FilterAnalysisResult, CurrentFilterSettings } from '@shared/types/analysis.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
 import { getMainWindow } from '../window';
 import { BlackboxParser } from '../blackbox/BlackboxParser';
+import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -696,6 +698,63 @@ export function registerIPCHandlers(): void {
       return createResponse<BlackboxParseResult>(undefined, getErrorMessage(error));
     }
   });
+
+  // Filter analysis handler
+  ipcMain.handle(
+    IPCChannel.ANALYSIS_RUN_FILTER,
+    async (event, logId: string, sessionIndex?: number, currentSettings?: CurrentFilterSettings): Promise<IPCResponse<FilterAnalysisResult>> => {
+      try {
+        if (!blackboxManager) {
+          return createResponse<FilterAnalysisResult>(undefined, 'BlackboxManager not initialized');
+        }
+
+        const logMeta = await blackboxManager.getLog(logId);
+        if (!logMeta) {
+          return createResponse<FilterAnalysisResult>(undefined, `Blackbox log not found: ${logId}`);
+        }
+
+        logger.info(`Running filter analysis on: ${logMeta.filename}`);
+
+        // Parse the log first
+        const data = await fs.readFile(logMeta.filepath);
+        const parseResult = await BlackboxParser.parse(data);
+
+        if (!parseResult.success || parseResult.sessions.length === 0) {
+          return createResponse<FilterAnalysisResult>(undefined, 'Failed to parse Blackbox log for analysis');
+        }
+
+        const idx = sessionIndex ?? 0;
+        if (idx >= parseResult.sessions.length) {
+          return createResponse<FilterAnalysisResult>(
+            undefined,
+            `Session index ${idx} out of range (log has ${parseResult.sessions.length} sessions)`
+          );
+        }
+
+        const session = parseResult.sessions[idx];
+
+        // Run analysis with progress reporting
+        const result = await analyzeFilters(
+          session.flightData,
+          idx,
+          currentSettings,
+          (progress) => {
+            event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
+          }
+        );
+
+        logger.info(
+          `Filter analysis complete: ${result.recommendations.length} recommendations, ` +
+          `noise level: ${result.noise.overallLevel}, ${result.analysisTimeMs}ms`
+        );
+
+        return createResponse<FilterAnalysisResult>(result);
+      } catch (error) {
+        logger.error('Failed to run filter analysis:', error);
+        return createResponse<FilterAnalysisResult>(undefined, getErrorMessage(error));
+      }
+    }
+  );
 
   logger.info('IPC handlers registered');
 }

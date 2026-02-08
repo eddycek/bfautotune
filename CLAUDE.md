@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Beta PIDTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 1 - MSP Connection Module (read-only configuration management)
+**Current Phase**: Phase 2 - Blackbox Analysis System (automated filter & PID tuning)
 
-**Tech Stack**: Electron + TypeScript + React + Vite + serialport
+**Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 
 ## Development Commands
 
@@ -45,9 +45,11 @@ npm run rebuild
 
 **Main Process** (`src/main/`)
 - Entry point: `src/main/index.ts`
-- Manages MSPClient, ProfileManager, SnapshotManager
+- Manages MSPClient, ProfileManager, SnapshotManager, BlackboxManager
 - Handles IPC communication via `src/main/ipc/handlers.ts`
 - Event-driven architecture: MSPClient emits events → IPC sends to renderer
+- Blackbox parsing: `src/main/blackbox/` (BBL binary log parser)
+- FFT analysis: `src/main/analysis/` (noise analysis & filter tuning)
 
 **Preload Script** (`src/preload/index.ts`)
 - Exposes `window.betaflight` API to renderer
@@ -131,14 +133,43 @@ window.betaflight.onConnectionChanged((status) => {
 
 **Critical**: Snapshot filtering happens server-side (main process) based on current profile's `snapshotIds` array. This prevents snapshots from different profiles mixing in UI.
 
+### Blackbox Parser (`src/main/blackbox/`)
+
+Parses Betaflight .bbl/.bfl binary log files into typed time series data.
+
+**Pipeline**: StreamReader → HeaderParser → ValueDecoder → PredictorApplier → FrameParser → BlackboxParser
+
+- 10 encoding types, 10 predictor types
+- Multi-session support (multiple flights per file)
+- Corruption recovery with resync
+- IPC: `BLACKBOX_PARSE_LOG` + `EVENT_BLACKBOX_PARSE_PROGRESS`
+- Output: `BlackboxFlightData` with gyro, setpoint, PID, motor as `Float64Array` time series
+
+### FFT Analysis Engine (`src/main/analysis/`)
+
+Analyzes gyro noise spectra to produce filter tuning recommendations.
+
+**Pipeline**: SegmentSelector → FFTCompute → NoiseAnalyzer → FilterRecommender → FilterAnalyzer
+
+- **SegmentSelector**: Finds stable hover segments (excludes takeoff/landing/acro)
+- **FFTCompute**: Hanning window, Welch's method (50% overlap), power spectral density
+- **NoiseAnalyzer**: Noise floor estimation, peak detection (prominence-based), source classification (frame resonance 80-200 Hz, motor harmonics, electrical >500 Hz)
+- **FilterRecommender**: Rule-based recommendations with safety bounds (min gyro LPF 100 Hz, min D-term LPF 80 Hz), beginner-friendly explanations
+- **FilterAnalyzer**: Orchestrator with async progress reporting
+- IPC: `ANALYSIS_RUN_FILTER` + `EVENT_ANALYSIS_PROGRESS`
+- Dependency: `fft.js`
+- Constants in `src/main/analysis/constants.ts` (tunable thresholds)
+
 ## Testing Requirements
 
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 128 tests total across 9 test files
-- Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal
+- 429 tests total across 24 test files
+- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal
 - Hooks: useConnection, useProfiles, useSnapshots
+- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (171 tests)
+- FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (91 tests)
 - See `TESTING.md` for detailed guidelines
 
 ### Mock Setup
@@ -195,7 +226,8 @@ Renderer components subscribe to events:
 
 ### Important Files
 - `src/shared/constants.ts` - MSP codes, Betaflight vendor IDs, preset profiles, size defaults
-- `src/shared/types/*.types.ts` - Shared type definitions
+- `src/shared/types/*.types.ts` - Shared type definitions (common, profile, pid, blackbox, analysis)
+- `src/main/analysis/constants.ts` - FFT thresholds, peak detection, safety bounds (tunable)
 - `vitest.config.ts` - Test configuration with jsdom environment
 
 ### Size Defaults

@@ -184,7 +184,9 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Components (128 tests total)
+### Total: 429 tests across 24 test files
+
+### UI Components (89 tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
 - ✅ **ProfileSelector** (11 tests) - Profile switching, locking when FC connected
 - ✅ **FCInfoDisplay** (12 tests) - FC information display, CLI export
@@ -192,10 +194,25 @@ it('displays error when API fails', async () => {
 - ✅ **ProfileDeleteModal** (14 tests) - Deletion confirmation, warnings, active profile handling
 - ✅ **SnapshotManager** (22 tests) - Snapshot creation, deletion, export, baseline handling
 
-### Hooks
+### Hooks (45 tests)
 - ✅ **useConnection** (15 tests) - Connection state, port management, error handling
 - ✅ **useProfiles** (14 tests) - Profile CRUD operations, event subscriptions
 - ✅ **useSnapshots** (16 tests) - Snapshot management, event-driven updates
+
+### Blackbox Parser (171 tests)
+- ✅ **BlackboxParser** (16 tests) - End-to-end parsing, multi-session, corruption recovery
+- ✅ **StreamReader** (35 tests) - Binary stream reading, variable-byte encoding
+- ✅ **HeaderParser** (25 tests) - BBL header parsing, field definitions
+- ✅ **ValueDecoder** (53 tests) - 10 encoding types
+- ✅ **PredictorApplier** (27 tests) - 10 predictor types
+- ✅ **FrameParser** (15 tests) - I/P/S frame decoding
+
+### FFT Analysis (91 tests)
+- ✅ **FFTCompute** (20 tests) - Hanning window, Welch's method, sine detection, spectral leakage
+- ✅ **SegmentSelector** (18 tests) - Hover detection, throttle normalization, multi-format support
+- ✅ **NoiseAnalyzer** (25 tests) - Peak detection, classification, noise floor estimation
+- ✅ **FilterRecommender** (19 tests) - Rule engine, safety bounds, deduplication, friendly messages
+- ✅ **FilterAnalyzer** (9 tests) - End-to-end pipeline, progress reporting, edge cases
 
 ### Coverage Goals
 - **Components**: ≥80% coverage ✅ **Achieved**
@@ -204,6 +221,8 @@ it('displays error when API fails', async () => {
   - ✅ Connection flow (ConnectionPanel + useConnection)
   - ✅ Profile management (ProfileSelector + useProfiles + modals)
   - ✅ Snapshot creation/restoration (SnapshotManager + useSnapshots)
+  - ✅ Blackbox parsing pipeline (all 6 modules)
+  - ✅ FFT analysis pipeline (all 5 modules)
 
 ## Best Practices
 
@@ -365,6 +384,27 @@ src/renderer/hooks/
   useProfiles.test.ts                ← 14 tests
   useSnapshots.ts
   useSnapshots.test.ts               ← 16 tests
+```
+
+### Blackbox Parser Tests
+```
+src/main/blackbox/
+  BlackboxParser.test.ts             ← 16 tests
+  StreamReader.test.ts               ← 35 tests
+  HeaderParser.test.ts               ← 25 tests
+  ValueDecoder.test.ts               ← 53 tests
+  PredictorApplier.test.ts           ← 27 tests
+  FrameParser.test.ts                ← 15 tests
+```
+
+### FFT Analysis Tests
+```
+src/main/analysis/
+  FFTCompute.test.ts                 ← 20 tests
+  SegmentSelector.test.ts            ← 18 tests
+  NoiseAnalyzer.test.ts              ← 25 tests
+  FilterRecommender.test.ts          ← 19 tests
+  FilterAnalyzer.test.ts             ← 9 tests
 ```
 
 ## Examples
