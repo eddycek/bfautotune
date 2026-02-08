@@ -1,0 +1,93 @@
+/**
+ * Constants for FFT analysis and filter tuning.
+ * All thresholds are tunable — adjust based on real-world data.
+ */
+
+// ---- FFT Parameters ----
+
+/** FFT window size in samples. 4096 at 8 kHz → 0.5s window, ~2 Hz resolution */
+export const FFT_WINDOW_SIZE = 4096;
+
+/** Overlap ratio for Welch's method (0.5 = 50%) */
+export const FFT_OVERLAP = 0.5;
+
+/** Minimum frequency of interest in Hz (below this is mostly vibration/drift) */
+export const FREQUENCY_MIN_HZ = 20;
+
+/** Maximum frequency of interest in Hz (above this is typically aliased/irrelevant) */
+export const FREQUENCY_MAX_HZ = 1000;
+
+// ---- Segment Selection ----
+
+/** Minimum throttle percentage to consider "in flight" (0-1 scale, 0.15 = 15%) */
+export const THROTTLE_MIN_FLIGHT = 0.15;
+
+/** Maximum throttle percentage for "hover" detection (0-1 scale) */
+export const THROTTLE_MAX_HOVER = 0.75;
+
+/** Maximum gyro standard deviation (deg/s) for a "steady" segment */
+export const GYRO_STEADY_MAX_STD = 50;
+
+/** Minimum segment duration in seconds */
+export const SEGMENT_MIN_DURATION_S = 0.5;
+
+/** Sliding window size in samples for segment variance check */
+export const SEGMENT_WINDOW_SAMPLES = 512;
+
+// ---- Noise Analysis ----
+
+/** Peak detection: minimum prominence above local noise floor in dB */
+export const PEAK_PROMINENCE_DB = 6;
+
+/** Number of bins on each side for local noise floor estimation */
+export const PEAK_LOCAL_WINDOW_BINS = 50;
+
+/** Percentile for noise floor estimation (0.25 = lower quartile) */
+export const NOISE_FLOOR_PERCENTILE = 0.25;
+
+/** Noise level thresholds in dB (noise floor above these values) */
+export const NOISE_LEVEL_HIGH_DB = -30;
+export const NOISE_LEVEL_MEDIUM_DB = -50;
+
+// ---- Peak Classification Frequency Bands ----
+
+/** Frame resonance: typically 80-200 Hz */
+export const FRAME_RESONANCE_MIN_HZ = 80;
+export const FRAME_RESONANCE_MAX_HZ = 200;
+
+/** Electrical noise: typically above 500 Hz */
+export const ELECTRICAL_NOISE_MIN_HZ = 500;
+
+/** Motor harmonic detection: maximum spacing tolerance in Hz */
+export const MOTOR_HARMONIC_TOLERANCE_HZ = 15;
+
+/** Minimum number of equally-spaced peaks to classify as motor harmonics */
+export const MOTOR_HARMONIC_MIN_PEAKS = 2;
+
+// ---- Filter Recommendation Safety Bounds ----
+
+/** Absolute minimum gyro lowpass 1 cutoff in Hz */
+export const GYRO_LPF1_MIN_HZ = 100;
+
+/** Absolute maximum gyro lowpass 1 cutoff in Hz */
+export const GYRO_LPF1_MAX_HZ = 300;
+
+/** Absolute minimum D-term lowpass 1 cutoff in Hz */
+export const DTERM_LPF1_MIN_HZ = 80;
+
+/** Absolute maximum D-term lowpass 1 cutoff in Hz */
+export const DTERM_LPF1_MAX_HZ = 200;
+
+/** Adjustment step for high noise: reduce by this many Hz */
+export const HIGH_NOISE_GYRO_REDUCTION_HZ = 50;
+export const HIGH_NOISE_DTERM_REDUCTION_HZ = 30;
+
+/** Adjustment step for low noise: increase by this many Hz */
+export const LOW_NOISE_GYRO_INCREASE_HZ = 30;
+export const LOW_NOISE_DTERM_INCREASE_HZ = 20;
+
+/** Resonance peak amplitude threshold for notch/cutoff recommendation (dB above floor) */
+export const RESONANCE_ACTION_THRESHOLD_DB = 12;
+
+/** Margin below a resonance peak when lowering cutoff (Hz) */
+export const RESONANCE_CUTOFF_MARGIN_HZ = 20;
