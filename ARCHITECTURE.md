@@ -128,6 +128,26 @@ Return snapshot to renderer
 UI updates snapshot list
 ```
 
+### 2b. Snapshot Restore (Rollback) Flow
+
+```
+User clicks "Restore" on a snapshot → Confirmation dialog
+  ↓
+SnapshotManager → useSnapshots.restoreSnapshot(id, createBackup)
+  ↓
+window.betaflight.restoreSnapshot(id, createBackup)
+  ↓
+IPC: snapshot:restore
+  ↓
+Main: Load snapshot → Parse cliDiff → Extract "set" lines
+  ↓
+(Optional) Create "Pre-restore (auto)" backup snapshot
+  ↓
+MSPConnection.enterCLI() → Send each "set" command
+  ↓
+MSPClient.saveAndReboot() → FC reboots with restored config
+```
+
 ### 3. MSP Message Flow
 
 ```
@@ -448,11 +468,11 @@ UI displays error message to user
 
 ## Testing Strategy
 
-### Unit Tests (544 tests across 32 files)
+### Unit Tests (569 tests across 32 files)
 - MSP protocol encoding/decoding, filter config parsing (3 tests)
 - Blackbox parser pipeline (171 tests)
-- FFT analysis pipeline (91 tests)
-- Step response analysis pipeline (58 tests)
+- FFT analysis pipeline (98 tests) — includes convergent noise-based filter targets
+- Step response analysis pipeline (65 tests) — includes flight PID anchoring & convergence
 - UI components and hooks
 - Tuning wizard flow
 

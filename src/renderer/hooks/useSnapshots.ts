@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { ConfigurationSnapshot, SnapshotMetadata } from '@shared/types/common.types';
+import type { SnapshotRestoreResult } from '@shared/types/ipc.types';
 import { useToast } from './useToast';
 
 export function useSnapshots() {
@@ -54,6 +55,24 @@ export function useSnapshots() {
       const message = err.message || 'Failed to delete snapshot';
       setError(message);
       toast.error(`Failed to delete snapshot: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadSnapshots]); // toast is stable
+
+  const restoreSnapshot = useCallback(async (id: string, createBackup: boolean): Promise<SnapshotRestoreResult | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await window.betaflight.restoreSnapshot(id, createBackup);
+      toast.success(`Snapshot restored (${result.appliedCommands} settings applied)`);
+      await loadSnapshots(); // Refresh list (backup snapshot may have been created)
+      return result;
+    } catch (err: any) {
+      const message = err.message || 'Failed to restore snapshot';
+      setError(message);
+      toast.error(`Failed to restore snapshot: ${message}`);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -117,6 +136,7 @@ export function useSnapshots() {
     error,
     createSnapshot,
     deleteSnapshot,
+    restoreSnapshot,
     loadSnapshot,
     refreshSnapshots: loadSnapshots
   };

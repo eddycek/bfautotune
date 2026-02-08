@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, app, shell } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { IPCChannel, IPCResponse } from '@shared/types/ipc.types';
-import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress } from '@shared/types/ipc.types';
+import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress } from '@shared/types/ipc.types';
 import type {
   PortInfo,
   FCInfo,
@@ -26,6 +26,7 @@ import { getMainWindow } from '../window';
 import { BlackboxParser } from '../blackbox/BlackboxParser';
 import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
 import { analyzePID } from '../analysis/PIDAnalyzer';
+import { extractFlightPIDs } from '../analysis/PIDRecommender';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -812,6 +813,9 @@ export function registerIPCHandlers(): void {
 
         const session = parseResult.sessions[idx];
 
+        // Extract flight-time PIDs from BBL header for convergent recommendations
+        const flightPIDs = extractFlightPIDs(session.header.rawHeaders);
+
         // Run PID analysis with progress reporting
         const result = await analyzePID(
           session.flightData,
@@ -819,7 +823,8 @@ export function registerIPCHandlers(): void {
           currentPIDs,
           (progress) => {
             event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
-          }
+          },
+          flightPIDs
         );
 
         logger.info(
@@ -939,6 +944,96 @@ export function registerIPCHandlers(): void {
       } catch (error) {
         logger.error('Failed to apply recommendations:', error);
         return createResponse<ApplyRecommendationsResult>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
+  // Snapshot restore handler
+  ipcMain.handle(
+    IPCChannel.SNAPSHOT_RESTORE,
+    async (event, snapshotId: string, createBackup: boolean): Promise<IPCResponse<SnapshotRestoreResult>> => {
+      try {
+        if (!mspClient) throw new Error('MSP client not initialized');
+        if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
+        if (!snapshotManager) throw new Error('Snapshot manager not initialized');
+
+        const sendProgress = (progress: SnapshotRestoreProgress) => {
+          event.sender.send(IPCChannel.EVENT_SNAPSHOT_RESTORE_PROGRESS, progress);
+        };
+
+        // Load snapshot
+        const snapshot = await snapshotManager.loadSnapshot(snapshotId);
+        if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
+
+        // Parse CLI diff — extract restorable CLI commands
+        // Safe commands: set, feature, serial, aux, beacon, map, resource, timer, dma
+        // Skip: diff all, batch start/end, defaults nosave, save, board_name,
+        //       manufacturer_id, mcu_id, signature, comments (#), profile/rateprofile selection
+        const SKIP_PREFIXES = [
+          'diff', 'batch', 'defaults', 'save', 'board_name', 'manufacturer_id',
+          'mcu_id', 'signature', 'profile', 'rateprofile',
+        ];
+        const cliDiff: string = snapshot.configuration.cliDiff || '';
+        const restorableCommands = cliDiff
+          .split('\n')
+          .map((line: string) => line.trim())
+          .filter((line: string) => {
+            if (!line || line.length < 3 || line.startsWith('#')) return false;
+            const prefix = line.split(/\s/)[0].toLowerCase();
+            return !SKIP_PREFIXES.includes(prefix);
+          });
+
+        if (restorableCommands.length === 0) {
+          throw new Error('Snapshot contains no restorable settings');
+        }
+
+        logger.info(`Restoring snapshot ${snapshotId}: ${restorableCommands.length} CLI commands`);
+
+        // Stage 1: Create backup snapshot (enters CLI mode via exportCLIDiff)
+        let backupSnapshotId: string | undefined;
+        if (createBackup) {
+          sendProgress({ stage: 'backup', message: 'Creating pre-restore backup...', percent: 10 });
+          const backupSnapshot = await snapshotManager.createSnapshot('Pre-restore (auto)');
+          backupSnapshotId = backupSnapshot.id;
+          logger.info(`Pre-restore backup created: ${backupSnapshotId}`);
+        }
+
+        sendProgress({ stage: 'backup', message: 'Backup complete', percent: 20 });
+
+        // Stage 2: Enter CLI and send set commands
+        sendProgress({ stage: 'cli', message: 'Entering CLI mode...', percent: 25 });
+        await mspClient.connection.enterCLI();
+
+        for (let i = 0; i < restorableCommands.length; i++) {
+          const cmd = restorableCommands[i];
+          sendProgress({
+            stage: 'cli',
+            message: `Applying: ${cmd}`,
+            percent: 25 + Math.round((i / restorableCommands.length) * 55),
+          });
+          await mspClient.connection.sendCLICommand(cmd);
+        }
+
+        logger.info(`Applied ${restorableCommands.length} CLI commands from snapshot`);
+
+        // Stage 3: Save and reboot
+        sendProgress({ stage: 'save', message: 'Saving and rebooting FC...', percent: 90 });
+        await mspClient.saveAndReboot();
+
+        sendProgress({ stage: 'save', message: 'FC is rebooting', percent: 100 });
+
+        const result: SnapshotRestoreResult = {
+          success: true,
+          backupSnapshotId,
+          appliedCommands: restorableCommands.length,
+          rebooted: true,
+        };
+
+        logger.info(`Snapshot restored: ${restorableCommands.length} commands applied, rebooted`);
+        return createResponse<SnapshotRestoreResult>(result);
+      } catch (error) {
+        logger.error('Failed to restore snapshot:', error);
+        return createResponse<SnapshotRestoreResult>(undefined, getErrorMessage(error));
       }
     }
   );

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { recommend, generateSummary } from './FilterRecommender';
+import { recommend, generateSummary, computeNoiseBasedTarget } from './FilterRecommender';
 import type {
   NoiseProfile,
   AxisNoiseProfile,
@@ -7,6 +7,15 @@ import type {
   NoisePeak,
 } from '@shared/types/analysis.types';
 import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
+import {
+  GYRO_LPF1_MIN_HZ,
+  GYRO_LPF1_MAX_HZ,
+  DTERM_LPF1_MIN_HZ,
+  DTERM_LPF1_MAX_HZ,
+  NOISE_FLOOR_VERY_NOISY_DB,
+  NOISE_FLOOR_VERY_CLEAN_DB,
+  NOISE_TARGET_DEADZONE_HZ,
+} from './constants';
 
 function makeAxisProfile(
   noiseFloorDb: number,
@@ -36,9 +45,33 @@ function makeNoiseProfile(opts: {
   };
 }
 
+describe('computeNoiseBasedTarget', () => {
+  it('should return minHz for extreme noise', () => {
+    expect(computeNoiseBasedTarget(NOISE_FLOOR_VERY_NOISY_DB, 75, 300)).toBe(75);
+  });
+
+  it('should return maxHz for very clean signal', () => {
+    expect(computeNoiseBasedTarget(NOISE_FLOOR_VERY_CLEAN_DB, 75, 300)).toBe(300);
+  });
+
+  it('should interpolate linearly for mid-range noise', () => {
+    // Midpoint: (-10 + -70) / 2 = -40 → (75 + 300) / 2 = 187.5 → 188
+    const target = computeNoiseBasedTarget(-40, 75, 300);
+    expect(target).toBe(188);
+  });
+
+  it('should clamp to minHz for noise above very noisy threshold', () => {
+    expect(computeNoiseBasedTarget(0, 75, 300)).toBe(75);
+  });
+
+  it('should clamp to maxHz for noise below very clean threshold', () => {
+    expect(computeNoiseBasedTarget(-90, 75, 300)).toBe(300);
+  });
+});
+
 describe('recommend', () => {
-  it('should recommend lowering filters for high noise', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
+  it('should recommend noise-based targets for high noise', () => {
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -20 });
     const current: CurrentFilterSettings = {
       ...DEFAULT_FILTER_SETTINGS,
       gyro_lpf1_static_hz: 250,
@@ -50,17 +83,18 @@ describe('recommend', () => {
     const dtermRec = recs.find((r) => r.setting === 'dterm_lpf1_static_hz');
 
     expect(gyroRec).toBeDefined();
+    // worstFloor = max(-25, -20) = -20, target = interpolate(-20, 75, 300) ≈ 112
     expect(gyroRec!.recommendedValue).toBeLessThan(current.gyro_lpf1_static_hz);
     expect(dtermRec).toBeDefined();
     expect(dtermRec!.recommendedValue).toBeLessThan(current.dterm_lpf1_static_hz);
   });
 
-  it('should recommend raising filters for low noise', () => {
-    const noise = makeNoiseProfile({ level: 'low' });
+  it('should recommend noise-based targets for low noise', () => {
+    const noise = makeNoiseProfile({ level: 'low', rollFloor: -65, pitchFloor: -60 });
     const current: CurrentFilterSettings = {
       ...DEFAULT_FILTER_SETTINGS,
-      gyro_lpf1_static_hz: 200,
-      dterm_lpf1_static_hz: 120,
+      gyro_lpf1_static_hz: 150,
+      dterm_lpf1_static_hz: 100,
     };
 
     const recs = recommend(noise, current);
@@ -68,6 +102,7 @@ describe('recommend', () => {
     const dtermRec = recs.find((r) => r.setting === 'dterm_lpf1_static_hz');
 
     expect(gyroRec).toBeDefined();
+    // worstFloor = max(-65, -60) = -60, target = interpolate(-60, 75, 300) ≈ 262
     expect(gyroRec!.recommendedValue).toBeGreaterThan(current.gyro_lpf1_static_hz);
     expect(dtermRec).toBeDefined();
     expect(dtermRec!.recommendedValue).toBeGreaterThan(current.dterm_lpf1_static_hz);
@@ -85,34 +120,52 @@ describe('recommend', () => {
   });
 
   it('should respect minimum safety bounds', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
-    // Already at minimum (GYRO_LPF1_MIN_HZ=75, DTERM_LPF1_MIN_HZ=70)
+    // Very noisy noise floor → target will be at min
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -5, pitchFloor: -5 });
     const current: CurrentFilterSettings = {
       ...DEFAULT_FILTER_SETTINGS,
-      gyro_lpf1_static_hz: 75,
-      dterm_lpf1_static_hz: 70,
+      gyro_lpf1_static_hz: GYRO_LPF1_MIN_HZ,
+      dterm_lpf1_static_hz: DTERM_LPF1_MIN_HZ,
     };
 
     const recs = recommend(noise, current);
-    // Should not recommend going below minimums
+    // Target is already at/near minimum → no recommendation within deadzone
     const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
     const dtermRec = recs.find((r) => r.setting === 'dterm_lpf1_static_hz');
-    expect(gyroRec).toBeUndefined(); // Already at minimum, no change
+    expect(gyroRec).toBeUndefined();
     expect(dtermRec).toBeUndefined();
   });
 
   it('should respect maximum safety bounds', () => {
-    const noise = makeNoiseProfile({ level: 'low' });
+    // Very clean noise floor → target will be at max
+    const noise = makeNoiseProfile({ level: 'low', rollFloor: -75, pitchFloor: -75 });
     const current: CurrentFilterSettings = {
       ...DEFAULT_FILTER_SETTINGS,
-      gyro_lpf1_static_hz: 300,
-      dterm_lpf1_static_hz: 200,
+      gyro_lpf1_static_hz: GYRO_LPF1_MAX_HZ,
+      dterm_lpf1_static_hz: DTERM_LPF1_MAX_HZ,
     };
 
     const recs = recommend(noise, current);
     const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
     const dtermRec = recs.find((r) => r.setting === 'dterm_lpf1_static_hz');
     // Already at maximum
+    expect(gyroRec).toBeUndefined();
+    expect(dtermRec).toBeUndefined();
+  });
+
+  it('should not recommend when target is within deadzone of current', () => {
+    // Noise floor that produces a target close to the current setting
+    // Target for gyro with floor -50: t = (-50 - (-10)) / (-60) = 0.667, target = 75 + 0.667 * 225 = 225
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -50, pitchFloor: -50 });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      gyro_lpf1_static_hz: 225, // Exactly at target
+      dterm_lpf1_static_hz: 157, // Close to target (70 + 0.667 * 130 ≈ 157)
+    };
+
+    const recs = recommend(noise, current);
+    const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
+    const dtermRec = recs.find((r) => r.setting === 'dterm_lpf1_static_hz');
     expect(gyroRec).toBeUndefined();
     expect(dtermRec).toBeUndefined();
   });
@@ -207,7 +260,7 @@ describe('recommend', () => {
   });
 
   it('should skip gyro LPF noise-floor adjustment when gyro_lpf1 is disabled (0)', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -25 });
     const current: CurrentFilterSettings = {
       ...DEFAULT_FILTER_SETTINGS,
       gyro_lpf1_static_hz: 0, // Disabled (common with RPM filter)
@@ -245,6 +298,8 @@ describe('recommend', () => {
     // High noise + resonance peak both want to lower gyro_lpf1
     const noise = makeNoiseProfile({
       level: 'high',
+      rollFloor: -25,
+      pitchFloor: -25,
       rollPeaks: [
         { frequency: 180, amplitude: 15, type: 'frame_resonance' },
       ],
@@ -261,7 +316,7 @@ describe('recommend', () => {
   });
 
   it('should provide beginner-friendly reason strings', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -25 });
     const recs = recommend(noise, DEFAULT_FILTER_SETTINGS);
 
     for (const rec of recs) {
@@ -273,7 +328,7 @@ describe('recommend', () => {
   });
 
   it('should set appropriate impact values', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -25 });
     const recs = recommend(noise, DEFAULT_FILTER_SETTINGS);
 
     for (const rec of recs) {
@@ -282,12 +337,38 @@ describe('recommend', () => {
   });
 
   it('should set appropriate confidence values', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -25 });
     const recs = recommend(noise, DEFAULT_FILTER_SETTINGS);
 
     for (const rec of recs) {
       expect(['high', 'medium', 'low']).toContain(rec.confidence);
     }
+  });
+
+  it('should converge: applying recommendations and re-running produces no further changes', () => {
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -20 });
+    const initial: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      gyro_lpf1_static_hz: 250,
+      dterm_lpf1_static_hz: 150,
+    };
+
+    // First run: get recommendations
+    const recs1 = recommend(noise, initial);
+    expect(recs1.length).toBeGreaterThan(0);
+
+    // Apply recommendations to create "after" settings
+    const applied: CurrentFilterSettings = { ...initial };
+    for (const rec of recs1) {
+      (applied as any)[rec.setting] = rec.recommendedValue;
+    }
+
+    // Second run with same noise data but applied settings → should produce no changes
+    const recs2 = recommend(noise, applied);
+    const noiseFloorRecs = recs2.filter(
+      (r) => r.setting === 'gyro_lpf1_static_hz' || r.setting === 'dterm_lpf1_static_hz'
+    );
+    expect(noiseFloorRecs.length).toBe(0);
   });
 });
 
@@ -300,7 +381,7 @@ describe('generateSummary', () => {
   });
 
   it('should mention high noise level', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -25 });
     const recs = recommend(noise, DEFAULT_FILTER_SETTINGS);
     const summary = generateSummary(noise, recs);
     expect(summary).toMatch(/vibration|noise/i);
@@ -329,7 +410,7 @@ describe('generateSummary', () => {
   });
 
   it('should state number of recommended changes', () => {
-    const noise = makeNoiseProfile({ level: 'high' });
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -25 });
     const recs = recommend(noise, DEFAULT_FILTER_SETTINGS);
     const summary = generateSummary(noise, recs);
     expect(summary).toMatch(/\d+ filter change/);

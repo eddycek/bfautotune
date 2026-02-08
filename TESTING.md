@@ -184,7 +184,7 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Total: 544 tests across 32 test files
+### Total: 569 tests across 32 test files
 
 ### UI Components (97+ tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
@@ -192,7 +192,7 @@ it('displays error when API fails', async () => {
 - ✅ **FCInfoDisplay** (12 tests) - FC information display, CLI export
 - ✅ **ProfileEditModal** (18 tests) - Profile editing, validation, form handling
 - ✅ **ProfileDeleteModal** (14 tests) - Deletion confirmation, warnings, active profile handling
-- ✅ **SnapshotManager** (22 tests) - Snapshot creation, deletion, export, baseline handling
+- ✅ **SnapshotManager** (30 tests) - Snapshot creation, deletion, export, restore, baseline handling
 - ✅ **BlackboxStatus** - Blackbox status display and download trigger
 - ✅ **Toast / ToastContainer** - Toast notification rendering and lifecycle
 - ✅ **TuningWizard** (22+ tests) - Multi-step tuning wizard flow, results display, apply confirmation, progress
@@ -202,7 +202,7 @@ it('displays error when API fails', async () => {
 ### Hooks (45+ tests)
 - ✅ **useConnection** (15 tests) - Connection state, port management, error handling
 - ✅ **useProfiles** (14 tests) - Profile CRUD operations, event subscriptions
-- ✅ **useSnapshots** (16 tests) - Snapshot management, event-driven updates
+- ✅ **useSnapshots** (19 tests) - Snapshot management, restore, event-driven updates
 - ✅ **useTuningWizard** - Wizard state management, parse/analyze/apply lifecycle
 
 ### MSP Client (3 tests)
@@ -216,17 +216,17 @@ it('displays error when API fails', async () => {
 - ✅ **PredictorApplier** (27 tests) - 10 predictor types
 - ✅ **FrameParser** (15 tests) - I/P/S frame decoding
 
-### FFT Analysis (91 tests)
+### FFT Analysis (98 tests)
 - ✅ **FFTCompute** (20 tests) - Hanning window, Welch's method, sine detection, spectral leakage
 - ✅ **SegmentSelector** (18 tests) - Hover detection, throttle normalization, multi-format support
 - ✅ **NoiseAnalyzer** (25 tests) - Peak detection, classification, noise floor estimation
-- ✅ **FilterRecommender** (21 tests) - Rule engine, safety bounds, deduplication, friendly messages
+- ✅ **FilterRecommender** (28 tests) - Absolute noise-based targets, convergence, safety bounds, deduplication
 - ✅ **FilterAnalyzer** (9 tests) - End-to-end pipeline, progress reporting, edge cases
 
-### Step Response Analysis (58 tests)
+### Step Response Analysis (65 tests)
 - ✅ **StepDetector** (16 tests) - Derivative-based step detection, hold/cooldown validation
 - ✅ **StepMetrics** (15 tests) - Rise time, overshoot, settling, latency, ringing
-- ✅ **PIDRecommender** (18 tests) - Rule engine, safety bounds, P/D balance recommendations
+- ✅ **PIDRecommender** (25 tests) - Flight PID anchoring, convergence, extractFlightPIDs, safety bounds
 - ✅ **PIDAnalyzer** (9 tests) - End-to-end pipeline, progress reporting
 
 ### Coverage Goals
@@ -382,7 +382,7 @@ src/renderer/components/
   FCInfo/
     FCInfoDisplay.test.tsx           ← 12 tests
   SnapshotManager/
-    SnapshotManager.test.tsx         ← 22 tests
+    SnapshotManager.test.tsx         ← 30 tests
   BlackboxStatus/
     BlackboxStatus.test.tsx
   Toast/
@@ -408,7 +408,7 @@ src/main/msp/
 src/renderer/hooks/
   useConnection.test.ts              ← 15 tests
   useProfiles.test.ts                ← 14 tests
-  useSnapshots.test.ts               ← 16 tests
+  useSnapshots.test.ts               ← 19 tests
   useTuningWizard.test.ts
 ```
 
@@ -429,7 +429,7 @@ src/main/analysis/
   FFTCompute.test.ts                 ← 20 tests
   SegmentSelector.test.ts            ← 18 tests
   NoiseAnalyzer.test.ts              ← 25 tests
-  FilterRecommender.test.ts          ← 21 tests
+  FilterRecommender.test.ts          ← 28 tests
   FilterAnalyzer.test.ts             ← 9 tests
 ```
 
@@ -438,7 +438,7 @@ src/main/analysis/
 src/main/analysis/
   StepDetector.test.ts               ← 16 tests
   StepMetrics.test.ts                ← 15 tests
-  PIDRecommender.test.ts             ← 18 tests
+  PIDRecommender.test.ts             ← 25 tests
   PIDAnalyzer.test.ts                ← 9 tests
 ```
 

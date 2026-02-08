@@ -16,7 +16,7 @@ import type {
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
-import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress } from '@shared/types/ipc.types';
+import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress } from '@shared/types/ipc.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -404,6 +404,23 @@ const betaflightAPI: BetaflightAPI = {
         ipcRenderer.removeListener(IPCChannel.EVENT_ANALYSIS_PROGRESS, progressListener);
       }
     }
+  },
+
+  // Snapshot Restore
+  async restoreSnapshot(id: string, createBackup: boolean): Promise<SnapshotRestoreResult> {
+    const response = await ipcRenderer.invoke(IPCChannel.SNAPSHOT_RESTORE, id, createBackup);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to restore snapshot');
+    }
+    return response.data;
+  },
+
+  onRestoreProgress(callback: (progress: SnapshotRestoreProgress) => void): () => void {
+    const listener = (_: any, progress: SnapshotRestoreProgress) => callback(progress);
+    ipcRenderer.on(IPCChannel.EVENT_SNAPSHOT_RESTORE_PROGRESS, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_SNAPSHOT_RESTORE_PROGRESS, listener);
+    };
   },
 
   // Tuning

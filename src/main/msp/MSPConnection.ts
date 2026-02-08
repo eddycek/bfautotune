@@ -77,6 +77,22 @@ export class MSPConnection extends EventEmitter {
     return this.cliMode;
   }
 
+  /** Write a CLI command without waiting for prompt. Used for `save` which reboots the FC. */
+  async writeCLIRaw(command: string): Promise<void> {
+    if (!this.cliMode) {
+      throw new ConnectionError('Not in CLI mode');
+    }
+    return new Promise((resolve, reject) => {
+      this.port!.write(`${command}\r\n`, (error) => {
+        if (error) {
+          reject(new ConnectionError(`Failed to write CLI command: ${error.message}`, error));
+          return;
+        }
+        this.port!.drain(() => resolve());
+      });
+    });
+  }
+
   async sendCommand(command: number, data: Buffer = Buffer.alloc(0), timeout: number = MSP.COMMAND_TIMEOUT): Promise<MSPResponse> {
     if (!this.isOpen()) {
       throw new ConnectionError('Port not open');
@@ -196,8 +212,12 @@ export class MSPConnection extends EventEmitter {
 
       const listener = (data: string) => {
         this.cliBuffer += data;
-        // Wait for prompt
-        if (data.includes('#')) {
+        // Wait for CLI prompt at end of accumulated buffer.
+        // The prompt is "# " after a newline. We must check the accumulated
+        // buffer (not individual chunks) to avoid false-matching comment
+        // lines like "# master" or "# profile 0" in diff/dump output.
+        const trimmed = this.cliBuffer.trimEnd();
+        if (trimmed.endsWith('\n#') || trimmed === '#') {
           clearTimeout(timeoutId);
           this.removeListener('cli-data', listener);
           resolve(this.cliBuffer);
