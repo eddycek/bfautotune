@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Beta PIDTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 2.5 - UX Polish (profile simplification, charts, visual aids)
+**Current Phase**: Phase 2.5 - UX Polish (profile simplified, charts, visual aids)
 
 **Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 

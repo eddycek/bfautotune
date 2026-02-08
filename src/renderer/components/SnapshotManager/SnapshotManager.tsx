@@ -5,6 +5,14 @@ import { useToast } from '../../hooks/useToast';
 import type { SnapshotRestoreProgress } from '@shared/types/ipc.types';
 import './SnapshotManager.css';
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(1)} MB`;
+}
+
 export function SnapshotManager() {
   const { status } = useConnection();
   const { snapshots, loading, error, createSnapshot, deleteSnapshot, restoreSnapshot, loadSnapshot } = useSnapshots();
@@ -168,11 +176,9 @@ export function SnapshotManager() {
               <div className="snapshot-meta">
                 <span>{new Date(snapshot.timestamp).toLocaleString()}</span>
                 <span>•</span>
-                <span>
-                  {snapshot.fcInfo.variant} {snapshot.fcInfo.version}
-                </span>
+                <span>{snapshot.fcInfo.variant} {snapshot.fcInfo.version}</span>
                 <span>•</span>
-                <span>{snapshot.fcInfo.boardName}</span>
+                <span>{formatBytes(snapshot.sizeBytes)}</span>
               </div>
             </div>
             <div className="snapshot-actions-item">

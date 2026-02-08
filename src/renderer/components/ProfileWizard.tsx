@@ -5,9 +5,6 @@ import { SIZE_DEFAULTS, PRESET_PROFILES } from '@shared/constants';
 import type {
   DroneSize,
   BatteryType,
-  FrameType,
-  FlightStyle,
-  FrameStiffness,
   ProfileCreationInput
 } from '@shared/types/profile.types';
 import type { FCInfo } from '@shared/types/common.types';
@@ -19,7 +16,7 @@ interface ProfileWizardProps {
   onComplete: (input: ProfileCreationInput | { presetId: string; customName?: string }) => void;
 }
 
-type WizardStep = 'method' | 'preset' | 'basic' | 'advanced' | 'review';
+type WizardStep = 'method' | 'preset' | 'basic' | 'review';
 type CreationMethod = 'preset' | 'custom';
 
 export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardProps) {
@@ -37,11 +34,6 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
   const [battery, setBattery] = useState<BatteryType>('4S');
   const [weight, setWeight] = useState(650);
   const [motorKV, setMotorKV] = useState(2400);
-
-  // Custom path - advanced (optional)
-  const [frameType, setFrameType] = useState<FrameType | undefined>('freestyle');
-  const [flightStyle, setFlightStyle] = useState<FlightStyle | undefined>('freestyle');
-  const [frameStiffness, setFrameStiffness] = useState<FrameStiffness | undefined>('medium');
   const [notes, setNotes] = useState('');
 
   // Apply size defaults when size changes
@@ -53,7 +45,6 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
       setMotorKV(defaults.motorKV);
       setBattery(defaults.battery);
       setPropSize(defaults.propSize);
-      setFrameStiffness(defaults.frameStiffness);
     }
   };
 
@@ -72,10 +63,6 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
   };
 
   const handleBasicContinue = () => {
-    setStep('advanced');
-  };
-
-  const handleAdvancedContinue = () => {
     setStep('review');
   };
 
@@ -95,9 +82,6 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
         battery,
         weight,
         motorKV,
-        frameType,
-        flightStyle,
-        frameStiffness,
         notes: notes || undefined
       };
       onComplete(input);
@@ -145,31 +129,17 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
             battery={battery}
             weight={weight}
             motorKV={motorKV}
+            notes={notes}
             onNameChange={setName}
             onSizeChange={handleSizeChange}
             onPropSizeChange={setPropSize}
             onBatteryChange={setBattery}
             onWeightChange={setWeight}
             onMotorKVChange={setMotorKV}
+            onNotesChange={setNotes}
             onBack={() => setStep('method')}
             onContinue={handleBasicContinue}
             canContinue={canContinueBasic}
-          />
-        )}
-
-        {step === 'advanced' && (
-          <AdvancedStep
-            frameType={frameType}
-            flightStyle={flightStyle}
-            frameStiffness={frameStiffness}
-            notes={notes}
-            onFrameTypeChange={setFrameType}
-            onFlightStyleChange={setFlightStyle}
-            onFrameStiffnessChange={setFrameStiffness}
-            onNotesChange={setNotes}
-            onBack={() => setStep('basic')}
-            onContinue={handleAdvancedContinue}
-            onSkip={() => setStep('review')}
           />
         )}
 
@@ -184,11 +154,8 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
             battery={battery}
             weight={weight}
             motorKV={motorKV}
-            frameType={frameType}
-            flightStyle={flightStyle}
-            frameStiffness={frameStiffness}
             notes={notes}
-            onBack={() => setStep(method === 'preset' ? 'preset' : 'advanced')}
+            onBack={() => setStep(method === 'preset' ? 'preset' : 'basic')}
             onCreate={handleComplete}
           />
         )}
@@ -288,12 +255,14 @@ function BasicStep({
   battery,
   weight,
   motorKV,
+  notes,
   onNameChange,
   onSizeChange,
   onPropSizeChange,
   onBatteryChange,
   onWeightChange,
   onMotorKVChange,
+  onNotesChange,
   onBack,
   onContinue,
   canContinue
@@ -304,12 +273,14 @@ function BasicStep({
   battery: BatteryType;
   weight: number;
   motorKV: number;
+  notes: string;
   onNameChange: (value: string) => void;
   onSizeChange: (value: DroneSize) => void;
   onPropSizeChange: (value: string) => void;
   onBatteryChange: (value: BatteryType) => void;
   onWeightChange: (value: number) => void;
   onMotorKVChange: (value: number) => void;
+  onNotesChange: (value: string) => void;
   onBack: () => void;
   onContinue: () => void;
   canContinue: boolean;
@@ -347,9 +318,7 @@ function BasicStep({
         </div>
 
         <div className="wizard-form-group">
-          <label>
-            Prop Size <span className="required">*</span>
-          </label>
+          <label>Prop Size</label>
           <input
             type="text"
             value={propSize}
@@ -375,9 +344,7 @@ function BasicStep({
         </div>
 
         <div className="wizard-form-group">
-          <label>
-            Weight (grams) <span className="required">*</span>
-          </label>
+          <label>Weight (grams)</label>
           <input
             type="number"
             value={weight}
@@ -387,14 +354,22 @@ function BasicStep({
       </div>
 
       <div className="wizard-form-group">
-        <label>
-          Motor KV <span className="required">*</span>
-        </label>
+        <label>Motor KV</label>
         <input
           type="number"
           value={motorKV}
           onChange={(e) => onMotorKVChange(parseInt(e.target.value) || 0)}
           placeholder="e.g., 2400"
+        />
+      </div>
+
+      <div className="wizard-form-group">
+        <label>Notes</label>
+        <textarea
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          placeholder="Any additional information about this drone..."
+          rows={3}
         />
       </div>
 
@@ -414,104 +389,6 @@ function BasicStep({
   );
 }
 
-// Advanced step
-function AdvancedStep({
-  frameType,
-  flightStyle,
-  frameStiffness,
-  notes,
-  onFrameTypeChange,
-  onFlightStyleChange,
-  onFrameStiffnessChange,
-  onNotesChange,
-  onBack,
-  onContinue,
-  onSkip
-}: {
-  frameType?: FrameType;
-  flightStyle?: FlightStyle;
-  frameStiffness?: FrameStiffness;
-  notes: string;
-  onFrameTypeChange: (value?: FrameType) => void;
-  onFlightStyleChange: (value?: FlightStyle) => void;
-  onFrameStiffnessChange: (value?: FrameStiffness) => void;
-  onNotesChange: (value: string) => void;
-  onBack: () => void;
-  onContinue: () => void;
-  onSkip: () => void;
-}) {
-  const frameTypes: FrameType[] = ['freestyle', 'race', 'cinematic', 'long-range'];
-  const flightStyles: FlightStyle[] = ['smooth', 'balanced', 'aggressive'];
-  const frameStiffnesses: FrameStiffness[] = ['soft', 'medium', 'stiff'];
-
-  return (
-    <div>
-      <div className="wizard-form-group">
-        <label>Frame Type</label>
-        <select
-          value={frameType || ''}
-          onChange={(e) => onFrameTypeChange(e.target.value as FrameType || undefined)}
-        >
-          <option value="">Select...</option>
-          {frameTypes.map(t => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="wizard-form-group">
-        <label>Flight Style</label>
-        <select
-          value={flightStyle || ''}
-          onChange={(e) => onFlightStyleChange(e.target.value as FlightStyle || undefined)}
-        >
-          <option value="">Select...</option>
-          {flightStyles.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="wizard-form-group">
-        <label>Frame Stiffness</label>
-        <select
-          value={frameStiffness || ''}
-          onChange={(e) => onFrameStiffnessChange(e.target.value as FrameStiffness || undefined)}
-        >
-          <option value="">Select...</option>
-          {frameStiffnesses.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="wizard-form-group">
-        <label>Notes</label>
-        <textarea
-          value={notes}
-          onChange={(e) => onNotesChange(e.target.value)}
-          placeholder="Any additional information about this drone..."
-          rows={3}
-        />
-      </div>
-
-      <div className="wizard-actions">
-        <button onClick={onBack} className="wizard-btn wizard-btn-secondary">
-          Back
-        </button>
-        <div className="wizard-actions-left">
-          <button onClick={onSkip} className="wizard-btn wizard-btn-secondary">
-            Skip
-          </button>
-          <button onClick={onContinue} className="wizard-btn wizard-btn-primary">
-            Continue
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Review step
 function ReviewStep({
   method,
@@ -523,9 +400,6 @@ function ReviewStep({
   battery,
   weight,
   motorKV,
-  frameType,
-  flightStyle,
-  frameStiffness,
   notes,
   onBack,
   onCreate
@@ -539,14 +413,11 @@ function ReviewStep({
   battery: BatteryType;
   weight: number;
   motorKV: number;
-  frameType?: FrameType;
-  flightStyle?: FlightStyle;
-  frameStiffness?: FrameStiffness;
   notes: string;
   onBack: () => void;
   onCreate: () => void;
 }) {
-  const preset = presetId ? Object.values(PRESET_PROFILES).find(p => p.presetId === presetId) : null;
+  const preset = presetId ? PRESET_PROFILES[presetId as keyof typeof PRESET_PROFILES] : null;
   const displayName = method === 'preset'
     ? (presetCustomName || preset?.name || '')
     : name;
@@ -590,27 +461,6 @@ function ReviewStep({
           <div className="review-label">Motor KV</div>
           <div className="review-value">{method === 'preset' ? preset?.motorKV : motorKV}</div>
         </div>
-
-        {frameType && (
-          <div className="review-row">
-            <div className="review-label">Frame Type</div>
-            <div className="review-value">{frameType}</div>
-          </div>
-        )}
-
-        {flightStyle && (
-          <div className="review-row">
-            <div className="review-label">Flight Style</div>
-            <div className="review-value">{flightStyle}</div>
-          </div>
-        )}
-
-        {frameStiffness && (
-          <div className="review-row">
-            <div className="review-label">Frame Stiffness</div>
-            <div className="review-value">{frameStiffness}</div>
-          </div>
-        )}
 
         {notes && (
           <div className="review-row">

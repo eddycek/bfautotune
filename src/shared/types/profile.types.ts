@@ -12,9 +12,6 @@ import type { FCInfo } from './common.types';
 
 export type DroneSize = '1"' | '2"' | '2.5"' | '3"' | '4"' | '5"' | '6"' | '7"' | '10"';
 export type BatteryType = '1S' | '2S' | '3S' | '4S' | '6S';
-export type FrameType = 'freestyle' | 'race' | 'cinematic' | 'long-range';
-export type FlightStyle = 'smooth' | 'balanced' | 'aggressive';
-export type FrameStiffness = 'soft' | 'medium' | 'stiff';
 
 // ============================================================================
 // Profile Interfaces
@@ -26,19 +23,16 @@ export type FrameStiffness = 'soft' | 'medium' | 'stiff';
 export interface DroneProfileRequired {
   name: string;
   size: DroneSize;
-  propSize: string;
   battery: BatteryType;
-  weight: number;        // AUW in grams
-  motorKV: number;
 }
 
 /**
- * Optional/advanced fields for drone profile
+ * Optional fields for drone profile
  */
 export interface DroneProfileOptional {
-  frameType?: FrameType;
-  flightStyle?: FlightStyle;
-  frameStiffness?: FrameStiffness;
+  propSize?: string;
+  weight?: number;        // AUW in grams
+  motorKV?: number;
   notes?: string;
 }
 
@@ -80,8 +74,7 @@ export interface DroneProfileMetadata {
 /**
  * Preset profile template
  */
-export interface PresetProfile extends DroneProfileRequired, Required<DroneProfileOptional> {
-  presetId: string;
+export interface PresetProfile extends DroneProfileRequired, DroneProfileOptional {
   description: string;
 }
 
@@ -93,7 +86,6 @@ export interface DroneSizeDefaults {
   motorKV: number;
   battery: BatteryType;
   propSize: string;
-  frameStiffness: FrameStiffness;
 }
 
 /**

@@ -7,17 +7,17 @@ interface PresetSelectorProps {
 }
 
 export function PresetSelector({ selectedPresetId, onSelect }: PresetSelectorProps) {
-  const presets = Object.values(PRESET_PROFILES);
+  const presets = Object.entries(PRESET_PROFILES);
 
   return (
     <div>
       <div className="preset-grid">
-        {presets.map((preset) => (
+        {presets.map(([id, preset]) => (
           <PresetCard
-            key={preset.presetId}
+            key={id}
             preset={preset}
-            selected={selectedPresetId === preset.presetId}
-            onSelect={() => onSelect(preset.presetId)}
+            selected={selectedPresetId === id}
+            onSelect={() => onSelect(id)}
           />
         ))}
       </div>
@@ -56,9 +56,6 @@ function PresetCard({ preset, selected, onSelect }: PresetCardProps) {
           </div>
           <div className="preset-card-spec">
             Motor: <span className="preset-card-spec-value">{preset.motorKV}KV</span>
-          </div>
-          <div className="preset-card-spec">
-            Style: <span className="preset-card-spec-value">{preset.flightStyle}</span>
           </div>
         </div>
       </div>

@@ -58,6 +58,7 @@ export interface SnapshotMetadata {
   timestamp: string;
   label: string;
   type: 'baseline' | 'manual' | 'auto';
+  sizeBytes: number;
   fcInfo: {
     variant: string;
     version: string;

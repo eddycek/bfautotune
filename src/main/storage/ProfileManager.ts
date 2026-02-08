@@ -41,15 +41,12 @@ export class ProfileManager {
       // Required fields
       name: input.name,
       size: input.size,
-      propSize: input.propSize,
       battery: input.battery,
-      weight: input.weight,
-      motorKV: input.motorKV,
 
       // Optional fields
-      frameType: input.frameType,
-      flightStyle: input.flightStyle,
-      frameStiffness: input.frameStiffness,
+      propSize: input.propSize,
+      weight: input.weight,
+      motorKV: input.motorKV,
       notes: input.notes || '',
 
       // Auto-detected
@@ -91,9 +88,6 @@ export class ProfileManager {
       battery: preset.battery,
       weight: preset.weight,
       motorKV: preset.motorKV,
-      frameType: preset.frameType,
-      flightStyle: preset.flightStyle,
-      frameStiffness: preset.frameStiffness,
       notes: preset.notes
     };
 

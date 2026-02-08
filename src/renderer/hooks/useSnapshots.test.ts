@@ -12,6 +12,7 @@ describe('useSnapshots', () => {
       timestamp: new Date('2024-01-01').toISOString(),
       label: 'Baseline',
       type: 'baseline',
+      sizeBytes: 2048,
       fcInfo: {
         variant: 'BTFL',
         version: '4.4.0',
@@ -23,6 +24,7 @@ describe('useSnapshots', () => {
       timestamp: new Date('2024-01-02').toISOString(),
       label: 'After tuning',
       type: 'manual',
+      sizeBytes: 3072,
       fcInfo: {
         variant: 'BTFL',
         version: '4.4.0',
@@ -294,7 +296,6 @@ describe('useSnapshots', () => {
       weight: 650,
       motorKV: 2400,
       propSize: '5.1"',
-      frameStiffness: 'medium',
       snapshotIds: [],
       connectionCount: 1,
       lastConnected: new Date().toISOString(),

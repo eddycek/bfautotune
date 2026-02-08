@@ -76,7 +76,7 @@ export function SessionSelectStep({
       <h3>Select Flight Session</h3>
       <p>This log contains {sessions.length} flight sessions. Select one to analyze.</p>
       <div className="session-list">
-        {sessions.map((session) => (
+        {[...sessions].reverse().map((session) => (
           <div
             key={session.index}
             className="session-item"

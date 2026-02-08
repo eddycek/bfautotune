@@ -108,7 +108,7 @@ export function ConnectionPanel() {
         <div className="connection-status">
           <span className="status-label">Status:</span>
           <span className={status.connected ? 'status-connected' : 'status-disconnected'}>
-            {status.connected ? '● Connected' : '○ Disconnected'}
+            {status.connected ? '● Connected' : 'Disconnected'}
           </span>
         </div>
 

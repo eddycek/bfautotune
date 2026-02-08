@@ -14,7 +14,6 @@ describe('ProfileDeleteModal', () => {
     weight: 650,
     motorKV: 2400,
     propSize: '5.1"',
-    frameStiffness: 'medium',
     snapshotIds: ['snapshot-1', 'snapshot-2', 'snapshot-3'],
     connectionCount: 10,
     lastConnected: new Date().toISOString(),
