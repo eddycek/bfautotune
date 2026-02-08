@@ -75,6 +75,10 @@ global.window.betaflight = {
   analyzeFilters: vi.fn(),
   analyzePID: vi.fn(),
 
+  // Snapshot Restore
+  restoreSnapshot: vi.fn(),
+  onRestoreProgress: vi.fn(() => () => {}),
+
   // Tuning
   applyRecommendations: vi.fn(),
   onApplyProgress: vi.fn(() => () => {}),

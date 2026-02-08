@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useSnapshots } from './useSnapshots';
 import type { SnapshotMetadata, ConfigurationSnapshot, ConnectionStatus } from '@shared/types/common.types';
 import type { DroneProfile } from '@shared/types/profile.types';
+import type { SnapshotRestoreResult } from '@shared/types/ipc.types';
 
 describe('useSnapshots', () => {
   const mockSnapshots: SnapshotMetadata[] = [
@@ -60,6 +61,12 @@ describe('useSnapshots', () => {
     vi.mocked(window.betaflight.deleteSnapshot).mockResolvedValue(undefined);
     vi.mocked(window.betaflight.onConnectionChanged).mockReturnValue(() => {});
     vi.mocked(window.betaflight.onProfileChanged).mockReturnValue(() => {});
+    vi.mocked(window.betaflight.restoreSnapshot).mockResolvedValue({
+      success: true,
+      backupSnapshotId: 'backup-1',
+      appliedCommands: 3,
+      rebooted: true
+    } as SnapshotRestoreResult);
   });
 
   it('loads snapshots on mount', async () => {
@@ -313,5 +320,60 @@ describe('useSnapshots', () => {
     renderHook(() => useSnapshots());
 
     expect(window.betaflight.onProfileChanged).toHaveBeenCalled();
+  });
+
+  // Restore tests
+  it('restoreSnapshot calls API and returns result', async () => {
+    const { result } = renderHook(() => useSnapshots());
+
+    await waitFor(() => {
+      expect(result.current.snapshots).toBeDefined();
+    });
+
+    const restoreResult = await result.current.restoreSnapshot('snapshot-1', true);
+
+    expect(window.betaflight.restoreSnapshot).toHaveBeenCalledWith('snapshot-1', true);
+    expect(restoreResult).toEqual({
+      success: true,
+      backupSnapshotId: 'backup-1',
+      appliedCommands: 3,
+      rebooted: true
+    });
+  });
+
+  it('restoreSnapshot handles error and returns null', async () => {
+    vi.mocked(window.betaflight.restoreSnapshot).mockRejectedValue(
+      new Error('Snapshot contains no restorable settings')
+    );
+
+    const { result } = renderHook(() => useSnapshots());
+
+    await waitFor(() => {
+      expect(result.current.snapshots).toBeDefined();
+    });
+
+    const restoreResult = await result.current.restoreSnapshot('snapshot-1', true);
+
+    expect(restoreResult).toBeNull();
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Snapshot contains no restorable settings');
+    });
+  });
+
+  it('restoreSnapshot refreshes snapshot list after success', async () => {
+    const { result } = renderHook(() => useSnapshots());
+
+    await waitFor(() => {
+      expect(window.betaflight.listSnapshots).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(window.betaflight.listSnapshots).mockClear();
+
+    await result.current.restoreSnapshot('snapshot-1', true);
+
+    await waitFor(() => {
+      expect(window.betaflight.listSnapshots).toHaveBeenCalledTimes(1);
+    });
   });
 });

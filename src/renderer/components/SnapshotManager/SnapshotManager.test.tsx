@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SnapshotManager } from './SnapshotManager';
 import type { SnapshotMetadata, ConfigurationSnapshot } from '@shared/types/common.types';
+import type { SnapshotRestoreResult } from '@shared/types/ipc.types';
 
 describe('SnapshotManager', () => {
   const mockSnapshots: SnapshotMetadata[] = [
@@ -63,6 +64,13 @@ describe('SnapshotManager', () => {
       portPath: '/dev/ttyUSB0'
     });
     vi.mocked(window.betaflight.onConnectionChanged).mockReturnValue(() => {});
+    vi.mocked(window.betaflight.restoreSnapshot).mockResolvedValue({
+      success: true,
+      backupSnapshotId: 'backup-1',
+      appliedCommands: 3,
+      rebooted: true
+    } as SnapshotRestoreResult);
+    vi.mocked(window.betaflight.onRestoreProgress).mockReturnValue(() => {});
 
     // Mock window.confirm
     global.confirm = vi.fn(() => true);
@@ -331,6 +339,148 @@ describe('SnapshotManager', () => {
 
     await waitFor(() => {
       expect(screen.getByText(errorMessage)).toBeInTheDocument();
+    });
+  });
+
+  // Restore tests
+  it('displays restore button for each snapshot when connected', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+      expect(restoreButtons.length).toBe(2);
+    });
+  });
+
+  it('disables restore buttons when not connected', async () => {
+    vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
+      connected: false
+    });
+
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+      restoreButtons.forEach(btn => expect(btn).toBeDisabled());
+    });
+  });
+
+  it('shows restore confirmation dialog when restore clicked', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+    await user.click(restoreButtons[0]);
+
+    expect(screen.getByRole('heading', { name: 'Restore Snapshot' })).toBeInTheDocument();
+    expect(screen.getByText(/This will restore FC configuration/)).toBeInTheDocument();
+  });
+
+  it('restore confirmation has backup checkbox checked by default', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+    await user.click(restoreButtons[0]);
+
+    const checkbox = screen.getByRole('checkbox');
+    expect(checkbox).toBeChecked();
+  });
+
+  it('calls restoreSnapshot with backup when confirmed', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+    await user.click(restoreButtons[0]);
+
+    // Find the dialog by its heading and get the confirm button within it
+    const dialog = screen.getByRole('heading', { name: 'Restore Snapshot' }).closest('.create-dialog')!;
+    const confirmButton = within(dialog as HTMLElement).getByRole('button', { name: /^restore$/i });
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(window.betaflight.restoreSnapshot).toHaveBeenCalledWith('snapshot-1', true);
+    });
+  });
+
+  it('calls restoreSnapshot without backup when checkbox unchecked', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+    await user.click(restoreButtons[0]);
+
+    const checkbox = screen.getByRole('checkbox');
+    await user.click(checkbox);
+
+    const dialog = screen.getByRole('heading', { name: 'Restore Snapshot' }).closest('.create-dialog')!;
+    const confirmButton = within(dialog as HTMLElement).getByRole('button', { name: /^restore$/i });
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(window.betaflight.restoreSnapshot).toHaveBeenCalledWith('snapshot-1', false);
+    });
+  });
+
+  it('hides restore confirmation when cancel clicked', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+    await user.click(restoreButtons[0]);
+
+    expect(screen.getByRole('heading', { name: 'Restore Snapshot' })).toBeInTheDocument();
+
+    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    await user.click(cancelButton);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Restore Snapshot' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows error when restore fails', async () => {
+    vi.mocked(window.betaflight.restoreSnapshot).mockRejectedValue(
+      new Error('Snapshot contains no restorable settings')
+    );
+
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+    await user.click(restoreButtons[0]);
+
+    const dialog = screen.getByRole('heading', { name: 'Restore Snapshot' }).closest('.create-dialog')!;
+    const confirmButton = within(dialog as HTMLElement).getByRole('button', { name: /^restore$/i });
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Snapshot contains no restorable settings')).toBeInTheDocument();
     });
   });
 });

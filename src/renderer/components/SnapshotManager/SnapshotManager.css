@@ -84,3 +84,51 @@
   background-color: #0066cc;
   color: white;
 }
+
+.restore-warning {
+  color: #ff9900;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.restore-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.restore-checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.restore-progress {
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+
+.restore-progress-text {
+  font-size: 13px;
+  color: #cccccc;
+  margin-bottom: 8px;
+}
+
+.restore-progress-bar {
+  height: 6px;
+  background-color: #444444;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.restore-progress-fill {
+  height: 100%;
+  background-color: #0066cc;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}

@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useConnection } from '../../hooks/useConnection';
 import { useSnapshots } from '../../hooks/useSnapshots';
 import { useToast } from '../../hooks/useToast';
+import type { SnapshotRestoreProgress } from '@shared/types/ipc.types';
 import './SnapshotManager.css';
 
 export function SnapshotManager() {
   const { status } = useConnection();
-  const { snapshots, loading, error, createSnapshot, deleteSnapshot, loadSnapshot } = useSnapshots();
+  const { snapshots, loading, error, createSnapshot, deleteSnapshot, restoreSnapshot, loadSnapshot } = useSnapshots();
   const toast = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [snapshotLabel, setSnapshotLabel] = useState('');
   const [selectedSnapshot, setSelectedSnapshot] = useState<string | null>(null);
+  const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);
+  const [restoreBackup, setRestoreBackup] = useState(true);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState<SnapshotRestoreProgress | null>(null);
+
+  useEffect(() => {
+    if (!restoring) return;
+    const unsubscribe = window.betaflight.onRestoreProgress((progress) => {
+      setRestoreProgress(progress);
+    });
+    return unsubscribe;
+  }, [restoring]);
 
   const handleCreateSnapshot = async () => {
     const result = await createSnapshot(snapshotLabel || undefined);
@@ -40,6 +53,29 @@ export function SnapshotManager() {
       URL.revokeObjectURL(url);
       toast.success('Snapshot exported');
     }
+  };
+
+  const handleRestoreClick = (id: string) => {
+    setRestoreConfirmId(id);
+    setRestoreBackup(true);
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreConfirmId) return;
+    setRestoring(true);
+    setRestoreProgress(null);
+    const id = restoreConfirmId;
+    setRestoreConfirmId(null);
+    try {
+      await restoreSnapshot(id, restoreBackup);
+    } finally {
+      setRestoring(false);
+      setRestoreProgress(null);
+    }
+  };
+
+  const handleRestoreCancel = () => {
+    setRestoreConfirmId(null);
   };
 
   return (
@@ -78,6 +114,43 @@ export function SnapshotManager() {
         </div>
       )}
 
+      {restoreConfirmId && (
+        <div className="create-dialog">
+          <h3>Restore Snapshot</h3>
+          <p className="restore-warning">
+            This will restore FC configuration from this snapshot. FC will reboot.
+          </p>
+          <label className="restore-checkbox">
+            <input
+              type="checkbox"
+              checked={restoreBackup}
+              onChange={(e) => setRestoreBackup(e.target.checked)}
+            />
+            Create backup before restoring
+          </label>
+          <div className="dialog-actions">
+            <button className="primary" onClick={handleRestoreConfirm}>
+              Restore
+            </button>
+            <button className="secondary" onClick={handleRestoreCancel}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {restoring && restoreProgress && (
+        <div className="restore-progress">
+          <div className="restore-progress-text">{restoreProgress.message}</div>
+          <div className="restore-progress-bar">
+            <div
+              className="restore-progress-fill"
+              style={{ width: `${restoreProgress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="snapshot-list">
         {loading && <div>Loading snapshots...</div>}
 
@@ -103,6 +176,13 @@ export function SnapshotManager() {
               </div>
             </div>
             <div className="snapshot-actions-item">
+              <button
+                className="secondary"
+                onClick={() => handleRestoreClick(snapshot.id)}
+                disabled={!status.connected || loading || restoring}
+              >
+                {restoring ? 'Restoring...' : 'Restore'}
+              </button>
               <button className="secondary" onClick={() => handleViewSnapshot(snapshot.id)}>
                 Export
               </button>
