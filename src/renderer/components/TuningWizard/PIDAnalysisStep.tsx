@@ -27,7 +27,7 @@ export function PIDAnalysisStep({
   runPIDAnalysis,
   onContinue,
 }: PIDAnalysisStepProps) {
-  const [chartOpen, setChartOpen] = useState(false);
+  const [chartOpen, setChartOpen] = useState(true);
 
   // Check if any trace data exists
   const hasTraces = pidResult

@@ -34,7 +34,7 @@ export function FilterAnalysisStep({
   runFilterAnalysis,
   onContinue,
 }: FilterAnalysisStepProps) {
-  const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(false);
+  const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(true);
 
   if (filterAnalyzing) {
     return (

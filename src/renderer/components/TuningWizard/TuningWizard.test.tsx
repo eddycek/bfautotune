@@ -473,17 +473,17 @@ describe('TuningWizard', () => {
 
     await navigateToFilterResults(user);
 
-    // Initially collapsed
-    expect(screen.getByText('Show noise details')).toBeInTheDocument();
-    expect(screen.queryByText('-40 dB', { exact: false })).not.toBeInTheDocument();
+    // Initially expanded (default open)
+    expect(screen.getByText('Hide noise details')).toBeInTheDocument();
+    expect(screen.getByText('-40 dB', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Frame')).toBeInTheDocument();
 
-    // Click to expand
-    await user.click(screen.getByText('Show noise details'));
+    // Click to collapse
+    await user.click(screen.getByText('Hide noise details'));
 
     await waitFor(() => {
-      expect(screen.getByText('Hide noise details')).toBeInTheDocument();
-      expect(screen.getByText('-40 dB', { exact: false })).toBeInTheDocument();
-      expect(screen.getByText('Frame')).toBeInTheDocument();
+      expect(screen.getByText('Show noise details')).toBeInTheDocument();
+      expect(screen.queryByText('-40 dB', { exact: false })).not.toBeInTheDocument();
     });
   });
 
@@ -728,7 +728,7 @@ describe('TuningWizard', () => {
 
   // ---- Chart integration tests ----
 
-  it('FilterAnalysisStep shows spectrum chart when noise details expanded', async () => {
+  it('FilterAnalysisStep shows spectrum chart in default-open noise details', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
 
@@ -736,29 +736,15 @@ describe('TuningWizard', () => {
     const { container } = render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
     await navigateToFilterResults(user);
-    await user.click(screen.getByText('Show noise details'));
 
     await waitFor(() => {
-      // Spectrum chart should render SVG
+      // Noise details default open — spectrum chart should render SVG
       const svg = container.querySelector('.spectrum-chart svg');
       expect(svg).toBeTruthy();
     });
   });
 
-  it('PIDAnalysisStep shows step response chart toggle when traces available', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
-    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
-    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
-
-    const user = userEvent.setup();
-    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
-
-    await navigateToPIDResults(user);
-
-    expect(screen.getByText('Show step response charts')).toBeInTheDocument();
-  });
-
-  it('PIDAnalysisStep renders step response chart when expanded', async () => {
+  it('PIDAnalysisStep shows step response chart default-open when traces available', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
@@ -767,12 +753,30 @@ describe('TuningWizard', () => {
     const { container } = render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
     await navigateToPIDResults(user);
-    await user.click(screen.getByText('Show step response charts'));
 
     await waitFor(() => {
+      // Chart default open
+      expect(screen.getByText('Hide step response charts')).toBeInTheDocument();
       const svg = container.querySelector('.step-response-chart svg');
       expect(svg).toBeTruthy();
-      expect(screen.getByText('Hide step response charts')).toBeInTheDocument();
+    });
+  });
+
+  it('PIDAnalysisStep collapses step response chart on toggle', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    const { container } = render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToPIDResults(user);
+    await user.click(screen.getByText('Hide step response charts'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show step response charts')).toBeInTheDocument();
+      const svg = container.querySelector('.step-response-chart svg');
+      expect(svg).toBeNull();
     });
   });
 });
