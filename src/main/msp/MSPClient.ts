@@ -819,6 +819,14 @@ export class MSPClient extends EventEmitter {
 
         try {
           const chunk = await this.readBlackboxChunk(bytesRead, requestSize);
+
+          // Guard against 0-byte responses (FC returned empty data) — would cause infinite loop
+          if (chunk.length === 0) {
+            logger.warn(`FC returned 0 bytes at address ${bytesRead}, skipping ${requestSize} bytes`);
+            bytesRead += requestSize;
+            continue;
+          }
+
           chunks.push(chunk);
           bytesRead += chunk.length;
           consecutiveSuccesses++;

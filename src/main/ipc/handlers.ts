@@ -32,6 +32,7 @@ let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
 let profileManager: any = null; // Will be set from main
 let blackboxManager: any = null; // Will be set from main
+let isDownloadingBlackbox = false; // Guard against concurrent downloads
 
 export function setMSPClient(client: any): void {
   mspClient = client;
@@ -551,13 +552,25 @@ export function registerIPCHandlers(): void {
         return createResponse<BlackboxLogMetadata>(undefined, 'No active profile selected');
       }
 
+      // Prevent concurrent downloads — two downloads competing for MSP
+      // cause response interleaving, timeouts, and corrupted data
+      if (isDownloadingBlackbox) {
+        return createResponse<BlackboxLogMetadata>(undefined, 'Download already in progress');
+      }
+
+      isDownloadingBlackbox = true;
       logger.info('Starting Blackbox log download...');
 
-      // Download log data from FC with progress updates
-      const logData = await mspClient.downloadBlackboxLog((progress: number) => {
-        // Send progress update to renderer via IPC event
-        event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress);
-      });
+      let logData: Buffer;
+      try {
+        // Download log data from FC with progress updates
+        logData = await mspClient.downloadBlackboxLog((progress: number) => {
+          // Send progress update to renderer via IPC event
+          event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress);
+        });
+      } finally {
+        isDownloadingBlackbox = false;
+      }
 
       // Get FC info for metadata
       const fcInfo = await mspClient.getFCInfo();
