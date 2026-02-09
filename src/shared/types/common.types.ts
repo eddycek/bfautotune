@@ -72,3 +72,12 @@ export interface ConnectionStatus {
   fcInfo?: FCInfo;
   error?: string;
 }
+
+export type DiffEntryStatus = 'added' | 'removed' | 'changed';
+
+export interface DiffEntry {
+  key: string;
+  oldValue?: string;
+  newValue?: string;
+  status: DiffEntryStatus;
+}

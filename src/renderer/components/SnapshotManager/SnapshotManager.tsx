@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useConnection } from '../../hooks/useConnection';
 import { useSnapshots } from '../../hooks/useSnapshots';
 import { useToast } from '../../hooks/useToast';
+import { SnapshotDiffModal } from './SnapshotDiffModal';
+import type { ConfigurationSnapshot } from '@shared/types/common.types';
 import type { SnapshotRestoreProgress } from '@shared/types/ipc.types';
 import './SnapshotManager.css';
 
@@ -24,6 +26,8 @@ export function SnapshotManager() {
   const [restoreBackup, setRestoreBackup] = useState(true);
   const [restoring, setRestoring] = useState(false);
   const [restoreProgress, setRestoreProgress] = useState<SnapshotRestoreProgress | null>(null);
+  const [diffSnapshots, setDiffSnapshots] = useState<{ before: ConfigurationSnapshot; after: ConfigurationSnapshot } | null>(null);
+  const [loadingDiff, setLoadingDiff] = useState(false);
 
   useEffect(() => {
     if (!restoring) return;
@@ -84,6 +88,31 @@ export function SnapshotManager() {
 
   const handleRestoreCancel = () => {
     setRestoreConfirmId(null);
+  };
+
+  const handleCompare = async (snapshotId: string, index: number) => {
+    setLoadingDiff(true);
+    try {
+      const afterSnapshot = await loadSnapshot(snapshotId);
+      if (!afterSnapshot) return;
+
+      if (index >= snapshots.length - 1) {
+        // Oldest snapshot — compare with empty config
+        const emptyBefore: ConfigurationSnapshot = {
+          ...afterSnapshot,
+          id: 'empty',
+          label: '(empty)',
+          configuration: { cliDiff: '' },
+        };
+        setDiffSnapshots({ before: emptyBefore, after: afterSnapshot });
+      } else {
+        const beforeSnapshot = await loadSnapshot(snapshots[index + 1].id);
+        if (!beforeSnapshot) return;
+        setDiffSnapshots({ before: beforeSnapshot, after: afterSnapshot });
+      }
+    } finally {
+      setLoadingDiff(false);
+    }
   };
 
   return (
@@ -166,7 +195,7 @@ export function SnapshotManager() {
           <div className="no-snapshots">No snapshots yet. Create one to save your configuration.</div>
         )}
 
-        {snapshots.map((snapshot) => (
+        {snapshots.map((snapshot, index) => (
           <div key={snapshot.id} className="snapshot-item">
             <div className="snapshot-info">
               <div className="snapshot-label">
@@ -182,6 +211,13 @@ export function SnapshotManager() {
               </div>
             </div>
             <div className="snapshot-actions-item">
+              <button
+                className="secondary"
+                onClick={() => handleCompare(snapshot.id, index)}
+                disabled={loadingDiff}
+              >
+                Compare
+              </button>
               <button
                 className="secondary"
                 onClick={() => handleRestoreClick(snapshot.id)}
@@ -201,6 +237,14 @@ export function SnapshotManager() {
           </div>
         ))}
       </div>
+
+      {diffSnapshots && (
+        <SnapshotDiffModal
+          snapshotA={diffSnapshots.before}
+          snapshotB={diffSnapshots.after}
+          onClose={() => setDiffSnapshots(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,166 @@
+.snapshot-diff-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.snapshot-diff-modal {
+  background-color: #1e1e1e;
+  border: 1px solid #444444;
+  border-radius: 8px;
+  width: 640px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.snapshot-diff-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #333333;
+}
+
+.snapshot-diff-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.snapshot-diff-labels {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.snapshot-diff-label-before {
+  color: #f87171;
+}
+
+.snapshot-diff-arrow {
+  color: #666666;
+}
+
+.snapshot-diff-label-after {
+  color: #4ade80;
+}
+
+.snapshot-diff-legend {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 0;
+}
+
+.diff-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.diff-badge-added {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.diff-badge-removed {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.diff-badge-changed {
+  background-color: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+}
+
+.snapshot-diff-summary {
+  padding: 8px 20px;
+  font-size: 12px;
+  color: #999999;
+}
+
+.snapshot-diff-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 0 20px 16px;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.snapshot-diff-empty {
+  color: #666666;
+  text-align: center;
+  padding: 32px 0;
+  font-family: inherit;
+}
+
+.diff-group {
+  margin-bottom: 12px;
+}
+
+.diff-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #888888;
+  padding: 4px 0;
+  border-bottom: 1px solid #333333;
+  margin-bottom: 4px;
+  font-family: inherit;
+}
+
+.diff-line {
+  display: flex;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.diff-prefix {
+  font-weight: 700;
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.diff-key {
+  color: inherit;
+}
+
+.diff-value {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.diff-line-added {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+}
+
+.diff-line-removed {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+
+.diff-line-changed-old {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+
+.diff-line-changed-new {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+}
+
+.snapshot-diff-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #333333;
+  display: flex;
+  justify-content: flex-end;
+}

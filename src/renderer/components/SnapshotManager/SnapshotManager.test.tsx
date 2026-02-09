@@ -486,4 +486,151 @@ describe('SnapshotManager', () => {
       expect(screen.getByText('Snapshot contains no restorable settings')).toBeInTheDocument();
     });
   });
+
+  // Compare tests
+  it('displays compare button for each snapshot', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const compareButtons = screen.getAllByRole('button', { name: /^compare$/i });
+      expect(compareButtons.length).toBe(2);
+    });
+  });
+
+  it('loads both snapshots when compare clicked', async () => {
+    const clickedSnapshot: ConfigurationSnapshot = {
+      ...mockFullSnapshot,
+      id: 'snapshot-1',
+      label: 'Baseline',
+      configuration: { cliDiff: 'set gyro_lpf1_static_hz = 150' },
+    };
+    const previousSnapshot: ConfigurationSnapshot = {
+      ...mockFullSnapshot,
+      id: 'snapshot-2',
+      label: 'After PID tune',
+      configuration: { cliDiff: 'set gyro_lpf1_static_hz = 200' },
+    };
+
+    // handleCompare(snapshot-1, 0): first loads snapshot-1, then loads snapshots[1].id = snapshot-2
+    vi.mocked(window.betaflight.loadSnapshot)
+      .mockResolvedValueOnce(clickedSnapshot)
+      .mockResolvedValueOnce(previousSnapshot);
+
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    // Click compare on snapshot-1 (index 0) — loads it + previous (snapshot-2 at index 1)
+    const compareButtons = screen.getAllByRole('button', { name: /^compare$/i });
+    await user.click(compareButtons[0]);
+
+    await waitFor(() => {
+      expect(window.betaflight.loadSnapshot).toHaveBeenCalledWith('snapshot-1');
+      expect(window.betaflight.loadSnapshot).toHaveBeenCalledWith('snapshot-2');
+    });
+  });
+
+  it('shows diff modal after loading snapshots', async () => {
+    const clickedSnapshot: ConfigurationSnapshot = {
+      ...mockFullSnapshot,
+      id: 'snapshot-1',
+      label: 'Baseline',
+      configuration: { cliDiff: 'set gyro_lpf1_static_hz = 150' },
+    };
+    const previousSnapshot: ConfigurationSnapshot = {
+      ...mockFullSnapshot,
+      id: 'snapshot-2',
+      label: 'After PID tune',
+      configuration: { cliDiff: 'set gyro_lpf1_static_hz = 200' },
+    };
+
+    vi.mocked(window.betaflight.loadSnapshot)
+      .mockResolvedValueOnce(clickedSnapshot)
+      .mockResolvedValueOnce(previousSnapshot);
+
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const compareButtons = screen.getAllByRole('button', { name: /^compare$/i });
+    await user.click(compareButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Snapshot Comparison')).toBeInTheDocument();
+    });
+  });
+
+  it('compares oldest snapshot with empty config', async () => {
+    const oldestSnapshot: ConfigurationSnapshot = {
+      ...mockFullSnapshot,
+      id: 'snapshot-2',
+      label: 'After PID tune',
+      configuration: { cliDiff: 'set gyro_lpf1_static_hz = 150' },
+    };
+
+    vi.mocked(window.betaflight.loadSnapshot).mockResolvedValueOnce(oldestSnapshot);
+
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    // Click compare on snapshot-2 (index 1, last in array) — oldest, compare with empty
+    const compareButtons = screen.getAllByRole('button', { name: /^compare$/i });
+    await user.click(compareButtons[1]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Snapshot Comparison')).toBeInTheDocument();
+      // Only loaded one snapshot (the oldest), not two
+      expect(window.betaflight.loadSnapshot).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('closes diff modal when close clicked', async () => {
+    const clickedSnapshot: ConfigurationSnapshot = {
+      ...mockFullSnapshot,
+      id: 'snapshot-1',
+      label: 'Baseline',
+      configuration: { cliDiff: 'set gyro_lpf1_static_hz = 150' },
+    };
+    const previousSnapshot: ConfigurationSnapshot = {
+      ...mockFullSnapshot,
+      id: 'snapshot-2',
+      label: 'After PID tune',
+      configuration: { cliDiff: 'set gyro_lpf1_static_hz = 200' },
+    };
+
+    vi.mocked(window.betaflight.loadSnapshot)
+      .mockResolvedValueOnce(clickedSnapshot)
+      .mockResolvedValueOnce(previousSnapshot);
+
+    const user = userEvent.setup();
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      expect(screen.getByText('After PID tune')).toBeInTheDocument();
+    });
+
+    const compareButtons = screen.getAllByRole('button', { name: /^compare$/i });
+    await user.click(compareButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Snapshot Comparison')).toBeInTheDocument();
+    });
+
+    const closeButton = screen.getByRole('button', { name: /^close$/i });
+    await user.click(closeButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Snapshot Comparison')).not.toBeInTheDocument();
+    });
+  });
 });
