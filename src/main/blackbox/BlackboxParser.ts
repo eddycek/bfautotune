@@ -421,9 +421,12 @@ export class BlackboxParser {
     // Calculate timing
     const timeFieldIdx = fieldMap.get(FIELD_NAMES.TIME);
 
-    // Compute sample rate from looptime
-    const sampleRateHz = 1_000_000 / header.looptime;
-    const dt = header.looptime / 1_000_000; // seconds per loop iteration
+    // Compute sample rate from looptime and P interval
+    // looptime is the PID loop period in µs, pInterval is the logging divisor
+    // e.g., looptime=125µs (8kHz) with pInterval=4 → 2000 Hz effective sample rate
+    const pDiv = Math.max(1, header.pInterval);
+    const sampleRateHz = 1_000_000 / (header.looptime * pDiv);
+    const dt = (header.looptime * pDiv) / 1_000_000; // seconds per logged frame
 
     // Build time array. The raw time field from flash can contain corrupted
     // values (jumps, negative deltas, huge spikes). We use it when it looks
