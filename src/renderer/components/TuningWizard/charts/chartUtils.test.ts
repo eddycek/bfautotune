@@ -37,11 +37,12 @@ function makeStep(overrides: Partial<StepEvent> = {}): StepEvent {
 function makeResponse(
   overshoot: number,
   ringing: number,
-  hasTrace: boolean = true
+  hasTrace: boolean = true,
+  riseTimeMs: number = 20
 ): StepResponse {
   return {
     step: makeStep(),
-    riseTimeMs: 20,
+    riseTimeMs,
     overshootPercent: overshoot,
     settlingTimeMs: 50,
     latencyMs: 5,
@@ -148,6 +149,26 @@ describe('chartUtils', () => {
       ];
 
       expect(findBestStep(responses)).toBe(1);
+    });
+
+    it('prefers valid steps over degenerate ones', () => {
+      const responses = [
+        makeResponse(808, 0, true, 0),  // degenerate: 0ms rise, 808% overshoot
+        makeResponse(15, 1, true),       // valid: moderate overshoot
+        makeResponse(600, 2, true),      // degenerate: 600% overshoot
+      ];
+
+      expect(findBestStep(responses)).toBe(1);
+    });
+
+    it('falls back to degenerate step if all are degenerate', () => {
+      const responses = [
+        makeResponse(808, 0, true, 0),
+        makeResponse(600, 1, true, 0),
+      ];
+
+      // Should still return a valid index (not -1)
+      expect(findBestStep(responses)).toBeGreaterThanOrEqual(0);
     });
   });
 

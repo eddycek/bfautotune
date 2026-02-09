@@ -356,5 +356,36 @@ describe('StepMetrics', () => {
       expect(profile.meanOvershoot).toBeCloseTo(15, 0);
       expect(profile.meanRiseTimeMs).toBeCloseTo(30, 0);
     });
+
+    it('should exclude degenerate steps from mean computation', () => {
+      const responses = [
+        makeResponse(15, 25, 60, 5),   // valid
+        makeResponse(20, 30, 80, 8),   // valid
+        makeResponse(808, 0, 300, 0),  // degenerate: 0ms rise, 808% overshoot
+      ];
+
+      const profile = aggregateAxisMetrics(responses);
+
+      // All responses preserved for chart display
+      expect(profile.responses.length).toBe(3);
+      // Means computed only from the 2 valid responses
+      expect(profile.meanOvershoot).toBeCloseTo(17.5, 0);
+      expect(profile.meanRiseTimeMs).toBeCloseTo(27.5, 0);
+      expect(profile.meanSettlingTimeMs).toBeCloseTo(70, 0);
+      expect(profile.meanLatencyMs).toBeCloseTo(6.5, 0);
+    });
+
+    it('should fall back to all responses if all are degenerate', () => {
+      const responses = [
+        makeResponse(600, 0, 300, 0),
+        makeResponse(900, 0, 300, 0),
+      ];
+
+      const profile = aggregateAxisMetrics(responses);
+
+      // No valid responses, so fall back to all
+      expect(profile.meanOvershoot).toBeCloseTo(750, 0);
+      expect(profile.meanRiseTimeMs).toBeCloseTo(0, 0);
+    });
   });
 });

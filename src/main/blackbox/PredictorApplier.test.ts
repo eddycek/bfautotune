@@ -69,9 +69,9 @@ describe('PredictorApplier', () => {
       expect(PredictorApplier.apply(BBLPredictor.STRAIGHT_LINE, 0, 0, false, previous, previous2, [], header, motor0Idx)).toBe(300);
     });
 
-    it('handles null previous2', () => {
-      // prev2 = 0, predicted = 2*100 - 0 = 200
-      expect(PredictorApplier.apply(BBLPredictor.STRAIGHT_LINE, 0, 0, false, [100], null, [], header, motor0Idx)).toBe(200);
+    it('handles null previous2 by falling back to PREVIOUS', () => {
+      // When previous2 is null, falls back to PREVIOUS predictor (not straightLine with 0)
+      expect(PredictorApplier.apply(BBLPredictor.STRAIGHT_LINE, 0, 0, false, [100], null, [], header, motor0Idx)).toBe(100);
     });
   });
 
@@ -88,6 +88,17 @@ describe('PredictorApplier', () => {
     it('uses integer division (floor)', () => {
       // avg = (201 + 100) >> 1 = 150 (integer), result = 150 + 0 = 150
       expect(PredictorApplier.apply(BBLPredictor.AVERAGE_2, 0, 0, false, [201], [100], [], header, motor0Idx)).toBe(150);
+    });
+
+    it('uses just previous when previous2 is null (matches BF behavior)', () => {
+      // When previous2 is null, BF uses prediction = previous[i] (not average with 0)
+      // result = decoded + previous[0] = 10 + 500 = 510
+      expect(PredictorApplier.apply(BBLPredictor.AVERAGE_2, 10, 0, false, [500], null, [], header, motor0Idx)).toBe(510);
+    });
+
+    it('uses just previous when previous2 is null for negative values', () => {
+      // result = -5 + (-300) = -305
+      expect(PredictorApplier.apply(BBLPredictor.AVERAGE_2, -5, 0, false, [-300], null, [], header, motor0Idx)).toBe(-305);
     });
   });
 

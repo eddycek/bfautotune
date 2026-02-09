@@ -144,6 +144,9 @@ export interface BlackboxLogMetadata {
 /**
  * BBL encoding types for field values.
  * Each encoding defines how raw bytes are decoded into integer values.
+ *
+ * Values match Betaflight standard encoding IDs used in BBL binary headers.
+ * Reference: betaflight/src/main/blackbox/blackbox.h
  */
 export enum BBLEncoding {
   /** Signed variable-byte encoding */
@@ -151,21 +154,17 @@ export enum BBLEncoding {
   /** Unsigned variable-byte encoding */
   UNSIGNED_VB = 1,
   /** Negative 14-bit encoding (value = -signedVB - 1) */
-  NEG_14BIT = 2,
-  /** Tag byte + up to 4 signed variable-byte values */
-  TAG8_8SVB = 3,
-  /** Tag2 + 3 signed 32-bit values packed */
-  TAG2_3S32 = 4,
-  /** Tag8 + 4 signed 16-bit values (version 1) */
-  TAG8_4S16_V1 = 5,
-  /** Tag8 + 4 signed 16-bit values (version 2) */
-  TAG8_4S16_V2 = 6,
-  /** Null encoding - always returns zero */
-  NULL = 7,
-  /** Tag2 + 3 signed variable-length values */
-  TAG2_3SVARIABLE = 8,
-  /** Tagged 16-bit encoding */
-  TAGGED_16 = 9,
+  NEG_14BIT = 3,
+  /** Tag byte (8 bits) + up to 8 signed variable-byte values */
+  TAG8_8SVB = 6,
+  /** Tag2 (top 2 bits) + 3 packed signed values */
+  TAG2_3S32 = 7,
+  /** Tag8 (2 bits per value) + 4 signed values (v1: 4/8/16-bit, v2: 8/16/VB) */
+  TAG8_4S16 = 8,
+  /** Null encoding - always returns zero, reads no bytes */
+  NULL = 9,
+  /** Tag2 (top 2 bits) + 3 variable-width signed values */
+  TAG2_3SVARIABLE = 10,
 }
 
 /**

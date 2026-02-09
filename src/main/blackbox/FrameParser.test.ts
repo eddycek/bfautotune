@@ -96,19 +96,21 @@ describe('FrameParser', () => {
         ],
       });
       const parser = new FrameParser(header);
-      // Tag 0x01 (4-bit packed): byte0=0x21 → [1, 2], byte1=0x03 → [3]
-      const reader = new StreamReader(Buffer.from([0x01, 0x21, 0x03]));
+      // Selector 1 (4-bit fields): leadByte = (0x01<<6) | (1&0x0F) = 0x41
+      // Extra byte: ((2&0x0F)<<4) | (3&0x0F) = 0x23
+      // Decodes to [signExtend4(1), signExtend4(2), signExtend4(3)] = [1, 2, 3]
+      const reader = new StreamReader(Buffer.from([0x41, 0x23]));
       const values = parser.parseIFrame(reader);
       expect(values).toEqual([1, 2, 3]);
     });
 
-    it('handles grouped TAG8_4S16_V2 encoding across 4 fields', () => {
+    it('handles grouped TAG8_4S16 encoding across 4 fields', () => {
       const header = makeHeader({
         iFieldDefs: [
-          makeFieldDef('gyroADC[0]', BBLEncoding.TAG8_4S16_V2, BBLPredictor.ZERO, true),
-          makeFieldDef('gyroADC[1]', BBLEncoding.TAG8_4S16_V2, BBLPredictor.ZERO, true),
-          makeFieldDef('gyroADC[2]', BBLEncoding.TAG8_4S16_V2, BBLPredictor.ZERO, true),
-          makeFieldDef('extraField', BBLEncoding.TAG8_4S16_V2, BBLPredictor.ZERO, true),
+          makeFieldDef('gyroADC[0]', BBLEncoding.TAG8_4S16, BBLPredictor.ZERO, true),
+          makeFieldDef('gyroADC[1]', BBLEncoding.TAG8_4S16, BBLPredictor.ZERO, true),
+          makeFieldDef('gyroADC[2]', BBLEncoding.TAG8_4S16, BBLPredictor.ZERO, true),
+          makeFieldDef('extraField', BBLEncoding.TAG8_4S16, BBLPredictor.ZERO, true),
         ],
       });
       const parser = new FrameParser(header);
@@ -150,13 +152,13 @@ describe('FrameParser', () => {
     it('applies INCREMENT predictor', () => {
       const header = makeHeader({
         pFieldDefs: [
-          makeFieldDef('loopIteration', BBLEncoding.TAGGED_16, BBLPredictor.INCREMENT),
+          makeFieldDef('loopIteration', BBLEncoding.NULL, BBLPredictor.INCREMENT),
         ],
       });
       const parser = new FrameParser(header);
       const previous = [100];
-      // TAGGED_16: tag=0x00 → inline value 0, then INCREMENT: 0 + 100 + 1 = 101
-      const reader = new StreamReader(Buffer.from([0x00]));
+      // NULL encoding: decoded=0, then INCREMENT: 0 + 100 + 1 = 101
+      const reader = new StreamReader(Buffer.from([]));
       const values = parser.parsePFrame(reader, previous, null);
       expect(values).toEqual([101]);
     });

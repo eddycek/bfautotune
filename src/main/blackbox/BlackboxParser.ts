@@ -1,6 +1,3 @@
-import {
-  BBLFrameType,
-} from '@shared/types/blackbox.types';
 import type {
   BBLLogHeader,
   BlackboxFlightData,
@@ -11,11 +8,14 @@ import type {
 } from '@shared/types/blackbox.types';
 import {
   FRAME_MARKER,
-  VALID_FRAME_MARKERS,
-  HEADER_PREFIX,
   FIELD_NAMES,
   EVENT_TYPE,
-  MAX_RESYNC_BYTES,
+  MAX_FRAME_LENGTH,
+  END_OF_LOG_MESSAGE,
+  MAX_ITERATION_JUMP,
+  MAX_TIME_JUMP_US,
+  MAX_I_FRAME_TIME_BACKWARD_US,
+  MAX_I_FRAME_ITER_BACKWARD,
   PROGRESS_INTERVAL,
   YIELD_INTERVAL,
 } from './constants';
@@ -156,6 +156,14 @@ export class BlackboxParser {
     const frameParser = new FrameParser(header);
 
     // Parse frames
+    //
+    // Parsing loop matches BF Explorer (blackbox-log-viewer) behavior:
+    // - Read one byte at a time as potential frame marker
+    // - If it's a known frame type → parse the frame
+    // - Unknown bytes are silently skipped (not counted as corruption)
+    // - No "max consecutive corrupt" limit — only EOF or LOG_END stops
+    // - Corrupt frames (oversize) rewind to frameStart + 1 (no forward scan)
+    // - Semantic validation failures invalidate prediction state, no resync
     const iFrames: number[][] = [];
     const pFrames: number[][] = [];
     let corruptedFrameCount = 0;
@@ -166,16 +174,30 @@ export class BlackboxParser {
     let previousFrame: number[] | null = null;
     let previousFrame2: number[] | null = null;
 
+    // Dummy previous for P-frame parsing when no valid I-frame yet.
+    // BF Explorer always has mainHistory initialized to zeros.
+    const dummyPrev = new Array(header.pFieldDefs.length).fill(0);
+
+    // Field indices for iteration/time validation
+    const loopIterIdx = header.iFieldDefs.findIndex(d => d.name === FIELD_NAMES.LOOP_ITERATION);
+    const timeIdx = header.iFieldDefs.findIndex(d => d.name === FIELD_NAMES.TIME);
+    let lastIteration = -1;
+    let lastTime = -1;
+
+    // Track bytes processed for progress throttling
+    let lastProgressOffset = start;
+
     while (!reader.eof) {
       const frameStartOffset = reader.offset;
 
-      // Report progress
-      if (frameCount % PROGRESS_INTERVAL === 0) {
+      // Report progress periodically (every ~16KB)
+      if (reader.offset - lastProgressOffset > 16384) {
         onBytesProcessed?.(reader.offset - start);
+        lastProgressOffset = reader.offset;
       }
 
       // Yield to event loop periodically
-      if (frameCount % YIELD_INTERVAL === 0 && frameCount > 0) {
+      if (frameCount > 0 && frameCount % YIELD_INTERVAL === 0) {
         await BlackboxParser.yield();
       }
 
@@ -186,40 +208,62 @@ export class BlackboxParser {
         switch (markerByte) {
           case FRAME_MARKER.INTRA: {
             const values = frameParser.parseIFrame(reader);
+            const frameSize = reader.offset - frameStartOffset;
 
-            // Sanity check I-frames too - flash corruption can produce
-            // wild absolute values
-            if (BlackboxParser.isFrameCorrupted(values)) {
+            if (frameSize > MAX_FRAME_LENGTH) {
+              // Oversize → corrupt, step back to frameStart + 1
               corruptedFrameCount++;
-              // Don't update previous - wait for a clean I-frame
-              BlackboxParser.resync(reader);
+              previousFrame = null;
+              previousFrame2 = null;
+              reader.setOffset(frameStartOffset + 1);
+              break;
+            }
+
+            if (!BlackboxParser.isIFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+              // Semantic failure — invalidate prediction but don't resync
+              // (bytes were consumed correctly, stream position is valid)
+              corruptedFrameCount++;
+              previousFrame = null;
+              previousFrame2 = null;
               break;
             }
 
             iFrames.push(values);
-            previousFrame2 = previousFrame;
+            // I-frames reset prediction state (matches BF viewer mainHistory)
             previousFrame = values;
+            previousFrame2 = values;
             previousIFrame = values;
             frameCount++;
+            if (loopIterIdx >= 0) lastIteration = values[loopIterIdx];
+            if (timeIdx >= 0) lastTime = values[timeIdx];
             break;
           }
 
           case FRAME_MARKER.INTER: {
-            if (!previousFrame) {
-              BlackboxParser.resync(reader);
+            // Always parse P-frames to consume correct bytes (even without
+            // valid previous frame). BF Explorer uses zero-init mainHistory.
+            const prev = previousFrame ?? dummyPrev;
+            const prev2 = previousFrame2 ?? prev;
+            const values = frameParser.parsePFrame(reader, prev, prev2);
+            const frameSize = reader.offset - frameStartOffset;
+
+            if (frameSize > MAX_FRAME_LENGTH) {
               corruptedFrameCount++;
+              previousFrame = null;
+              previousFrame2 = null;
+              reader.setOffset(frameStartOffset + 1);
               break;
             }
-            const values = frameParser.parsePFrame(reader, previousFrame, previousFrame2);
 
-            // Sanity check: detect corrupted P-frames via unreasonable values.
-            // A bad byte in delta decoding cascades into wild values.
-            // Reset to next I-frame when detected.
-            if (BlackboxParser.isFrameCorrupted(values)) {
+            // Only store if we had a valid previous frame
+            if (!previousFrame) {
+              break;
+            }
+
+            if (!BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
               corruptedFrameCount++;
-              previousFrame = null; // Force wait for next I-frame
+              previousFrame = null;
               previousFrame2 = null;
-              BlackboxParser.resync(reader);
               break;
             }
 
@@ -227,43 +271,47 @@ export class BlackboxParser {
             previousFrame2 = previousFrame;
             previousFrame = values;
             frameCount++;
+            if (loopIterIdx >= 0) lastIteration = values[loopIterIdx];
+            if (timeIdx >= 0) lastTime = values[timeIdx];
             break;
           }
 
           case FRAME_MARKER.SLOW: {
-            // Parse but don't store slow frames (not needed for PID analysis)
             frameParser.parseSFrame(reader);
             break;
           }
 
           case FRAME_MARKER.EVENT: {
-            BlackboxParser.skipEventFrame(reader);
+            const eventType = BlackboxParser.parseEventFrame(reader);
+            if (eventType === EVENT_TYPE.LOG_END) {
+              reader.setOffset(reader.end);
+            }
+            // False positive (-1) or other events: stream position is correct, continue
             break;
           }
 
           case FRAME_MARKER.GPS:
           case FRAME_MARKER.GPS_HOME: {
-            // Skip GPS frames - not needed for PID analysis
-            // GPS frames use their own field definitions; for now, skip by resyncing
-            BlackboxParser.resync(reader);
+            // We don't parse GPS field defs, so we can't properly consume
+            // GPS frame bytes. Treat the marker as unknown — BF Explorer
+            // does the same when frameDefs.G/H is undefined.
+            previousFrame = null;
             break;
           }
 
           default: {
-            // Unknown byte - try to resync
-            if (!BlackboxParser.resync(reader)) {
-              // Can't find another frame marker - end of usable data
-              break;
-            }
-            corruptedFrameCount++;
+            // Unknown byte — skip silently (matches BF Explorer).
+            // No corruption counting, no resync. Just invalidate prediction.
+            previousFrame = null;
             break;
           }
         }
       } catch {
-        // Frame decode error - try to resync
+        // Frame decode error — step back and try next byte
         corruptedFrameCount++;
+        previousFrame = null;
+        previousFrame2 = null;
         reader.setOffset(frameStartOffset + 1);
-        if (!BlackboxParser.resync(reader)) break;
       }
     }
 
@@ -291,62 +339,75 @@ export class BlackboxParser {
   }
 
   /**
-   * Skip an event frame by reading its type and associated data.
+   * Parse an event frame by reading its type and associated data.
+   * Returns the event type so the caller can act on LOG_END.
+   *
+   * Event data uses variable-byte encoding (matching BF Explorer), NOT fixed
+   * sizes. Using fixed skip(N) would consume wrong number of bytes when VB
+   * values are shorter/longer than expected, causing stream misalignment.
    */
-  private static skipEventFrame(reader: StreamReader): void {
+  private static parseEventFrame(reader: StreamReader): number {
     const eventType = reader.readByte();
-    if (eventType === -1) return;
+    if (eventType === -1) return -1;
 
     switch (eventType) {
       case EVENT_TYPE.SYNC_BEEP:
-        // 4-byte timestamp
-        reader.skip(4);
+        // 1 unsigned VB: beep time
+        reader.readUnsignedVB();
         break;
-      case EVENT_TYPE.LOG_END:
-        // No payload, but marks the end of this log
+      case EVENT_TYPE.LOG_END: {
+        // Betaflight writes "End of log\0" after the event type byte.
+        // Validate this string to avoid false positives from random 0xFF bytes.
+        const savedOffset = reader.offset;
+        const endMsg = reader.readBytes(END_OF_LOG_MESSAGE.length);
+        const endStr = endMsg.toString('ascii');
+        if (endStr !== END_OF_LOG_MESSAGE) {
+          // False positive — rewind the validation bytes so reader stays aligned
+          reader.setOffset(savedOffset);
+          return -1;
+        }
         break;
+      }
       case EVENT_TYPE.DISARM:
-        // 4-byte reason
-        reader.skip(4);
+        // 1 unsigned VB: reason
+        reader.readUnsignedVB();
         break;
       case EVENT_TYPE.FLIGHT_MODE:
-        // 4-byte flags + 4-byte lastFlags
-        reader.skip(8);
+        // 2 unsigned VB: newFlags, lastFlags
+        reader.readUnsignedVB();
+        reader.readUnsignedVB();
         break;
-      case EVENT_TYPE.INFLIGHT_ADJUSTMENT:
-        // Variable - read adjustment function (1 byte) + value (4 bytes)
-        reader.skip(5);
+      case EVENT_TYPE.INFLIGHT_ADJUSTMENT: {
+        // 1 byte: adjustment function, then conditional value
+        const adjFunc = reader.readByte();
+        if (adjFunc !== -1) {
+          if (adjFunc > 127) {
+            // Float adjustment: 4-byte U32 (÷ 1e6)
+            reader.skip(4);
+          } else {
+            // Integer adjustment: signed VB
+            reader.readSignedVB();
+          }
+        }
         break;
+      }
       case EVENT_TYPE.LOGGING_RESUME:
-        // 4-byte currentTime + 4-byte loopIteration
-        reader.skip(8);
+        // 2 unsigned VB: logIteration, currentTime
+        reader.readUnsignedVB();
+        reader.readUnsignedVB();
         break;
       default:
-        // Unknown event - try to find next frame marker
-        BlackboxParser.resync(reader);
+        // Unknown event type — don't try to skip unknown bytes.
+        // BF Explorer also doesn't skip; it just returns the event.
         break;
     }
+
+    return eventType;
   }
 
-  /**
-   * Scan ahead to find the next valid frame marker byte.
-   * Returns true if a marker was found, false if EOF.
-   */
-  private static resync(reader: StreamReader): boolean {
-    const maxScan = Math.min(reader.bytesRemaining, MAX_RESYNC_BYTES);
-
-    for (let i = 0; i < maxScan; i++) {
-      const byte = reader.peek();
-      if (byte === -1) return false;
-
-      if (VALID_FRAME_MARKERS.has(byte)) {
-        return true;
-      }
-      reader.skip(1);
-    }
-
-    return false;
-  }
+  // Note: resync() removed — BF Explorer does not use forward-scan resync.
+  // Instead, corrupt frames rewind to frameStart + 1 and the main loop
+  // reads byte-by-byte, silently skipping non-marker bytes.
 
   /**
    * Extract flight data time series from decoded frames.
@@ -376,9 +437,14 @@ export class BlackboxParser {
     // Calculate timing
     const timeFieldIdx = fieldMap.get(FIELD_NAMES.TIME);
 
-    // Compute sample rate from looptime
-    const sampleRateHz = 1_000_000 / header.looptime;
-    const dt = header.looptime / 1_000_000; // seconds per loop iteration
+    // Compute sample rate from looptime and P interval header.
+    // "P interval:N/D" → N = pInterval (blackbox_p_ratio), D = pDenom (pid_process_denom)
+    // looptime = gyro loop period in µs, PID rate = gyro_rate / pDenom,
+    // blackbox rate = PID rate / pInterval = 1e6 / (looptime * pDenom * pInterval)
+    // e.g., looptime=125µs (8kHz gyro) with P interval:4/1 → 8000/4 = 2000 Hz
+    const pDiv = Math.max(1, header.pInterval) * Math.max(1, header.pDenom);
+    const sampleRateHz = 1_000_000 / (header.looptime * pDiv);
+    const dt = (header.looptime * pDiv) / 1_000_000; // seconds per logged frame
 
     // Build time array. The raw time field from flash can contain corrupted
     // values (jumps, negative deltas, huge spikes). We use it when it looks
@@ -498,6 +564,32 @@ export class BlackboxParser {
       warnings.push('Missing gyroADC fields - gyro data will be empty');
     }
 
+    // Gyro data quality diagnostics
+    const axisNames = ['roll', 'pitch', 'yaw'];
+    for (let axis = 0; axis < 3; axis++) {
+      const vals = gyro[axis].values;
+      if (vals.length === 0) continue;
+
+      let min = Infinity, max = -Infinity, sum = 0, zeroCount = 0;
+      for (let i = 0; i < vals.length; i++) {
+        const v = vals[i];
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+        if (v === 0) zeroCount++;
+      }
+      const mean = sum / vals.length;
+      const range = max - min;
+
+      if (range < 1) {
+        warnings.push(`gyro ${axisNames[axis]}: constant value ${min} — likely parsing error`);
+      } else if (zeroCount > vals.length * 0.9) {
+        warnings.push(`gyro ${axisNames[axis]}: ${((zeroCount / vals.length) * 100).toFixed(0)}% zeros — likely parsing error`);
+      } else if (max > 32000 || min < -32000) {
+        warnings.push(`gyro ${axisNames[axis]}: extreme range [${min.toFixed(0)}, ${max.toFixed(0)}] — possible corruption`);
+      }
+    }
+
     return {
       gyro,
       setpoint,
@@ -607,68 +699,148 @@ export class BlackboxParser {
   }
 
   /**
-   * Check if a decoded frame has unreasonable values indicating corruption.
+   * Check if an I-frame has reasonable temporal values.
    *
-   * Skip fields 0 and 1 (loopIteration and time) which are legitimately large.
-   * For remaining fields (gyro, PID, motor, etc.), values above 50000 are
-   * physically impossible and indicate decoder error from corrupted bytes.
+   * I-frames carry absolute values. Small backward jumps relative to our
+   * tracking state are normal (P-frame predictor rounding causes drift).
+   * Large backward jumps indicate garbage data from old flash sessions.
+   * Large forward jumps indicate corruption.
    */
-  private static isFrameCorrupted(values: number[]): boolean {
-    // Skip first 2 fields (loopIteration, time) which can be large
-    for (let i = 2; i < values.length; i++) {
-      const v = values[i];
-      if (v > 50000 || v < -50000) {
-        return true;
+  private static isIFrameValid(
+    values: number[],
+    loopIterIdx: number,
+    timeIdx: number,
+    lastIteration: number,
+    lastTime: number
+  ): boolean {
+    if (loopIterIdx >= 0 && lastIteration >= 0) {
+      const iteration = values[loopIterIdx];
+      // Reject large forward jump
+      if (iteration >= lastIteration + MAX_ITERATION_JUMP) {
+        return false;
+      }
+      // Reject large backward jump (garbage data, not drift)
+      if (iteration < lastIteration - MAX_I_FRAME_ITER_BACKWARD) {
+        return false;
       }
     }
-    return false;
+    if (timeIdx >= 0 && lastTime >= 0) {
+      const time = values[timeIdx];
+      // Reject large forward jump
+      if (time >= lastTime + MAX_TIME_JUMP_US) {
+        return false;
+      }
+      // Reject large backward jump (garbage data, not drift)
+      if (time < lastTime - MAX_I_FRAME_TIME_BACKWARD_US) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
-   * Strip Betaflight dataflash page headers from raw flash dump.
+   * Check if a decoded P-frame has reasonable temporal values.
    *
-   * When downloading via MSP DATAFLASH_READ, the raw flash data includes
-   * per-page headers: [address_LE_4bytes, data_size, 0x00, 0x00].
-   * The data_size byte (offset 4) tells how many payload bytes follow
-   * the 7-byte header. We detect this structure and strip the headers,
-   * returning only the concatenated payload data.
+   * Matches the validation strategy of betaflight/blackbox-log-viewer:
+   * - Only checks iteration and time continuity (no sensor value thresholds)
+   * - Frame size is checked separately by the caller (MAX_FRAME_LENGTH)
+   *
+   * The official viewer does NOT validate individual field values because
+   * fields like debug[], motor[] (ERPM), and others can legitimately
+   * exceed any fixed threshold.
+   */
+  private static isFrameValid(
+    values: number[],
+    loopIterIdx: number,
+    timeIdx: number,
+    lastIteration: number,
+    lastTime: number
+  ): boolean {
+    // Check loop iteration: must not go backward or jump too far forward
+    if (loopIterIdx >= 0 && lastIteration >= 0) {
+      const iteration = values[loopIterIdx];
+      if (iteration < lastIteration || iteration >= lastIteration + MAX_ITERATION_JUMP) {
+        return false;
+      }
+    }
+
+    // Check time: must not go backward or jump too far forward
+    if (timeIdx >= 0 && lastTime >= 0) {
+      const time = values[timeIdx];
+      if (time < lastTime || time >= lastTime + MAX_TIME_JUMP_US) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Strip MSP_DATAFLASH_READ response headers from raw flash dump.
+   *
+   * Files saved before the readBlackboxChunk fix contain interleaved
+   * response headers and flash data. This strips them for backward compat.
+   *
+   * Response header formats:
+   *   7-byte (BF 4.1+ with USE_HUFFMAN): [4B addr LE] [2B dataSize LE] [1B isCompressed] [data...]
+   *   6-byte (older / no compression):    [4B addr LE] [2B dataSize LE] [data...]
+   *
+   * Detection: if the file starts with 'H' (0x48), it's already clean BBL data.
+   * Otherwise, try to detect the response header format and strip it.
    */
   static stripFlashHeaders(data: Buffer): Buffer {
     if (data.length < 7) return data;
 
-    // Check if the file starts with a valid flash page header
-    // Signature: bytes[5] == 0x00 && bytes[6] == 0x00 && bytes[4] > 0
-    // and the data after the header starts with 'H' (0x48) for BBL header
-    const firstDataSize = data[4];
-    if (data[5] !== 0x00 || data[6] !== 0x00 || firstDataSize === 0) {
-      return data; // Not a flash dump with page headers
+    // If file starts directly with BBL header marker, it's already clean
+    if (data[0] === 0x48) {
+      return data;
     }
 
-    // Verify: data after first header should start with 'H' (BBL header)
-    if (data.length > 7 && data[7] !== 0x48) {
-      return data; // First payload byte isn't 'H', probably not paged
+    // Try 7-byte header format: [4B addr][2B dataSize][1B comp][data]
+    // First chunk's data should start with 'H' (0x48)
+    const dataSize7 = data.readUInt16LE(4);
+    if (data.length > 7 && data[7] === 0x48 && dataSize7 > 0 && dataSize7 < 4096) {
+      return BlackboxParser.stripHeadersWithSize(data, 7);
     }
 
-    // Strip page headers by extracting only payload data
+    // Try 6-byte header format: [4B addr][2B dataSize][data]
+    const dataSize6 = data.readUInt16LE(4);
+    if (data.length > 6 && data[6] === 0x48 && dataSize6 > 0 && dataSize6 < 4096) {
+      return BlackboxParser.stripHeadersWithSize(data, 6);
+    }
+
+    // No recognized header format — return as-is
+    return data;
+  }
+
+  /**
+   * Strip fixed-size response headers from concatenated MSP responses.
+   */
+  private static stripHeadersWithSize(data: Buffer, headerSize: number): Buffer {
     const chunks: Buffer[] = [];
     let offset = 0;
 
-    while (offset + 7 <= data.length) {
-      const dataSize = data[offset + 4];
+    while (offset + headerSize <= data.length) {
+      // Read dataSize from bytes 4-5 (uint16 LE) relative to current offset
+      if (offset + 6 > data.length) break;
+      const dataSize = data.readUInt16LE(offset + 4);
 
-      // Validate page header: bytes[5:7] must be 0x00 0x00, dataSize > 0
-      if (data[offset + 5] !== 0x00 || data[offset + 6] !== 0x00 || dataSize === 0) {
-        // Invalid header - append remaining data as-is
+      if (dataSize === 0 || dataSize > 4096) {
+        // Invalid — append remaining data as-is
         chunks.push(data.subarray(offset));
         break;
       }
 
-      // Extract payload (skip 7-byte header)
-      const payloadStart = offset + 7;
+      const payloadStart = offset + headerSize;
       const payloadEnd = Math.min(payloadStart + dataSize, data.length);
       chunks.push(data.subarray(payloadStart, payloadEnd));
 
       offset = payloadEnd;
+    }
+
+    // Append any trailing bytes
+    if (offset < data.length && (chunks.length === 0 || offset + 6 > data.length)) {
+      chunks.push(data.subarray(offset));
     }
 
     return Buffer.concat(chunks);

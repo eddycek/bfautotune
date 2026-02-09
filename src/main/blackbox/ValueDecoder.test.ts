@@ -20,6 +20,18 @@ function decodeGroup(encoding: BBLEncoding, bytes: number[], count: number): num
 }
 
 describe('ValueDecoder', () => {
+  describe('signExtend2Bit', () => {
+    it('positive 2-bit values are unchanged', () => {
+      expect(ValueDecoder.signExtend2Bit(0)).toBe(0);
+      expect(ValueDecoder.signExtend2Bit(1)).toBe(1);
+    });
+
+    it('negative 2-bit values are sign-extended', () => {
+      expect(ValueDecoder.signExtend2Bit(0x02)).toBe(-2);
+      expect(ValueDecoder.signExtend2Bit(0x03)).toBe(-1);
+    });
+  });
+
   describe('signExtend4', () => {
     it('positive 4-bit values are unchanged', () => {
       expect(ValueDecoder.signExtend4(0)).toBe(0);
@@ -34,6 +46,42 @@ describe('ValueDecoder', () => {
 
     it('handles -1 input as 0', () => {
       expect(ValueDecoder.signExtend4(-1)).toBe(0);
+    });
+  });
+
+  describe('signExtend5Bit', () => {
+    it('positive 5-bit values are unchanged', () => {
+      expect(ValueDecoder.signExtend5Bit(0)).toBe(0);
+      expect(ValueDecoder.signExtend5Bit(15)).toBe(15);
+    });
+
+    it('negative 5-bit values are sign-extended', () => {
+      expect(ValueDecoder.signExtend5Bit(0x1F)).toBe(-1);
+      expect(ValueDecoder.signExtend5Bit(0x10)).toBe(-16);
+    });
+  });
+
+  describe('signExtend6Bit', () => {
+    it('positive 6-bit values are unchanged', () => {
+      expect(ValueDecoder.signExtend6Bit(0)).toBe(0);
+      expect(ValueDecoder.signExtend6Bit(31)).toBe(31);
+    });
+
+    it('negative 6-bit values are sign-extended', () => {
+      expect(ValueDecoder.signExtend6Bit(0x3F)).toBe(-1);
+      expect(ValueDecoder.signExtend6Bit(0x20)).toBe(-32);
+    });
+  });
+
+  describe('signExtend7Bit', () => {
+    it('positive 7-bit values are unchanged', () => {
+      expect(ValueDecoder.signExtend7Bit(0)).toBe(0);
+      expect(ValueDecoder.signExtend7Bit(63)).toBe(63);
+    });
+
+    it('negative 7-bit values are sign-extended', () => {
+      expect(ValueDecoder.signExtend7Bit(0x7F)).toBe(-1);
+      expect(ValueDecoder.signExtend7Bit(0x40)).toBe(-64);
     });
   });
 
@@ -84,7 +132,7 @@ describe('ValueDecoder', () => {
     });
   });
 
-  describe('NEG_14BIT (encoding 2)', () => {
+  describe('NEG_14BIT (encoding 3)', () => {
     it('decodes to -(value + 1)', () => {
       // readUnsignedVB returns 0 → result = -(0 + 1) = -1
       expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x00])).toBe(-1);
@@ -101,73 +149,94 @@ describe('ValueDecoder', () => {
     });
   });
 
-  describe('TAG8_8SVB (encoding 3)', () => {
+  describe('TAG8_8SVB (encoding 6)', () => {
     it('decodes all zeros when tag is 0', () => {
-      const result = decodeGroup(BBLEncoding.TAG8_8SVB, [0x00], 4);
-      expect(result).toEqual([0, 0, 0, 0]);
+      const result = decodeGroup(BBLEncoding.TAG8_8SVB, [0x00], 8);
+      expect(result).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
     });
 
     it('decodes selective non-zero values', () => {
-      // Tag 0x05 = 0b0101 → fields 0 and 2 are non-zero
+      // Tag 0x05 = 0b00000101 → fields 0 and 2 are non-zero
       // Field 0: signed VB = 0x02 → 1
       // Field 2: signed VB = 0x01 → -1
-      const result = decodeGroup(BBLEncoding.TAG8_8SVB, [0x05, 0x02, 0x01], 4);
-      expect(result).toEqual([1, 0, -1, 0]);
+      const result = decodeGroup(BBLEncoding.TAG8_8SVB, [0x05, 0x02, 0x01], 8);
+      expect(result).toEqual([1, 0, -1, 0, 0, 0, 0, 0]);
     });
 
-    it('decodes all non-zero values', () => {
-      // Tag 0x0F = 0b1111 → all 4 fields non-zero
-      const result = decodeGroup(BBLEncoding.TAG8_8SVB, [0x0F, 0x02, 0x04, 0x06, 0x08], 4);
-      expect(result).toEqual([1, 2, 3, 4]);
+    it('decodes all 8 non-zero values', () => {
+      // Tag 0xFF = all 8 bits set
+      const result = decodeGroup(BBLEncoding.TAG8_8SVB, [
+        0xFF, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0E, 0x10
+      ], 8);
+      expect(result).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     });
 
     it('handles EOF on tag read', () => {
       const reader = new StreamReader(Buffer.alloc(0));
-      const values = [99, 99, 99, 99];
+      const values = new Array(8).fill(99);
       ValueDecoder.decode(reader, BBLEncoding.TAG8_8SVB, values, 0);
-      expect(values).toEqual([0, 0, 0, 0]);
+      expect(values).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
     });
   });
 
-  describe('TAG2_3S32 (encoding 4)', () => {
-    it('decodes all zeros (tag 0)', () => {
+  describe('TAG2_3S32 (encoding 7)', () => {
+    it('decodes 2-bit packed values (selector 0)', () => {
+      // Lead byte: selector=00, bits: [5:4]=01(=1), [3:2]=10(=-2), [1:0]=00(=0)
+      // Binary: 00_01_10_00 = 0x18
+      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x18], 3);
+      expect(result).toEqual([1, -2, 0]);
+    });
+
+    it('decodes all-zero 2-bit values (selector 0, all bits 0)', () => {
+      // Lead byte: 0x00 → selector=00, all fields = 0
       const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x00], 3);
       expect(result).toEqual([0, 0, 0]);
     });
 
-    it('decodes 4-bit packed values (tag 1)', () => {
-      // Tag = 0x01 (tagVal = 1)
-      // byte0 = 0x21 → low nibble 0x1 = 1, high nibble 0x2 = 2
-      // byte1 = 0x03 → low nibble 0x3 = 3
-      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x01, 0x21, 0x03], 3);
-      expect(result).toEqual([1, 2, 3]);
+    it('decodes 4-bit packed values (selector 1)', () => {
+      // Lead byte: selector=01, low nibble = value[0]
+      // 0x43 = 0b01_00_0011 → selector=1, value[0] = 0x03 = 3
+      // Extra byte 0x21: value[1] = 0x2 = 2, value[2] = 0x1 = 1
+      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x43, 0x21], 3);
+      expect(result).toEqual([3, 2, 1]);
     });
 
-    it('decodes negative 4-bit packed values (tag 1)', () => {
-      // Tag = 0x01 (tagVal = 1)
-      // byte0 = 0xFE → low nibble 0xE = -2 (sign-extended), high nibble 0xF = -1
-      // byte1 = 0x08 → low nibble 0x8 = -8
-      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x01, 0xFE, 0x08], 3);
+    it('decodes negative 4-bit packed values (selector 1)', () => {
+      // 0x4E = 0b01_00_1110 → selector=1, value[0] = 0xE = -2
+      // Extra byte 0xF8: value[1] = 0xF = -1, value[2] = 0x8 = -8
+      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x4E, 0xF8], 3);
       expect(result).toEqual([-2, -1, -8]);
     });
 
-    it('decodes 16-bit values (tag 2)', () => {
-      // Tag = 0x02 (tagVal = 2)
-      // Three 16-bit LE signed values: 1000, -500, 0
-      const buf = Buffer.alloc(7);
-      buf[0] = 0x02;
-      buf.writeInt16LE(1000, 1);
-      buf.writeInt16LE(-500, 3);
-      buf.writeInt16LE(0, 5);
-      const result = decodeGroup(BBLEncoding.TAG2_3S32, [...buf], 3);
-      expect(result).toEqual([1000, -500, 0]);
+    it('decodes 6-bit values (selector 2)', () => {
+      // Lead byte: selector=10, low 6 bits = value[0]
+      // 0x85 = 0b10_000101 → selector=2, value[0] = 0x05 = 5
+      // Extra bytes: 0x03 → value[1] = 3, 0x3F → value[2] = -1 (6-bit sign extend)
+      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x85, 0x03, 0x3F], 3);
+      expect(result).toEqual([5, 3, -1]);
     });
 
-    it('decodes full signed VB values (tag 3)', () => {
-      // Tag = 0x03 (tagVal = 3)
-      // Three signed VB: 0x04=2, 0x03=-2, 0x00=0
-      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0x03, 0x04, 0x03, 0x00], 3);
-      expect(result).toEqual([2, -2, 0]);
+    it('decodes variable-width values (selector 3)', () => {
+      // Lead byte: selector=11, bottom 6 bits = 3×2-bit width selectors
+      // Bits [1:0]=00 (S8), [3:2]=01 (S16LE), [5:4]=00 (S8)
+      // 0xC4 = 0b11_00_01_00
+      // Value[0]: S8 = 0x05 = 5
+      // Value[1]: S16LE = [0xE8, 0x03] = 1000
+      // Value[2]: S8 = 0xFE = -2
+      const result = decodeGroup(BBLEncoding.TAG2_3S32, [0xC4, 0x05, 0xE8, 0x03, 0xFE], 3);
+      expect(result).toEqual([5, 1000, -2]);
+    });
+
+    it('decodes variable-width S32 values (selector 3)', () => {
+      // Bits [1:0]=11 (S32LE) for value[0], [3:2]=00 (S8) for value[1], [5:4]=00 (S8)
+      // 0xC3 = 0b11_00_00_11
+      const buf = Buffer.alloc(7);
+      buf[0] = 0xC3;
+      buf.writeInt32LE(100000, 1); // value[0] = 100000
+      buf[5] = 0x01; // value[1] = 1
+      buf[6] = 0x00; // value[2] = 0
+      const result = decodeGroup(BBLEncoding.TAG2_3S32, [...buf], 3);
+      expect(result).toEqual([100000, 1, 0]);
     });
 
     it('handles EOF on tag', () => {
@@ -178,67 +247,35 @@ describe('ValueDecoder', () => {
     });
   });
 
-  describe('TAG8_4S16_V1 (encoding 5)', () => {
-    it('decodes all zeros (tag 0x00)', () => {
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V1, [0x00], 4);
+  describe('TAG8_4S16 (encoding 8)', () => {
+    it('decodes all zeros (tag 0x00) — v2', () => {
+      const result = decodeGroup(BBLEncoding.TAG8_4S16, [0x00], 4);
       expect(result).toEqual([0, 0, 0, 0]);
     });
 
-    it('decodes 4-bit signed values (tag bits = 01)', () => {
-      // Tag = 0x05 = 0b00_00_01_01 → fields 0,1 are 4-bit
-      // Field 0: byte 3 → sign extend 4-bit = 3
-      // Field 1: byte 5 → sign extend 4-bit = 5
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V1, [0x05, 0x03, 0x05], 4);
-      expect(result).toEqual([3, 5, 0, 0]);
-    });
-
-    it('decodes 8-bit signed values (tag bits = 10)', () => {
-      // Tag = 0x0A = 0b00_00_10_10 → fields 0,1 are 8-bit
-      // Field 0: byte 0xFF → -1
-      // Field 1: byte 0x7F → 127
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V1, [0x0A, 0xFF, 0x7F], 4);
-      expect(result).toEqual([-1, 127, 0, 0]);
-    });
-
-    it('decodes 16-bit values (tag bits = 11)', () => {
-      // Tag = 0x03 = 0b00_00_00_11 → field 0 is 16-bit
-      const buf = Buffer.alloc(3);
-      buf[0] = 0x03;
-      buf.writeInt16LE(1000, 1);
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V1, [...buf], 4);
-      expect(result[0]).toBe(1000);
-    });
-  });
-
-  describe('TAG8_4S16_V2 (encoding 6)', () => {
-    it('decodes all zeros (tag 0x00)', () => {
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V2, [0x00], 4);
-      expect(result).toEqual([0, 0, 0, 0]);
-    });
-
-    it('decodes 8-bit signed values (tag bits = 01)', () => {
+    it('decodes 8-bit signed values (tag bits = 01) — v2', () => {
       // Tag = 0x05 = 0b00_00_01_01 → fields 0,1 are 8-bit (v2)
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V2, [0x05, 0xFF, 0x7F], 4);
+      const result = decodeGroup(BBLEncoding.TAG8_4S16, [0x05, 0xFF, 0x7F], 4);
       expect(result).toEqual([-1, 127, 0, 0]);
     });
 
-    it('decodes 16-bit values (tag bits = 10)', () => {
+    it('decodes 16-bit values (tag bits = 10) — v2', () => {
       // Tag = 0x02 = 0b00_00_00_10 → field 0 is 16-bit (v2)
       const buf = Buffer.alloc(3);
       buf[0] = 0x02;
       buf.writeInt16LE(-500, 1);
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V2, [...buf], 4);
+      const result = decodeGroup(BBLEncoding.TAG8_4S16, [...buf], 4);
       expect(result[0]).toBe(-500);
     });
 
-    it('decodes signed VB values (tag bits = 11)', () => {
+    it('decodes signed VB values (tag bits = 11) — v2', () => {
       // Tag = 0x03 = 0b00_00_00_11 → field 0 is signed VB (v2)
       // signed VB 0x04 → 2
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V2, [0x03, 0x04], 4);
+      const result = decodeGroup(BBLEncoding.TAG8_4S16, [0x03, 0x04], 4);
       expect(result[0]).toBe(2);
     });
 
-    it('decodes mixed sizes', () => {
+    it('decodes mixed sizes — v2', () => {
       // Tag = 0x1B = 0b00_01_10_11
       //   field 0: 11 → signed VB
       //   field 1: 10 → 16-bit
@@ -249,12 +286,28 @@ describe('ValueDecoder', () => {
       buf[1] = 0x04; // signed VB = 2
       buf.writeInt16LE(1000, 2); // 16-bit = 1000
       buf[4] = 0x80; // 8-bit = -128
-      const result = decodeGroup(BBLEncoding.TAG8_4S16_V2, [...buf], 4);
+      const result = decodeGroup(BBLEncoding.TAG8_4S16, [...buf], 4);
       expect(result).toEqual([2, 1000, -128, 0]);
+    });
+
+    it('decodes 4-bit signed values in v1 mode', () => {
+      // Version 1: tag bits = 01 → 4-bit signed
+      const reader = new StreamReader(Buffer.from([0x05, 0x03, 0x05]));
+      const values = new Array(4).fill(0);
+      ValueDecoder.decode(reader, BBLEncoding.TAG8_4S16, values, 0, 1);
+      expect(values).toEqual([3, 5, 0, 0]);
+    });
+
+    it('decodes 8-bit signed values in v1 mode', () => {
+      // Version 1: tag bits = 10 → 8-bit signed
+      const reader = new StreamReader(Buffer.from([0x0A, 0xFF, 0x7F]));
+      const values = new Array(4).fill(0);
+      ValueDecoder.decode(reader, BBLEncoding.TAG8_4S16, values, 0, 1);
+      expect(values).toEqual([-1, 127, 0, 0]);
     });
   });
 
-  describe('NULL (encoding 7)', () => {
+  describe('NULL (encoding 9)', () => {
     it('always returns zero', () => {
       expect(decodeSingle(BBLEncoding.NULL, [])).toBe(0);
     });
@@ -268,64 +321,63 @@ describe('ValueDecoder', () => {
     });
   });
 
-  describe('TAG2_3SVARIABLE (encoding 8)', () => {
-    it('decodes all zeros (tag 0)', () => {
-      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [0x00], 3);
-      expect(result).toEqual([0, 0, 0]);
+  describe('TAG2_3SVARIABLE (encoding 10)', () => {
+    it('decodes 2-bit packed values (selector 0)', () => {
+      // Same as TAG2_3S32 case 0
+      // 0x18 = 0b00_01_10_00 → selector=0, values [1, -2, 0]
+      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [0x18], 3);
+      expect(result).toEqual([1, -2, 0]);
     });
 
-    it('decodes 8-bit signed values (tag 1)', () => {
-      // Tag = 0x01, three 8-bit signed values
-      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [0x01, 0x7F, 0x80, 0x00], 3);
-      expect(result).toEqual([127, -128, 0]);
+    it('decodes 5-5-4 bit values (selector 1)', () => {
+      // Lead byte: selector=01, bits [5:1]=value[0](5-bit), bit[0]=MSB of value[1]
+      // value[0] = (leadByte & 0x3E) >> 1
+      // value[1] = ((leadByte & 0x01) << 4) | (byte1 >> 4)
+      // value[2] = byte1 & 0x0F (4-bit sign extend)
+      //
+      // Want: value[0]=3, value[1]=5, value[2]=-2
+      // value[0]=3 → (leadByte & 0x3E) >> 1 = 3 → leadByte & 0x3E = 0x06
+      // value[1]=5 → ((leadByte & 0x01) << 4) | (byte1 >> 4) = 5
+      //   If leadByte & 0x01 = 0, then byte1 >> 4 = 5 → byte1 = 0x5x
+      // value[2]=-2 → byte1 & 0x0F = 0x0E (sign extend 4-bit: -2)
+      //   byte1 = 0x5E
+      // leadByte = 0x40 | 0x06 | 0x00 = 0x46 (selector=01)
+      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [0x46, 0x5E], 3);
+      expect(result).toEqual([3, 5, -2]);
     });
 
-    it('decodes 16-bit signed values (tag 2)', () => {
-      const buf = Buffer.alloc(7);
-      buf[0] = 0x02;
-      buf.writeInt16LE(2000, 1);
-      buf.writeInt16LE(-1000, 3);
-      buf.writeInt16LE(500, 5);
-      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [...buf], 3);
-      expect(result).toEqual([2000, -1000, 500]);
+    it('decodes 8-7-7 bit values (selector 2)', () => {
+      // Lead byte: selector=10, value[0] uses 6 bits from lead + 2 from byte1
+      // value[0] = signExtend8Bit(((leadByte & 0x3F) << 2) | (b1 >> 6))
+      // value[1] = signExtend7Bit(((b1 & 0x3F) << 1) | (b2 >> 7))
+      // value[2] = signExtend7Bit(b2 & 0x7F)
+      //
+      // Want: value[0]=10, value[1]=-5, value[2]=20
+      // value[0]=10: ((lead & 0x3F) << 2) | (b1 >> 6) = 10
+      //   lead & 0x3F = 10 >> 2 = 2 (if b1 >> 6 = 10 & 3 = 2)
+      //   lead = 0x80 | 0x02 = 0x82
+      //   b1 >> 6 = 2, so b1 top 2 bits = 10
+      // value[1]=-5: ((b1 & 0x3F) << 1) | (b2 >> 7) = signExtend7Bit result = -5
+      //   7-bit -5 = 0x7B (123). ((b1 & 0x3F) << 1) | (b2 >> 7) = 0x7B
+      //   If b2 >> 7 = 1, then (b1 & 0x3F) << 1 = 0x7A = 122, b1 & 0x3F = 61 = 0x3D
+      //   b1 = (2 << 6) | 0x3D = 0x80 | 0x3D = 0xBD
+      // value[2]=20: b2 & 0x7F = 20, b2 >> 7 = 1 → b2 = 0x80 | 20 = 0x94
+      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [0x82, 0xBD, 0x94], 3);
+      expect(result).toEqual([10, -5, 20]);
     });
 
-    it('decodes signed VB values (tag 3)', () => {
-      // Tag = 0x03, three signed VBs
-      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [0x03, 0x04, 0x03, 0x00], 3);
-      expect(result).toEqual([2, -2, 0]);
-    });
-  });
-
-  describe('TAGGED_16 (encoding 9)', () => {
-    it('decodes inline value when bit 0 is clear', () => {
-      // Tag = 0x0A = 0b00001010 → bit 0 = 0, value = signExtend8(0x0A) >> 1 = 5
-      expect(decodeSingle(BBLEncoding.TAGGED_16, [0x0A])).toBe(5);
+    it('decodes variable-width values (selector 3)', () => {
+      // Same as TAG2_3S32 case 3
+      // 0xC4 = 0b11_00_01_00: value[0]=S8, value[1]=S16, value[2]=S8
+      const result = decodeGroup(BBLEncoding.TAG2_3SVARIABLE, [0xC4, 0x05, 0xE8, 0x03, 0xFE], 3);
+      expect(result).toEqual([5, 1000, -2]);
     });
 
-    it('decodes zero inline', () => {
-      // Tag = 0x00 → value = 0 >> 1 = 0
-      expect(decodeSingle(BBLEncoding.TAGGED_16, [0x00])).toBe(0);
-    });
-
-    it('decodes negative inline value', () => {
-      // Tag = 0xFE = 0b11111110 → bit 0 = 0, value = signExtend8(0xFE) >> 1 = -1
-      expect(decodeSingle(BBLEncoding.TAGGED_16, [0xFE])).toBe(-1);
-    });
-
-    it('decodes 16-bit value when bit 0 is set', () => {
-      // Tag = 0x01 → bit 0 = 1, read 16-bit
-      const buf = Buffer.alloc(3);
-      buf[0] = 0x01;
-      buf.writeInt16LE(5000, 1);
-      expect(decodeSingle(BBLEncoding.TAGGED_16, [...buf])).toBe(5000);
-    });
-
-    it('decodes negative 16-bit value', () => {
-      const buf = Buffer.alloc(3);
-      buf[0] = 0x01;
-      buf.writeInt16LE(-10000, 1);
-      expect(decodeSingle(BBLEncoding.TAGGED_16, [...buf])).toBe(-10000);
+    it('handles EOF on tag', () => {
+      const reader = new StreamReader(Buffer.alloc(0));
+      const values = [99, 99, 99];
+      ValueDecoder.decode(reader, BBLEncoding.TAG2_3SVARIABLE, values, 0);
+      expect(values).toEqual([0, 0, 0]);
     });
   });
 
@@ -338,11 +390,11 @@ describe('ValueDecoder', () => {
     });
 
     it('writes to correct indices for grouped encodings', () => {
-      // TAG8_8SVB starting at index 2
+      // TAG8_8SVB starting at index 2 — tag 0x03 → bits 0,1 set
       const reader = new StreamReader(Buffer.from([0x03, 0x02, 0x04]));
-      const values = [0, 0, 0, 0, 0, 0];
+      const values = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
       ValueDecoder.decode(reader, BBLEncoding.TAG8_8SVB, values, 2);
-      expect(values).toEqual([0, 0, 1, 2, 0, 0]);
+      expect(values).toEqual([0, 0, 1, 2, 0, 0, 0, 0, 0, 0]);
     });
   });
 
@@ -353,10 +405,10 @@ describe('ValueDecoder', () => {
       expect(ValueDecoder.decode(reader, BBLEncoding.SIGNED_VB, values, 0)).toBe(1);
     });
 
-    it('TAG8_8SVB returns 4', () => {
+    it('TAG8_8SVB returns 8', () => {
       const reader = new StreamReader(Buffer.from([0x00]));
-      const values = new Array(4).fill(0);
-      expect(ValueDecoder.decode(reader, BBLEncoding.TAG8_8SVB, values, 0)).toBe(4);
+      const values = new Array(8).fill(0);
+      expect(ValueDecoder.decode(reader, BBLEncoding.TAG8_8SVB, values, 0)).toBe(8);
     });
 
     it('TAG2_3S32 returns 3', () => {
@@ -365,10 +417,10 @@ describe('ValueDecoder', () => {
       expect(ValueDecoder.decode(reader, BBLEncoding.TAG2_3S32, values, 0)).toBe(3);
     });
 
-    it('TAG8_4S16_V2 returns 4', () => {
+    it('TAG8_4S16 returns 4', () => {
       const reader = new StreamReader(Buffer.from([0x00]));
       const values = new Array(4).fill(0);
-      expect(ValueDecoder.decode(reader, BBLEncoding.TAG8_4S16_V2, values, 0)).toBe(4);
+      expect(ValueDecoder.decode(reader, BBLEncoding.TAG8_4S16, values, 0)).toBe(4);
     });
 
     it('TAG2_3SVARIABLE returns 3', () => {

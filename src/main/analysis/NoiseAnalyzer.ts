@@ -14,7 +14,8 @@ import {
   FRAME_RESONANCE_MIN_HZ,
   FRAME_RESONANCE_MAX_HZ,
   ELECTRICAL_NOISE_MIN_HZ,
-  MOTOR_HARMONIC_TOLERANCE_HZ,
+  MOTOR_HARMONIC_TOLERANCE_RATIO,
+  MOTOR_HARMONIC_TOLERANCE_MIN_HZ,
   MOTOR_HARMONIC_MIN_PEAKS,
 } from './constants';
 
@@ -125,6 +126,14 @@ export function classifyPeak(
  * Check if a peak frequency is part of a motor harmonic series.
  * Motor harmonics are equally-spaced peaks (e.g., 150, 300, 450 Hz).
  */
+/**
+ * Compute tolerance for harmonic matching — relative to expected harmonic frequency.
+ * Prevents false positives at low frequencies where absolute tolerance is too wide.
+ */
+function harmonicTolerance(expectedHz: number): number {
+  return Math.max(MOTOR_HARMONIC_TOLERANCE_MIN_HZ, expectedHz * MOTOR_HARMONIC_TOLERANCE_RATIO);
+}
+
 function isMotorHarmonic(
   frequency: number,
   allPeaks: Array<{ frequency: number }>
@@ -141,7 +150,8 @@ function isMotorHarmonic(
     for (const pf of peakFreqs) {
       const ratio = pf / fundamental;
       const nearestInt = Math.round(ratio);
-      if (nearestInt >= 1 && Math.abs(pf - fundamental * nearestInt) < MOTOR_HARMONIC_TOLERANCE_HZ) {
+      const expectedFreq = fundamental * nearestInt;
+      if (nearestInt >= 1 && Math.abs(pf - expectedFreq) < harmonicTolerance(expectedFreq)) {
         harmonicCount++;
       }
     }
@@ -150,7 +160,8 @@ function isMotorHarmonic(
       // Check if our frequency matches one of these harmonics
       const ratio = frequency / fundamental;
       const nearestInt = Math.round(ratio);
-      if (nearestInt >= 1 && Math.abs(frequency - fundamental * nearestInt) < MOTOR_HARMONIC_TOLERANCE_HZ) {
+      const expectedFreq = fundamental * nearestInt;
+      if (nearestInt >= 1 && Math.abs(frequency - expectedFreq) < harmonicTolerance(expectedFreq)) {
         return true;
       }
     }

@@ -85,11 +85,6 @@ export function PIDAnalysisStep({
           {pidResult.stepsDetected} step inputs detected across all axes.
         </p>
 
-        <div className="analysis-meta">
-          <span className="analysis-meta-pill">
-            {(pidResult.analysisTimeMs / 1000).toFixed(2)}s
-          </span>
-        </div>
 
         {pidResult.currentPIDs && (
           <>

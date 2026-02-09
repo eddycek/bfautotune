@@ -54,6 +54,57 @@ export const YIELD_INTERVAL = 5000;
 /** Maximum number of bytes to scan ahead when resyncing after corruption */
 export const MAX_RESYNC_BYTES = 65536;
 
+/**
+ * Maximum encoded frame size in bytes (excluding marker byte).
+ * Matches FLIGHT_LOG_MAX_FRAME_LENGTH from betaflight blackbox-log-viewer.
+ * Frames exceeding this are structurally corrupt.
+ */
+export const MAX_FRAME_LENGTH = 256;
+
+/**
+ * String payload after LOG_END event type byte (0xFF).
+ * Betaflight writes "End of log\0" — the viewer validates this to avoid
+ * false positives from random 0xFF bytes in corrupted data.
+ */
+export const END_OF_LOG_MESSAGE = 'End of log\0';
+
+/**
+ * Maximum allowed jump in loop iteration between consecutive frames.
+ * Betaflight logs at ~8kHz with I-interval up to 128. A jump > 5000
+ * iterations indicates corrupted frame data.
+ */
+export const MAX_ITERATION_JUMP = 5000;
+
+/**
+ * Maximum allowed forward time jump in microseconds (10 seconds).
+ * Any single frame step > 10s indicates time field corruption.
+ */
+export const MAX_TIME_JUMP_US = 10_000_000;
+
+/**
+ * Maximum allowed backward time for I-frames (50ms).
+ * I-frames carry absolute values, so small backward jumps relative to our
+ * tracking state are normal (P-frame predictor rounding). But large backward
+ * jumps (e.g. iter=1 time=18µs when we're at 15s) indicate garbage data
+ * from old flash sessions or corruption. Reject if backward > 50ms.
+ */
+export const MAX_I_FRAME_TIME_BACKWARD_US = 50_000;
+
+/**
+ * Maximum allowed backward iteration for I-frames.
+ * Same reasoning as MAX_I_FRAME_TIME_BACKWARD_US. With I-interval=128
+ * and up to 31 P-frames per interval, a small backward jump is normal.
+ * Jumps backward by >500 iterations indicate garbage data.
+ */
+export const MAX_I_FRAME_ITER_BACKWARD = 500;
+
+/**
+ * Maximum consecutive corrupted frames before abandoning session.
+ * After this many corrupt frames in a row, the remaining data is likely
+ * all garbage (e.g. post-LOG_END flash data without LOG_END marker).
+ */
+export const MAX_CONSECUTIVE_CORRUPT_FRAMES = 100;
+
 /** Header field name patterns for field definition parsing */
 export const HEADER_KEYS = {
   /** Field names for I-frame */
@@ -119,6 +170,7 @@ export const HEADER_KEYS = {
   LOOPTIME: 'looptime',
   GYRO_SCALE: 'gyro_scale',
   ACC_1G: 'acc_1G',
+  PID_PROCESS_DENOM: 'pid_process_denom',
 } as const;
 
 /** Well-known field name patterns used during flight data extraction */
@@ -136,11 +188,13 @@ export const FIELD_NAMES = {
   DEBUG_PREFIX: 'debug[',
 } as const;
 
-/** Number of encoding groups that multi-value encodings produce */
+/**
+ * Number of values that grouped encodings produce.
+ * Keys are BF standard encoding IDs.
+ */
 export const ENCODING_GROUP_SIZE: Record<number, number> = {
-  3: 4,  // TAG8_8SVB produces up to 4 values
-  4: 3,  // TAG2_3S32 produces 3 values
-  5: 4,  // TAG8_4S16_V1 produces 4 values
-  6: 4,  // TAG8_4S16_V2 produces 4 values
-  8: 3,  // TAG2_3SVARIABLE produces 3 values
+  6: 8,   // TAG8_8SVB: tag byte has 8 bits → up to 8 values
+  7: 3,   // TAG2_3S32: always 3 values
+  8: 4,   // TAG8_4S16: always 4 values
+  10: 3,  // TAG2_3SVARIABLE: always 3 values
 };

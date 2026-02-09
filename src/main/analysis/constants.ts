@@ -31,8 +31,8 @@ export const GYRO_STEADY_MAX_STD = 50;
 /** Minimum segment duration in seconds */
 export const SEGMENT_MIN_DURATION_S = 0.5;
 
-/** Sliding window size in samples for segment variance check */
-export const SEGMENT_WINDOW_SAMPLES = 512;
+/** Target window duration in seconds for gyro variance check */
+export const SEGMENT_WINDOW_DURATION_S = 0.15;
 
 // ---- Noise Analysis ----
 
@@ -58,11 +58,14 @@ export const FRAME_RESONANCE_MAX_HZ = 200;
 /** Electrical noise: typically above 500 Hz */
 export const ELECTRICAL_NOISE_MIN_HZ = 500;
 
-/** Motor harmonic detection: maximum spacing tolerance in Hz */
-export const MOTOR_HARMONIC_TOLERANCE_HZ = 15;
+/** Motor harmonic detection: tolerance as fraction of expected harmonic frequency */
+export const MOTOR_HARMONIC_TOLERANCE_RATIO = 0.05;
+
+/** Motor harmonic detection: minimum tolerance in Hz (FFT bin resolution floor) */
+export const MOTOR_HARMONIC_TOLERANCE_MIN_HZ = 5;
 
 /** Minimum number of equally-spaced peaks to classify as motor harmonics */
-export const MOTOR_HARMONIC_MIN_PEAKS = 2;
+export const MOTOR_HARMONIC_MIN_PEAKS = 3;
 
 // ---- Filter Recommendation Safety Bounds ----
 

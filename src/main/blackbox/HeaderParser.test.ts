@@ -178,7 +178,7 @@ describe('HeaderParser', () => {
       const header = HeaderParser.parse(reader);
       expect(header.pFieldDefs).toHaveLength(4);
       expect(header.pFieldDefs[0].predictor).toBe(BBLPredictor.INCREMENT);
-      expect(header.pFieldDefs[0].encoding).toBe(BBLEncoding.TAGGED_16);
+      expect(header.pFieldDefs[0].encoding).toBe(BBLEncoding.NULL);
       expect(header.pFieldDefs[1].predictor).toBe(BBLPredictor.STRAIGHT_LINE);
       expect(header.pFieldDefs[3].predictor).toBe(BBLPredictor.MINTHROTTLE);
     });
@@ -214,20 +214,22 @@ describe('HeaderParser', () => {
       expect(header.iFieldDefs[0].signed).toBe(false);
     });
 
-    it('handles all 10 encoding types', () => {
+    it('handles all BF standard encoding types', () => {
       const reader = createReader([
-        'H Field I name:f0,f1,f2,f3,f4,f5,f6,f7,f8,f9',
-        'H Field I encoding:0,1,2,3,4,5,6,7,8,9',
-        'H Field I predictor:0,0,0,0,0,0,0,0,0,0',
-        'H Field I signed:0,0,0,0,0,0,0,0,0,0',
+        'H Field I name:f0,f1,f3,f6,f7,f8,f9,f10',
+        'H Field I encoding:0,1,3,6,7,8,9,10',
+        'H Field I predictor:0,0,0,0,0,0,0,0',
+        'H Field I signed:0,0,0,0,0,0,0,0',
       ]);
       const header = HeaderParser.parse(reader);
-      expect(header.iFieldDefs[0].encoding).toBe(BBLEncoding.SIGNED_VB);
-      expect(header.iFieldDefs[3].encoding).toBe(BBLEncoding.TAG8_8SVB);
-      expect(header.iFieldDefs[4].encoding).toBe(BBLEncoding.TAG2_3S32);
-      expect(header.iFieldDefs[6].encoding).toBe(BBLEncoding.TAG8_4S16_V2);
-      expect(header.iFieldDefs[7].encoding).toBe(BBLEncoding.NULL);
-      expect(header.iFieldDefs[9].encoding).toBe(BBLEncoding.TAGGED_16);
+      expect(header.iFieldDefs[0].encoding).toBe(BBLEncoding.SIGNED_VB);    // 0
+      expect(header.iFieldDefs[1].encoding).toBe(BBLEncoding.UNSIGNED_VB);   // 1
+      expect(header.iFieldDefs[2].encoding).toBe(BBLEncoding.NEG_14BIT);     // 3
+      expect(header.iFieldDefs[3].encoding).toBe(BBLEncoding.TAG8_8SVB);     // 6
+      expect(header.iFieldDefs[4].encoding).toBe(BBLEncoding.TAG2_3S32);     // 7
+      expect(header.iFieldDefs[5].encoding).toBe(BBLEncoding.TAG8_4S16);     // 8
+      expect(header.iFieldDefs[6].encoding).toBe(BBLEncoding.NULL);          // 9
+      expect(header.iFieldDefs[7].encoding).toBe(BBLEncoding.TAG2_3SVARIABLE); // 10
     });
   });
 
@@ -301,7 +303,7 @@ describe('HeaderParser', () => {
         'H Field P name:loopIteration,time,axisP[0],axisP[1],axisP[2],axisI[0],axisI[1],axisI[2],axisD[0],axisD[1],gyroADC[0],gyroADC[1],gyroADC[2],motor[0],motor[1],motor[2],motor[3]',
         'H Field P signed:0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0',
         'H Field P predictor:6,2,1,1,1,1,1,1,1,1,1,1,1,4,4,4,4',
-        'H Field P encoding:9,0,4,4,4,4,4,4,4,4,4,4,4,0,0,0,0',
+        'H Field P encoding:9,0,7,7,7,7,7,7,7,7,7,7,7,0,0,0,0',
       ]);
       const header = HeaderParser.parse(reader);
 
@@ -324,7 +326,7 @@ describe('HeaderParser', () => {
       // P-frame fields
       expect(header.pFieldDefs).toHaveLength(17);
       expect(header.pFieldDefs[0].predictor).toBe(BBLPredictor.INCREMENT);
-      expect(header.pFieldDefs[0].encoding).toBe(BBLEncoding.TAGGED_16);
+      expect(header.pFieldDefs[0].encoding).toBe(BBLEncoding.NULL);
       expect(header.pFieldDefs[2].encoding).toBe(BBLEncoding.TAG2_3S32);
       expect(header.pFieldDefs[13].predictor).toBe(BBLPredictor.MINTHROTTLE);
     });

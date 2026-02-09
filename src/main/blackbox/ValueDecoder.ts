@@ -2,16 +2,18 @@ import { BBLEncoding } from '@shared/types/blackbox.types';
 import { StreamReader } from './StreamReader';
 
 /**
- * Decodes field values from binary BBL data using one of 10 encoding types.
+ * Decodes field values from binary BBL data using BF standard encoding types.
  *
  * Some encodings are "grouped" - they read a tag byte first, then decode
  * multiple values at once (e.g., TAG2_3S32 decodes 3 values, TAG8_4S16
  * decodes 4 values). For these, the caller must pass the output array
  * and starting index so the decoder can write multiple values.
  *
+ * Encoding IDs match Betaflight standard (0,1,3,6,7,8,9,10).
+ *
  * References:
- * - blackbox_decode.c in cleanflight/betaflight
- * - blackbox-log-viewer decoder.js
+ * - betaflight/src/main/blackbox/blackbox.c
+ * - betaflight/blackbox-log-viewer flightlog_parser.js
  */
 export class ValueDecoder {
   /**
@@ -20,13 +22,15 @@ export class ValueDecoder {
    * For single-value encodings: writes one value at values[fieldIdx].
    * For grouped encodings: writes multiple values starting at values[fieldIdx].
    *
+   * @param version - Data version from header (1 or 2), affects TAG8_4S16 behavior
    * @returns The number of fields consumed (1 for single-value, N for grouped).
    */
   static decode(
     reader: StreamReader,
     encoding: BBLEncoding,
     values: number[],
-    fieldIdx: number
+    fieldIdx: number,
+    version: number = 2
   ): number {
     switch (encoding) {
       case BBLEncoding.SIGNED_VB:
@@ -47,11 +51,8 @@ export class ValueDecoder {
       case BBLEncoding.TAG2_3S32:
         return ValueDecoder.readTag2_3S32(reader, values, fieldIdx);
 
-      case BBLEncoding.TAG8_4S16_V1:
-        return ValueDecoder.readTag8_4S16(reader, values, fieldIdx, 1);
-
-      case BBLEncoding.TAG8_4S16_V2:
-        return ValueDecoder.readTag8_4S16(reader, values, fieldIdx, 2);
+      case BBLEncoding.TAG8_4S16:
+        return ValueDecoder.readTag8_4S16(reader, values, fieldIdx, version >= 2 ? 2 : 1);
 
       case BBLEncoding.NULL:
         values[fieldIdx] = 0;
@@ -60,10 +61,6 @@ export class ValueDecoder {
       case BBLEncoding.TAG2_3SVARIABLE:
         return ValueDecoder.readTag2_3SVariable(reader, values, fieldIdx);
 
-      case BBLEncoding.TAGGED_16:
-        values[fieldIdx] = ValueDecoder.readTagged16(reader);
-        return 1;
-
       default:
         values[fieldIdx] = 0;
         return 1;
@@ -71,8 +68,44 @@ export class ValueDecoder {
   }
 
   /**
-   * Encoding 2: NEG_14BIT
-   * Read a signed VB and negate + subtract 1.
+   * Decode a group of values with a known count.
+   *
+   * Unlike decode(), this method respects the actual number of consecutive
+   * fields sharing the same encoding. This is critical for TAG8_8SVB where
+   * fewer than 8 consecutive fields may share the encoding — reading all 8
+   * bits of the tag byte would consume bytes belonging to subsequent fields.
+   *
+   * @param count - Actual number of values to decode (may be less than the
+   *                encoding's natural group size)
+   */
+  static decodeGroup(
+    reader: StreamReader,
+    encoding: BBLEncoding,
+    values: number[],
+    count: number,
+    version: number = 2
+  ): number {
+    switch (encoding) {
+      case BBLEncoding.TAG8_8SVB:
+        return ValueDecoder.readTag8_8SVB(reader, values, 0, count);
+
+      case BBLEncoding.TAG2_3S32:
+        return ValueDecoder.readTag2_3S32(reader, values, 0);
+
+      case BBLEncoding.TAG8_4S16:
+        return ValueDecoder.readTag8_4S16(reader, values, 0, version >= 2 ? 2 : 1);
+
+      case BBLEncoding.TAG2_3SVARIABLE:
+        return ValueDecoder.readTag2_3SVariable(reader, values, 0);
+
+      default:
+        return count;
+    }
+  }
+
+  /**
+   * Encoding 3: NEG_14BIT
+   * Read an unsigned VB and negate + subtract 1.
    * Used for fields that are typically negative (like D-term).
    */
   private static readNeg14Bit(reader: StreamReader): number {
@@ -81,105 +114,118 @@ export class ValueDecoder {
   }
 
   /**
-   * Encoding 3: TAG8_8SVB
+   * Encoding 6: TAG8_8SVB
    * Read a tag byte where each bit indicates whether the corresponding
    * field has a non-zero value. For each set bit, read a signed VB.
-   * Produces up to 4 values.
+   *
+   * @param count - Number of values to read (default 8). When fewer than 8
+   *   consecutive fields share this encoding, only the first `count` bits
+   *   of the tag byte are used. This matches BF viewer behavior.
    */
   private static readTag8_8SVB(
     reader: StreamReader,
     values: number[],
-    fieldIdx: number
+    fieldIdx: number,
+    count: number = 8
   ): number {
     const tag = reader.readByte();
     if (tag === -1) {
-      for (let i = 0; i < 4; i++) values[fieldIdx + i] = 0;
-      return 4;
+      for (let i = 0; i < count; i++) values[fieldIdx + i] = 0;
+      return count;
     }
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < count; i++) {
       if (tag & (1 << i)) {
         values[fieldIdx + i] = reader.readSignedVB();
       } else {
         values[fieldIdx + i] = 0;
       }
     }
-    return 4;
+    return count;
   }
 
   /**
-   * Encoding 4: TAG2_3S32
-   * Read a 2-bit tag that selects the sub-encoding for 3 values:
-   *   00 = all three are zero
-   *   01 = all three fit in a single byte each (4-bit + 4-bit + 4-bit packed, or similar)
-   *   10 = all three fit in 16-bit each
-   *   11 = all three are full signed VB
+   * Encoding 7: TAG2_3S32
+   * Top 2 bits of lead byte select the sub-encoding for 3 values:
+   *   00 = 2-bit fields packed in lead byte (0 extra bytes)
+   *   01 = 4-bit fields (1 extra byte)
+   *   10 = 6-bit fields (2 extra bytes)
+   *   11 = variable width per value (lead byte bottom 6 bits = 3×2-bit selectors)
    *
-   * This is the most common P-frame encoding for PID terms.
+   * Reference: betaflight/blackbox-log-viewer flightlog_parser.js
    */
   private static readTag2_3S32(
     reader: StreamReader,
     values: number[],
     fieldIdx: number
   ): number {
-    const tag = reader.readByte();
-    if (tag === -1) {
+    const leadByte = reader.readByte();
+    if (leadByte === -1) {
       values[fieldIdx] = 0;
       values[fieldIdx + 1] = 0;
       values[fieldIdx + 2] = 0;
       return 3;
     }
 
-    // The tag byte contains 4 x 2-bit values (we only use 3)
-    // For each group of 3 fields sharing this encoding, the 2-bit tag says:
-    const tagVal = tag & 0x03;
+    const selector = leadByte >> 6;
 
-    switch (tagVal) {
-      case 0:
-        // All three values are zero
-        values[fieldIdx] = 0;
-        values[fieldIdx + 1] = 0;
-        values[fieldIdx + 2] = 0;
+    switch (selector) {
+      case 0: {
+        // 2-bit fields packed in lead byte bits [5:4], [3:2], [1:0]
+        values[fieldIdx] = ValueDecoder.signExtend2Bit((leadByte >> 4) & 0x03);
+        values[fieldIdx + 1] = ValueDecoder.signExtend2Bit((leadByte >> 2) & 0x03);
+        values[fieldIdx + 2] = ValueDecoder.signExtend2Bit(leadByte & 0x03);
         break;
+      }
 
       case 1: {
-        // Values encoded in next 2 bytes using 4-4-4 bit packing + sign extension
-        const byte0 = reader.readByte();
+        // 4-bit fields: value[0] from lead byte low nibble, value[1,2] from extra byte
         const byte1 = reader.readByte();
-        if (byte0 === -1 || byte1 === -1) {
+        if (byte1 === -1) {
           values[fieldIdx] = 0;
           values[fieldIdx + 1] = 0;
           values[fieldIdx + 2] = 0;
           break;
         }
-        // Pack: byte0 low nibble = val0, byte0 high nibble = val1, byte1 low nibble = val2
-        values[fieldIdx] = ValueDecoder.signExtend4(byte0 & 0x0F);
-        values[fieldIdx + 1] = ValueDecoder.signExtend4(byte0 >> 4);
+        values[fieldIdx] = ValueDecoder.signExtend4(leadByte & 0x0F);
+        values[fieldIdx + 1] = ValueDecoder.signExtend4(byte1 >> 4);
         values[fieldIdx + 2] = ValueDecoder.signExtend4(byte1 & 0x0F);
         break;
       }
 
       case 2: {
-        // Values are 16-bit signed, packed into 6 bytes
-        values[fieldIdx] = reader.readS16();
-        values[fieldIdx + 1] = reader.readS16();
-        values[fieldIdx + 2] = reader.readS16();
+        // 6-bit fields: value[0] from lead byte, value[1,2] from extra bytes
+        const b1 = reader.readByte();
+        const b2 = reader.readByte();
+        if (b1 === -1 || b2 === -1) {
+          values[fieldIdx] = 0;
+          values[fieldIdx + 1] = 0;
+          values[fieldIdx + 2] = 0;
+          break;
+        }
+        values[fieldIdx] = ValueDecoder.signExtend6Bit(leadByte & 0x3F);
+        values[fieldIdx + 1] = ValueDecoder.signExtend6Bit(b1 & 0x3F);
+        values[fieldIdx + 2] = ValueDecoder.signExtend6Bit(b2 & 0x3F);
         break;
       }
 
-      case 3:
-        // Values are full signed VB
-        values[fieldIdx] = reader.readSignedVB();
-        values[fieldIdx + 1] = reader.readSignedVB();
-        values[fieldIdx + 2] = reader.readSignedVB();
+      case 3: {
+        // Variable width: bottom 6 bits of lead byte = 3×2-bit width selectors
+        // Bits [1:0] → value[0], bits [3:2] → value[1], bits [5:4] → value[2]
+        // 00=S8, 01=S16LE, 10=S24LE, 11=S32LE
+        for (let i = 0; i < 3; i++) {
+          const widthBits = (leadByte >> (i * 2)) & 0x03;
+          values[fieldIdx + i] = ValueDecoder.readVariableWidth(reader, widthBits);
+        }
         break;
+      }
     }
 
     return 3;
   }
 
   /**
-   * Encoding 5/6: TAG8_4S16 (v1 and v2)
+   * Encoding 8: TAG8_4S16 (v1 and v2)
    * Read a tag byte where pairs of bits indicate the size of each of 4 values:
    *   00 = value is zero
    *   01 = value is 4-bit signed (v1) or 8-bit signed (v2)
@@ -223,74 +269,114 @@ export class ValueDecoder {
   }
 
   /**
-   * Encoding 8: TAG2_3SVARIABLE
-   * Similar to TAG2_3S32 but with different size tiers.
-   * 2-bit tag per group of 3 values:
-   *   00 = all zero
-   *   01 = all 8-bit signed
-   *   10 = all 16-bit signed
-   *   11 = all signed VB
+   * Encoding 10: TAG2_3SVARIABLE
+   * Top 2 bits of lead byte select the sub-encoding for 3 values:
+   *   00 = 2-bit fields packed in lead byte (same as TAG2_3S32 case 0)
+   *   01 = 5-5-4 bit fields (1 extra byte)
+   *   10 = 8-7-7 bit fields (2 extra bytes)
+   *   11 = variable width per value (same as TAG2_3S32 case 3)
+   *
+   * Reference: betaflight/blackbox-log-viewer flightlog_parser.js
    */
   private static readTag2_3SVariable(
     reader: StreamReader,
     values: number[],
     fieldIdx: number
   ): number {
-    const tag = reader.readByte();
-    if (tag === -1) {
+    const leadByte = reader.readByte();
+    if (leadByte === -1) {
       values[fieldIdx] = 0;
       values[fieldIdx + 1] = 0;
       values[fieldIdx + 2] = 0;
       return 3;
     }
 
-    const tagVal = tag & 0x03;
+    const selector = leadByte >> 6;
 
-    switch (tagVal) {
-      case 0:
-        values[fieldIdx] = 0;
-        values[fieldIdx + 1] = 0;
-        values[fieldIdx + 2] = 0;
+    switch (selector) {
+      case 0: {
+        // 2-bit fields — same as TAG2_3S32 case 0
+        values[fieldIdx] = ValueDecoder.signExtend2Bit((leadByte >> 4) & 0x03);
+        values[fieldIdx + 1] = ValueDecoder.signExtend2Bit((leadByte >> 2) & 0x03);
+        values[fieldIdx + 2] = ValueDecoder.signExtend2Bit(leadByte & 0x03);
         break;
+      }
 
-      case 1:
-        values[fieldIdx] = ValueDecoder.signExtend8(reader.readByte());
-        values[fieldIdx + 1] = ValueDecoder.signExtend8(reader.readByte());
-        values[fieldIdx + 2] = ValueDecoder.signExtend8(reader.readByte());
+      case 1: {
+        // 5-5-4 bit fields (1 extra byte, 14 bits total from lead+extra)
+        const byte1 = reader.readByte();
+        if (byte1 === -1) {
+          values[fieldIdx] = 0;
+          values[fieldIdx + 1] = 0;
+          values[fieldIdx + 2] = 0;
+          break;
+        }
+        values[fieldIdx] = ValueDecoder.signExtend5Bit((leadByte & 0x3E) >> 1);
+        values[fieldIdx + 1] = ValueDecoder.signExtend5Bit(((leadByte & 0x01) << 4) | (byte1 >> 4));
+        values[fieldIdx + 2] = ValueDecoder.signExtend4(byte1 & 0x0F);
         break;
+      }
 
-      case 2:
-        values[fieldIdx] = reader.readS16();
-        values[fieldIdx + 1] = reader.readS16();
-        values[fieldIdx + 2] = reader.readS16();
+      case 2: {
+        // 8-7-7 bit fields (2 extra bytes, 22 bits total)
+        const b1 = reader.readByte();
+        const b2 = reader.readByte();
+        if (b1 === -1 || b2 === -1) {
+          values[fieldIdx] = 0;
+          values[fieldIdx + 1] = 0;
+          values[fieldIdx + 2] = 0;
+          break;
+        }
+        values[fieldIdx] = ValueDecoder.signExtend8Bit(((leadByte & 0x3F) << 2) | (b1 >> 6));
+        values[fieldIdx + 1] = ValueDecoder.signExtend7Bit(((b1 & 0x3F) << 1) | (b2 >> 7));
+        values[fieldIdx + 2] = ValueDecoder.signExtend7Bit(b2 & 0x7F);
         break;
+      }
 
-      case 3:
-        values[fieldIdx] = reader.readSignedVB();
-        values[fieldIdx + 1] = reader.readSignedVB();
-        values[fieldIdx + 2] = reader.readSignedVB();
+      case 3: {
+        // Variable width — same as TAG2_3S32 case 3
+        for (let i = 0; i < 3; i++) {
+          const widthBits = (leadByte >> (i * 2)) & 0x03;
+          values[fieldIdx + i] = ValueDecoder.readVariableWidth(reader, widthBits);
+        }
         break;
+      }
     }
 
     return 3;
   }
 
   /**
-   * Encoding 9: TAGGED_16
-   * Read a tag byte. If bit 0 is set, value is a 16-bit signed int.
-   * Otherwise, value = tag byte >> 1 (with sign extension if bit 7 set).
-   * Used for loopIteration in P-frames.
+   * Read a variable-width signed value based on 2-bit width selector.
+   * Used by TAG2_3S32 case 3 and TAG2_3SVARIABLE case 3.
+   *   00 = S8 (1 byte), 01 = S16LE (2 bytes), 10 = S24LE (3 bytes), 11 = S32LE (4 bytes)
    */
-  private static readTagged16(reader: StreamReader): number {
-    const tag = reader.readByte();
-    if (tag === -1) return 0;
-
-    if (tag & 0x01) {
-      // Full 16-bit value follows
-      return reader.readS16();
+  private static readVariableWidth(reader: StreamReader, widthBits: number): number {
+    switch (widthBits) {
+      case 0: return ValueDecoder.signExtend8(reader.readByte());
+      case 1: return reader.readS16();
+      case 2: return ValueDecoder.readS24LE(reader);
+      case 3: return reader.readS32();
+      default: return 0;
     }
-    // Value is in the tag byte itself (shifted right by 1, sign extended)
-    return ValueDecoder.signExtend8(tag) >> 1;
+  }
+
+  /**
+   * Read a 24-bit signed little-endian integer from the stream.
+   */
+  private static readS24LE(reader: StreamReader): number {
+    const b0 = reader.readByte();
+    const b1 = reader.readByte();
+    const b2 = reader.readByte();
+    if (b0 === -1 || b1 === -1 || b2 === -1) return 0;
+    const unsigned = b0 | (b1 << 8) | (b2 << 16);
+    // Sign extend from 24 bits
+    return (unsigned & 0x800000) ? (unsigned | 0xFF000000) | 0 : unsigned;
+  }
+
+  /** Sign-extend a 2-bit value to 32-bit */
+  static signExtend2Bit(value: number): number {
+    return (value & 0x02) ? (value | 0xFFFFFFFC) | 0 : value;
   }
 
   /** Sign-extend a 4-bit value to 32-bit */
@@ -299,9 +385,29 @@ export class ValueDecoder {
     return (value & 0x08) ? (value | 0xFFFFFFF0) | 0 : value;
   }
 
+  /** Sign-extend a 5-bit value to 32-bit */
+  static signExtend5Bit(value: number): number {
+    return (value & 0x10) ? (value | 0xFFFFFFE0) | 0 : value;
+  }
+
+  /** Sign-extend a 6-bit value to 32-bit */
+  static signExtend6Bit(value: number): number {
+    return (value & 0x20) ? (value | 0xFFFFFFC0) | 0 : value;
+  }
+
+  /** Sign-extend a 7-bit value to 32-bit */
+  static signExtend7Bit(value: number): number {
+    return (value & 0x40) ? (value | 0xFFFFFF80) | 0 : value;
+  }
+
   /** Sign-extend an 8-bit value to 32-bit */
   static signExtend8(value: number): number {
     if (value === -1) return 0;
     return (value & 0x80) ? (value | 0xFFFFFF00) | 0 : value;
+  }
+
+  /** Sign-extend an 8-bit value to 32-bit (no EOF guard, for computed values) */
+  static signExtend8Bit(value: number): number {
+    return (value & 0x80) ? (value | 0xFFFFFF00) | 0 : value & 0xFF;
   }
 }
