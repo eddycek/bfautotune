@@ -175,27 +175,34 @@ export function aggregateAxisMetrics(responses: StepResponse[]): AxisStepProfile
     };
   }
 
+  // Filter out degenerate steps (false positives or badly detected) for metric computation
+  const valid = responses.filter(r =>
+    r.riseTimeMs > 0 &&
+    r.overshootPercent < 500
+  );
+  const src = valid.length > 0 ? valid : responses;
+
   return {
-    responses,
+    responses, // keep all for chart display
     meanOvershoot: mean(
-      new Float64Array(responses.map(r => r.overshootPercent)),
+      new Float64Array(src.map(r => r.overshootPercent)),
       0,
-      responses.length
+      src.length
     ),
     meanRiseTimeMs: mean(
-      new Float64Array(responses.map(r => r.riseTimeMs)),
+      new Float64Array(src.map(r => r.riseTimeMs)),
       0,
-      responses.length
+      src.length
     ),
     meanSettlingTimeMs: mean(
-      new Float64Array(responses.map(r => r.settlingTimeMs)),
+      new Float64Array(src.map(r => r.settlingTimeMs)),
       0,
-      responses.length
+      src.length
     ),
     meanLatencyMs: mean(
-      new Float64Array(responses.map(r => r.latencyMs)),
+      new Float64Array(src.map(r => r.latencyMs)),
       0,
-      responses.length
+      src.length
     ),
   };
 }
