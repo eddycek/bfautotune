@@ -42,6 +42,13 @@ const PEAK_LABELS: Record<string, string> = {
   unknown: 'Unknown',
 };
 
+/** dB floor threshold — values below this are considered "no signal" and hidden */
+const DB_DISPLAY_FLOOR = -80;
+/** Padding above the highest dB value */
+const DB_TOP_PADDING = 5;
+/** Padding in Hz beyond the last significant frequency */
+const FREQ_PADDING_HZ = 50;
+
 export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChartProps) {
   const [selectedAxis, setSelectedAxis] = useState<AxisSelection>('all');
 
@@ -53,6 +60,37 @@ export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChar
     );
     return downsampleData(raw, MAX_CHART_POINTS);
   }, [noise]);
+
+  // Compute smart axis domains from actual data
+  const { yDomain, xDomain } = useMemo(() => {
+    let yMin = 0;
+    let yMax = -Infinity;
+    let xMaxSignificant = 100; // minimum useful range
+
+    for (const point of data) {
+      for (const axis of ['roll', 'pitch', 'yaw'] as const) {
+        const val = point[axis];
+        if (val !== undefined && val > DB_DISPLAY_FLOOR) {
+          if (val < yMin) yMin = val;
+          if (val > yMax) yMax = val;
+          if (point.frequency > xMaxSignificant) xMaxSignificant = point.frequency;
+        }
+      }
+    }
+
+    // If no significant data found, fall back to full range
+    if (yMax === -Infinity) {
+      yMax = 0;
+      yMin = -60;
+      xMaxSignificant = data.length > 0 ? data[data.length - 1].frequency : 500;
+    }
+
+    const dataMaxFreq = data.length > 0 ? data[data.length - 1].frequency : 1000;
+    return {
+      yDomain: [Math.max(yMin - 10, DB_DISPLAY_FLOOR), yMax + DB_TOP_PADDING] as [number, number],
+      xDomain: [20, Math.min(xMaxSignificant + FREQ_PADDING_HZ, dataMaxFreq)] as [number, number],
+    };
+  }, [data]);
 
   const visibleAxes: Axis[] = selectedAxis === 'all'
     ? ['roll', 'pitch', 'yaw']
@@ -94,13 +132,14 @@ export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChar
           <XAxis
             dataKey="frequency"
             type="number"
-            domain={[20, 'dataMax']}
+            domain={xDomain}
             tick={{ fontSize: 11, fill: '#aaa' }}
             label={{ value: 'Frequency (Hz)', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: '#888' } }}
           />
           <YAxis
+            domain={yDomain}
             tick={{ fontSize: 11, fill: '#aaa' }}
-            label={{ value: 'dB', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#888' } }}
+            label={{ value: 'Noise (dB)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#888' } }}
           />
           <Tooltip
             contentStyle={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 4, fontSize: 12 }}
