@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Betaflight PID AutoTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 3 - Analysis Charts + Parser Fixes
+**Current Phase**: Phase 3 - Analysis Charts + Parser Validation Fixes
 
 **Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 
@@ -141,9 +141,12 @@ Parses Betaflight .bbl/.bfl binary log files into typed time series data.
 
 **Pipeline**: StreamReader → HeaderParser → ValueDecoder → PredictorApplier → FrameParser → BlackboxParser
 
-- 10 encoding types, 10 predictor types
+- 10 encoding types, 10 predictor types — validated against BF Explorer (see `docs/BBL_PARSER_VALIDATION.md`)
 - Multi-session support (multiple flights per file)
 - Corruption recovery aligned with BF Explorer (byte-by-byte, no forward-scan resync)
+- **NEG_14BIT encoding**: Uses `-signExtend14Bit(readUnsignedVB())` matching BF Explorer. Sign-extends bit 13, then negates.
+- **TAG8_8SVB count==1**: When only 1 field uses this encoding, reads signedVB directly (no tag byte) — matches BF encoder/decoder special case.
+- **AVERAGE_2 predictor**: Uses `Math.trunc((prev + prev2) / 2)` for truncation toward zero (C integer division), matching BF Explorer.
 - **LOG_END handling**: `parseEventFrame()` returns event type; LOG_END validates "End of log\0" string (anti-false-positive), then terminates session. Matches BF viewer behavior.
 - **Event frame parsing**: Uses VB encoding (readUnsignedVB/readSignedVB) for all event data — NOT fixed skip(). SYNC_BEEP=1×UVB, DISARM=1×UVB, FLIGHT_MODE=2×UVB, LOGGING_RESUME=2×UVB, INFLIGHT_ADJUSTMENT=1×U8+conditional.
 - **Frame validation** (aligned with BF viewer): structural size limit (256 bytes), iteration continuity (< 5000 jump), time continuity (< 10s jump). No sensor value thresholds — debug/motor fields can legitimately exceed any fixed range. No consecutive corrupt frame limit (matches BF Explorer).
@@ -242,7 +245,7 @@ Interactive visualization of analysis results using Recharts (SVG).
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 702 tests total across 39 test files
+- 711 tests total across 39 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, SnapshotDiffModal, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
 - Snapshot Diff: snapshotDiffUtils, SnapshotDiffModal (38 tests)
 - Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
