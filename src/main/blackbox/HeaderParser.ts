@@ -206,7 +206,7 @@ export class HeaderParser {
   private static parseEncoding(value: string | undefined): BBLEncoding {
     if (!value) return BBLEncoding.SIGNED_VB;
     const num = parseInt(value.trim(), 10);
-    if (isNaN(num) || num < 0 || num > 9) return BBLEncoding.SIGNED_VB;
+    if (isNaN(num) || num < 0 || num > 10) return BBLEncoding.SIGNED_VB;
     return num as BBLEncoding;
   }
 

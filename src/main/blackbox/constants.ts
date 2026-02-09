@@ -170,11 +170,13 @@ export const FIELD_NAMES = {
   DEBUG_PREFIX: 'debug[',
 } as const;
 
-/** Number of encoding groups that multi-value encodings produce */
+/**
+ * Number of values that grouped encodings produce.
+ * Keys are BF standard encoding IDs.
+ */
 export const ENCODING_GROUP_SIZE: Record<number, number> = {
-  3: 4,  // TAG8_8SVB produces up to 4 values
-  4: 3,  // TAG2_3S32 produces 3 values
-  5: 4,  // TAG8_4S16_V1 produces 4 values
-  6: 4,  // TAG8_4S16_V2 produces 4 values
-  8: 3,  // TAG2_3SVARIABLE produces 3 values
+  6: 8,   // TAG8_8SVB: tag byte has 8 bits → up to 8 values
+  7: 3,   // TAG2_3S32: always 3 values
+  8: 4,   // TAG8_4S16: always 4 values
+  10: 3,  // TAG2_3SVARIABLE: always 3 values
 };

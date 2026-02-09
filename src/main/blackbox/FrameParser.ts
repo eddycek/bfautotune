@@ -92,15 +92,17 @@ export class FrameParser {
     let fieldIdx = 0;
 
     while (fieldIdx < fieldDefs.length) {
-      if (reader.eof) break;
-
       const def = fieldDefs[fieldIdx];
+
+      // NULL encoding doesn't read bytes, so skip eof check for it
+      if (def.encoding !== BBLEncoding.NULL && reader.eof) break;
+
       const groupSize = ENCODING_GROUP_SIZE[def.encoding];
 
       if (groupSize !== undefined) {
         // Grouped encoding: decode multiple values at once
         const decoded = new Array(groupSize).fill(0);
-        ValueDecoder.decode(reader, def.encoding, decoded, 0);
+        ValueDecoder.decode(reader, def.encoding, decoded, 0, this.header.dataVersion);
 
         // Apply predictor to each value in the group
         const count = Math.min(groupSize, fieldDefs.length - fieldIdx);
@@ -121,7 +123,7 @@ export class FrameParser {
       } else {
         // Single-value encoding
         const decoded = new Array(1).fill(0);
-        ValueDecoder.decode(reader, def.encoding, decoded, 0);
+        ValueDecoder.decode(reader, def.encoding, decoded, 0, this.header.dataVersion);
 
         values[fieldIdx] = PredictorApplier.apply(
           def.predictor,
