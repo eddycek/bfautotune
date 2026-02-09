@@ -132,20 +132,47 @@ describe('ValueDecoder', () => {
     });
   });
 
+  describe('signExtend14Bit', () => {
+    it('positive 14-bit values are unchanged', () => {
+      expect(ValueDecoder.signExtend14Bit(0)).toBe(0);
+      expect(ValueDecoder.signExtend14Bit(5)).toBe(5);
+      expect(ValueDecoder.signExtend14Bit(8191)).toBe(8191); // 0x1FFF
+    });
+
+    it('negative 14-bit values are sign-extended', () => {
+      // Bit 13 set → sign-extend
+      expect(ValueDecoder.signExtend14Bit(0x2000)).toBe(-8192); // 0x2000 = 8192
+      expect(ValueDecoder.signExtend14Bit(0x3FFF)).toBe(-1);    // 14-bit -1
+      expect(ValueDecoder.signExtend14Bit(0x3FFE)).toBe(-2);    // 14-bit -2
+    });
+  });
+
   describe('NEG_14BIT (encoding 3)', () => {
-    it('decodes to -(value + 1)', () => {
-      // readUnsignedVB returns 0 → result = -(0 + 1) = -1
-      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x00])).toBe(-1);
+    it('decodes zero UVB as zero', () => {
+      // readUnsignedVB returns 0 → signExtend14Bit(0) = 0 → result = -0 = 0
+      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x00])).toBe(0);
     });
 
-    it('decodes larger value', () => {
-      // readUnsignedVB returns 5 → result = -(5 + 1) = -6
-      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x05])).toBe(-6);
+    it('decodes small positive UVB as negated', () => {
+      // readUnsignedVB returns 5 → signExtend14Bit(5) = 5 → result = -5
+      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x05])).toBe(-5);
     });
 
-    it('decodes multi-byte value', () => {
-      // readUnsignedVB returns 127 → result = -128
-      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x7F])).toBe(-128);
+    it('decodes multi-byte UVB', () => {
+      // readUnsignedVB returns 127 → signExtend14Bit(127) = 127 → result = -127
+      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x7F])).toBe(-127);
+    });
+
+    it('decodes value with 14-bit sign bit set', () => {
+      // readUnsignedVB returns 0x2000 (8192) → signExtend14Bit = -8192 → result = 8192
+      // 0x2000 in UVB = [0x80, 0x40] (7-bit LSB: 0x00 with continuation, then 0x40)
+      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0x80, 0x40])).toBe(8192);
+    });
+
+    it('decodes 14-bit -1 (0x3FFF) as 1', () => {
+      // readUnsignedVB returns 0x3FFF → signExtend14Bit = -1 → result = 1
+      // 0x3FFF in UVB = [0xFF, 0x7F]
+      expect(decodeSingle(BBLEncoding.NEG_14BIT, [0xFF, 0x7F])).toBe(1);
     });
   });
 
@@ -176,6 +203,31 @@ describe('ValueDecoder', () => {
       const values = new Array(8).fill(99);
       ValueDecoder.decode(reader, BBLEncoding.TAG8_8SVB, values, 0);
       expect(values).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    });
+
+    it('decodes single value (count=1) without tag byte', () => {
+      // When only 1 field uses TAG8_8SVB, BF writes signedVB directly
+      // ZigZag: unsigned 4 → signed 2
+      const reader = new StreamReader(Buffer.from([0x04]));
+      const values = [0];
+      ValueDecoder.decodeGroup(reader, BBLEncoding.TAG8_8SVB, values, 1);
+      expect(values[0]).toBe(2);
+      expect(reader.offset).toBe(1); // consumed 1 byte (signedVB), not 2 (tag + signedVB)
+    });
+
+    it('decodes single negative value (count=1) without tag byte', () => {
+      // ZigZag: unsigned 1 → signed -1
+      const reader = new StreamReader(Buffer.from([0x01]));
+      const values = [0];
+      ValueDecoder.decodeGroup(reader, BBLEncoding.TAG8_8SVB, values, 1);
+      expect(values[0]).toBe(-1);
+    });
+
+    it('decodes single zero value (count=1) without tag byte', () => {
+      const reader = new StreamReader(Buffer.from([0x00]));
+      const values = [0];
+      ValueDecoder.decodeGroup(reader, BBLEncoding.TAG8_8SVB, values, 1);
+      expect(values[0]).toBe(0);
     });
   });
 

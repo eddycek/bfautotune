@@ -107,9 +107,11 @@ export class PredictorApplier {
   }
 
   /**
-   * Average of last two values (integer division, floor).
+   * Average of last two values (truncation toward zero, matching C integer division).
+   * BF Explorer: ~~((prev + prev2) / 2)
+   * Note: >> 1 floors toward -infinity, but C/BF truncates toward zero.
    */
   private static average2(prev: number, prev2: number): number {
-    return (prev + prev2) >> 1;
+    return Math.trunc((prev + prev2) / 2);
   }
 }
