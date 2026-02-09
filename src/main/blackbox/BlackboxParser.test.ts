@@ -98,7 +98,7 @@ function buildSyntheticBBL(options: {
     }
 
     // End event
-    parts.push(Buffer.from([0x45, EVENT_LOG_END]));
+    parts.push(logEndBytes());
   }
 
   addSession(0);
@@ -110,6 +110,11 @@ function buildSyntheticBBL(options: {
 }
 
 const EVENT_LOG_END = 255;
+
+/** Full LOG_END event bytes: marker(E) + type(0xFF) + "End of log\0" */
+function logEndBytes(): Buffer {
+  return Buffer.from([0x45, EVENT_LOG_END, ...Buffer.from('End of log\0', 'ascii')]);
+}
 
 /** Encode TAG2_3S32 group (3 signed values) and push bytes to array */
 function pushTag2_3S32(arr: number[], values: [number, number, number]): void {
@@ -358,7 +363,7 @@ function buildBBLWithPFrames(options: {
   }
 
   // End event
-  parts.push(Buffer.from([0x45, EVENT_LOG_END]));
+  parts.push(logEndBytes());
 
   return { buffer: Buffer.concat(parts), expectedGyro };
 }
@@ -562,8 +567,8 @@ describe('BlackboxParser', () => {
       }
     });
 
-    it('rejects TAG2_3S32 tag=3 P-frame with values exceeding sensor range', async () => {
-      const { buffer } = buildBBLWithPFrames({
+    it('correctly handles TAG2_3S32 tag=3 (signed VB) encoding with large values', async () => {
+      const { buffer, expectedGyro } = buildBBLWithPFrames({
         gyroDeltas: [
           [40000, -30000, 20000], // tag=3 (signed VB, values > 32767)
         ],
@@ -573,10 +578,11 @@ describe('BlackboxParser', () => {
       expect(result.success).toBe(true);
 
       const fd = result.sessions[0].flightData;
-      // P-frame produces gyro values like 40100 which exceeds MAX_VALID_FIELD_VALUE (32768)
-      // → frame is rejected by validation, only the I-frame remains
-      expect(fd.frameCount).toBe(1);
-      expect(result.sessions[0].corruptedFrameCount).toBeGreaterThanOrEqual(1);
+      // No sensor value validation — large values pass through (matching BF viewer)
+      expect(fd.frameCount).toBe(2); // 1 I + 1 P
+      expect(fd.gyro[0].values[1]).toBe(expectedGyro[0][1]); // 100 + 40000 = 40100
+      expect(fd.gyro[1].values[1]).toBe(expectedGyro[1][1]); // -50 + -30000 = -30050
+      expect(fd.gyro[2].values[1]).toBe(expectedGyro[2][1]); // 30 + 20000 = 20030
     });
 
     it('preserves gyro accuracy across many P-frames', async () => {
@@ -686,7 +692,7 @@ describe('BlackboxParser', () => {
       pushTag2_3S32(p2, [3, -1, 4]);
       parts.push(Buffer.from(p2));
 
-      parts.push(Buffer.from([0x45, EVENT_LOG_END]));
+      parts.push(logEndBytes());
 
       const result = await BlackboxParser.parse(Buffer.concat(parts));
       expect(result.success).toBe(true);
@@ -922,7 +928,7 @@ describe('BlackboxParser', () => {
       }
 
       // End event
-      parts.push(Buffer.from([0x45, EVENT_LOG_END]));
+      parts.push(logEndBytes());
 
       // --- Parse and verify ---
       const result = await BlackboxParser.parse(Buffer.concat(parts));
@@ -1012,8 +1018,8 @@ describe('BlackboxParser', () => {
         parts.push(Buffer.from(frame));
       }
 
-      // LOG_END event
-      parts.push(Buffer.from([0x45, 0xFF]));
+      // LOG_END event with "End of log\0" string
+      parts.push(logEndBytes());
 
       // Garbage after LOG_END: fake I-frames with extreme values
       for (let f = 0; f < 3; f++) {
@@ -1043,8 +1049,9 @@ describe('BlackboxParser', () => {
     it('handles session with no LOG_END (ends at boundary)', async () => {
       // Session without LOG_END should still parse normally
       const data = buildSyntheticBBL({ numIFrames: 5, includeGyro: true });
-      // Remove the trailing LOG_END event (last 2 bytes: 0x45, 0xFF)
-      const withoutLogEnd = data.subarray(0, data.length - 2);
+      // Remove the trailing LOG_END event (13 bytes: 0x45 + 0xFF + "End of log\0")
+      const logEndSize = 2 + 'End of log\0'.length; // 13 bytes
+      const withoutLogEnd = data.subarray(0, data.length - logEndSize);
 
       const result = await BlackboxParser.parse(withoutLogEnd);
       expect(result.success).toBe(true);
@@ -1064,11 +1071,68 @@ describe('BlackboxParser', () => {
       expect(fd.gyro[0].values[0]).toBe(10); // first frame: 10 + 0
       expect(fd.gyro[1].values[0]).toBe(-5); // first frame: -(5 + 0)
     });
+
+    it('ignores false LOG_END (0xFF without "End of log" string)', async () => {
+      const parts: Buffer[] = [];
+
+      const headers = [
+        'H Product:Blackbox flight data recorder by Nicholas Sherlock',
+        'H Data version:2',
+        'H I interval:32',
+        'H P interval:1/2',
+        'H Firmware type:Betaflight',
+        'H Firmware revision:4.5.1',
+        'H looptime:312',
+        'H minthrottle:1070',
+        'H vbatref:420',
+        'H Field I name:loopIteration,time,gyroADC[0],gyroADC[1],gyroADC[2]',
+        'H Field I signed:0,0,1,1,1',
+        'H Field I predictor:0,0,0,0,0',
+        'H Field I encoding:1,1,0,0,0',
+        'H Field P name:loopIteration,time,gyroADC[0],gyroADC[1],gyroADC[2]',
+        'H Field P signed:0,0,1,1,1',
+        'H Field P predictor:1,1,1,1,1',
+        'H Field P encoding:0,0,0,0,0',
+      ];
+      parts.push(Buffer.from(headers.join('\n') + '\n'));
+
+      // 2 valid I-frames
+      for (let f = 0; f < 2; f++) {
+        const frame: number[] = [0x49];
+        pushUVB(frame, f * 32);
+        pushUVB(frame, f * 32 * 312);
+        pushSVB(frame, 100 + f);
+        pushSVB(frame, -(50 + f));
+        pushSVB(frame, 30 + f);
+        parts.push(Buffer.from(frame));
+      }
+
+      // False LOG_END: event marker (0x45) + 0xFF but garbage instead of "End of log\0"
+      parts.push(Buffer.from([0x45, 0xFF, 0xAB, 0xCD, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]));
+
+      // 2 more valid I-frames after the false LOG_END
+      for (let f = 2; f < 4; f++) {
+        const frame: number[] = [0x49];
+        pushUVB(frame, f * 32);
+        pushUVB(frame, f * 32 * 312);
+        pushSVB(frame, 100 + f);
+        pushSVB(frame, -(50 + f));
+        pushSVB(frame, 30 + f);
+        parts.push(Buffer.from(frame));
+      }
+
+      parts.push(logEndBytes());
+
+      const result = await BlackboxParser.parse(Buffer.concat(parts));
+      expect(result.success).toBe(true);
+
+      // All 4 frames should be present — the false LOG_END was ignored
+      expect(result.sessions[0].flightData.frameCount).toBe(4);
+    });
   });
 
   describe('frame validation', () => {
-    it('rejects frames with values exceeding 32768', async () => {
-      // Build a BBL where some I-frames have extreme gyro values
+    it('rejects frames exceeding MAX_FRAME_LENGTH (256 bytes)', async () => {
       const parts: Buffer[] = [];
 
       const headers = [
@@ -1098,31 +1162,71 @@ describe('BlackboxParser', () => {
       pushSVB(f1, 100); pushSVB(f1, -50); pushSVB(f1, 30);
       parts.push(Buffer.from(f1));
 
-      // Frame with value > 32768 (should be rejected)
-      const f2: number[] = [0x49];
-      pushUVB(f2, 32); pushUVB(f2, 32 * 312);
-      pushSVB(f2, 33000); pushSVB(f2, -50); pushSVB(f2, 30);
-      parts.push(Buffer.from(f2));
+      // Oversized "frame": I-marker + 300 bytes of padding before next marker
+      const oversized = Buffer.alloc(301);
+      oversized[0] = 0x49; // I-frame marker
+      // Fill with non-marker bytes so resync doesn't stop early
+      for (let i = 1; i < 300; i++) oversized[i] = 0x01;
+      // Next valid I-frame marker at end
+      oversized[300] = 0x49;
+      parts.push(oversized);
 
-      // Another valid frame
+      // Another valid frame after the oversized one
       const f3: number[] = [0x49];
       pushUVB(f3, 64); pushUVB(f3, 64 * 312);
       pushSVB(f3, 200); pushSVB(f3, -100); pushSVB(f3, 60);
       parts.push(Buffer.from(f3));
 
-      parts.push(Buffer.from([0x45, EVENT_LOG_END]));
+      parts.push(logEndBytes());
+
+      const result = await BlackboxParser.parse(Buffer.concat(parts));
+      expect(result.success).toBe(true);
+
+      // The oversized frame should be rejected
+      expect(result.sessions[0].corruptedFrameCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('accepts frames with large field values (no sensor threshold)', async () => {
+      // Ensures that large sensor values (e.g. debug[], motor ERPM) pass through
+      // — matching BF viewer which does NOT validate field value ranges
+      const parts: Buffer[] = [];
+
+      const headers = [
+        'H Product:Blackbox flight data recorder by Nicholas Sherlock',
+        'H Data version:2',
+        'H I interval:32',
+        'H P interval:1/2',
+        'H Firmware type:Betaflight',
+        'H Firmware revision:4.5.1',
+        'H looptime:312',
+        'H minthrottle:1070',
+        'H vbatref:420',
+        'H Field I name:loopIteration,time,gyroADC[0],gyroADC[1],gyroADC[2]',
+        'H Field I signed:0,0,1,1,1',
+        'H Field I predictor:0,0,0,0,0',
+        'H Field I encoding:1,1,0,0,0',
+        'H Field P name:loopIteration,time,gyroADC[0],gyroADC[1],gyroADC[2]',
+        'H Field P signed:0,0,1,1,1',
+        'H Field P predictor:1,1,1,1,1',
+        'H Field P encoding:0,0,0,0,0',
+      ];
+      parts.push(Buffer.from(headers.join('\n') + '\n'));
+
+      // Frame with gyro value 50000 (would be rejected by old threshold)
+      const f1: number[] = [0x49];
+      pushUVB(f1, 0); pushUVB(f1, 0);
+      pushSVB(f1, 50000); pushSVB(f1, -50000); pushSVB(f1, 30000);
+      parts.push(Buffer.from(f1));
+
+      parts.push(logEndBytes());
 
       const result = await BlackboxParser.parse(Buffer.concat(parts));
       expect(result.success).toBe(true);
 
       const fd = result.sessions[0].flightData;
-      // The extreme frame should be rejected, leaving 2 valid frames
-      expect(fd.frameCount).toBe(2);
-
-      // All gyro values should be within bounds
-      for (let i = 0; i < fd.frameCount; i++) {
-        expect(Math.abs(fd.gyro[0].values[i])).toBeLessThanOrEqual(32768);
-      }
+      expect(fd.frameCount).toBe(1);
+      expect(fd.gyro[0].values[0]).toBe(50000);
+      expect(fd.gyro[1].values[0]).toBe(-50000);
     });
 
     it('rejects frames with backward iteration jump', async () => {
@@ -1167,7 +1271,7 @@ describe('BlackboxParser', () => {
       pushSVB(f3, 70); pushSVB(f3, -50); pushSVB(f3, 30);
       parts.push(Buffer.from(f3));
 
-      parts.push(Buffer.from([0x45, EVENT_LOG_END]));
+      parts.push(logEndBytes());
 
       const result = await BlackboxParser.parse(Buffer.concat(parts));
       expect(result.success).toBe(true);
@@ -1201,20 +1305,18 @@ describe('BlackboxParser', () => {
       ];
       parts.push(Buffer.from(headers.join('\n') + '\n'));
 
-      // One valid frame
+      // One valid frame at iteration=10000
       const f1: number[] = [0x49];
-      pushUVB(f1, 0); pushUVB(f1, 0);
+      pushUVB(f1, 10000); pushUVB(f1, 10000 * 312);
       pushSVB(f1, 100); pushSVB(f1, -50); pushSVB(f1, 30);
       parts.push(Buffer.from(f1));
 
-      // 200 "I-frames" with extreme values (all corrupt)
+      // 200 "I-frames" with backward iteration (all corrupt — iteration goes backward)
       for (let i = 0; i < 200; i++) {
         const f: number[] = [0x49];
-        pushUVB(f, (i + 1) * 32);
-        pushUVB(f, (i + 1) * 32 * 312);
-        pushSVB(f, 50000); // exceeds MAX_VALID_FIELD_VALUE
-        pushSVB(f, -50000);
-        pushSVB(f, 50000);
+        pushUVB(f, 100 + i); // iteration < 10000 → backward jump → rejected
+        pushUVB(f, (100 + i) * 312);
+        pushSVB(f, 50); pushSVB(f, -50); pushSVB(f, 30);
         parts.push(Buffer.from(f));
       }
 

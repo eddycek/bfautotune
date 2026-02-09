@@ -86,8 +86,8 @@ function buildSession(
     parts.push(Buffer.from(frame));
   }
 
-  // LOG_END event
-  parts.push(Buffer.from([0x45, 0xFF]));
+  // LOG_END event: marker(E) + type(0xFF) + "End of log\0"
+  parts.push(Buffer.from([0x45, 0xFF, ...Buffer.from('End of log\0', 'ascii')]));
 
   return Buffer.concat(parts);
 }
