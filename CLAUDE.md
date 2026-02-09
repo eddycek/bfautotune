@@ -188,6 +188,17 @@ Guided multi-step wizard for automated tuning workflow.
 - Flight guide data in `src/shared/constants/flightGuide.ts`
 - Triggered from BlackboxStatus component when log is available
 
+### Analysis Charts (`src/renderer/components/TuningWizard/charts/`)
+
+Interactive visualization of analysis results using Recharts (SVG).
+
+- **SpectrumChart**: FFT noise spectrum with per-axis color coding, noise floor reference lines, peak frequency markers. Integrated in FilterAnalysisStep noise details (collapsible).
+- **StepResponseChart**: Setpoint vs gyro trace for individual steps, Prev/Next step navigation, metrics overlay (overshoot, rise time, settling, latency). Integrated in PIDAnalysisStep (collapsible).
+- **AxisTabs**: Shared tab selector (Roll/Pitch/Yaw/All) for both charts
+- **chartUtils**: Data conversion utilities (Float64Array → Recharts format), downsampling, findBestStep scoring
+- **StepResponseTrace**: Raw trace data (timeMs, setpoint, gyro arrays) extracted in `StepMetrics.computeStepResponse()` and attached to each `StepResponse`
+- Dependency: `recharts`
+
 ### Auto-Apply Recommendations
 
 **Apply Flow** (orchestrated in `TUNING_APPLY_RECOMMENDATIONS` IPC handler):
@@ -220,13 +231,14 @@ Guided multi-step wizard for automated tuning workflow.
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 569 tests total across 32 test files
+- 604 tests total across 35 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
+- Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
 - MSP Client: MSPClient (3 tests - filter config parsing)
 - Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (171 tests)
 - FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (98 tests)
-- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (65 tests)
+- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (67 tests)
 - See `TESTING.md` for detailed guidelines
 
 ### Mock Setup

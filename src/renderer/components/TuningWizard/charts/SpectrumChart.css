@@ -1,0 +1,27 @@
+.spectrum-chart {
+  margin: 12px 0;
+}
+
+.spectrum-chart-container {
+  background: var(--bg-tertiary, #1e1e1e);
+  border-radius: 6px;
+  padding: 12px 8px 4px 0;
+  overflow-x: auto;
+}
+
+.spectrum-chart-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #aaa);
+  font-size: 13px;
+}
+
+/* Override Recharts default white backgrounds in dark theme */
+.spectrum-chart .recharts-tooltip-cursor {
+  stroke: #555;
+}
+
+.spectrum-chart .recharts-cartesian-grid-horizontal line,
+.spectrum-chart .recharts-cartesian-grid-vertical line {
+  stroke: #2a2a2a;
+}

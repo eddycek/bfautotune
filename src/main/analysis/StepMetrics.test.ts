@@ -239,6 +239,57 @@ describe('StepMetrics', () => {
       expect(result.riseTimeMs).toBeLessThan(1000);
     });
 
+    it('should populate trace data with correct time, setpoint, and gyro arrays', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepEnd = stepAt + 400;
+      const stepMag = 300;
+
+      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepEnd, stepMag);
+
+      const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      expect(result.trace).toBeDefined();
+      expect(result.trace!.timeMs.length).toBe(stepEnd - stepAt);
+      expect(result.trace!.setpoint.length).toBe(stepEnd - stepAt);
+      expect(result.trace!.gyro.length).toBe(stepEnd - stepAt);
+
+      // First sample time should be 0
+      expect(result.trace!.timeMs[0]).toBe(0);
+      // Last sample time should be (windowLen - 1) * msPerSample
+      expect(result.trace!.timeMs[result.trace!.timeMs.length - 1]).toBeCloseTo(
+        (stepEnd - stepAt - 1) * MS_PER_SAMPLE, 2
+      );
+
+      // Setpoint should be stepMag for all samples (step started at stepAt)
+      expect(result.trace!.setpoint[0]).toBe(stepMag);
+      // Gyro should match
+      expect(result.trace!.gyro[0]).toBe(stepMag);
+    });
+
+    it('should populate trace with pre-step baseline values at start', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepEnd = stepAt + 400;
+      const stepMag = 300;
+      const delaySamples = 20;
+
+      // Gyro responds after a delay
+      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries(i => (i >= stepAt + delaySamples ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepEnd, stepMag);
+
+      const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      // First few gyro trace samples should be 0 (before response)
+      expect(result.trace!.gyro[0]).toBe(0);
+      expect(result.trace!.gyro[delaySamples - 1]).toBe(0);
+      // After delay, gyro should be at target
+      expect(result.trace!.gyro[delaySamples]).toBe(stepMag);
+    });
+
     it('should measure fast rise time for instant response', () => {
       const numSamples = 2000;
       const stepAt = 200;

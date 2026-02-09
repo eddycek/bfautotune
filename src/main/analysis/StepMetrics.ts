@@ -9,7 +9,7 @@
  * - Ringing count (oscillations before settling)
  */
 import type { TimeSeries } from '@shared/types/blackbox.types';
-import type { StepEvent, StepResponse, AxisStepProfile } from '@shared/types/analysis.types';
+import type { StepEvent, StepResponse, StepResponseTrace, AxisStepProfile } from '@shared/types/analysis.types';
 import {
   SETTLING_TOLERANCE,
   RISE_TIME_LOW,
@@ -136,6 +136,18 @@ export function computeStepResponse(
   // Each full oscillation is 2 zero crossings, report oscillation count
   ringingCount = Math.floor(ringingCount / 2);
 
+  // Extract trace data for chart visualization
+  const trace: StepResponseTrace = {
+    timeMs: [],
+    setpoint: [],
+    gyro: [],
+  };
+  for (let i = startIndex; i < endIndex; i++) {
+    trace.timeMs.push((i - startIndex) * msPerSample);
+    trace.setpoint.push(setpoint.values[i]);
+    trace.gyro.push(gyro.values[i]);
+  }
+
   return {
     step,
     riseTimeMs,
@@ -145,6 +157,7 @@ export function computeStepResponse(
     ringingCount,
     peakValue,
     steadyStateValue,
+    trace,
   };
 }
 

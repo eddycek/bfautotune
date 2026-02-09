@@ -1,0 +1,81 @@
+.step-response-chart {
+  margin: 12px 0;
+}
+
+.step-chart-container {
+  background: var(--bg-tertiary, #1e1e1e);
+  border-radius: 6px;
+  padding: 12px 8px 4px 0;
+  overflow-x: auto;
+}
+
+.step-chart-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #aaa);
+  font-size: 13px;
+}
+
+/* Step navigator */
+.step-navigator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.step-nav-btn {
+  background: var(--bg-tertiary, #333);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  color: var(--text-primary, #fff);
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.step-nav-btn:hover:not(:disabled) {
+  background: #444;
+  border-color: #555;
+}
+
+.step-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.step-nav-label {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+}
+
+/* Metrics overlay */
+.step-metrics-overlay {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.step-metric {
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+  background: var(--bg-tertiary, #333);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.step-metric strong {
+  color: var(--text-primary, #fff);
+}
+
+/* Override Recharts defaults for dark theme */
+.step-response-chart .recharts-tooltip-cursor {
+  stroke: #555;
+}
+
+.step-response-chart .recharts-cartesian-grid-horizontal line,
+.step-response-chart .recharts-cartesian-grid-vertical line {
+  stroke: #2a2a2a;
+}

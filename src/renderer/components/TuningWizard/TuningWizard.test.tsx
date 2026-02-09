@@ -130,10 +130,32 @@ const mockFilterResult: FilterAnalysisResult = {
   segmentsUsed: 3,
 };
 
+function makeMockTrace(len: number = 20) {
+  return {
+    timeMs: Array.from({ length: len }, (_, i) => i * 0.25),
+    setpoint: Array.from({ length: len }, (_, i) => (i >= 3 ? 300 : 0)),
+    gyro: Array.from({ length: len }, (_, i) => (i >= 5 ? 300 : 0)),
+  };
+}
+
+function makeMockStepResponse(overshoot: number) {
+  return {
+    step: { axis: 0 as const, startIndex: 100, endIndex: 200, magnitude: 300, direction: 'positive' as const },
+    riseTimeMs: 20,
+    overshootPercent: overshoot,
+    settlingTimeMs: 50,
+    latencyMs: 5,
+    ringingCount: 1,
+    peakValue: 300 + overshoot * 3,
+    steadyStateValue: 300,
+    trace: makeMockTrace(),
+  };
+}
+
 const mockPIDResult: PIDAnalysisResult = {
-  roll: { responses: [], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
-  pitch: { responses: [], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
-  yaw: { responses: [], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
+  roll: { responses: [makeMockStepResponse(5), makeMockStepResponse(8)], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
+  pitch: { responses: [makeMockStepResponse(8)], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
+  yaw: { responses: [makeMockStepResponse(3)], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
   recommendations: [
     {
       setting: 'pid_roll_p',
@@ -451,17 +473,17 @@ describe('TuningWizard', () => {
 
     await navigateToFilterResults(user);
 
-    // Initially collapsed
-    expect(screen.getByText('Show noise details')).toBeInTheDocument();
-    expect(screen.queryByText('-40 dB', { exact: false })).not.toBeInTheDocument();
+    // Initially expanded (default open)
+    expect(screen.getByText('Hide noise details')).toBeInTheDocument();
+    expect(screen.getByText('-40 dB', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Frame')).toBeInTheDocument();
 
-    // Click to expand
-    await user.click(screen.getByText('Show noise details'));
+    // Click to collapse
+    await user.click(screen.getByText('Hide noise details'));
 
     await waitFor(() => {
-      expect(screen.getByText('Hide noise details')).toBeInTheDocument();
-      expect(screen.getByText('-40 dB', { exact: false })).toBeInTheDocument();
-      expect(screen.getByText('Frame')).toBeInTheDocument();
+      expect(screen.getByText('Show noise details')).toBeInTheDocument();
+      expect(screen.queryByText('-40 dB', { exact: false })).not.toBeInTheDocument();
     });
   });
 
@@ -701,6 +723,60 @@ describe('TuningWizard', () => {
     await waitFor(() => {
       expect(screen.getByText('FC disconnected during apply')).toBeInTheDocument();
       expect(screen.getByText('Retry Apply')).toBeInTheDocument();
+    });
+  });
+
+  // ---- Chart integration tests ----
+
+  it('FilterAnalysisStep shows spectrum chart in default-open noise details', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    const { container } = render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    await waitFor(() => {
+      // Noise details default open — spectrum chart should render SVG
+      const svg = container.querySelector('.spectrum-chart svg');
+      expect(svg).toBeTruthy();
+    });
+  });
+
+  it('PIDAnalysisStep shows step response chart default-open when traces available', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    const { container } = render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToPIDResults(user);
+
+    await waitFor(() => {
+      // Chart default open
+      expect(screen.getByText('Hide step response charts')).toBeInTheDocument();
+      const svg = container.querySelector('.step-response-chart svg');
+      expect(svg).toBeTruthy();
+    });
+  });
+
+  it('PIDAnalysisStep collapses step response chart on toggle', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    const { container } = render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToPIDResults(user);
+    await user.click(screen.getByText('Hide step response charts'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Show step response charts')).toBeInTheDocument();
+      const svg = container.querySelector('.step-response-chart svg');
+      expect(svg).toBeNull();
     });
   });
 });

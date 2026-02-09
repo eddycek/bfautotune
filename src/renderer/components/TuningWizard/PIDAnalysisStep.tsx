@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RecommendationCard } from './RecommendationCard';
+import { StepResponseChart } from './charts/StepResponseChart';
 import type { PIDAnalysisResult, AnalysisProgress } from '@shared/types/analysis.types';
 
 interface PIDAnalysisStepProps {
@@ -26,6 +27,15 @@ export function PIDAnalysisStep({
   runPIDAnalysis,
   onContinue,
 }: PIDAnalysisStepProps) {
+  const [chartOpen, setChartOpen] = useState(true);
+
+  // Check if any trace data exists
+  const hasTraces = pidResult
+    ? ['roll', 'pitch', 'yaw'].some((axis) =>
+        pidResult[axis as 'roll' | 'pitch' | 'yaw'].responses.some(r => r.trace)
+      )
+    : false;
+
   if (pidAnalyzing) {
     return (
       <div className="analysis-section">
@@ -129,6 +139,25 @@ export function PIDAnalysisStep({
             );
           })}
         </div>
+
+        {hasTraces && (
+          <>
+            <button
+              className="noise-details-toggle"
+              onClick={() => setChartOpen(!chartOpen)}
+            >
+              {chartOpen ? 'Hide step response charts' : 'Show step response charts'}
+            </button>
+
+            {chartOpen && (
+              <StepResponseChart
+                roll={pidResult.roll}
+                pitch={pidResult.pitch}
+                yaw={pidResult.yaw}
+              />
+            )}
+          </>
+        )}
 
         {pidResult.recommendations.length > 0 ? (
           <div className="recommendation-list">
