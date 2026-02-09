@@ -74,7 +74,8 @@ export function traceToRechartsData(response: StepResponse): TraceDataPoint[] {
 }
 
 /**
- * Find the step with the highest overshoot (most interesting for visualization).
+ * Find the most representative step for default visualization.
+ * Prefers valid steps over degenerate ones (0ms rise or 500%+ overshoot).
  */
 export function findBestStep(responses: StepResponse[]): number {
   if (responses.length === 0) return -1;
@@ -85,8 +86,12 @@ export function findBestStep(responses: StepResponse[]): number {
   for (let i = 0; i < responses.length; i++) {
     const r = responses[i];
     if (!r.trace) continue;
-    // Score: higher overshoot = more interesting
-    const score = r.overshootPercent + r.ringingCount * 5;
+
+    const isDegenerate = r.riseTimeMs === 0 || r.overshootPercent >= 500;
+    const score = isDegenerate
+      ? -1000
+      : r.overshootPercent + r.ringingCount * 5;
+
     if (score > bestScore) {
       bestScore = score;
       bestIdx = i;
