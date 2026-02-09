@@ -705,10 +705,16 @@ export class MSPClient extends EventEmitter {
   }
 
   /**
-   * Read a chunk of Blackbox data from flash storage
+   * Read a chunk of Blackbox data from flash storage.
+   *
+   * MSP_DATAFLASH_READ response format:
+   *   [4B readAddress LE] [2B dataSize LE] [1B isCompressed (BF 4.1+)] [dataSize bytes]
+   *
+   * We strip the response header and return only the raw flash data.
+   *
    * @param address - Start address to read from
    * @param size - Number of bytes to read (max 4096)
-   * @returns Buffer containing the requested data
+   * @returns Buffer containing only the flash data (header stripped)
    */
   async readBlackboxChunk(address: number, size: number): Promise<Buffer> {
     if (!this.isConnected()) {
@@ -729,11 +735,50 @@ export class MSPClient extends EventEmitter {
       // Use 5 second timeout - fail fast so adaptive chunking can adjust quickly
       const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 5000);
 
-      return response.data;
+      // Strip MSP_DATAFLASH_READ response header to return only flash data.
+      // Without this, downloadBlackboxLog would use chunk.length (which includes
+      // the header) as the flash address offset, skipping bytes on every read.
+      return MSPClient.extractFlashPayload(response.data);
     } catch (error) {
       logger.error(`Failed to read Blackbox chunk at ${address}: ${error instanceof Error ? error.message : error}`);
       throw error;
     }
+  }
+
+  /**
+   * Extract raw flash data from an MSP_DATAFLASH_READ response payload.
+   *
+   * Response format (BF 4.1+ with USE_HUFFMAN):
+   *   [4B readAddress] [2B dataSize] [1B isCompressed] [data...]
+   *
+   * Older format (no compression support):
+   *   [4B readAddress] [2B dataSize] [data...]
+   *
+   * Detects header size by comparing response length with dataSize field.
+   */
+  static extractFlashPayload(responseData: Buffer): Buffer {
+    if (responseData.length < 6) {
+      return responseData;
+    }
+
+    const dataSize = responseData.readUInt16LE(4);
+
+    // Detect 7-byte header (with compression flag) vs 6-byte header
+    if (responseData.length === 7 + dataSize && responseData.length >= 7) {
+      const isCompressed = responseData[6];
+      if (isCompressed) {
+        logger.warn('Compressed dataflash response detected — compression not yet supported, data may be corrupted');
+      }
+      return responseData.subarray(7, 7 + dataSize);
+    }
+
+    if (responseData.length === 6 + dataSize) {
+      return responseData.subarray(6, 6 + dataSize);
+    }
+
+    // Unknown format — return everything after minimum 6-byte header
+    logger.warn(`Unexpected dataflash response size: ${responseData.length} bytes, expected ${6 + dataSize} or ${7 + dataSize}`);
+    return responseData.subarray(6);
   }
 
   /**

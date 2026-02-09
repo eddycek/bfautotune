@@ -498,6 +498,32 @@ export class BlackboxParser {
       warnings.push('Missing gyroADC fields - gyro data will be empty');
     }
 
+    // Gyro data quality diagnostics
+    const axisNames = ['roll', 'pitch', 'yaw'];
+    for (let axis = 0; axis < 3; axis++) {
+      const vals = gyro[axis].values;
+      if (vals.length === 0) continue;
+
+      let min = Infinity, max = -Infinity, sum = 0, zeroCount = 0;
+      for (let i = 0; i < vals.length; i++) {
+        const v = vals[i];
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+        if (v === 0) zeroCount++;
+      }
+      const mean = sum / vals.length;
+      const range = max - min;
+
+      if (range < 1) {
+        warnings.push(`gyro ${axisNames[axis]}: constant value ${min} — likely parsing error`);
+      } else if (zeroCount > vals.length * 0.9) {
+        warnings.push(`gyro ${axisNames[axis]}: ${((zeroCount / vals.length) * 100).toFixed(0)}% zeros — likely parsing error`);
+      } else if (max > 32000 || min < -32000) {
+        warnings.push(`gyro ${axisNames[axis]}: extreme range [${min.toFixed(0)}, ${max.toFixed(0)}] — possible corruption`);
+      }
+    }
+
     return {
       gyro,
       setpoint,
@@ -625,50 +651,71 @@ export class BlackboxParser {
   }
 
   /**
-   * Strip Betaflight dataflash page headers from raw flash dump.
+   * Strip MSP_DATAFLASH_READ response headers from raw flash dump.
    *
-   * When downloading via MSP DATAFLASH_READ, the raw flash data includes
-   * per-page headers: [address_LE_4bytes, data_size, 0x00, 0x00].
-   * The data_size byte (offset 4) tells how many payload bytes follow
-   * the 7-byte header. We detect this structure and strip the headers,
-   * returning only the concatenated payload data.
+   * Files saved before the readBlackboxChunk fix contain interleaved
+   * response headers and flash data. This strips them for backward compat.
+   *
+   * Response header formats:
+   *   7-byte (BF 4.1+ with USE_HUFFMAN): [4B addr LE] [2B dataSize LE] [1B isCompressed] [data...]
+   *   6-byte (older / no compression):    [4B addr LE] [2B dataSize LE] [data...]
+   *
+   * Detection: if the file starts with 'H' (0x48), it's already clean BBL data.
+   * Otherwise, try to detect the response header format and strip it.
    */
   static stripFlashHeaders(data: Buffer): Buffer {
     if (data.length < 7) return data;
 
-    // Check if the file starts with a valid flash page header
-    // Signature: bytes[5] == 0x00 && bytes[6] == 0x00 && bytes[4] > 0
-    // and the data after the header starts with 'H' (0x48) for BBL header
-    const firstDataSize = data[4];
-    if (data[5] !== 0x00 || data[6] !== 0x00 || firstDataSize === 0) {
-      return data; // Not a flash dump with page headers
+    // If file starts directly with BBL header marker, it's already clean
+    if (data[0] === 0x48) {
+      return data;
     }
 
-    // Verify: data after first header should start with 'H' (BBL header)
-    if (data.length > 7 && data[7] !== 0x48) {
-      return data; // First payload byte isn't 'H', probably not paged
+    // Try 7-byte header format: [4B addr][2B dataSize][1B comp][data]
+    // First chunk's data should start with 'H' (0x48)
+    const dataSize7 = data.readUInt16LE(4);
+    if (data.length > 7 && data[7] === 0x48 && dataSize7 > 0 && dataSize7 < 4096) {
+      return BlackboxParser.stripHeadersWithSize(data, 7);
     }
 
-    // Strip page headers by extracting only payload data
+    // Try 6-byte header format: [4B addr][2B dataSize][data]
+    const dataSize6 = data.readUInt16LE(4);
+    if (data.length > 6 && data[6] === 0x48 && dataSize6 > 0 && dataSize6 < 4096) {
+      return BlackboxParser.stripHeadersWithSize(data, 6);
+    }
+
+    // No recognized header format — return as-is
+    return data;
+  }
+
+  /**
+   * Strip fixed-size response headers from concatenated MSP responses.
+   */
+  private static stripHeadersWithSize(data: Buffer, headerSize: number): Buffer {
     const chunks: Buffer[] = [];
     let offset = 0;
 
-    while (offset + 7 <= data.length) {
-      const dataSize = data[offset + 4];
+    while (offset + headerSize <= data.length) {
+      // Read dataSize from bytes 4-5 (uint16 LE) relative to current offset
+      if (offset + 6 > data.length) break;
+      const dataSize = data.readUInt16LE(offset + 4);
 
-      // Validate page header: bytes[5:7] must be 0x00 0x00, dataSize > 0
-      if (data[offset + 5] !== 0x00 || data[offset + 6] !== 0x00 || dataSize === 0) {
-        // Invalid header - append remaining data as-is
+      if (dataSize === 0 || dataSize > 4096) {
+        // Invalid — append remaining data as-is
         chunks.push(data.subarray(offset));
         break;
       }
 
-      // Extract payload (skip 7-byte header)
-      const payloadStart = offset + 7;
+      const payloadStart = offset + headerSize;
       const payloadEnd = Math.min(payloadStart + dataSize, data.length);
       chunks.push(data.subarray(payloadStart, payloadEnd));
 
       offset = payloadEnd;
+    }
+
+    // Append any trailing bytes
+    if (offset < data.length && (chunks.length === 0 || offset + 6 > data.length)) {
+      chunks.push(data.subarray(offset));
     }
 
     return Buffer.concat(chunks);

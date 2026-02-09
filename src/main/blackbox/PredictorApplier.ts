@@ -52,9 +52,13 @@ export class PredictorApplier {
 
       case BBLPredictor.AVERAGE_2:
         if (isIFrame) return decoded;
+        // When previous2 is unavailable, BF uses just previous (not average with 0)
+        if (!previous2) {
+          return decoded + (previous?.[fieldIdx] ?? 0);
+        }
         return decoded + PredictorApplier.average2(
           previous?.[fieldIdx] ?? 0,
-          previous2?.[fieldIdx] ?? 0
+          previous2[fieldIdx] ?? 0
         );
 
       case BBLPredictor.MINTHROTTLE:
