@@ -69,9 +69,9 @@ describe('PredictorApplier', () => {
       expect(PredictorApplier.apply(BBLPredictor.STRAIGHT_LINE, 0, 0, false, previous, previous2, [], header, motor0Idx)).toBe(300);
     });
 
-    it('handles null previous2', () => {
-      // prev2 = 0, predicted = 2*100 - 0 = 200
-      expect(PredictorApplier.apply(BBLPredictor.STRAIGHT_LINE, 0, 0, false, [100], null, [], header, motor0Idx)).toBe(200);
+    it('handles null previous2 by falling back to PREVIOUS', () => {
+      // When previous2 is null, falls back to PREVIOUS predictor (not straightLine with 0)
+      expect(PredictorApplier.apply(BBLPredictor.STRAIGHT_LINE, 0, 0, false, [100], null, [], header, motor0Idx)).toBe(100);
     });
   });
 

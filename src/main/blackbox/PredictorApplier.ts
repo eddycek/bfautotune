@@ -45,9 +45,14 @@ export class PredictorApplier {
 
       case BBLPredictor.STRAIGHT_LINE:
         if (isIFrame) return decoded;
+        // When previous2 is unavailable, fall back to PREVIOUS (not straightLine with 0)
+        // Matches BF viewer behavior — straightLine(prev, 0) = 2*prev which corrupts values
+        if (!previous2) {
+          return decoded + (previous?.[fieldIdx] ?? 0);
+        }
         return decoded + PredictorApplier.straightLine(
           previous?.[fieldIdx] ?? 0,
-          previous2?.[fieldIdx] ?? 0
+          previous2[fieldIdx] ?? 0
         );
 
       case BBLPredictor.AVERAGE_2:

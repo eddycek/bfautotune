@@ -68,6 +68,42 @@ export class ValueDecoder {
   }
 
   /**
+   * Decode a group of values with a known count.
+   *
+   * Unlike decode(), this method respects the actual number of consecutive
+   * fields sharing the same encoding. This is critical for TAG8_8SVB where
+   * fewer than 8 consecutive fields may share the encoding — reading all 8
+   * bits of the tag byte would consume bytes belonging to subsequent fields.
+   *
+   * @param count - Actual number of values to decode (may be less than the
+   *                encoding's natural group size)
+   */
+  static decodeGroup(
+    reader: StreamReader,
+    encoding: BBLEncoding,
+    values: number[],
+    count: number,
+    version: number = 2
+  ): number {
+    switch (encoding) {
+      case BBLEncoding.TAG8_8SVB:
+        return ValueDecoder.readTag8_8SVB(reader, values, 0, count);
+
+      case BBLEncoding.TAG2_3S32:
+        return ValueDecoder.readTag2_3S32(reader, values, 0);
+
+      case BBLEncoding.TAG8_4S16:
+        return ValueDecoder.readTag8_4S16(reader, values, 0, version >= 2 ? 2 : 1);
+
+      case BBLEncoding.TAG2_3SVARIABLE:
+        return ValueDecoder.readTag2_3SVariable(reader, values, 0);
+
+      default:
+        return count;
+    }
+  }
+
+  /**
    * Encoding 3: NEG_14BIT
    * Read an unsigned VB and negate + subtract 1.
    * Used for fields that are typically negative (like D-term).
@@ -81,27 +117,31 @@ export class ValueDecoder {
    * Encoding 6: TAG8_8SVB
    * Read a tag byte where each bit indicates whether the corresponding
    * field has a non-zero value. For each set bit, read a signed VB.
-   * Produces up to 8 values (one per bit in the tag byte).
+   *
+   * @param count - Number of values to read (default 8). When fewer than 8
+   *   consecutive fields share this encoding, only the first `count` bits
+   *   of the tag byte are used. This matches BF viewer behavior.
    */
   private static readTag8_8SVB(
     reader: StreamReader,
     values: number[],
-    fieldIdx: number
+    fieldIdx: number,
+    count: number = 8
   ): number {
     const tag = reader.readByte();
     if (tag === -1) {
-      for (let i = 0; i < 8; i++) values[fieldIdx + i] = 0;
-      return 8;
+      for (let i = 0; i < count; i++) values[fieldIdx + i] = 0;
+      return count;
     }
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < count; i++) {
       if (tag & (1 << i)) {
         values[fieldIdx + i] = reader.readSignedVB();
       } else {
         values[fieldIdx + i] = 0;
       }
     }
-    return 8;
+    return count;
   }
 
   /**
