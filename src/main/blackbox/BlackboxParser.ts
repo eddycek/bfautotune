@@ -16,7 +16,8 @@ import {
   FIELD_NAMES,
   EVENT_TYPE,
   MAX_RESYNC_BYTES,
-  MAX_VALID_FIELD_VALUE,
+  MAX_FRAME_LENGTH,
+  END_OF_LOG_MESSAGE,
   MAX_ITERATION_JUMP,
   MAX_TIME_JUMP_US,
   MAX_CONSECUTIVE_CORRUPT_FRAMES,
@@ -203,11 +204,14 @@ export class BlackboxParser {
         switch (markerByte) {
           case FRAME_MARKER.INTRA: {
             const values = frameParser.parseIFrame(reader);
+            const frameSize = reader.offset - frameStartOffset;
 
-            if (!BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+            if (frameSize > MAX_FRAME_LENGTH ||
+                !BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
               corruptedFrameCount++;
               consecutiveCorrupt++;
               // Don't update previous - wait for a clean I-frame
+              reader.setOffset(frameStartOffset + 1);
               BlackboxParser.resync(reader);
               break;
             }
@@ -231,12 +235,15 @@ export class BlackboxParser {
               break;
             }
             const values = frameParser.parsePFrame(reader, previousFrame, previousFrame2);
+            const frameSize = reader.offset - frameStartOffset;
 
-            if (!BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+            if (frameSize > MAX_FRAME_LENGTH ||
+                !BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
               corruptedFrameCount++;
               consecutiveCorrupt++;
               previousFrame = null; // Force wait for next I-frame
               previousFrame2 = null;
+              reader.setOffset(frameStartOffset + 1);
               BlackboxParser.resync(reader);
               break;
             }
@@ -330,9 +337,17 @@ export class BlackboxParser {
         // 4-byte timestamp
         reader.skip(4);
         break;
-      case EVENT_TYPE.LOG_END:
-        // No payload, but marks the end of this log
+      case EVENT_TYPE.LOG_END: {
+        // Betaflight writes "End of log\0" after the event type byte.
+        // Validate this string to avoid false positives from random 0xFF bytes.
+        const endMsg = reader.readBytes(END_OF_LOG_MESSAGE.length);
+        const endStr = endMsg.toString('ascii');
+        if (endStr !== END_OF_LOG_MESSAGE) {
+          // False positive — not a real LOG_END, just a random 0xFF byte
+          return -1;
+        }
         break;
+      }
       case EVENT_TYPE.DISARM:
         // 4-byte reason
         reader.skip(4);
@@ -663,19 +678,15 @@ export class BlackboxParser {
   }
 
   /**
-   * Check if a decoded frame has reasonable values.
+   * Check if a decoded frame has reasonable temporal values.
    *
-   * Validates:
-   * 1. Sensor fields (gyro, PID, etc.) within ±32768 (16-bit sensor range)
-   * 2. Loop iteration doesn't jump by more than MAX_ITERATION_JUMP
-   * 3. Time doesn't go backward or jump forward by more than 10s
+   * Matches the validation strategy of betaflight/blackbox-log-viewer:
+   * - Only checks iteration and time continuity (no sensor value thresholds)
+   * - Frame size is checked separately by the caller (MAX_FRAME_LENGTH)
    *
-   * @param values - Decoded frame values
-   * @param loopIterIdx - Index of loopIteration field (-1 if not present)
-   * @param timeIdx - Index of time field (-1 if not present)
-   * @param lastIteration - Previous frame's loop iteration (-1 if no previous)
-   * @param lastTime - Previous frame's time in µs (-1 if no previous)
-   * @returns true if frame looks valid
+   * The official viewer does NOT validate individual field values because
+   * fields like debug[], motor[] (ERPM), and others can legitimately
+   * exceed any fixed threshold.
    */
   private static isFrameValid(
     values: number[],
@@ -684,26 +695,18 @@ export class BlackboxParser {
     lastIteration: number,
     lastTime: number
   ): boolean {
-    // Check sensor fields (skip loopIteration and time which are legitimately large)
-    for (let i = 2; i < values.length; i++) {
-      const v = values[i];
-      if (v > MAX_VALID_FIELD_VALUE || v < -MAX_VALID_FIELD_VALUE) {
-        return false;
-      }
-    }
-
-    // Check loop iteration jump
+    // Check loop iteration: must not go backward or jump too far forward
     if (loopIterIdx >= 0 && lastIteration >= 0) {
-      const iterDelta = values[loopIterIdx] - lastIteration;
-      if (iterDelta < 0 || iterDelta > MAX_ITERATION_JUMP) {
+      const iteration = values[loopIterIdx];
+      if (iteration < lastIteration || iteration >= lastIteration + MAX_ITERATION_JUMP) {
         return false;
       }
     }
 
-    // Check time jump
+    // Check time: must not go backward or jump too far forward
     if (timeIdx >= 0 && lastTime >= 0) {
-      const timeDelta = values[timeIdx] - lastTime;
-      if (timeDelta < -1_000_000 || timeDelta > MAX_TIME_JUMP_US) {
+      const time = values[timeIdx];
+      if (time < lastTime || time >= lastTime + MAX_TIME_JUMP_US) {
         return false;
       }
     }

@@ -55,11 +55,18 @@ export const YIELD_INTERVAL = 5000;
 export const MAX_RESYNC_BYTES = 65536;
 
 /**
- * Maximum valid absolute value for sensor fields (gyro, PID, setpoint).
- * 16-bit signed sensor range: ±32768. With gyro_scale=1.0 (BF 4.5+),
- * values are in deg/s — 32768 deg/s is already far beyond physical limits.
+ * Maximum encoded frame size in bytes (excluding marker byte).
+ * Matches FLIGHT_LOG_MAX_FRAME_LENGTH from betaflight blackbox-log-viewer.
+ * Frames exceeding this are structurally corrupt.
  */
-export const MAX_VALID_FIELD_VALUE = 32768;
+export const MAX_FRAME_LENGTH = 256;
+
+/**
+ * String payload after LOG_END event type byte (0xFF).
+ * Betaflight writes "End of log\0" — the viewer validates this to avoid
+ * false positives from random 0xFF bytes in corrupted data.
+ */
+export const END_OF_LOG_MESSAGE = 'End of log\0';
 
 /**
  * Maximum allowed jump in loop iteration between consecutive frames.
