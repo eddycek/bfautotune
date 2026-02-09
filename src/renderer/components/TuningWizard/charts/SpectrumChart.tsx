@@ -94,7 +94,7 @@ export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChar
           <XAxis
             dataKey="frequency"
             type="number"
-            domain={[20, 1000]}
+            domain={[20, 'dataMax']}
             tick={{ fontSize: 11, fill: '#aaa' }}
             label={{ value: 'Frequency (Hz)', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: '#888' } }}
           />

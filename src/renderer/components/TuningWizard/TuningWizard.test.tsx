@@ -461,7 +461,6 @@ describe('TuningWizard', () => {
     await navigateToFilterResults(user);
 
     expect(screen.getByText('3 segments analyzed')).toBeInTheDocument();
-    expect(screen.getByText('0.15s')).toBeInTheDocument();
   });
 
   it('FilterAnalysisStep noise details toggle works', async () => {

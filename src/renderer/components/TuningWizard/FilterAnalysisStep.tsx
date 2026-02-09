@@ -92,9 +92,6 @@ export function FilterAnalysisStep({
           <span className="analysis-meta-pill">
             {filterResult.segmentsUsed} segment{filterResult.segmentsUsed !== 1 ? 's' : ''} analyzed
           </span>
-          <span className="analysis-meta-pill">
-            {(filterResult.analysisTimeMs / 1000).toFixed(2)}s
-          </span>
         </div>
 
         <button
