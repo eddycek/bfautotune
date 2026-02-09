@@ -16,6 +16,10 @@ import {
   FIELD_NAMES,
   EVENT_TYPE,
   MAX_RESYNC_BYTES,
+  MAX_VALID_FIELD_VALUE,
+  MAX_ITERATION_JUMP,
+  MAX_TIME_JUMP_US,
+  MAX_CONSECUTIVE_CORRUPT_FRAMES,
   PROGRESS_INTERVAL,
   YIELD_INTERVAL,
 } from './constants';
@@ -159,6 +163,7 @@ export class BlackboxParser {
     const iFrames: number[][] = [];
     const pFrames: number[][] = [];
     let corruptedFrameCount = 0;
+    let consecutiveCorrupt = 0;
     let frameCount = 0;
 
     // Track previous frames for P-frame prediction
@@ -166,8 +171,20 @@ export class BlackboxParser {
     let previousFrame: number[] | null = null;
     let previousFrame2: number[] | null = null;
 
+    // Field indices for iteration/time validation
+    const loopIterIdx = header.iFieldDefs.findIndex(d => d.name === FIELD_NAMES.LOOP_ITERATION);
+    const timeIdx = header.iFieldDefs.findIndex(d => d.name === FIELD_NAMES.TIME);
+    let lastIteration = -1;
+    let lastTime = -1;
+
     while (!reader.eof) {
       const frameStartOffset = reader.offset;
+
+      // Bail out if too many consecutive corrupt frames
+      if (consecutiveCorrupt >= MAX_CONSECUTIVE_CORRUPT_FRAMES) {
+        warnings.push(`Stopped parsing after ${MAX_CONSECUTIVE_CORRUPT_FRAMES} consecutive corrupt frames`);
+        break;
+      }
 
       // Report progress
       if (frameCount % PROGRESS_INTERVAL === 0) {
@@ -187,10 +204,9 @@ export class BlackboxParser {
           case FRAME_MARKER.INTRA: {
             const values = frameParser.parseIFrame(reader);
 
-            // Sanity check I-frames too - flash corruption can produce
-            // wild absolute values
-            if (BlackboxParser.isFrameCorrupted(values)) {
+            if (!BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
               corruptedFrameCount++;
+              consecutiveCorrupt++;
               // Don't update previous - wait for a clean I-frame
               BlackboxParser.resync(reader);
               break;
@@ -201,6 +217,9 @@ export class BlackboxParser {
             previousFrame = values;
             previousIFrame = values;
             frameCount++;
+            consecutiveCorrupt = 0;
+            if (loopIterIdx >= 0) lastIteration = values[loopIterIdx];
+            if (timeIdx >= 0) lastTime = values[timeIdx];
             break;
           }
 
@@ -208,15 +227,14 @@ export class BlackboxParser {
             if (!previousFrame) {
               BlackboxParser.resync(reader);
               corruptedFrameCount++;
+              consecutiveCorrupt++;
               break;
             }
             const values = frameParser.parsePFrame(reader, previousFrame, previousFrame2);
 
-            // Sanity check: detect corrupted P-frames via unreasonable values.
-            // A bad byte in delta decoding cascades into wild values.
-            // Reset to next I-frame when detected.
-            if (BlackboxParser.isFrameCorrupted(values)) {
+            if (!BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
               corruptedFrameCount++;
+              consecutiveCorrupt++;
               previousFrame = null; // Force wait for next I-frame
               previousFrame2 = null;
               BlackboxParser.resync(reader);
@@ -227,6 +245,9 @@ export class BlackboxParser {
             previousFrame2 = previousFrame;
             previousFrame = values;
             frameCount++;
+            consecutiveCorrupt = 0;
+            if (loopIterIdx >= 0) lastIteration = values[loopIterIdx];
+            if (timeIdx >= 0) lastTime = values[timeIdx];
             break;
           }
 
@@ -237,7 +258,11 @@ export class BlackboxParser {
           }
 
           case FRAME_MARKER.EVENT: {
-            BlackboxParser.skipEventFrame(reader);
+            const eventType = BlackboxParser.parseEventFrame(reader);
+            if (eventType === EVENT_TYPE.LOG_END) {
+              // Session ended — stop reading to avoid garbage flash data
+              reader.setOffset(reader.end);
+            }
             break;
           }
 
@@ -256,12 +281,14 @@ export class BlackboxParser {
               break;
             }
             corruptedFrameCount++;
+            consecutiveCorrupt++;
             break;
           }
         }
       } catch {
         // Frame decode error - try to resync
         corruptedFrameCount++;
+        consecutiveCorrupt++;
         reader.setOffset(frameStartOffset + 1);
         if (!BlackboxParser.resync(reader)) break;
       }
@@ -291,11 +318,12 @@ export class BlackboxParser {
   }
 
   /**
-   * Skip an event frame by reading its type and associated data.
+   * Parse an event frame by reading its type and associated data.
+   * Returns the event type so the caller can act on LOG_END.
    */
-  private static skipEventFrame(reader: StreamReader): void {
+  private static parseEventFrame(reader: StreamReader): number {
     const eventType = reader.readByte();
-    if (eventType === -1) return;
+    if (eventType === -1) return -1;
 
     switch (eventType) {
       case EVENT_TYPE.SYNC_BEEP:
@@ -326,6 +354,8 @@ export class BlackboxParser {
         BlackboxParser.resync(reader);
         break;
     }
+
+    return eventType;
   }
 
   /**
@@ -633,21 +663,52 @@ export class BlackboxParser {
   }
 
   /**
-   * Check if a decoded frame has unreasonable values indicating corruption.
+   * Check if a decoded frame has reasonable values.
    *
-   * Skip fields 0 and 1 (loopIteration and time) which are legitimately large.
-   * For remaining fields (gyro, PID, motor, etc.), values above 50000 are
-   * physically impossible and indicate decoder error from corrupted bytes.
+   * Validates:
+   * 1. Sensor fields (gyro, PID, etc.) within ±32768 (16-bit sensor range)
+   * 2. Loop iteration doesn't jump by more than MAX_ITERATION_JUMP
+   * 3. Time doesn't go backward or jump forward by more than 10s
+   *
+   * @param values - Decoded frame values
+   * @param loopIterIdx - Index of loopIteration field (-1 if not present)
+   * @param timeIdx - Index of time field (-1 if not present)
+   * @param lastIteration - Previous frame's loop iteration (-1 if no previous)
+   * @param lastTime - Previous frame's time in µs (-1 if no previous)
+   * @returns true if frame looks valid
    */
-  private static isFrameCorrupted(values: number[]): boolean {
-    // Skip first 2 fields (loopIteration, time) which can be large
+  private static isFrameValid(
+    values: number[],
+    loopIterIdx: number,
+    timeIdx: number,
+    lastIteration: number,
+    lastTime: number
+  ): boolean {
+    // Check sensor fields (skip loopIteration and time which are legitimately large)
     for (let i = 2; i < values.length; i++) {
       const v = values[i];
-      if (v > 50000 || v < -50000) {
-        return true;
+      if (v > MAX_VALID_FIELD_VALUE || v < -MAX_VALID_FIELD_VALUE) {
+        return false;
       }
     }
-    return false;
+
+    // Check loop iteration jump
+    if (loopIterIdx >= 0 && lastIteration >= 0) {
+      const iterDelta = values[loopIterIdx] - lastIteration;
+      if (iterDelta < 0 || iterDelta > MAX_ITERATION_JUMP) {
+        return false;
+      }
+    }
+
+    // Check time jump
+    if (timeIdx >= 0 && lastTime >= 0) {
+      const timeDelta = values[timeIdx] - lastTime;
+      if (timeDelta < -1_000_000 || timeDelta > MAX_TIME_JUMP_US) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**

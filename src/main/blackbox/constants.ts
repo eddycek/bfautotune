@@ -54,6 +54,33 @@ export const YIELD_INTERVAL = 5000;
 /** Maximum number of bytes to scan ahead when resyncing after corruption */
 export const MAX_RESYNC_BYTES = 65536;
 
+/**
+ * Maximum valid absolute value for sensor fields (gyro, PID, setpoint).
+ * 16-bit signed sensor range: ±32768. With gyro_scale=1.0 (BF 4.5+),
+ * values are in deg/s — 32768 deg/s is already far beyond physical limits.
+ */
+export const MAX_VALID_FIELD_VALUE = 32768;
+
+/**
+ * Maximum allowed jump in loop iteration between consecutive frames.
+ * Betaflight logs at ~8kHz with I-interval up to 128. A jump > 5000
+ * iterations indicates corrupted frame data.
+ */
+export const MAX_ITERATION_JUMP = 5000;
+
+/**
+ * Maximum allowed forward time jump in microseconds (10 seconds).
+ * Any single frame step > 10s indicates time field corruption.
+ */
+export const MAX_TIME_JUMP_US = 10_000_000;
+
+/**
+ * Maximum consecutive corrupted frames before abandoning session.
+ * After this many corrupt frames in a row, the remaining data is likely
+ * all garbage (e.g. post-LOG_END flash data without LOG_END marker).
+ */
+export const MAX_CONSECUTIVE_CORRUPT_FRAMES = 100;
+
 /** Header field name patterns for field definition parsing */
 export const HEADER_KEYS = {
   /** Field names for I-frame */
