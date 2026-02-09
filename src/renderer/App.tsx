@@ -67,7 +67,7 @@ function AppContent() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Beta PIDTune</h1>
+        <h1>Betaflight PID AutoTune</h1>
         <div className="app-header-right">
           <span className="version">v0.1.0</span>
           <button

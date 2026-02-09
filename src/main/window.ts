@@ -14,7 +14,7 @@ export function createWindow(): BrowserWindow {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'Beta PIDTune',
+    title: 'Betaflight PID AutoTune',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
