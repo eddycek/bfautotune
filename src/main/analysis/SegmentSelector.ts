@@ -11,7 +11,7 @@ import {
   THROTTLE_MAX_HOVER,
   GYRO_STEADY_MAX_STD,
   SEGMENT_MIN_DURATION_S,
-  SEGMENT_WINDOW_SAMPLES,
+  SEGMENT_WINDOW_DURATION_S,
 } from './constants';
 
 /**
@@ -37,7 +37,10 @@ export function findSteadySegments(flightData: BlackboxFlightData): FlightSegmen
 
   // Build a boolean mask: true = sample is in steady hover
   const steadyMask = new Uint8Array(numSamples);
-  const windowSize = Math.min(SEGMENT_WINDOW_SAMPLES, numSamples);
+  const windowSize = Math.min(
+    Math.floor(SEGMENT_WINDOW_DURATION_S * sampleRateHz),
+    numSamples
+  );
   const halfWindow = Math.floor(windowSize / 2);
 
   for (let i = 0; i < numSamples; i++) {
