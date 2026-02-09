@@ -236,10 +236,21 @@ export class HeaderParser {
   }
 
   private static parsePDenom(rawHeaders: Map<string, string>): number {
+    // Try denominator from "P interval:N/D" (older BF format)
     const pInterval = rawHeaders.get(HEADER_KEYS.P_INTERVAL);
-    if (!pInterval) return 1;
-    const parts = pInterval.split('/');
-    if (parts.length >= 2) return parseInt(parts[1], 10) || 1;
+    if (pInterval) {
+      const parts = pInterval.split('/');
+      if (parts.length >= 2) {
+        const d = parseInt(parts[1], 10);
+        if (d > 0) return d;
+      }
+    }
+    // Fallback: BF 4.5+ writes pid_process_denom as a separate header
+    const pidDenom = rawHeaders.get(HEADER_KEYS.PID_PROCESS_DENOM);
+    if (pidDenom) {
+      const d = parseInt(pidDenom, 10);
+      if (d > 0) return d;
+    }
     return 1;
   }
 }

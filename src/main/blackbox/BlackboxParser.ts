@@ -20,6 +20,8 @@ import {
   END_OF_LOG_MESSAGE,
   MAX_ITERATION_JUMP,
   MAX_TIME_JUMP_US,
+  MAX_I_FRAME_TIME_BACKWARD_US,
+  MAX_I_FRAME_ITER_BACKWARD,
   MAX_CONSECUTIVE_CORRUPT_FRAMES,
   PROGRESS_INTERVAL,
   YIELD_INTERVAL,
@@ -206,19 +208,39 @@ export class BlackboxParser {
             const values = frameParser.parseIFrame(reader);
             const frameSize = reader.offset - frameStartOffset;
 
-            if (frameSize > MAX_FRAME_LENGTH ||
-                !BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+            if (frameSize > MAX_FRAME_LENGTH) {
               corruptedFrameCount++;
               consecutiveCorrupt++;
-              // Don't update previous - wait for a clean I-frame
+              // Size invalid → binary decode likely misaligned
+              previousFrame = null;
+              previousFrame2 = null;
+              reader.setOffset(frameStartOffset + 1);
+              BlackboxParser.resync(reader);
+              break;
+            }
+
+            // I-frames carry absolute values, so they reset tracking state.
+            // Only reject on large FORWARD jumps (likely corruption).
+            // Backward time/iteration is expected when P-frame predictors
+            // have drifted — the I-frame is correct, our tracking is stale.
+            if (!BlackboxParser.isIFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+              corruptedFrameCount++;
+              consecutiveCorrupt++;
+              previousFrame = null;
+              previousFrame2 = null;
               reader.setOffset(frameStartOffset + 1);
               BlackboxParser.resync(reader);
               break;
             }
 
             iFrames.push(values);
-            previousFrame2 = previousFrame;
+            // I-frames reset prediction state: both prev and prev2 point to the
+            // I-frame. This matches BF viewer behavior where mainHistory[1] and [2]
+            // are both set to the I-frame after parsing it. Without this, the first
+            // P-frame after an I-frame would use STRAIGHT_LINE with the old P-frame
+            // as prev2, causing ~993µs time drift per I-interval.
             previousFrame = values;
+            previousFrame2 = values;
             previousIFrame = values;
             frameCount++;
             consecutiveCorrupt = 0;
@@ -421,10 +443,12 @@ export class BlackboxParser {
     // Calculate timing
     const timeFieldIdx = fieldMap.get(FIELD_NAMES.TIME);
 
-    // Compute sample rate from looptime and P interval
-    // looptime is the PID loop period in µs, pInterval is the logging divisor
-    // e.g., looptime=125µs (8kHz) with pInterval=4 → 2000 Hz effective sample rate
-    const pDiv = Math.max(1, header.pInterval);
+    // Compute sample rate from looptime and P interval header.
+    // "P interval:N/D" → N = pInterval (blackbox_p_ratio), D = pDenom (pid_process_denom)
+    // looptime = gyro loop period in µs, PID rate = gyro_rate / pDenom,
+    // blackbox rate = PID rate / pInterval = 1e6 / (looptime * pDenom * pInterval)
+    // e.g., looptime=125µs (8kHz gyro) with P interval:4/1 → 8000/4 = 2000 Hz
+    const pDiv = Math.max(1, header.pInterval) * Math.max(1, header.pDenom);
     const sampleRateHz = 1_000_000 / (header.looptime * pDiv);
     const dt = (header.looptime * pDiv) / 1_000_000; // seconds per logged frame
 
@@ -681,7 +705,47 @@ export class BlackboxParser {
   }
 
   /**
-   * Check if a decoded frame has reasonable temporal values.
+   * Check if an I-frame has reasonable temporal values.
+   *
+   * I-frames carry absolute values. Small backward jumps relative to our
+   * tracking state are normal (P-frame predictor rounding causes drift).
+   * Large backward jumps indicate garbage data from old flash sessions.
+   * Large forward jumps indicate corruption.
+   */
+  private static isIFrameValid(
+    values: number[],
+    loopIterIdx: number,
+    timeIdx: number,
+    lastIteration: number,
+    lastTime: number
+  ): boolean {
+    if (loopIterIdx >= 0 && lastIteration >= 0) {
+      const iteration = values[loopIterIdx];
+      // Reject large forward jump
+      if (iteration >= lastIteration + MAX_ITERATION_JUMP) {
+        return false;
+      }
+      // Reject large backward jump (garbage data, not drift)
+      if (iteration < lastIteration - MAX_I_FRAME_ITER_BACKWARD) {
+        return false;
+      }
+    }
+    if (timeIdx >= 0 && lastTime >= 0) {
+      const time = values[timeIdx];
+      // Reject large forward jump
+      if (time >= lastTime + MAX_TIME_JUMP_US) {
+        return false;
+      }
+      // Reject large backward jump (garbage data, not drift)
+      if (time < lastTime - MAX_I_FRAME_TIME_BACKWARD_US) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Check if a decoded P-frame has reasonable temporal values.
    *
    * Matches the validation strategy of betaflight/blackbox-log-viewer:
    * - Only checks iteration and time continuity (no sensor value thresholds)

@@ -82,6 +82,23 @@ export const MAX_ITERATION_JUMP = 5000;
 export const MAX_TIME_JUMP_US = 10_000_000;
 
 /**
+ * Maximum allowed backward time for I-frames (50ms).
+ * I-frames carry absolute values, so small backward jumps relative to our
+ * tracking state are normal (P-frame predictor rounding). But large backward
+ * jumps (e.g. iter=1 time=18µs when we're at 15s) indicate garbage data
+ * from old flash sessions or corruption. Reject if backward > 50ms.
+ */
+export const MAX_I_FRAME_TIME_BACKWARD_US = 50_000;
+
+/**
+ * Maximum allowed backward iteration for I-frames.
+ * Same reasoning as MAX_I_FRAME_TIME_BACKWARD_US. With I-interval=128
+ * and up to 31 P-frames per interval, a small backward jump is normal.
+ * Jumps backward by >500 iterations indicate garbage data.
+ */
+export const MAX_I_FRAME_ITER_BACKWARD = 500;
+
+/**
  * Maximum consecutive corrupted frames before abandoning session.
  * After this many corrupt frames in a row, the remaining data is likely
  * all garbage (e.g. post-LOG_END flash data without LOG_END marker).
@@ -153,6 +170,7 @@ export const HEADER_KEYS = {
   LOOPTIME: 'looptime',
   GYRO_SCALE: 'gyro_scale',
   ACC_1G: 'acc_1G',
+  PID_PROCESS_DENOM: 'pid_process_denom',
 } as const;
 
 /** Well-known field name patterns used during flight data extraction */

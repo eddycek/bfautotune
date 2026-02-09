@@ -521,9 +521,9 @@ describe('BlackboxParser', () => {
       const result = await BlackboxParser.parse(data);
 
       const fd = result.sessions[0].flightData;
-      // sampleRate = 1_000_000 / (looptime * pInterval) = 1_000_000 / (312 * 1) ≈ 3205
-      // (buildSyntheticBBL uses P interval:1/2 → pInterval=1)
-      expect(fd.sampleRateHz).toBeCloseTo(1_000_000 / 312, 0);
+      // sampleRate = 1_000_000 / (looptime * pInterval * pDenom) = 1_000_000 / (312 * 1 * 2) ≈ 1603
+      // (buildSyntheticBBL uses P interval:1/2 → pInterval=1, pDenom=2)
+      expect(fd.sampleRateHz).toBeCloseTo(1_000_000 / (312 * 1 * 2), 0);
     });
 
     it('computes duration from time field', async () => {
@@ -1321,9 +1321,9 @@ describe('BlackboxParser', () => {
       pushSVB(f1, 50); pushSVB(f1, -30); pushSVB(f1, 20);
       parts.push(Buffer.from(f1));
 
-      // Frame 2: iteration=50 (backward jump - should be rejected)
+      // Frame 2: iteration=6000 (forward jump > MAX_ITERATION_JUMP=5000 - should be rejected)
       const f2: number[] = [0x49];
-      pushUVB(f2, 50); pushUVB(f2, 50 * 312);
+      pushUVB(f2, 6000); pushUVB(f2, 6000 * 312);
       pushSVB(f2, 60); pushSVB(f2, -40); pushSVB(f2, 25);
       parts.push(Buffer.from(f2));
 
@@ -1367,17 +1367,17 @@ describe('BlackboxParser', () => {
       ];
       parts.push(Buffer.from(headers.join('\n') + '\n'));
 
-      // One valid frame at iteration=10000
+      // One valid frame at iteration=100
       const f1: number[] = [0x49];
-      pushUVB(f1, 10000); pushUVB(f1, 10000 * 312);
+      pushUVB(f1, 100); pushUVB(f1, 100 * 312);
       pushSVB(f1, 100); pushSVB(f1, -50); pushSVB(f1, 30);
       parts.push(Buffer.from(f1));
 
-      // 200 "I-frames" with backward iteration (all corrupt — iteration goes backward)
+      // 200 "I-frames" with huge forward iteration jumps (all corrupt)
       for (let i = 0; i < 200; i++) {
         const f: number[] = [0x49];
-        pushUVB(f, 100 + i); // iteration < 10000 → backward jump → rejected
-        pushUVB(f, (100 + i) * 312);
+        pushUVB(f, 100 + (i + 1) * 10000); // huge forward jumps → rejected
+        pushUVB(f, (100 + (i + 1) * 10000) * 312);
         pushSVB(f, 50); pushSVB(f, -50); pushSVB(f, 30);
         parts.push(Buffer.from(f));
       }

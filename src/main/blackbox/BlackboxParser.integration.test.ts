@@ -100,7 +100,7 @@ describe('BlackboxParser integration (BF 4.5 reference fixture)', () => {
   it('sample rate matches looptime', async () => {
     const result = await BlackboxParser.parse(fixture);
 
-    const expectedHz = 1_000_000 / EXPECTED_LOOPTIME;
+    const expectedHz = 1_000_000 / (EXPECTED_LOOPTIME * 2); // fixture uses P interval:1/2 → pDenom=2
     expect(result.sessions[0].flightData.sampleRateHz).toBeCloseTo(expectedHz, 0);
     expect(result.sessions[1].flightData.sampleRateHz).toBeCloseTo(expectedHz, 0);
   });
