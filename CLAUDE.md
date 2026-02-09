@@ -212,6 +212,12 @@ Interactive visualization of analysis results using Recharts (SVG).
 - Auto-read in analysis handlers when FC connected and settings not provided
 - Byte layout verified against betaflight-configurator MSPHelper.js
 
+**MSP Dataflash Read** (`MSP_DATAFLASH_READ`, command 0x46):
+- Response format: `[4B readAddress LE][2B dataSize LE][1B isCompressed (BF4.1+)][flash data]`
+- `MSPClient.extractFlashPayload()` strips the 6-7 byte header, returns only flash data
+- Both 6-byte (no compression flag) and 7-byte (with compression flag) formats supported
+- Huffman compression not yet implemented (logs warning if detected)
+
 **Important**: Stage ordering matters — MSP commands must execute before CLI mode, because FC only processes CLI input while in CLI mode (MSP timeouts). Snapshot creation enters CLI mode via `exportCLIDiff()`.
 
 ### Snapshot Restore (Rollback)
@@ -231,14 +237,14 @@ Interactive visualization of analysis results using Recharts (SVG).
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 604 tests total across 35 test files
+- 621 tests total across 35 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
 - Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
-- MSP Client: MSPClient (3 tests - filter config parsing)
-- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (171 tests)
+- MSP Client: MSPClient (8 tests - filter config parsing, flash payload extraction)
+- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (175 tests)
 - FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (98 tests)
-- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (67 tests)
+- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (69 tests)
 - See `TESTING.md` for detailed guidelines
 
 ### Mock Setup
