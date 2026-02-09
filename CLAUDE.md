@@ -144,6 +144,8 @@ Parses Betaflight .bbl/.bfl binary log files into typed time series data.
 - 10 encoding types, 10 predictor types
 - Multi-session support (multiple flights per file)
 - Corruption recovery with resync
+- **LOG_END handling**: `parseEventFrame()` returns event type; LOG_END terminates session parsing to avoid reading garbage flash data after the log ends
+- **Frame validation**: `isFrameValid()` checks sensor values ≤ ±32768, iteration jumps ≤ 5000, time jumps ≤ 10s. Stops after 100 consecutive corrupt frames.
 - IPC: `BLACKBOX_PARSE_LOG` + `EVENT_BLACKBOX_PARSE_PROGRESS`
 - Output: `BlackboxFlightData` with gyro, setpoint, PID, motor as `Float64Array` time series
 
@@ -237,12 +239,12 @@ Interactive visualization of analysis results using Recharts (SVG).
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 621 tests total across 35 test files
+- 636 tests total across 36 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
 - Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
 - MSP Client: MSPClient (8 tests - filter config parsing, flash payload extraction)
-- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (175 tests)
+- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (198 tests, incl. integration)
 - FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (98 tests)
 - Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (69 tests)
 - See `TESTING.md` for detailed guidelines
