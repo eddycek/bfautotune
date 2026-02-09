@@ -85,9 +85,21 @@ describe('PredictorApplier', () => {
       expect(PredictorApplier.apply(BBLPredictor.AVERAGE_2, 10, 0, false, [200], [100], [], header, motor0Idx)).toBe(160);
     });
 
-    it('uses integer division (floor)', () => {
-      // avg = (201 + 100) >> 1 = 150 (integer), result = 150 + 0 = 150
+    it('truncates positive odd sums toward zero (C integer division)', () => {
+      // avg = Math.trunc((201 + 100) / 2) = Math.trunc(150.5) = 150
       expect(PredictorApplier.apply(BBLPredictor.AVERAGE_2, 0, 0, false, [201], [100], [], header, motor0Idx)).toBe(150);
+    });
+
+    it('truncates negative odd sums toward zero (not floor)', () => {
+      // avg = Math.trunc((-201 + 100) / 2) = Math.trunc(-50.5) = -50 (toward zero, NOT -51)
+      // result = -50 + 0 = -50
+      expect(PredictorApplier.apply(BBLPredictor.AVERAGE_2, 0, 0, false, [-201], [100], [], header, motor0Idx)).toBe(-50);
+    });
+
+    it('truncates both-negative odd sums toward zero', () => {
+      // avg = Math.trunc((-3 + -2) / 2) = Math.trunc(-2.5) = -2 (toward zero, NOT -3)
+      // result = -2 + 0 = -2
+      expect(PredictorApplier.apply(BBLPredictor.AVERAGE_2, 0, 0, false, [-3], [-2], [], header, motor0Idx)).toBe(-2);
     });
 
     it('uses just previous when previous2 is null (matches BF behavior)', () => {

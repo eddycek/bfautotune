@@ -105,18 +105,29 @@ export class ValueDecoder {
 
   /**
    * Encoding 3: NEG_14BIT
-   * Read an unsigned VB and negate + subtract 1.
-   * Used for fields that are typically negative (like D-term).
+   * Read an unsigned VB, sign-extend from 14 bits, then negate.
+   * Used for fields stored as masked 14-bit values (e.g., vbatLatest).
+   *
+   * BF encoder writes: (value) & 0x3FFF as unsigned VB
+   * BF decoder reads:  -signExtend14Bit(readUnsignedVB())
    */
   private static readNeg14Bit(reader: StreamReader): number {
     const unsigned = reader.readUnsignedVB();
-    return -(unsigned + 1);
+    return -ValueDecoder.signExtend14Bit(unsigned) || 0; // avoid -0
+  }
+
+  /** Sign-extend a 14-bit value to 32-bit (two's complement from bit 13) */
+  static signExtend14Bit(value: number): number {
+    return (value & 0x2000) ? (value | 0xFFFFC000) | 0 : value;
   }
 
   /**
    * Encoding 6: TAG8_8SVB
    * Read a tag byte where each bit indicates whether the corresponding
    * field has a non-zero value. For each set bit, read a signed VB.
+   *
+   * Special case: when count == 1, the BF encoder writes a signedVB directly
+   * without a tag byte. The decoder must match this behavior.
    *
    * @param count - Number of values to read (default 8). When fewer than 8
    *   consecutive fields share this encoding, only the first `count` bits
@@ -128,6 +139,12 @@ export class ValueDecoder {
     fieldIdx: number,
     count: number = 8
   ): number {
+    // BF encoder/decoder special case: single value = signedVB, no tag byte
+    if (count === 1) {
+      values[fieldIdx] = reader.readSignedVB();
+      return 1;
+    }
+
     const tag = reader.readByte();
     if (tag === -1) {
       for (let i = 0; i < count; i++) values[fieldIdx + i] = 0;
