@@ -116,28 +116,61 @@ function logEndBytes(): Buffer {
   return Buffer.from([0x45, EVENT_LOG_END, ...Buffer.from('End of log\0', 'ascii')]);
 }
 
-/** Encode TAG2_3S32 group (3 signed values) and push bytes to array */
+/**
+ * Encode TAG2_3S32 group (BF encoding 7).
+ * Top 2 bits of lead byte select sub-encoding:
+ *   00 = 2-bit fields (0 extra bytes)
+ *   01 = 4-bit fields (1 extra byte)
+ *   10 = 6-bit fields (2 extra bytes)
+ *   11 = variable width (S8/S16/S24/S32 per value)
+ */
 function pushTag2_3S32(arr: number[], values: [number, number, number]): void {
   const maxAbs = Math.max(Math.abs(values[0]), Math.abs(values[1]), Math.abs(values[2]));
 
-  if (maxAbs === 0) {
-    arr.push(0x00); // tag=0: all zero
+  if (maxAbs <= 1) {
+    // Selector 0: 2-bit fields packed in lead byte
+    // bits [5:4]=value[0], [3:2]=value[1], [1:0]=value[2]
+    const leadByte = (0x00 << 6) |
+      ((values[0] & 0x03) << 4) |
+      ((values[1] & 0x03) << 2) |
+      (values[2] & 0x03);
+    arr.push(leadByte);
   } else if (maxAbs <= 7) {
-    arr.push(0x01); // tag=1: 4-4-4 bit packing in 2 bytes
-    const b0 = (values[0] & 0x0F) | ((values[1] & 0x0F) << 4);
-    const b1 = values[2] & 0x0F;
-    arr.push(b0, b1);
-  } else if (maxAbs <= 32767) {
-    arr.push(0x02); // tag=2: 3 x 16-bit signed LE
-    for (const v of values) {
-      const u16 = v < 0 ? v + 65536 : v;
-      arr.push(u16 & 0xFF, (u16 >> 8) & 0xFF);
-    }
+    // Selector 1: 4-bit fields — value[0] in lead low nibble, value[1,2] in extra byte
+    const leadByte = (0x01 << 6) | (values[0] & 0x0F);
+    const extraByte = ((values[1] & 0x0F) << 4) | (values[2] & 0x0F);
+    arr.push(leadByte, extraByte);
+  } else if (maxAbs <= 31) {
+    // Selector 2: 6-bit fields
+    const leadByte = (0x02 << 6) | (values[0] & 0x3F);
+    arr.push(leadByte, values[1] & 0x3F, values[2] & 0x3F);
   } else {
-    arr.push(0x03); // tag=3: 3 x signed VB
-    for (const v of values) {
-      pushSVB(arr, v);
+    // Selector 3: variable width — use S8 for small, S16 for bigger
+    // Build width selector bits
+    let widthBits = 0;
+    const payloads: number[][] = [];
+    for (let i = 0; i < 3; i++) {
+      const v = values[i];
+      const absV = Math.abs(v);
+      if (absV <= 127) {
+        // 00 = S8
+        payloads.push([v < 0 ? v + 256 : v]);
+      } else if (absV <= 32767) {
+        // 01 = S16LE
+        widthBits |= (0x01 << (i * 2));
+        const u16 = v < 0 ? v + 65536 : v;
+        payloads.push([u16 & 0xFF, (u16 >> 8) & 0xFF]);
+      } else {
+        // 11 = S32LE
+        widthBits |= (0x03 << (i * 2));
+        const buf = Buffer.alloc(4);
+        buf.writeInt32LE(v, 0);
+        payloads.push([...buf]);
+      }
     }
+    const leadByte = (0x03 << 6) | widthBits;
+    arr.push(leadByte);
+    for (const p of payloads) arr.push(...p);
   }
 }
 
@@ -153,58 +186,88 @@ function pushS8(arr: number[], value: number): void {
 }
 
 /**
- * Encoding 9: TAGGED_16
- * If value fits in signed 7 bits (-64..63), write one byte: (value << 1) & 0xFF.
- * Otherwise write 0x01 (flag byte with bit 0 set), then S16(value).
+ * BF encoding 9 = NULL: writes no bytes. Used for P-frame loopIteration
+ * with INCREMENT predictor (the delta is always 0, predictor adds +1).
+ * This is a no-op encoder kept for clarity in test helpers.
  */
-function pushTagged16(arr: number[], value: number): void {
-  if (value >= -64 && value <= 63) {
-    arr.push((value << 1) & 0xFF);
-  } else {
-    arr.push(0x01); // bit 0 set = "S16 follows"
-    pushS16(arr, value);
-  }
+function pushNull(_arr: number[], _value: number): void {
+  // NULL encoding: no bytes emitted
 }
 
 /**
- * Encoding 3: TAG8_8SVB
+ * Encode TAG8_8SVB (BF encoding 6).
  * Tag byte where bit i indicates values[i] is non-zero. For each set bit, write signed VB.
- * Always encodes exactly 4 values.
+ * Encodes up to 8 values.
  */
-function pushTag8_8SVB(arr: number[], values: [number, number, number, number]): void {
+function pushTag8_8SVB(arr: number[], values: number[]): void {
   let tag = 0;
-  for (let i = 0; i < 4; i++) {
+  const count = Math.min(values.length, 8);
+  for (let i = 0; i < count; i++) {
     if (values[i] !== 0) tag |= (1 << i);
   }
   arr.push(tag);
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < count; i++) {
     if (values[i] !== 0) pushSVB(arr, values[i]);
   }
 }
 
 /**
- * Encoding 8: TAG2_3SVARIABLE
- * 2-bit tag selects sub-encoding for 3 values:
- *   0 = all zero, 1 = 3x S8, 2 = 3x S16, 3 = 3x signed VB
+ * Encode TAG2_3SVARIABLE (BF encoding 10).
+ * Top 2 bits of lead byte select sub-encoding:
+ *   00 = 2-bit fields (same as TAG2_3S32 case 0)
+ *   01 = 5-5-4 bit fields (1 extra byte)
+ *   10 = 8-7-7 bit fields (2 extra bytes)
+ *   11 = variable width (same as TAG2_3S32 case 3)
  */
 function pushTag2_3SVariable(arr: number[], values: [number, number, number]): void {
   const maxAbs = Math.max(Math.abs(values[0]), Math.abs(values[1]), Math.abs(values[2]));
-  if (maxAbs === 0) {
-    arr.push(0x00); // tag=0: all zero
-  } else if (maxAbs <= 127) {
-    arr.push(0x01); // tag=1: 3x S8
-    for (const v of values) pushS8(arr, v);
-  } else if (maxAbs <= 32767) {
-    arr.push(0x02); // tag=2: 3x S16
-    for (const v of values) pushS16(arr, v);
+
+  if (maxAbs <= 1) {
+    // Selector 0: 2-bit fields — same as TAG2_3S32 case 0
+    const leadByte = (0x00 << 6) |
+      ((values[0] & 0x03) << 4) |
+      ((values[1] & 0x03) << 2) |
+      (values[2] & 0x03);
+    arr.push(leadByte);
+  } else if (maxAbs <= 7) {
+    // Selector 1: 5-5-4 bit fields
+    // value[0] = (leadByte & 0x3E) >> 1
+    // value[1] = ((leadByte & 0x01) << 4) | (byte1 >> 4)
+    // value[2] = byte1 & 0x0F
+    const v0 = values[0] & 0x1F;
+    const v1 = values[1] & 0x1F;
+    const v2 = values[2] & 0x0F;
+    const leadByte = (0x01 << 6) | ((v0 & 0x1F) << 1) | ((v1 >> 4) & 0x01);
+    const extraByte = ((v1 & 0x0F) << 4) | (v2 & 0x0F);
+    arr.push(leadByte, extraByte);
   } else {
-    arr.push(0x03); // tag=3: 3x signed VB
-    for (const v of values) pushSVB(arr, v);
+    // Selector 3: variable width — same as TAG2_3S32 case 3
+    let widthBits = 0;
+    const payloads: number[][] = [];
+    for (let i = 0; i < 3; i++) {
+      const v = values[i];
+      const absV = Math.abs(v);
+      if (absV <= 127) {
+        payloads.push([v < 0 ? v + 256 : v]);
+      } else if (absV <= 32767) {
+        widthBits |= (0x01 << (i * 2));
+        const u16 = v < 0 ? v + 65536 : v;
+        payloads.push([u16 & 0xFF, (u16 >> 8) & 0xFF]);
+      } else {
+        widthBits |= (0x03 << (i * 2));
+        const buf = Buffer.alloc(4);
+        buf.writeInt32LE(v, 0);
+        payloads.push([...buf]);
+      }
+    }
+    const leadByte = (0x03 << 6) | widthBits;
+    arr.push(leadByte);
+    for (const p of payloads) arr.push(...p);
   }
 }
 
 /**
- * Encoding 6: TAG8_4S16_V2
+ * Encode TAG8_4S16 v2 (BF encoding 8, data version 2).
  * Tag byte with 2 bits per value (4 values total):
  *   00 = zero, 01 = S8, 10 = S16, 11 = signed VB
  */
@@ -271,7 +334,7 @@ function buildBBLWithPFrames(options: {
       iEncodings.push('0'); // SIGNED_VB
       iPredictors.push('0'); // ZERO
       iSigned.push('1');
-      pEncodings.push('4'); // TAG2_3S32 (grouped)
+      pEncodings.push('7'); // TAG2_3S32 (BF encoding 7)
       pPredictors.push('1'); // PREVIOUS
     }
   }
@@ -282,7 +345,7 @@ function buildBBLWithPFrames(options: {
     iEncodings.push('0'); // SIGNED_VB
     iPredictors.push('0'); // ZERO
     iSigned.push('1');
-    pEncodings.push('4'); // TAG2_3S32 (grouped)
+    pEncodings.push('7'); // TAG2_3S32 (BF encoding 7)
     pPredictors.push('1'); // PREVIOUS
   }
 
@@ -458,7 +521,8 @@ describe('BlackboxParser', () => {
       const result = await BlackboxParser.parse(data);
 
       const fd = result.sessions[0].flightData;
-      // sampleRate = 1_000_000 / 312 ≈ 3205
+      // sampleRate = 1_000_000 / (looptime * pInterval) = 1_000_000 / (312 * 1) ≈ 3205
+      // (buildSyntheticBBL uses P interval:1/2 → pInterval=1)
       expect(fd.sampleRateHz).toBeCloseTo(1_000_000 / 312, 0);
     });
 
@@ -664,7 +728,7 @@ describe('BlackboxParser', () => {
         `H Field P name:${fieldNames}`,
         'H Field P signed:0,0,1,1,1',
         'H Field P predictor:1,1,1,1,1',
-        'H Field P encoding:0,0,4,4,4',
+        'H Field P encoding:0,0,7,7,7',
       ];
       parts.push(Buffer.from(headers.join('\n') + '\n'));
 
@@ -725,7 +789,7 @@ describe('BlackboxParser', () => {
       // Simulates a realistic Betaflight 4.4 BBL with all typical fields:
       // PID terms (axisP/I/D/F), rcCommand, setpoint, gyro, motor
       // Each group uses a different P-frame encoding to test alignment across
-      // TAG2_3S32, TAG2_3SVARIABLE, TAG8_8SVB, TAG8_4S16_V2, TAGGED_16
+      // TAG2_3S32(7), TAG2_3SVARIABLE(10), TAG8_8SVB(6), TAG8_4S16(8), NULL(9)
 
       const parts: Buffer[] = [];
 
@@ -768,16 +832,16 @@ describe('BlackboxParser', () => {
 
       // --- P-frame field definitions ---
       const pEncodings = [
-        '9',                 // loopIteration: TAGGED_16
-        '0',                 // time: SIGNED_VB
-        '4', '4', '4',      // axisP: TAG2_3S32
-        '4', '4', '4',      // axisI: TAG2_3S32
-        '8', '8', '8',      // axisD: TAG2_3SVARIABLE
-        '8', '8', '8',      // axisF: TAG2_3SVARIABLE
-        '3', '3', '3', '3', // rcCommand: TAG8_8SVB
-        '3', '3', '3', '3', // setpoint: TAG8_8SVB
-        '4', '4', '4',      // gyroADC: TAG2_3S32
-        '6', '6', '6', '6', // motor: TAG8_4S16_V2
+        '9',                     // loopIteration: NULL (BF 9)
+        '0',                     // time: SIGNED_VB
+        '7', '7', '7',          // axisP: TAG2_3S32 (BF 7)
+        '7', '7', '7',          // axisI: TAG2_3S32 (BF 7)
+        '10', '10', '10',       // axisD: TAG2_3SVARIABLE (BF 10)
+        '10', '10', '10',       // axisF: TAG2_3SVARIABLE (BF 10)
+        '6', '6', '6', '6',     // rcCommand: TAG8_8SVB (BF 6)
+        '6', '6', '6', '6',     // setpoint: TAG8_8SVB (BF 6)
+        '7', '7', '7',          // gyroADC: TAG2_3S32 (BF 7)
+        '8', '8', '8', '8',     // motor: TAG8_4S16 (BF 8)
       ];
       const pPredictors = [
         '6',                 // loopIteration: INCREMENT
@@ -881,9 +945,9 @@ describe('BlackboxParser', () => {
       for (let p = 0; p < 5; p++) {
         const pFrame: number[] = [0x50]; // 'P'
 
-        // loopIteration: TAGGED_16, INCREMENT predictor
+        // loopIteration: NULL encoding (BF 9), INCREMENT predictor
         // decoded=0 → result = 0 + prev + 1 (auto-increment)
-        pushTagged16(pFrame, 0);
+        pushNull(pFrame, 0);
 
         // time: SIGNED_VB, STRAIGHT_LINE predictor
         pushSVB(pFrame, timeDeltas[p]);
@@ -900,17 +964,15 @@ describe('BlackboxParser', () => {
         // axisF[0..2]: TAG2_3SVARIABLE, PREVIOUS predictor
         pushTag2_3SVariable(pFrame, axisFDelta);
 
-        // rcCommand[0..3]: TAG8_8SVB, PREVIOUS predictor
-        pushTag8_8SVB(pFrame, rcCmdDelta);
-
-        // setpoint[0..3]: TAG8_8SVB, PREVIOUS predictor
-        pushTag8_8SVB(pFrame, setpointDelta);
+        // rcCommand[0..3] + setpoint[0..3]: TAG8_8SVB group (8 values in one tag)
+        // FrameParser treats 8 consecutive TAG8_8SVB fields as a single 8-value group
+        pushTag8_8SVB(pFrame, [...rcCmdDelta, ...setpointDelta]);
 
         // gyroADC[0..2]: TAG2_3S32, PREVIOUS predictor
         const gDelta = gyroDeltas[p];
         pushTag2_3S32(pFrame, gDelta);
 
-        // motor[0..3]: TAG8_4S16_V2, PREVIOUS predictor
+        // motor[0..3]: TAG8_4S16 (BF 8), PREVIOUS predictor
         pushTag8_4S16V2(pFrame, motorDelta);
 
         parts.push(Buffer.from(pFrame));
