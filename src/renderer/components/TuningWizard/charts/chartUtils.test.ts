@@ -4,6 +4,7 @@ import {
   traceToRechartsData,
   findBestStep,
   downsampleData,
+  computeRobustYDomain,
   AXIS_COLORS,
 } from './chartUtils';
 import type { AxisNoiseProfile, StepResponse, StepEvent } from '@shared/types/analysis.types';
@@ -169,6 +170,56 @@ describe('chartUtils', () => {
 
       // Should still return a valid index (not -1)
       expect(findBestStep(responses)).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('computeRobustYDomain', () => {
+    it('returns default range for empty values', () => {
+      expect(computeRobustYDomain([])).toEqual([-100, 100]);
+    });
+
+    it('computes domain from normal data with padding', () => {
+      const values = Array.from({ length: 200 }, (_, i) => -100 + i); // -100 to 99
+      const [lo, hi] = computeRobustYDomain(values);
+      // P1 ≈ -98, P99 ≈ 97, range ≈ 195, padding ≈ 19.5
+      expect(lo).toBeLessThan(-95);
+      expect(hi).toBeGreaterThan(95);
+    });
+
+    it('excludes extreme outlier spikes like 16866 deg/s', () => {
+      // Simulate yaw trace: mostly near 0 with one corrupt spike
+      const values: number[] = [];
+      for (let i = 0; i < 1200; i++) {
+        values.push(Math.sin(i * 0.01) * 50); // normal gyro ±50
+      }
+      values.push(16866); // corrupt setpoint spike
+
+      const [lo, hi] = computeRobustYDomain(values);
+      // Domain should be based on the ±50 data, not stretched to 16866
+      expect(hi).toBeLessThan(200);
+      expect(lo).toBeGreaterThan(-200);
+    });
+
+    it('preserves legitimate step response range', () => {
+      // Simulate step: 0 for first half, 300 for second half, with overshoot to 400
+      const values: number[] = [];
+      for (let i = 0; i < 500; i++) values.push(0);       // baseline
+      for (let i = 0; i < 50; i++) values.push(400);       // overshoot
+      for (let i = 0; i < 450; i++) values.push(300);      // steady state
+
+      const [lo, hi] = computeRobustYDomain(values);
+      // Should capture the full 0-400 range (overshoot is legitimate)
+      expect(lo).toBeLessThan(0);
+      expect(hi).toBeGreaterThan(400);
+    });
+
+    it('handles data with negative spikes (corrupt gyro)', () => {
+      const values = Array.from({ length: 500 }, () => 0);
+      values[250] = -10000; // corrupt gyro spike
+
+      const [lo, hi] = computeRobustYDomain(values);
+      // Should not stretch to -10000
+      expect(lo).toBeGreaterThan(-500);
     });
   });
 

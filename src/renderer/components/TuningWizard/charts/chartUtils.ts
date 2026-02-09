@@ -102,6 +102,24 @@ export function findBestStep(responses: StepResponse[]): number {
 }
 
 /**
+ * Compute robust Y-axis domain using P1/P99 percentile bounds.
+ * Excludes outlier spikes (e.g. corrupt 16866 deg/s setpoint values)
+ * so they don't stretch the axis and hide real data.
+ * Lines exceeding the domain are clipped at the boundary (BF Explorer style).
+ */
+export function computeRobustYDomain(values: number[]): [number, number] {
+  if (values.length === 0) return [-100, 100];
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const lo = sorted[Math.floor(sorted.length * 0.01)];
+  const hi = sorted[Math.max(0, Math.ceil(sorted.length * 0.99) - 1)];
+
+  const range = hi - lo || 1;
+  const padding = range * 0.1;
+  return [lo - padding, hi + padding];
+}
+
+/**
  * Downsample data arrays for chart performance.
  * Keeps every Nth point to limit total points to maxPoints.
  */

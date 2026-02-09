@@ -145,11 +145,25 @@ export function PIDAnalysisStep({
             </button>
 
             {chartOpen && (
-              <StepResponseChart
-                roll={pidResult.roll}
-                pitch={pidResult.pitch}
-                yaw={pidResult.yaw}
-              />
+              <>
+                <p className="chart-description">
+                  How the quad responds to stick inputs (step response).
+                  The <strong>dashed white line</strong> is the commanded rate (setpoint) and the{' '}
+                  <strong>colored line</strong> is the actual gyro response.
+                  Ideally, the gyro should follow the setpoint quickly with minimal overshoot and no oscillation.
+                </p>
+                <p className="chart-legend">
+                  <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#fff' }} /> Setpoint</span>
+                  <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
+                  <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
+                  <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
+                </p>
+                <StepResponseChart
+                  roll={pidResult.roll}
+                  pitch={pidResult.pitch}
+                  yaw={pidResult.yaw}
+                />
+              </>
             )}
           </>
         )}

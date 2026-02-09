@@ -5,6 +5,17 @@ import { TuningWizard } from './TuningWizard';
 import type { BlackboxParseResult, BlackboxLogSession } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult } from '@shared/types/analysis.types';
 
+// ResponsiveContainer needs a real layout engine — mock it for JSDOM
+vi.mock('recharts', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('recharts')>();
+  const { cloneElement } = await import('react');
+  return {
+    ...mod,
+    ResponsiveContainer: ({ children }: { children: React.ReactElement }) =>
+      cloneElement(children, { width: 700, height: 300 }),
+  };
+});
+
 const mockSession: BlackboxLogSession = {
   index: 0,
   header: {

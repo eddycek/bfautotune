@@ -6,6 +6,8 @@
   background: var(--bg-tertiary, #1e1e1e);
   border-radius: 6px;
   padding: 12px 8px 4px 0;
+  width: 100%;
+  min-width: 700px;
   overflow-x: auto;
 }
 

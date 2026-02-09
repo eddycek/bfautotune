@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
@@ -14,6 +15,7 @@ import {
   traceToRechartsData,
   downsampleData,
   findBestStep,
+  computeRobustYDomain,
   AXIS_COLORS,
   type Axis,
 } from './chartUtils';
@@ -24,18 +26,16 @@ interface StepResponseChartProps {
   roll: AxisStepProfile;
   pitch: AxisStepProfile;
   yaw: AxisStepProfile;
-  width?: number;
-  height?: number;
 }
 
 const MAX_CHART_POINTS = 600;
+const MIN_HEIGHT = 300;
+const ASPECT_RATIO = 7 / 3;
 
 export function StepResponseChart({
   roll,
   pitch,
   yaw,
-  width = 700,
-  height = 300,
 }: StepResponseChartProps) {
   const profiles: Record<Axis, AxisStepProfile> = { roll, pitch, yaw };
   const [selectedAxis, setSelectedAxis] = useState<AxisSelection>('roll');
@@ -50,19 +50,27 @@ export function StepResponseChart({
     ? ['roll', 'pitch', 'yaw']
     : [selectedAxis];
 
-  // Get trace data for current selection
-  const chartData = useMemo(() => {
-    if (selectedAxis === 'all') return null; // Handled separately
+  // Get trace data and robust Y-domain for single-axis mode
+  const { chartData, singleYDomain } = useMemo(() => {
+    if (selectedAxis === 'all') return { chartData: null, singleYDomain: undefined };
     const axis = selectedAxis;
     const idx = stepIndices[axis];
     const responses = profiles[axis].responses;
-    if (idx < 0 || idx >= responses.length || !responses[idx].trace) return null;
-    return downsampleData(traceToRechartsData(responses[idx]), MAX_CHART_POINTS);
+    if (idx < 0 || idx >= responses.length || !responses[idx].trace) {
+      return { chartData: null, singleYDomain: undefined };
+    }
+    const data = downsampleData(traceToRechartsData(responses[idx]), MAX_CHART_POINTS);
+    const values: number[] = [];
+    for (const p of data) {
+      if (p.setpoint !== undefined) values.push(p.setpoint);
+      if (p.gyro !== undefined) values.push(p.gyro);
+    }
+    return { chartData: data, singleYDomain: computeRobustYDomain(values) as [number, number] };
   }, [selectedAxis, stepIndices, profiles]);
 
   // For "all" mode, show gyro traces overlaid (no setpoint to reduce clutter)
-  const allAxisData = useMemo(() => {
-    if (selectedAxis !== 'all') return null;
+  const { allAxisData, allYDomain } = useMemo(() => {
+    if (selectedAxis !== 'all') return { allAxisData: null, allYDomain: undefined };
     // Build merged dataset keyed by timeMs
     const timeMap = new Map<number, Record<string, number>>();
     for (const axis of ['roll', 'pitch', 'yaw'] as const) {
@@ -77,7 +85,15 @@ export function StepResponseChart({
       }
     }
     const raw = Array.from(timeMap.values()).sort((a, b) => a.timeMs - b.timeMs);
-    return downsampleData(raw, MAX_CHART_POINTS);
+    const data = downsampleData(raw, MAX_CHART_POINTS);
+    const values: number[] = [];
+    for (const p of data) {
+      for (const key of ['roll', 'pitch', 'yaw']) {
+        const v = (p as Record<string, number>)[key];
+        if (v !== undefined) values.push(v);
+      }
+    }
+    return { allAxisData: data, allYDomain: computeRobustYDomain(values) as [number, number] };
   }, [selectedAxis, stepIndices, profiles]);
 
   const currentAxis = selectedAxis === 'all' ? 'roll' : selectedAxis;
@@ -155,9 +171,8 @@ export function StepResponseChart({
 
       <div className="step-chart-container">
         {selectedAxis !== 'all' && chartData && chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" aspect={ASPECT_RATIO} minHeight={MIN_HEIGHT}>
           <LineChart
-            width={width}
-            height={height}
             data={chartData}
             margin={{ top: 8, right: 16, left: 8, bottom: 4 }}
           >
@@ -169,6 +184,8 @@ export function StepResponseChart({
               label={{ value: 'Time (ms)', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: '#888' } }}
             />
             <YAxis
+              domain={singleYDomain}
+              allowDataOverflow={true}
               tick={{ fontSize: 11, fill: '#aaa' }}
               label={{ value: 'deg/s', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#888' } }}
             />
@@ -209,10 +226,10 @@ export function StepResponseChart({
               />
             )}
           </LineChart>
+          </ResponsiveContainer>
         ) : selectedAxis === 'all' && allAxisData && allAxisData.length > 0 ? (
+          <ResponsiveContainer width="100%" aspect={ASPECT_RATIO} minHeight={MIN_HEIGHT}>
           <LineChart
-            width={width}
-            height={height}
             data={allAxisData}
             margin={{ top: 8, right: 16, left: 8, bottom: 4 }}
           >
@@ -224,6 +241,8 @@ export function StepResponseChart({
               label={{ value: 'Time (ms)', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: '#888' } }}
             />
             <YAxis
+              domain={allYDomain}
+              allowDataOverflow={true}
               tick={{ fontSize: 11, fill: '#aaa' }}
               label={{ value: 'deg/s', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#888' } }}
             />
@@ -244,6 +263,7 @@ export function StepResponseChart({
               />
             ))}
           </LineChart>
+          </ResponsiveContainer>
         ) : (
           <div className="step-chart-empty">
             No trace data for this axis/step.
