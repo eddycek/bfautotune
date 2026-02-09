@@ -1,4 +1,4 @@
-# Beta PIDTune
+# Betaflight PID AutoTune
 
 **Automated FPV Drone Tuning Application for Betaflight**
 
@@ -57,8 +57,8 @@ Desktop application that automatically tunes filter and PID settings by analyzin
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd betaflight-tune
+git clone https://github.com/eddycek/bfautotune.git
+cd bfautotune
 ```
 
 2. Install dependencies:
@@ -115,7 +115,7 @@ Output will be in the `release/` directory.
 ## Project Structure
 
 ```
-betaflight-tune/
+bfautotune/
 ├── src/
 │   ├── main/                 # Main process (Node.js)
 │   │   ├── index.ts          # Entry point
@@ -234,13 +234,13 @@ The app uses the MultiWii Serial Protocol (MSP) v1 to communicate with Betafligh
 ## Configuration Storage
 
 Snapshots are stored as JSON files in:
-- **macOS**: `~/Library/Application Support/betaflight-tune/data/snapshots/`
-- **Windows**: `%APPDATA%/betaflight-tune/data/snapshots/`
-- **Linux**: `~/.config/betaflight-tune/data/snapshots/`
+- **macOS**: `~/Library/Application Support/bfautotune/data/snapshots/`
+- **Windows**: `%APPDATA%/bfautotune/data/snapshots/`
+- **Linux**: `~/.config/bfautotune/data/snapshots/`
 
 ## How Autotuning Works
 
-Beta PIDTune automates the two core aspects of FPV drone tuning: **filter tuning** (reducing noise) and **PID tuning** (improving flight response). Both use Blackbox log analysis to produce data-driven recommendations.
+Betaflight PID AutoTune automates the two core aspects of FPV drone tuning: **filter tuning** (reducing noise) and **PID tuning** (improving flight response). Both use Blackbox log analysis to produce data-driven recommendations.
 
 ### Filter Tuning (FFT Analysis)
 

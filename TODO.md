@@ -1,15 +1,15 @@
-# TODO - Beta PIDTune
+# TODO - Betaflight PID AutoTune
 
 **Last Updated:** February 8, 2026
 **Current Status:** Phase 2 - Blackbox Analysis Complete ✅ | Tuning Wizard ✅ | Auto-Apply ✅ | Snapshot Restore ✅
-**GitHub:** https://github.com/eddycek/beta-pidtune
+**GitHub:** https://github.com/eddycek/bfautotune
 **Workflow:** All changes via Pull Requests (main branch protected)
 
 ---
 
 ## 🚀 Development Workflow
 
-**Repository:** https://github.com/eddycek/beta-pidtune
+**Repository:** https://github.com/eddycek/bfautotune
 
 ### Branch Protection Rules
 - ✅ Main branch is protected
@@ -69,7 +69,7 @@ All core Phase 1 features implemented:
 ### Overview
 **Status:** 100% Complete ✅
 **Branch:** `feature/drone-profiles`
-**PR #1:** https://github.com/eddycek/beta-pidtune/pull/1 - Ready for Review ✅
+**PR #1:** https://github.com/eddycek/bfautotune/pull/1 - Ready for Review ✅
 
 Complete multi-drone profile system allowing users to manage multiple drones with:
 - Unique identification via FC serial number (MSP_UID)

@@ -1,7 +1,7 @@
 {
-  "name": "beta-pidtune",
+  "name": "bfautotune",
   "version": "0.1.0",
-  "description": "Beta PIDTune - FPV Drone PID Autotuning Application",
+  "description": "Betaflight PID AutoTune - FPV Drone PID Autotuning Application",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "vite",
@@ -61,8 +61,8 @@
     "vitest": "^4.0.18"
   },
   "build": {
-    "appId": "com.eddycek.beta-pidtune",
-    "productName": "Beta PIDTune",
+    "appId": "com.eddycek.bfautotune",
+    "productName": "Betaflight PID AutoTune",
     "directories": {
       "output": "release"
     },
