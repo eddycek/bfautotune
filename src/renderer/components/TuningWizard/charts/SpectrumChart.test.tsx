@@ -1,8 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SpectrumChart } from './SpectrumChart';
 import type { NoiseProfile } from '@shared/types/analysis.types';
+
+// ResponsiveContainer needs a real layout engine — mock it for JSDOM
+vi.mock('recharts', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('recharts')>();
+  const { cloneElement } = await import('react');
+  return {
+    ...mod,
+    ResponsiveContainer: ({ children }: { children: React.ReactElement }) =>
+      cloneElement(children, { width: 700, height: 300 }),
+  };
+});
 
 function makeSpectrum(count: number) {
   const frequencies = new Float64Array(count);
@@ -89,12 +100,4 @@ describe('SpectrumChart', () => {
     expect(refLines.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('accepts custom width and height', () => {
-    const { container } = render(<SpectrumChart noise={mockNoise} width={500} height={200} />);
-
-    const svg = container.querySelector('svg');
-    expect(svg).toBeTruthy();
-    expect(svg!.getAttribute('width')).toBe('500');
-    expect(svg!.getAttribute('height')).toBe('200');
-  });
 });

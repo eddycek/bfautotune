@@ -1,8 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StepResponseChart } from './StepResponseChart';
 import type { AxisStepProfile, StepResponse, StepEvent } from '@shared/types/analysis.types';
+
+// ResponsiveContainer needs a real layout engine — mock it for JSDOM
+vi.mock('recharts', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('recharts')>();
+  const { cloneElement } = await import('react');
+  return {
+    ...mod,
+    ResponsiveContainer: ({ children }: { children: React.ReactElement }) =>
+      cloneElement(children, { width: 700, height: 300 }),
+  };
+});
 
 function makeStep(overrides: Partial<StepEvent> = {}): StepEvent {
   return {
@@ -171,14 +182,4 @@ describe('StepResponseChart', () => {
     expect(lines.length).toBe(3);
   });
 
-  it('accepts custom dimensions', () => {
-    const { container } = render(
-      <StepResponseChart roll={mockRoll} pitch={mockPitch} yaw={mockYaw} width={500} height={200} />
-    );
-
-    const svg = container.querySelector('svg');
-    expect(svg).toBeTruthy();
-    expect(svg!.getAttribute('width')).toBe('500');
-    expect(svg!.getAttribute('height')).toBe('200');
-  });
 });

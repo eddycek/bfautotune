@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
@@ -22,11 +23,12 @@ import './SpectrumChart.css';
 
 interface SpectrumChartProps {
   noise: NoiseProfile;
-  width?: number;
-  height?: number;
 }
 
 const MAX_CHART_POINTS = 500;
+const MIN_WIDTH = 700;
+const MIN_HEIGHT = 300;
+const ASPECT_RATIO = MIN_WIDTH / MIN_HEIGHT;
 
 const PEAK_COLORS: Record<string, string> = {
   frame_resonance: '#ff8787',
@@ -46,28 +48,26 @@ const PEAK_LABELS: Record<string, string> = {
 const DB_DISPLAY_FLOOR = -80;
 /** Padding above the highest dB value */
 const DB_TOP_PADDING = 5;
-/** Padding in Hz beyond the last significant frequency */
-const FREQ_PADDING_HZ = 50;
+/** Padding beyond the last significant frequency as fraction of visible range */
+const FREQ_PADDING_RATIO = 0.05;
 
-export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChartProps) {
+export function SpectrumChart({ noise }: SpectrumChartProps) {
   const [selectedAxis, setSelectedAxis] = useState<AxisSelection>('all');
 
-  const data = useMemo(() => {
+  // Compute data, domains, and filter to significant range in one pass
+  const { data, yDomain, xDomain } = useMemo(() => {
     const raw = spectrumToRechartsData(
       { roll: noise.roll, pitch: noise.pitch, yaw: noise.yaw },
       20,
       1000
     );
-    return downsampleData(raw, MAX_CHART_POINTS);
-  }, [noise]);
+    const downsampled = downsampleData(raw, MAX_CHART_POINTS);
 
-  // Compute smart axis domains from actual data
-  const { yDomain, xDomain } = useMemo(() => {
     let yMin = 0;
     let yMax = -Infinity;
     let xMaxSignificant = 100; // minimum useful range
 
-    for (const point of data) {
+    for (const point of downsampled) {
       for (const axis of ['roll', 'pitch', 'yaw'] as const) {
         const val = point[axis];
         if (val !== undefined && val > DB_DISPLAY_FLOOR) {
@@ -82,15 +82,23 @@ export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChar
     if (yMax === -Infinity) {
       yMax = 0;
       yMin = -60;
-      xMaxSignificant = data.length > 0 ? data[data.length - 1].frequency : 500;
+      xMaxSignificant = downsampled.length > 0 ? downsampled[downsampled.length - 1].frequency : 500;
     }
 
-    const dataMaxFreq = data.length > 0 ? data[data.length - 1].frequency : 1000;
+    const dataMaxFreq = downsampled.length > 0 ? downsampled[downsampled.length - 1].frequency : 1000;
+    const freqPadding = (xMaxSignificant - 20) * FREQ_PADDING_RATIO;
+    const xMax = Math.min(xMaxSignificant + freqPadding, dataMaxFreq);
+
+    // Filter data to last significant frequency only — padding is visual (empty space),
+    // not data. This prevents -240 dB floor values from creating a cliff and stretching the Y-axis.
+    const filtered = downsampled.filter(p => p.frequency <= xMaxSignificant);
+
     return {
+      data: filtered,
       yDomain: [Math.max(yMin - 10, DB_DISPLAY_FLOOR), yMax + DB_TOP_PADDING] as [number, number],
-      xDomain: [20, Math.min(xMaxSignificant + FREQ_PADDING_HZ, dataMaxFreq)] as [number, number],
+      xDomain: [20, xMax] as [number, number],
     };
-  }, [data]);
+  }, [noise]);
 
   const visibleAxes: Axis[] = selectedAxis === 'all'
     ? ['roll', 'pitch', 'yaw']
@@ -122,9 +130,8 @@ export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChar
     <div className="spectrum-chart">
       <AxisTabs selected={selectedAxis} onChange={setSelectedAxis} />
       <div className="spectrum-chart-container">
+        <ResponsiveContainer width="100%" aspect={ASPECT_RATIO} minHeight={MIN_HEIGHT}>
         <LineChart
-          width={width}
-          height={height}
           data={data}
           margin={{ top: 8, right: 16, left: 8, bottom: 4 }}
         >
@@ -133,11 +140,13 @@ export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChar
             dataKey="frequency"
             type="number"
             domain={xDomain}
+            allowDataOverflow={true}
             tick={{ fontSize: 11, fill: '#aaa' }}
             label={{ value: 'Frequency (Hz)', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: '#888' } }}
           />
           <YAxis
             domain={yDomain}
+            allowDataOverflow={true}
             tick={{ fontSize: 11, fill: '#aaa' }}
             label={{ value: 'Noise (dB)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#888' } }}
           />
@@ -186,6 +195,7 @@ export function SpectrumChart({ noise, width = 700, height = 300 }: SpectrumChar
             />
           ))}
         </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

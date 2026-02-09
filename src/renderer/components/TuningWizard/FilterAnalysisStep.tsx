@@ -103,6 +103,19 @@ export function FilterAnalysisStep({
 
         {noiseDetailsOpen && (
           <div className="noise-details">
+            <p className="chart-description">
+              Frequency spectrum of gyro noise during stable hover.
+              Peaks indicate noise sources &mdash; <strong>motor harmonics</strong> (propeller vibrations),{' '}
+              <strong>frame resonance</strong> (structural vibrations), or <strong>electrical</strong> noise.
+              A flat, low spectrum means a clean build. Tall peaks may need filter adjustments.
+            </p>
+            <p className="chart-legend">
+              <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
+              <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
+              <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
+              <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" /> Noise floor</span>
+              <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#ffd43b' }} /> Peak marker</span>
+            </p>
             <SpectrumChart noise={filterResult.noise} />
             <div className="axis-summary">
               {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
