@@ -184,7 +184,7 @@ it('displays error when API fails', async () => {
 
 ## Current Test Coverage
 
-### Total: 569 tests across 32 test files
+### Total: 660 tests across 37 test files
 
 ### UI Components (97+ tests)
 - ✅ **ConnectionPanel** (12 tests) - Connection flow, port scanning, cooldown
@@ -199,17 +199,18 @@ it('displays error when API fails', async () => {
 - ✅ **ApplyConfirmationModal** - Apply confirmation dialog with snapshot option
 - ✅ **TuningWorkflowModal** - Tuning preparation guide modal
 
-### Hooks (45+ tests)
+### Hooks (48+ tests)
 - ✅ **useConnection** (15 tests) - Connection state, port management, error handling
 - ✅ **useProfiles** (14 tests) - Profile CRUD operations, event subscriptions
 - ✅ **useSnapshots** (19 tests) - Snapshot management, restore, event-driven updates
 - ✅ **useTuningWizard** - Wizard state management, parse/analyze/apply lifecycle
 
-### MSP Client (3 tests)
-- ✅ **MSPClient** (3 tests) - Filter configuration parsing, byte layout validation
+### MSP Client (8 tests)
+- ✅ **MSPClient** (8 tests) - Filter configuration parsing, flash payload extraction, byte layout validation
 
-### Blackbox Parser (171 tests)
-- ✅ **BlackboxParser** (16 tests) - End-to-end parsing, multi-session, corruption recovery
+### Blackbox Parser (205 tests)
+- ✅ **BlackboxParser** (35 tests) - End-to-end parsing, multi-session, corruption recovery, BF Explorer-aligned behavior
+- ✅ **BlackboxParser Integration** (9 tests) - Real flight BBL regression tests
 - ✅ **StreamReader** (35 tests) - Binary stream reading, variable-byte encoding
 - ✅ **HeaderParser** (25 tests) - BBL header parsing, field definitions
 - ✅ **ValueDecoder** (53 tests) - 10 encoding types
@@ -223,11 +224,14 @@ it('displays error when API fails', async () => {
 - ✅ **FilterRecommender** (28 tests) - Absolute noise-based targets, convergence, safety bounds, deduplication
 - ✅ **FilterAnalyzer** (9 tests) - End-to-end pipeline, progress reporting, edge cases
 
-### Step Response Analysis (65 tests)
+### Step Response Analysis (69 tests)
 - ✅ **StepDetector** (16 tests) - Derivative-based step detection, hold/cooldown validation
-- ✅ **StepMetrics** (15 tests) - Rise time, overshoot, settling, latency, ringing
+- ✅ **StepMetrics** (19 tests) - Rise time, overshoot, settling, latency, ringing, trace extraction
 - ✅ **PIDRecommender** (25 tests) - Flight PID anchoring, convergence, extractFlightPIDs, safety bounds
 - ✅ **PIDAnalyzer** (9 tests) - End-to-end pipeline, progress reporting
+
+### Charts (15 tests)
+- ✅ **chartUtils** (15 tests) - Data conversion, downsampling, findBestStep scoring
 
 ### Coverage Goals
 - **Components**: ≥80% coverage ✅ **Achieved**
@@ -400,7 +404,7 @@ src/renderer/components/
 ### MSP Client Tests
 ```
 src/main/msp/
-  MSPClient.test.ts                  ← 3 tests
+  MSPClient.test.ts                  ← 8 tests
 ```
 
 ### Hook Tests
@@ -415,11 +419,12 @@ src/renderer/hooks/
 ### Blackbox Parser Tests
 ```
 src/main/blackbox/
-  BlackboxParser.test.ts             ← 16 tests
+  BlackboxParser.test.ts             ← 35 tests
+  BlackboxParser.integration.test.ts ← 9 tests
   StreamReader.test.ts               ← 35 tests
   HeaderParser.test.ts               ← 25 tests
-  ValueDecoder.test.ts               ← 53 tests
-  PredictorApplier.test.ts           ← 27 tests
+  ValueDecoder.test.ts               ← 57 tests
+  PredictorApplier.test.ts           ← 29 tests
   FrameParser.test.ts                ← 15 tests
 ```
 
@@ -437,9 +442,15 @@ src/main/analysis/
 ```
 src/main/analysis/
   StepDetector.test.ts               ← 16 tests
-  StepMetrics.test.ts                ← 15 tests
+  StepMetrics.test.ts                ← 19 tests
   PIDRecommender.test.ts             ← 25 tests
   PIDAnalyzer.test.ts                ← 9 tests
+```
+
+### Chart Tests
+```
+src/renderer/components/TuningWizard/charts/
+  chartUtils.test.ts                 ← 15 tests
 ```
 
 ## Examples

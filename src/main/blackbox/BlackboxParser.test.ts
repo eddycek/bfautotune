@@ -1191,10 +1191,74 @@ describe('BlackboxParser', () => {
       // All 4 frames should be present — the false LOG_END was ignored
       expect(result.sessions[0].flightData.frameCount).toBe(4);
     });
+
+    it('does not consume extra bytes on false LOG_END (no misalignment)', async () => {
+      // Regression: parseEventFrame used to consume 11 validation bytes on false
+      // LOG_END without rewinding. When the next valid frame started within those
+      // 11 bytes, parsing became misaligned, cascading into 100+ corrupt frames
+      // and premature session termination.
+      const parts: Buffer[] = [];
+
+      const headers = [
+        'H Product:Blackbox flight data recorder by Nicholas Sherlock',
+        'H Data version:2',
+        'H I interval:32',
+        'H P interval:1/2',
+        'H Firmware type:Betaflight',
+        'H Firmware revision:4.5.1',
+        'H looptime:312',
+        'H minthrottle:1070',
+        'H vbatref:420',
+        'H Field I name:loopIteration,time,gyroADC[0],gyroADC[1],gyroADC[2]',
+        'H Field I signed:0,0,1,1,1',
+        'H Field I predictor:0,0,0,0,0',
+        'H Field I encoding:1,1,0,0,0',
+        'H Field P name:loopIteration,time,gyroADC[0],gyroADC[1],gyroADC[2]',
+        'H Field P signed:0,0,1,1,1',
+        'H Field P predictor:1,1,1,1,1',
+        'H Field P encoding:0,0,0,0,0',
+      ];
+      parts.push(Buffer.from(headers.join('\n') + '\n'));
+
+      // 2 valid I-frames
+      for (let f = 0; f < 2; f++) {
+        const frame: number[] = [0x49];
+        pushUVB(frame, f * 32);
+        pushUVB(frame, f * 32 * 312);
+        pushSVB(frame, 100 + f);
+        pushSVB(frame, -(50 + f));
+        pushSVB(frame, 30 + f);
+        parts.push(Buffer.from(frame));
+      }
+
+      // False LOG_END with only 2 garbage bytes before next valid I-frame.
+      // Old bug: readBytes(11) would consume 0xFF + 2 garbage + 8 bytes of
+      // the next I-frame, causing misalignment and cascading corruption.
+      parts.push(Buffer.from([0x45, 0xFF, 0xAB, 0xCD]));
+
+      // 4 more valid I-frames (should all survive after resync)
+      for (let f = 2; f < 6; f++) {
+        const frame: number[] = [0x49];
+        pushUVB(frame, f * 32);
+        pushUVB(frame, f * 32 * 312);
+        pushSVB(frame, 100 + f);
+        pushSVB(frame, -(50 + f));
+        pushSVB(frame, 30 + f);
+        parts.push(Buffer.from(frame));
+      }
+
+      parts.push(logEndBytes());
+
+      const result = await BlackboxParser.parse(Buffer.concat(parts));
+      expect(result.success).toBe(true);
+
+      // Should recover all 6 frames (2 before + 4 after the false LOG_END)
+      expect(result.sessions[0].flightData.frameCount).toBe(6);
+    });
   });
 
   describe('frame validation', () => {
-    it('rejects frames exceeding MAX_FRAME_LENGTH (256 bytes)', async () => {
+    it('recovers after garbage data between valid frames', async () => {
       const parts: Buffer[] = [];
 
       const headers = [
@@ -1224,16 +1288,12 @@ describe('BlackboxParser', () => {
       pushSVB(f1, 100); pushSVB(f1, -50); pushSVB(f1, 30);
       parts.push(Buffer.from(f1));
 
-      // Oversized "frame": I-marker + 300 bytes of padding before next marker
-      const oversized = Buffer.alloc(301);
-      oversized[0] = 0x49; // I-frame marker
-      // Fill with non-marker bytes so resync doesn't stop early
-      for (let i = 1; i < 300; i++) oversized[i] = 0x01;
-      // Next valid I-frame marker at end
-      oversized[300] = 0x49;
-      parts.push(oversized);
+      // Garbage bytes (non-marker values) — parser skips these byte-by-byte
+      const garbage = Buffer.alloc(300);
+      for (let i = 0; i < 300; i++) garbage[i] = 0x01;
+      parts.push(garbage);
 
-      // Another valid frame after the oversized one
+      // Another valid frame after the garbage
       const f3: number[] = [0x49];
       pushUVB(f3, 64); pushUVB(f3, 64 * 312);
       pushSVB(f3, 200); pushSVB(f3, -100); pushSVB(f3, 60);
@@ -1244,8 +1304,8 @@ describe('BlackboxParser', () => {
       const result = await BlackboxParser.parse(Buffer.concat(parts));
       expect(result.success).toBe(true);
 
-      // The oversized frame should be rejected
-      expect(result.sessions[0].corruptedFrameCount).toBeGreaterThanOrEqual(1);
+      // Parser recovers and finds both valid frames
+      expect(result.sessions[0].flightData.frameCount).toBeGreaterThanOrEqual(2);
     });
 
     it('accepts frames with large field values (no sensor threshold)', async () => {
@@ -1343,7 +1403,9 @@ describe('BlackboxParser', () => {
       expect(result.sessions[0].corruptedFrameCount).toBeGreaterThanOrEqual(1);
     });
 
-    it('stops after MAX_CONSECUTIVE_CORRUPT_FRAMES', async () => {
+    it('continues parsing through corrupt frames without stopping (no consecutive limit)', async () => {
+      // BF Explorer has no "max consecutive corrupt" limit — only EOF/LOG_END stops.
+      // Parser should continue through corrupt frames and still find valid ones.
       const parts: Buffer[] = [];
 
       const headers = [
@@ -1367,27 +1429,36 @@ describe('BlackboxParser', () => {
       ];
       parts.push(Buffer.from(headers.join('\n') + '\n'));
 
-      // One valid frame at iteration=100
+      // Valid frame at iteration=0
       const f1: number[] = [0x49];
-      pushUVB(f1, 100); pushUVB(f1, 100 * 312);
+      pushUVB(f1, 0); pushUVB(f1, 0);
       pushSVB(f1, 100); pushSVB(f1, -50); pushSVB(f1, 30);
       parts.push(Buffer.from(f1));
 
-      // 200 "I-frames" with huge forward iteration jumps (all corrupt)
+      // 200 I-frames with huge forward iteration jumps (all rejected semantically)
       for (let i = 0; i < 200; i++) {
         const f: number[] = [0x49];
-        pushUVB(f, 100 + (i + 1) * 10000); // huge forward jumps → rejected
-        pushUVB(f, (100 + (i + 1) * 10000) * 312);
+        pushUVB(f, (i + 1) * 10000); // huge forward jumps → rejected
+        pushUVB(f, (i + 1) * 10000 * 312);
         pushSVB(f, 50); pushSVB(f, -50); pushSVB(f, 30);
         parts.push(Buffer.from(f));
       }
+
+      // Valid frame at iteration=32 (should be found after all the corrupt ones)
+      const f2: number[] = [0x49];
+      pushUVB(f2, 32); pushUVB(f2, 32 * 312);
+      pushSVB(f2, 200); pushSVB(f2, -100); pushSVB(f2, 60);
+      parts.push(Buffer.from(f2));
+
+      parts.push(logEndBytes());
 
       const result = await BlackboxParser.parse(Buffer.concat(parts));
       expect(result.success).toBe(true);
 
       const session = result.sessions[0];
-      expect(session.flightData.frameCount).toBe(1); // only the first valid frame
-      expect(session.warnings.some(w => w.includes('consecutive corrupt'))).toBe(true);
+      // Should find at least 2 valid frames (first + last), parsing through corruption
+      expect(session.flightData.frameCount).toBeGreaterThanOrEqual(2);
+      expect(session.corruptedFrameCount).toBeGreaterThan(0);
     });
   });
 

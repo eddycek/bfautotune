@@ -1,6 +1,3 @@
-import {
-  BBLFrameType,
-} from '@shared/types/blackbox.types';
 import type {
   BBLLogHeader,
   BlackboxFlightData,
@@ -11,18 +8,14 @@ import type {
 } from '@shared/types/blackbox.types';
 import {
   FRAME_MARKER,
-  VALID_FRAME_MARKERS,
-  HEADER_PREFIX,
   FIELD_NAMES,
   EVENT_TYPE,
-  MAX_RESYNC_BYTES,
   MAX_FRAME_LENGTH,
   END_OF_LOG_MESSAGE,
   MAX_ITERATION_JUMP,
   MAX_TIME_JUMP_US,
   MAX_I_FRAME_TIME_BACKWARD_US,
   MAX_I_FRAME_ITER_BACKWARD,
-  MAX_CONSECUTIVE_CORRUPT_FRAMES,
   PROGRESS_INTERVAL,
   YIELD_INTERVAL,
 } from './constants';
@@ -163,10 +156,17 @@ export class BlackboxParser {
     const frameParser = new FrameParser(header);
 
     // Parse frames
+    //
+    // Parsing loop matches BF Explorer (blackbox-log-viewer) behavior:
+    // - Read one byte at a time as potential frame marker
+    // - If it's a known frame type → parse the frame
+    // - Unknown bytes are silently skipped (not counted as corruption)
+    // - No "max consecutive corrupt" limit — only EOF or LOG_END stops
+    // - Corrupt frames (oversize) rewind to frameStart + 1 (no forward scan)
+    // - Semantic validation failures invalidate prediction state, no resync
     const iFrames: number[][] = [];
     const pFrames: number[][] = [];
     let corruptedFrameCount = 0;
-    let consecutiveCorrupt = 0;
     let frameCount = 0;
 
     // Track previous frames for P-frame prediction
@@ -174,28 +174,30 @@ export class BlackboxParser {
     let previousFrame: number[] | null = null;
     let previousFrame2: number[] | null = null;
 
+    // Dummy previous for P-frame parsing when no valid I-frame yet.
+    // BF Explorer always has mainHistory initialized to zeros.
+    const dummyPrev = new Array(header.pFieldDefs.length).fill(0);
+
     // Field indices for iteration/time validation
     const loopIterIdx = header.iFieldDefs.findIndex(d => d.name === FIELD_NAMES.LOOP_ITERATION);
     const timeIdx = header.iFieldDefs.findIndex(d => d.name === FIELD_NAMES.TIME);
     let lastIteration = -1;
     let lastTime = -1;
 
+    // Track bytes processed for progress throttling
+    let lastProgressOffset = start;
+
     while (!reader.eof) {
       const frameStartOffset = reader.offset;
 
-      // Bail out if too many consecutive corrupt frames
-      if (consecutiveCorrupt >= MAX_CONSECUTIVE_CORRUPT_FRAMES) {
-        warnings.push(`Stopped parsing after ${MAX_CONSECUTIVE_CORRUPT_FRAMES} consecutive corrupt frames`);
-        break;
-      }
-
-      // Report progress
-      if (frameCount % PROGRESS_INTERVAL === 0) {
+      // Report progress periodically (every ~16KB)
+      if (reader.offset - lastProgressOffset > 16384) {
         onBytesProcessed?.(reader.offset - start);
+        lastProgressOffset = reader.offset;
       }
 
       // Yield to event loop periodically
-      if (frameCount % YIELD_INTERVAL === 0 && frameCount > 0) {
+      if (frameCount > 0 && frameCount % YIELD_INTERVAL === 0) {
         await BlackboxParser.yield();
       }
 
@@ -209,64 +211,59 @@ export class BlackboxParser {
             const frameSize = reader.offset - frameStartOffset;
 
             if (frameSize > MAX_FRAME_LENGTH) {
+              // Oversize → corrupt, step back to frameStart + 1
               corruptedFrameCount++;
-              consecutiveCorrupt++;
-              // Size invalid → binary decode likely misaligned
               previousFrame = null;
               previousFrame2 = null;
               reader.setOffset(frameStartOffset + 1);
-              BlackboxParser.resync(reader);
               break;
             }
 
-            // I-frames carry absolute values, so they reset tracking state.
-            // Only reject on large FORWARD jumps (likely corruption).
-            // Backward time/iteration is expected when P-frame predictors
-            // have drifted — the I-frame is correct, our tracking is stale.
             if (!BlackboxParser.isIFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+              // Semantic failure — invalidate prediction but don't resync
+              // (bytes were consumed correctly, stream position is valid)
               corruptedFrameCount++;
-              consecutiveCorrupt++;
               previousFrame = null;
               previousFrame2 = null;
-              reader.setOffset(frameStartOffset + 1);
-              BlackboxParser.resync(reader);
               break;
             }
 
             iFrames.push(values);
-            // I-frames reset prediction state: both prev and prev2 point to the
-            // I-frame. This matches BF viewer behavior where mainHistory[1] and [2]
-            // are both set to the I-frame after parsing it. Without this, the first
-            // P-frame after an I-frame would use STRAIGHT_LINE with the old P-frame
-            // as prev2, causing ~993µs time drift per I-interval.
+            // I-frames reset prediction state (matches BF viewer mainHistory)
             previousFrame = values;
             previousFrame2 = values;
             previousIFrame = values;
             frameCount++;
-            consecutiveCorrupt = 0;
             if (loopIterIdx >= 0) lastIteration = values[loopIterIdx];
             if (timeIdx >= 0) lastTime = values[timeIdx];
             break;
           }
 
           case FRAME_MARKER.INTER: {
-            if (!previousFrame) {
-              BlackboxParser.resync(reader);
-              corruptedFrameCount++;
-              consecutiveCorrupt++;
-              break;
-            }
-            const values = frameParser.parsePFrame(reader, previousFrame, previousFrame2);
+            // Always parse P-frames to consume correct bytes (even without
+            // valid previous frame). BF Explorer uses zero-init mainHistory.
+            const prev = previousFrame ?? dummyPrev;
+            const prev2 = previousFrame2 ?? prev;
+            const values = frameParser.parsePFrame(reader, prev, prev2);
             const frameSize = reader.offset - frameStartOffset;
 
-            if (frameSize > MAX_FRAME_LENGTH ||
-                !BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+            if (frameSize > MAX_FRAME_LENGTH) {
               corruptedFrameCount++;
-              consecutiveCorrupt++;
-              previousFrame = null; // Force wait for next I-frame
+              previousFrame = null;
               previousFrame2 = null;
               reader.setOffset(frameStartOffset + 1);
-              BlackboxParser.resync(reader);
+              break;
+            }
+
+            // Only store if we had a valid previous frame
+            if (!previousFrame) {
+              break;
+            }
+
+            if (!BlackboxParser.isFrameValid(values, loopIterIdx, timeIdx, lastIteration, lastTime)) {
+              corruptedFrameCount++;
+              previousFrame = null;
+              previousFrame2 = null;
               break;
             }
 
@@ -274,14 +271,12 @@ export class BlackboxParser {
             previousFrame2 = previousFrame;
             previousFrame = values;
             frameCount++;
-            consecutiveCorrupt = 0;
             if (loopIterIdx >= 0) lastIteration = values[loopIterIdx];
             if (timeIdx >= 0) lastTime = values[timeIdx];
             break;
           }
 
           case FRAME_MARKER.SLOW: {
-            // Parse but don't store slow frames (not needed for PID analysis)
             frameParser.parseSFrame(reader);
             break;
           }
@@ -289,37 +284,34 @@ export class BlackboxParser {
           case FRAME_MARKER.EVENT: {
             const eventType = BlackboxParser.parseEventFrame(reader);
             if (eventType === EVENT_TYPE.LOG_END) {
-              // Session ended — stop reading to avoid garbage flash data
               reader.setOffset(reader.end);
             }
+            // False positive (-1) or other events: stream position is correct, continue
             break;
           }
 
           case FRAME_MARKER.GPS:
           case FRAME_MARKER.GPS_HOME: {
-            // Skip GPS frames - not needed for PID analysis
-            // GPS frames use their own field definitions; for now, skip by resyncing
-            BlackboxParser.resync(reader);
+            // We don't parse GPS field defs, so we can't properly consume
+            // GPS frame bytes. Treat the marker as unknown — BF Explorer
+            // does the same when frameDefs.G/H is undefined.
+            previousFrame = null;
             break;
           }
 
           default: {
-            // Unknown byte - try to resync
-            if (!BlackboxParser.resync(reader)) {
-              // Can't find another frame marker - end of usable data
-              break;
-            }
-            corruptedFrameCount++;
-            consecutiveCorrupt++;
+            // Unknown byte — skip silently (matches BF Explorer).
+            // No corruption counting, no resync. Just invalidate prediction.
+            previousFrame = null;
             break;
           }
         }
       } catch {
-        // Frame decode error - try to resync
+        // Frame decode error — step back and try next byte
         corruptedFrameCount++;
-        consecutiveCorrupt++;
+        previousFrame = null;
+        previousFrame2 = null;
         reader.setOffset(frameStartOffset + 1);
-        if (!BlackboxParser.resync(reader)) break;
       }
     }
 
@@ -349,6 +341,10 @@ export class BlackboxParser {
   /**
    * Parse an event frame by reading its type and associated data.
    * Returns the event type so the caller can act on LOG_END.
+   *
+   * Event data uses variable-byte encoding (matching BF Explorer), NOT fixed
+   * sizes. Using fixed skip(N) would consume wrong number of bytes when VB
+   * values are shorter/longer than expected, causing stream misalignment.
    */
   private static parseEventFrame(reader: StreamReader): number {
     const eventType = reader.readByte();
@@ -356,64 +352,62 @@ export class BlackboxParser {
 
     switch (eventType) {
       case EVENT_TYPE.SYNC_BEEP:
-        // 4-byte timestamp
-        reader.skip(4);
+        // 1 unsigned VB: beep time
+        reader.readUnsignedVB();
         break;
       case EVENT_TYPE.LOG_END: {
         // Betaflight writes "End of log\0" after the event type byte.
         // Validate this string to avoid false positives from random 0xFF bytes.
+        const savedOffset = reader.offset;
         const endMsg = reader.readBytes(END_OF_LOG_MESSAGE.length);
         const endStr = endMsg.toString('ascii');
         if (endStr !== END_OF_LOG_MESSAGE) {
-          // False positive — not a real LOG_END, just a random 0xFF byte
+          // False positive — rewind the validation bytes so reader stays aligned
+          reader.setOffset(savedOffset);
           return -1;
         }
         break;
       }
       case EVENT_TYPE.DISARM:
-        // 4-byte reason
-        reader.skip(4);
+        // 1 unsigned VB: reason
+        reader.readUnsignedVB();
         break;
       case EVENT_TYPE.FLIGHT_MODE:
-        // 4-byte flags + 4-byte lastFlags
-        reader.skip(8);
+        // 2 unsigned VB: newFlags, lastFlags
+        reader.readUnsignedVB();
+        reader.readUnsignedVB();
         break;
-      case EVENT_TYPE.INFLIGHT_ADJUSTMENT:
-        // Variable - read adjustment function (1 byte) + value (4 bytes)
-        reader.skip(5);
+      case EVENT_TYPE.INFLIGHT_ADJUSTMENT: {
+        // 1 byte: adjustment function, then conditional value
+        const adjFunc = reader.readByte();
+        if (adjFunc !== -1) {
+          if (adjFunc > 127) {
+            // Float adjustment: 4-byte U32 (÷ 1e6)
+            reader.skip(4);
+          } else {
+            // Integer adjustment: signed VB
+            reader.readSignedVB();
+          }
+        }
         break;
+      }
       case EVENT_TYPE.LOGGING_RESUME:
-        // 4-byte currentTime + 4-byte loopIteration
-        reader.skip(8);
+        // 2 unsigned VB: logIteration, currentTime
+        reader.readUnsignedVB();
+        reader.readUnsignedVB();
         break;
       default:
-        // Unknown event - try to find next frame marker
-        BlackboxParser.resync(reader);
+        // Unknown event type — don't try to skip unknown bytes.
+        // BF Explorer also doesn't skip; it just returns the event.
         break;
     }
 
     return eventType;
   }
 
-  /**
-   * Scan ahead to find the next valid frame marker byte.
-   * Returns true if a marker was found, false if EOF.
-   */
-  private static resync(reader: StreamReader): boolean {
-    const maxScan = Math.min(reader.bytesRemaining, MAX_RESYNC_BYTES);
-
-    for (let i = 0; i < maxScan; i++) {
-      const byte = reader.peek();
-      if (byte === -1) return false;
-
-      if (VALID_FRAME_MARKERS.has(byte)) {
-        return true;
-      }
-      reader.skip(1);
-    }
-
-    return false;
-  }
+  // Note: resync() removed — BF Explorer does not use forward-scan resync.
+  // Instead, corrupt frames rewind to frameStart + 1 and the main loop
+  // reads byte-by-byte, silently skipping non-marker bytes.
 
   /**
    * Extract flight data time series from decoded frames.

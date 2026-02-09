@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Beta PIDTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 2.5 - UX Polish (profile simplified, charts, visual aids)
+**Current Phase**: Phase 3 - Analysis Charts + Parser Fixes
 
 **Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 
@@ -143,9 +143,12 @@ Parses Betaflight .bbl/.bfl binary log files into typed time series data.
 
 - 10 encoding types, 10 predictor types
 - Multi-session support (multiple flights per file)
-- Corruption recovery with resync
+- Corruption recovery aligned with BF Explorer (byte-by-byte, no forward-scan resync)
 - **LOG_END handling**: `parseEventFrame()` returns event type; LOG_END validates "End of log\0" string (anti-false-positive), then terminates session. Matches BF viewer behavior.
-- **Frame validation** (aligned with BF viewer): structural size limit (256 bytes), iteration continuity (< 5000 jump), time continuity (< 10s jump). No sensor value thresholds — debug/motor fields can legitimately exceed any fixed range. Stops after 100 consecutive corrupt frames.
+- **Event frame parsing**: Uses VB encoding (readUnsignedVB/readSignedVB) for all event data — NOT fixed skip(). SYNC_BEEP=1×UVB, DISARM=1×UVB, FLIGHT_MODE=2×UVB, LOGGING_RESUME=2×UVB, INFLIGHT_ADJUSTMENT=1×U8+conditional.
+- **Frame validation** (aligned with BF viewer): structural size limit (256 bytes), iteration continuity (< 5000 jump), time continuity (< 10s jump). No sensor value thresholds — debug/motor fields can legitimately exceed any fixed range. No consecutive corrupt frame limit (matches BF Explorer).
+- **Unknown bytes**: Silently skipped at frame boundaries (0x00, 0x02, 0x04 etc. are normal). No corruption counting.
+- **Corrupt frame recovery**: Rewind to `frameStart + 1` and continue byte-by-byte (matches BF Explorer). No forward-scan resync.
 - IPC: `BLACKBOX_PARSE_LOG` + `EVENT_BLACKBOX_PARSE_PROGRESS`
 - Output: `BlackboxFlightData` with gyro, setpoint, PID, motor as `Float64Array` time series
 
@@ -239,12 +242,12 @@ Interactive visualization of analysis results using Recharts (SVG).
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 638 tests total across 36 test files
+- 660 tests total across 37 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
 - Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
 - Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
 - MSP Client: MSPClient (8 tests - filter config parsing, flash payload extraction)
-- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (198 tests, incl. integration)
+- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (205 tests, incl. integration)
 - FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (98 tests)
 - Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (69 tests)
 - See `TESTING.md` for detailed guidelines
