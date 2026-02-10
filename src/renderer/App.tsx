@@ -6,6 +6,7 @@ import { SnapshotManager } from './components/SnapshotManager/SnapshotManager';
 import { ProfileWizard } from './components/ProfileWizard';
 import { ProfileSelector } from './components/ProfileSelector';
 import { TuningWizard } from './components/TuningWizard/TuningWizard';
+import { AnalysisOverview } from './components/AnalysisOverview/AnalysisOverview';
 import { TuningWorkflowModal } from './components/TuningWorkflowModal/TuningWorkflowModal';
 import { TuningStatusBanner } from './components/TuningStatusBanner/TuningStatusBanner';
 import { ToastProvider } from './contexts/ToastContext';
@@ -25,7 +26,8 @@ function AppContent() {
   const [newFCInfo, setNewFCInfo] = useState<FCInfo | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
-  const [wizardMode, setWizardMode] = useState<TuningMode>('full');
+  const [analysisLogId, setAnalysisLogId] = useState<string | null>(null);
+  const [wizardMode, setWizardMode] = useState<TuningMode>('filter');
   const [showWorkflowHelp, setShowWorkflowHelp] = useState(false);
   const [showFlightGuideMode, setShowFlightGuideMode] = useState<TuningMode | null>(null);
   const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
@@ -117,19 +119,20 @@ function AppContent() {
   };
 
   const handleAnalyze = (logId: string) => {
-    setActiveLogId(logId);
-    // Determine wizard mode from tuning session
     if (tuning.session) {
+      // Active tuning session — open wizard in mode matching current phase
       const phase = tuning.session.phase;
       if (phase === 'filter_analysis') {
         setWizardMode('filter');
       } else if (phase === 'pid_analysis') {
         setWizardMode('pid');
       } else {
-        setWizardMode('full');
+        setWizardMode('filter');
       }
+      setActiveLogId(logId);
     } else {
-      setWizardMode('full');
+      // No tuning session — open read-only analysis overview
+      setAnalysisLogId(logId);
     }
   };
 
@@ -150,7 +153,9 @@ function AppContent() {
       </header>
 
       <main className="app-main">
-        {activeLogId ? (
+        {analysisLogId ? (
+          <AnalysisOverview logId={analysisLogId} onExit={() => setAnalysisLogId(null)} />
+        ) : activeLogId ? (
           <TuningWizard logId={activeLogId} mode={wizardMode} onExit={() => setActiveLogId(null)} />
         ) : (
           <div className="main-content">

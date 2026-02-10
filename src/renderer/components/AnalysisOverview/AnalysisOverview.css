@@ -1,0 +1,88 @@
+.analysis-overview {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+.analysis-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.analysis-overview-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0;
+}
+
+.analysis-overview-header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.analysis-overview-log-id {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  margin-top: 2px;
+}
+
+.analysis-overview-section {
+  background: var(--bg-secondary, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.analysis-overview-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0 0 12px 0;
+}
+
+.analysis-overview-label {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(77, 171, 247, 0.12);
+  color: #4dabf7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  display: inline-block;
+}
+
+/* Button styles scoped to analysis-overview (mirrors tuning-wizard) */
+.analysis-overview .wizard-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.analysis-overview .wizard-btn-secondary {
+  background-color: transparent;
+  color: #999;
+}
+
+.analysis-overview .wizard-btn-secondary:hover {
+  color: #fff;
+  background-color: #2a2a2a;
+}
+
+.analysis-overview .wizard-btn-primary {
+  background-color: #2563eb;
+  color: #fff;
+}
+
+.analysis-overview .wizard-btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
