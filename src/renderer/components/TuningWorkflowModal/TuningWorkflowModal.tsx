@@ -37,8 +37,13 @@ export function TuningWorkflowModal({ onClose }: TuningWorkflowModalProps) {
 
         <hr className="workflow-divider" />
 
-        <h3 className="workflow-subheading">Test Flight Guide</h3>
-        <FlightGuideContent />
+        <h3 className="workflow-subheading">Flight 1: Filter Test Flight</h3>
+        <FlightGuideContent mode="filter" />
+
+        <hr className="workflow-divider" />
+
+        <h3 className="workflow-subheading">Flight 2: PID Test Flight</h3>
+        <FlightGuideContent mode="pid" />
 
         <div className="workflow-modal-actions">
           <button className="wizard-btn wizard-btn-primary" onClick={onClose}>
