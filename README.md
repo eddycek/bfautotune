@@ -1,35 +1,61 @@
 # Betaflight PID AutoTune
 
-**Automated FPV Drone Tuning Application for Betaflight**
+**Desktop application that takes the guesswork out of FPV drone tuning.**
 
-Desktop application that automatically tunes filter and PID settings by analyzing Blackbox logs. No manual graph reading required - guided test flights, automated analysis, and one-click tuning.
+Most pilots tune their drones by hand — changing PID numbers, test flying, reading Blackbox graphs, and repeating. It's slow, confusing, and error-prone.
+
+BFAutoTune connects to your Betaflight flight controller over USB, guides you through two short test flights, analyzes the Blackbox data automatically (FFT noise analysis for filters, step response metrics for PIDs), and applies optimized settings with one click. No graph reading, no spreadsheets, no guesswork.
+
+**How it works:** Connect FC → Fly hover + throttle sweeps → App tunes filters → Fly stick snaps → App tunes PIDs → Done.
 
 ## Current Status
 
 - **Phase 1:** ✅ Complete - MSP connection, profile management, snapshots
 - **Phase 2:** ✅ Complete - Blackbox analysis, automated tuning, rollback
 - **Phase 2.5:** ✅ Complete - Profile simplification, interactive analysis charts
-- **Tests:** 621 across 35 files
+- **Phase 3:** ✅ Complete - Mode-aware wizard, read-only analysis, flight guides
+- **Phase 4:** ✅ Complete - Stateful two-flight tuning workflow
+- **Tests:** 841 across 47 files
 
 ## Features
 
-### Phase 1
-- ✅ Multi-drone profile management (auto-detection by FC serial)
-- ✅ USB serial connection to Betaflight flight controllers
-- ✅ Configuration snapshots with versioning and rollback
-- ✅ CLI export (diff/dump)
-- ✅ Toast notifications for user feedback
-- ✅ Cross-platform (Windows, macOS, Linux)
+### Connection & Profiles
+- USB serial connection to Betaflight flight controllers (MSP protocol)
+- Multi-drone profile management with automatic FC detection by serial number
+- Profile auto-selection on connect, profile locking while FC is connected
+- 10 preset profiles (Tiny Whoop, 5" Freestyle, 7" Long Range, etc.)
+- Cross-platform (Windows, macOS, Linux)
 
-### Phase 2
-- ✅ Blackbox log download and parsing (175 tests)
-- ✅ Automated filter tuning (FFT noise analysis, 98 tests)
-- ✅ Automated PID tuning (step response analysis, 69 tests)
-- ✅ Guided tuning wizard with flight instructions
-- ✅ One-click apply changes with automatic safety snapshot
-- ✅ Snapshot restore/rollback to any previous configuration
-- ✅ Convergent recommendations (idempotent — rerunning produces same result)
-- ✅ Interactive analysis charts (FFT spectrum + step response visualization)
+### Configuration Management
+- CLI export (diff/dump) for full configuration backup
+- Configuration snapshots with versioning and comparison
+- Snapshot restore/rollback via CLI command replay
+- GitHub-style diff view for snapshot comparison
+
+### Blackbox Analysis
+- Blackbox log download from FC flash storage (adaptive chunking)
+- Binary BBL log parser (validated against BF Explorer, 205 tests)
+- Multi-session support (multiple flights per file)
+- FC diagnostics: debug_mode and logging rate verification with warnings
+
+### Automated Tuning
+- **Filter tuning**: FFT noise analysis (Welch's method, Hanning window, peak detection)
+- **PID tuning**: Step response analysis (rise time, overshoot, settling, ringing)
+- Convergent recommendations (idempotent - rerunning produces same result)
+- Safety bounds prevent extreme values, plain-English explanations
+- One-click apply with automatic safety snapshot
+
+### Two-Flight Guided Workflow
+- Stateful tuning session: filters first (hover + throttle sweeps), then PIDs (stick snaps)
+- Step-by-step banner with progress indicator (10 phases)
+- Smart reconnect detection: auto-advances when flight data detected
+- Post-erase guidance: flash erased notification with flight guide
+- Mode-aware wizard adapts UI for filter vs PID analysis
+
+### Interactive Charts
+- FFT spectrum chart (noise per axis, floor lines, peak markers)
+- Step response chart (setpoint vs gyro trace, metrics overlay)
+- Axis tabs (Roll/Pitch/Yaw/All) for both chart types
 
 ## Tech Stack
 
@@ -101,7 +127,7 @@ npm run test:ui
 npm run test:coverage
 ```
 
-**📖 See [TESTING.md](./TESTING.md) for complete testing guidelines and best practices.**
+See [TESTING.md](./TESTING.md) for complete testing guidelines and best practices.
 
 ## Building
 
@@ -118,75 +144,131 @@ Output will be in the `release/` directory.
 bfautotune/
 ├── src/
 │   ├── main/                 # Main process (Node.js)
-│   │   ├── index.ts          # Entry point
+│   │   ├── index.ts          # Entry point, event wiring
 │   │   ├── window.ts         # Window management
 │   │   ├── msp/              # MSP communication
 │   │   │   ├── MSPClient.ts  # High-level MSP client
-│   │   │   ├── MSPConnection.ts # Serial connection
+│   │   │   ├── MSPConnection.ts # Serial connection + CLI mode
 │   │   │   └── MSPProtocol.ts # Protocol encoding/decoding
-│   │   ├── blackbox/         # Blackbox log parser
+│   │   ├── blackbox/         # Blackbox BBL log parser
 │   │   ├── analysis/         # FFT + step response analysis
-│   │   ├── storage/          # Profile, snapshot, blackbox managers
-│   │   └── ipc/              # IPC handlers
+│   │   ├── storage/          # Profile, snapshot, blackbox, tuning managers
+│   │   └── ipc/              # IPC request handlers
 │   │
 │   ├── preload/              # Preload script
-│   │   └── index.ts          # Exposed API
+│   │   └── index.ts          # window.betaflight API bridge
 │   │
 │   ├── renderer/             # Renderer process (React)
-│   │   ├── App.tsx
+│   │   ├── App.tsx           # Main layout, routing
 │   │   ├── components/
-│   │   │   ├── ConnectionPanel/
-│   │   │   ├── FCInfo/
-│   │   │   ├── SnapshotManager/
-│   │   │   ├── TuningWizard/   # Multi-step tuning wizard
-│   │   │   └── TuningWorkflowModal/
-│   │   └── hooks/
+│   │   │   ├── ConnectionPanel/      # Port selection, connect/disconnect
+│   │   │   ├── FCInfo/               # FC details + BB diagnostics
+│   │   │   ├── BlackboxStatus/       # Flash storage, download, erase
+│   │   │   ├── SnapshotManager/      # Snapshot CRUD, diff view
+│   │   │   ├── TuningWizard/         # Multi-step guided wizard
+│   │   │   ├── TuningStatusBanner/   # Workflow progress banner
+│   │   │   ├── AnalysisOverview/     # Read-only analysis view
+│   │   │   └── TuningWorkflowModal/  # Two-flight workflow help
+│   │   └── hooks/            # useConnection, useProfiles, useTuningSession, etc.
 │   │
 │   └── shared/               # Shared types & constants
-│       ├── types/
-│       └── constants/
+│       ├── types/            # TypeScript interfaces
+│       └── constants/        # MSP codes, presets, flight guides
 │
-└── data/snapshots/           # Snapshot storage
+└── docs/                     # Design docs, validation reports
 ```
 
 ## Usage
 
-### Connecting to Flight Controller
+### 1. First Connection & Profile Setup
 
 1. Connect your flight controller via USB
-2. Click "Scan" to detect available serial ports
-3. Select your FC from the dropdown
-4. Click "Connect"
+2. Click **Scan** to detect available serial ports
+3. Select your FC from the dropdown and click **Connect**
+4. On first connection with a new FC, the **Profile Wizard** opens automatically:
+   - Choose a preset profile (e.g., "5 inch Freestyle") or create a custom one
+   - Enter drone name, size, weight, motor KV, battery config
+   - Profile is linked to the FC's unique serial number
+5. A **baseline snapshot** is created automatically, capturing the FC's current configuration
 
-The app will automatically:
-- Read FC information
-- Create a baseline snapshot (if first connection)
-- Display FC details
+On subsequent connections, the app recognizes the FC by serial number and auto-selects the correct profile.
 
-### Exporting Configuration
+### 2. Pre-Flight Setup
 
-Once connected, you can export the configuration:
+Before flying, check the **Flight Controller Information** panel:
 
-- **Export CLI Diff**: Exports only changed settings (recommended)
-- **Export CLI Dump**: Exports full configuration
+- **Debug Mode** should be `GYRO_SCALED` for noise analysis (amber warning if set to `NONE`)
+- **Logging Rate** should be at least 2 kHz (shown with green checkmark or amber warning)
 
-### Managing Snapshots
+To change these settings, use Betaflight Configurator:
+```
+set debug_mode = GYRO_SCALED
+set blackbox_sample_rate = 0    # Full rate logging
+save
+```
 
-**Create Snapshot:**
-1. Ensure FC is connected
-2. Click "Create Snapshot"
-3. Optionally enter a label
-4. Click "Create"
+### 3. Guided Two-Flight Tuning
 
-**Export Snapshot:**
-- Click "Export" on any snapshot to download the configuration
+Click **Start Tuning Session** to begin the guided workflow. The status banner at the top tracks your progress through 10 phases:
 
-**Delete Snapshot:**
-- Click "Delete" on manual snapshots (baseline cannot be deleted)
+#### Flight 1: Filter Tuning
+1. **Erase Flash** — Clear old Blackbox data before flying
+2. **Fly filter test flight** — Hover with gentle throttle sweeps (30-60 seconds)
+3. **Reconnect** — App auto-detects new flight data on reconnect
+4. **Download log** — Download Blackbox data from FC
+5. **Analyze** — Click Analyze to open the filter wizard:
+   - Auto-parses the log and runs FFT noise analysis
+   - Shows noise spectrum, detected peaks, and filter recommendations
+   - Review recommendations, then click **Apply Filters** (creates safety snapshot + reboots FC)
 
-### Baseline Snapshot
+#### Flight 2: PID Tuning
+6. **Erase Flash** — Clear flash for the PID test flight
+7. **Fly PID test flight** — Sharp stick snaps on all axes (roll, pitch, yaw)
+8. **Reconnect & download** — Same as above
+9. **Analyze** — Opens the PID wizard:
+   - Detects step inputs, measures response metrics (overshoot, rise time, settling)
+   - Shows step response charts and PID recommendations
+   - Click **Apply PIDs** to apply changes
 
-A baseline snapshot is automatically created on first connection. This captures the initial FC configuration and cannot be deleted. It serves as a reference point for future comparisons.
+After both flights, the session shows as **completed**. You can start a new cycle to iterate further.
+
+### 4. Quick Analysis (No Tuning Session)
+
+If you just want to analyze a log without applying changes:
+
+1. Connect FC and download a Blackbox log
+2. Click **Analyze** on any downloaded log (without starting a tuning session)
+3. Opens a **read-only Analysis Overview** — shows both filter and PID analysis on a single page
+4. No Apply buttons — purely informational, great for reviewing flight data
+
+### 5. Managing Snapshots
+
+Snapshots capture the FC's full CLI configuration at a point in time.
+
+- **Baseline** — Auto-created on first connection, cannot be deleted
+- **Manual** — Create anytime via "Create Snapshot" button with optional label
+- **Auto (safety)** — Created automatically before applying tuning changes
+- **Compare** — Click to see GitHub-style diff between snapshots
+- **Restore** — Roll back to any snapshot (creates a safety backup first, sends CLI commands, reboots FC)
+- **Export** — Download as `.txt` file
+
+### 6. Exporting Configuration
+
+The FC Info panel provides two export options:
+
+- **Export CLI Diff** — Only changed settings (recommended for sharing/backup)
+- **Export CLI Dump** — Full configuration dump
+
+### 7. Blackbox Storage Management
+
+The Blackbox Storage panel shows flash usage and downloaded logs:
+
+- **Download** — Downloads all flight data from FC flash to local storage
+- **Erase Flash** — Permanently deletes all data from FC flash (required before each test flight)
+- **Test Read** — Diagnostic tool to verify FC flash communication
+- **Open Folder** — Opens the local log storage directory
+
+During an active tuning session, Blackbox actions are driven by the status banner (single point of action).
 
 ## Troubleshooting
 
@@ -211,7 +293,7 @@ npm run rebuild
 ### Connection Timeout
 
 - Ensure FC is powered on
-- Check USB cable
+- Check USB cable (data cable, not charge-only)
 - Try different USB port
 - Restart the application
 
@@ -221,22 +303,40 @@ npm run rebuild
 - Check Betaflight Configurator can connect
 - Install proper USB drivers
 
+### "FC not responding to MSP commands"
+
+- Caused by reconnecting too quickly after disconnect
+- Wait for the 3-second cooldown timer, then retry
+- If persistent, physically unplug and replug the USB cable
+
 ## MSP Protocol
 
 The app uses the MultiWii Serial Protocol (MSP) v1 to communicate with Betaflight:
 
 - **MSP_API_VERSION** - Get API version
-- **MSP_FC_VARIANT** - Get firmware variant
-- **MSP_FC_VERSION** - Get firmware version
-- **MSP_BOARD_INFO** - Get board information
-- **CLI Mode** - For configuration export
+- **MSP_FC_VARIANT** / **MSP_FC_VERSION** - Firmware identification
+- **MSP_BOARD_INFO** - Board and target information
+- **MSP_UID** - Unique FC serial number (for profile matching)
+- **MSP_PID** / **MSP_SET_PID** - Read/write PID configuration
+- **MSP_FILTER_CONFIG** - Read current filter settings
+- **MSP_DATAFLASH_SUMMARY** - Flash storage information
+- **MSP_DATAFLASH_READ** - Download Blackbox data
+- **MSP_DATAFLASH_ERASE** - Erase flash storage
+- **CLI Mode** - For configuration export, snapshot restore, and filter tuning
 
 ## Configuration Storage
 
-Snapshots are stored as JSON files in:
-- **macOS**: `~/Library/Application Support/bfautotune/data/snapshots/`
-- **Windows**: `%APPDATA%/bfautotune/data/snapshots/`
-- **Linux**: `~/.config/bfautotune/data/snapshots/`
+All data is stored locally per platform:
+
+- **macOS**: `~/Library/Application Support/bfautotune/data/`
+- **Windows**: `%APPDATA%/bfautotune/data/`
+- **Linux**: `~/.config/bfautotune/data/`
+
+Subdirectories:
+- `profiles/` — Drone profile JSON files + metadata index
+- `snapshots/` — Configuration snapshot JSON files
+- `blackbox/` — Downloaded Blackbox log files (`.bbl`)
+- `tuning/` — Tuning session state files (per profile)
 
 ## How Autotuning Works
 
@@ -359,17 +459,17 @@ The autotuning rules and thresholds are based on established FPV community pract
 ## Known Limitations
 
 - MSP v1 only (v2 support planned)
-- Blackbox analysis requires onboard flash storage
-- Requires test flights in safe environment
-- No AI recommendations in MVP (manual tuning algorithm)
+- Blackbox analysis requires onboard flash storage (SD card logging not yet supported)
+- Requires test flights in a safe environment
+- Huffman-compressed Blackbox data not yet supported (rare, BF 4.1+ feature)
 
 ## Development Roadmap
 
 - **Phase 1**: ✅ MSP connection, profiles, snapshots
 - **Phase 2**: ✅ Blackbox analysis, automated tuning, rollback
 - **Phase 2.5**: ✅ UX polish — profile simplification, interactive analysis charts
-- **Phase 3**: 📋 AI recommendations (optional, via user API key)
-- **Phase 4**: 📋 Cloud analysis service (Kubernetes deployment)
+- **Phase 3**: ✅ Mode-aware wizard, read-only analysis overview, flight guides
+- **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect
 
 ## License
 
