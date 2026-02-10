@@ -103,3 +103,19 @@
 .wizard-btn-text:hover {
   color: var(--text-primary, #e4e4e7);
 }
+
+.tuning-status-actions .spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: tuning-spin 0.8s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+@keyframes tuning-spin {
+  to { transform: rotate(360deg); }
+}

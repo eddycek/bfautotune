@@ -226,8 +226,17 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                     disabled={downloading || erasing}
                     title="Permanently erase all logs from FC flash memory"
                   >
-                    <span className="icon">🗑️</span>
-                    <span>Erase Flash</span>
+                    {erasing ? (
+                      <>
+                        <span className="spinner" />
+                        <span>Erasing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="icon">🗑️</span>
+                        <span>Erase Flash</span>
+                      </>
+                    )}
                   </button>
                 </div>
 

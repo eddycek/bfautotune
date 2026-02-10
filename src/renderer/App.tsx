@@ -30,6 +30,8 @@ function AppContent() {
   const [wizardMode, setWizardMode] = useState<TuningMode>('filter');
   const [showWorkflowHelp, setShowWorkflowHelp] = useState(false);
   const [showFlightGuideMode, setShowFlightGuideMode] = useState<TuningMode | null>(null);
+  const [erasedForPhase, setErasedForPhase] = useState<string | null>(null);
+  const [erasing, setErasing] = useState(false);
   const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const toast = useToast();
@@ -77,10 +79,14 @@ function AppContent() {
     switch (action) {
       case 'erase_flash':
         try {
+          setErasing(true);
           await window.betaflight.eraseBlackboxFlash();
+          setErasedForPhase(tuning.session?.phase ?? null);
           toast.success('Flash memory erased');
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to erase flash');
+        } finally {
+          setErasing(false);
         }
         break;
       case 'download_log':
@@ -103,6 +109,7 @@ function AppContent() {
         break;
       case 'start_new_cycle':
         try {
+          setErasedForPhase(null);
           await tuning.startSession();
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to start new cycle');
@@ -110,6 +117,7 @@ function AppContent() {
         break;
       case 'dismiss':
         try {
+          setErasedForPhase(null);
           await tuning.resetSession();
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to reset session');
@@ -159,14 +167,18 @@ function AppContent() {
           <TuningWizard logId={activeLogId} mode={wizardMode} onExit={() => setActiveLogId(null)} />
         ) : (
           <div className="main-content">
+            <ConnectionPanel />
             {isConnected && currentProfile && <ProfileSelector />}
             {isConnected && currentProfile && tuning.session && (
               <TuningStatusBanner
                 session={tuning.session}
+                flashErased={erasedForPhase === tuning.session.phase}
+                erasing={erasing}
                 onAction={handleTuningAction}
                 onViewGuide={(mode) => setShowFlightGuideMode(mode)}
                 onReset={async () => {
                   try {
+                    setErasedForPhase(null);
                     await tuning.resetSession();
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : 'Failed to reset');
@@ -181,6 +193,7 @@ function AppContent() {
                   className="wizard-btn wizard-btn-primary"
                   onClick={async () => {
                     try {
+                      setErasedForPhase(null);
                       await tuning.startSession();
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : 'Failed to start tuning session');
@@ -191,7 +204,6 @@ function AppContent() {
                 </button>
               </div>
             )}
-            <ConnectionPanel />
             {isConnected && <FCInfoDisplay />}
             {isConnected && <BlackboxStatus onAnalyze={handleAnalyze} readonly={!!tuning.session} />}
             {isConnected && currentProfile && <SnapshotManager />}

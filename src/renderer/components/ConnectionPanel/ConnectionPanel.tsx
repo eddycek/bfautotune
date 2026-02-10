@@ -80,50 +80,58 @@ export function ConnectionPanel() {
       )}
 
       <div className="connection-controls">
-        <div className="port-selection">
-          <label htmlFor="port-select">Serial Port:</label>
-          <select
-            id="port-select"
-            value={selectedPort}
-            onChange={(e) => setSelectedPort(e.target.value)}
-            disabled={status.connected || loading || reconnectCooldown > 0}
-          >
-            {ports.length === 0 && <option value="">No ports found</option>}
-            {ports.map((port) => (
-              <option key={port.path} value={port.path}>
-                {port.path}
-                {port.manufacturer && ` - ${port.manufacturer}`}
-              </option>
-            ))}
-          </select>
-          <button
-            className="secondary"
-            onClick={scanPorts}
-            disabled={status.connected || loading || reconnectCooldown > 0}
-          >
-            {loading ? 'Scanning...' : 'Scan'}
-          </button>
-        </div>
+        {!status.connected && (
+          <div className="port-selection">
+            <label htmlFor="port-select">Serial Port:</label>
+            <select
+              id="port-select"
+              value={selectedPort}
+              onChange={(e) => setSelectedPort(e.target.value)}
+              disabled={loading || reconnectCooldown > 0}
+            >
+              {ports.length === 0 && <option value="">No ports found</option>}
+              {ports.map((port) => (
+                <option key={port.path} value={port.path}>
+                  {port.path}
+                  {port.manufacturer && ` - ${port.manufacturer}`}
+                </option>
+              ))}
+            </select>
+            <button
+              className="secondary"
+              onClick={scanPorts}
+              disabled={loading || reconnectCooldown > 0}
+            >
+              {loading ? 'Scanning...' : 'Scan'}
+            </button>
+          </div>
+        )}
 
         <div className="connection-status">
           <span className="status-label">Status:</span>
-          <span className={status.connected ? 'status-connected' : 'status-disconnected'}>
-            {status.connected ? '● Connected' : 'Disconnected'}
-          </span>
+          {status.connected ? (
+            <span className="status-connected">● Connected <span className="connection-port-info">{selectedPort}</span></span>
+          ) : (
+            <span className="status-disconnected">Disconnected</span>
+          )}
         </div>
 
         <div className="connection-actions">
-          {!status.connected ? (
+          {status.connected ? (
+            <button
+              className="danger"
+              onClick={handleDisconnect}
+              disabled={loading}
+            >
+              {loading ? 'Disconnecting...' : 'Disconnect'}
+            </button>
+          ) : (
             <button
               className="primary"
               onClick={handleConnect}
               disabled={!selectedPort || loading || ports.length === 0 || reconnectCooldown > 0}
             >
               {loading ? 'Connecting...' : reconnectCooldown > 0 ? `Wait ${reconnectCooldown}s` : 'Connect'}
-            </button>
-          ) : (
-            <button className="danger" onClick={handleDisconnect} disabled={loading}>
-              {loading ? 'Disconnecting...' : 'Disconnect'}
             </button>
           )}
         </div>

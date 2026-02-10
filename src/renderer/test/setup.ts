@@ -32,6 +32,7 @@ global.window.betaflight = {
   // FC Info
   getFCInfo: vi.fn(),
   exportCLI: vi.fn(),
+  getBlackboxSettings: vi.fn(),
 
   // Snapshots
   createSnapshot: vi.fn(),

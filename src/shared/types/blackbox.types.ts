@@ -17,7 +17,7 @@ export interface BlackboxInfo {
 }
 
 /**
- * Blackbox configuration settings
+ * Blackbox configuration settings (unused — retained for future MSP-based reading)
  */
 export interface BlackboxConfig {
   /** Logging rate divisor (1 = full rate, 2 = half rate, etc.) */
@@ -26,6 +26,19 @@ export interface BlackboxConfig {
   debugMode: BlackboxDebugMode;
   /** Fields to log */
   fields: number;
+}
+
+/**
+ * Blackbox settings read from FC via CLI for pre-flight diagnostics.
+ * Used by FCInfoDisplay to show whether the FC is configured correctly for analysis.
+ */
+export interface BlackboxSettings {
+  /** Debug mode name as string, e.g. "GYRO_SCALED", "NONE" */
+  debugMode: string;
+  /** Blackbox sample rate index (0=1:1, 1=1:2, 2=1:4, 3=1:8) */
+  sampleRate: number;
+  /** Computed effective logging rate in Hz */
+  loggingRateHz: number;
 }
 
 /**

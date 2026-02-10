@@ -6,7 +6,7 @@ import { SnapshotManager } from './storage/SnapshotManager';
 import { ProfileManager } from './storage/ProfileManager';
 import { BlackboxManager } from './storage/BlackboxManager';
 import { TuningSessionManager } from './storage/TuningSessionManager';
-import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected } from './ipc/handlers';
+import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected, sendTuningSessionChanged } from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
 
@@ -91,6 +91,22 @@ async function initialize(): Promise<void> {
         // For new FCs, baseline will be created after profile is created
         logger.info('Creating baseline for existing profile...');
         await snapshotManager.createBaselineIfMissing();
+
+        // Smart reconnect: check if tuning session is waiting for flight data
+        try {
+          const session = await tuningSessionManager.getSession(existingProfile.id);
+          if (session && (session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending')) {
+            const bbInfo = await mspClient.getBlackboxInfo();
+            if (bbInfo.hasLogs && bbInfo.usedSize > 0) {
+              const nextPhase = session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
+              logger.info(`Smart reconnect: flash has data, transitioning ${session.phase} → ${nextPhase}`);
+              const updated = await tuningSessionManager.updatePhase(existingProfile.id, nextPhase);
+              sendTuningSessionChanged(updated);
+            }
+          }
+        } catch (err) {
+          logger.warn('Smart reconnect check failed (non-fatal):', err);
+        }
       } else {
         // New drone - notify UI to show ProfileWizard modal
         // DO NOT create baseline yet - wait until profile is created

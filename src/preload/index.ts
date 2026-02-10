@@ -14,7 +14,7 @@ import type {
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
-import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from '@shared/types/blackbox.types';
+import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress, BlackboxSettings } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress } from '@shared/types/ipc.types';
 import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
@@ -72,6 +72,14 @@ const betaflightAPI: BetaflightAPI = {
     const response = await ipcRenderer.invoke(IPCChannel.FC_EXPORT_CLI, format);
     if (!response.success) {
       throw new Error(response.error);
+    }
+    return response.data;
+  },
+
+  async getBlackboxSettings(): Promise<BlackboxSettings> {
+    const response = await ipcRenderer.invoke(IPCChannel.FC_GET_BLACKBOX_SETTINGS);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get blackbox settings');
     }
     return response.data;
   },

@@ -132,11 +132,19 @@ describe('ConnectionPanel', () => {
 
   it('shows cooldown timer after disconnect', async () => {
     const user = userEvent.setup();
+    let connectionCallback: ((status: ConnectionStatus) => void) | null = null;
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
       portPath: '/dev/ttyUSB0'
     });
-    vi.mocked(window.betaflight.disconnect).mockResolvedValue(undefined);
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((cb) => {
+      connectionCallback = cb;
+      return () => {};
+    });
+    vi.mocked(window.betaflight.disconnect).mockImplementation(async () => {
+      // Simulate FC sending disconnected status after disconnect
+      connectionCallback?.({ connected: false });
+    });
 
     render(<ConnectionPanel />);
 
@@ -201,11 +209,18 @@ describe('ConnectionPanel', () => {
 
   it('disables controls during cooldown', async () => {
     const user = userEvent.setup();
+    let connectionCallback: ((status: ConnectionStatus) => void) | null = null;
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
       portPath: '/dev/ttyUSB0'
     });
-    vi.mocked(window.betaflight.disconnect).mockResolvedValue(undefined);
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((cb) => {
+      connectionCallback = cb;
+      return () => {};
+    });
+    vi.mocked(window.betaflight.disconnect).mockImplementation(async () => {
+      connectionCallback?.({ connected: false });
+    });
 
     render(<ConnectionPanel />);
 

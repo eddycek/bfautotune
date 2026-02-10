@@ -38,6 +38,13 @@ describe('FCInfoDisplay', () => {
         return Promise.resolve('# dump\nset motor_pwm_protocol = DSHOT600');
       }
     });
+
+    // Default: blackbox settings return good values
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'GYRO_SCALED',
+      sampleRate: 1,
+      loggingRateHz: 4000
+    });
   });
 
   it('renders nothing when not connected', () => {
@@ -198,5 +205,87 @@ describe('FCInfoDisplay', () => {
 
     // Should NOT call getFCInfo when fcInfo already in status
     expect(window.betaflight.getFCInfo).not.toHaveBeenCalled();
+  });
+
+  // Blackbox settings diagnostics tests
+
+  it('displays blackbox debug mode when GYRO_SCALED', async () => {
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Debug Mode:')).toBeInTheDocument();
+      expect(screen.getByText('GYRO_SCALED')).toBeInTheDocument();
+    });
+  });
+
+  it('displays logging rate', async () => {
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Logging Rate:')).toBeInTheDocument();
+      expect(screen.getByText('4 kHz')).toBeInTheDocument();
+    });
+  });
+
+  it('shows checkmark for correct debug mode', async () => {
+    const { container } = render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('GYRO_SCALED')).toBeInTheDocument();
+    });
+
+    const debugSetting = container.querySelector('.fc-bb-setting.ok');
+    expect(debugSetting).not.toBeNull();
+  });
+
+  it('shows warning for wrong debug mode', async () => {
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 8000
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('NONE')).toBeInTheDocument();
+      expect(screen.getByText(/debug_mode = GYRO_SCALED/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows warning for low logging rate', async () => {
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'GYRO_SCALED',
+      sampleRate: 3,
+      loggingRateHz: 1000
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1 kHz')).toBeInTheDocument();
+      expect(screen.getByText(/Increase logging rate/)).toBeInTheDocument();
+    });
+  });
+
+  it('calls getBlackboxSettings on mount when connected', async () => {
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(window.betaflight.getBlackboxSettings).toHaveBeenCalled();
+    });
+  });
+
+  it('handles getBlackboxSettings failure gracefully', async () => {
+    vi.mocked(window.betaflight.getBlackboxSettings).mockRejectedValue(new Error('CLI failed'));
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('BTFL')).toBeInTheDocument();
+    });
+
+    // Should still render FC info without blackbox settings
+    expect(screen.queryByText('Debug Mode:')).not.toBeInTheDocument();
   });
 });
