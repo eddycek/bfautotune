@@ -410,4 +410,127 @@ describe('useTuningWizard', () => {
     expect(result.current.applyError).toBe('Connection lost');
     expect(result.current.applyResult).toBeNull();
   });
+
+  // ---- Mode-specific tests ----
+
+  it('exposes mode from parameter', () => {
+    const { result } = renderHook(() => useTuningWizard('log-1', 'filter'));
+    expect(result.current.mode).toBe('filter');
+  });
+
+  it('defaults mode to full', () => {
+    const { result } = renderHook(() => useTuningWizard('log-1'));
+    expect(result.current.mode).toBe('full');
+  });
+
+  it('mode=pid auto-advances to pid step for single session', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+
+    const { result } = renderHook(() => useTuningWizard('log-1', 'pid'));
+
+    await act(async () => {
+      await result.current.parseLog();
+    });
+
+    expect(result.current.step).toBe('pid');
+  });
+
+  it('mode=filter auto-advances to filter step for single session', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+
+    const { result } = renderHook(() => useTuningWizard('log-1', 'filter'));
+
+    await act(async () => {
+      await result.current.parseLog();
+    });
+
+    expect(result.current.step).toBe('filter');
+  });
+
+  it('mode=filter confirmApply sends empty pidRecommendations', async () => {
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      appliedPIDs: 0,
+      appliedFilters: 1,
+      rebooted: true,
+    });
+
+    const { result } = renderHook(() => useTuningWizard('log-1', 'filter'));
+
+    await act(async () => {
+      await result.current.runFilterAnalysis();
+    });
+    await act(async () => {
+      await result.current.runPIDAnalysis();
+    });
+    await act(async () => {
+      await result.current.confirmApply(false);
+    });
+
+    expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
+      filterRecommendations: mockFilterResult.recommendations,
+      pidRecommendations: [],
+      createSnapshot: false,
+    });
+  });
+
+  it('mode=pid confirmApply sends empty filterRecommendations', async () => {
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      appliedPIDs: 1,
+      appliedFilters: 0,
+      rebooted: true,
+    });
+
+    const { result } = renderHook(() => useTuningWizard('log-1', 'pid'));
+
+    await act(async () => {
+      await result.current.runFilterAnalysis();
+    });
+    await act(async () => {
+      await result.current.runPIDAnalysis();
+    });
+    await act(async () => {
+      await result.current.confirmApply(true);
+    });
+
+    expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
+      filterRecommendations: [],
+      pidRecommendations: mockPIDResult.recommendations,
+      createSnapshot: true,
+    });
+  });
+
+  it('mode=full confirmApply sends both recommendations', async () => {
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      appliedPIDs: 1,
+      appliedFilters: 1,
+      rebooted: true,
+    });
+
+    const { result } = renderHook(() => useTuningWizard('log-1', 'full'));
+
+    await act(async () => {
+      await result.current.runFilterAnalysis();
+    });
+    await act(async () => {
+      await result.current.runPIDAnalysis();
+    });
+    await act(async () => {
+      await result.current.confirmApply(true);
+    });
+
+    expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
+      filterRecommendations: mockFilterResult.recommendations,
+      pidRecommendations: mockPIDResult.recommendations,
+      createSnapshot: true,
+    });
+  });
 });
