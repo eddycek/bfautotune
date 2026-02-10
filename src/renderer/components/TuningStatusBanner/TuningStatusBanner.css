@@ -1,0 +1,105 @@
+.tuning-status-banner {
+  background: var(--bg-secondary, #1a1d23);
+  border: 1px solid var(--border-color, #2d3139);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.tuning-status-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  gap: 0;
+}
+
+.tuning-status-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.tuning-status-indicator {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  border: 2px solid var(--border-color, #2d3139);
+  color: var(--text-secondary, #8b8fa3);
+  background: transparent;
+}
+
+.tuning-status-step.done .tuning-status-indicator {
+  background: var(--success, #22c55e);
+  border-color: var(--success, #22c55e);
+  color: white;
+}
+
+.tuning-status-step.current .tuning-status-indicator {
+  border-color: var(--primary, #3b82f6);
+  color: var(--primary, #3b82f6);
+  background: transparent;
+}
+
+.tuning-status-label {
+  font-size: 11px;
+  color: var(--text-secondary, #8b8fa3);
+  white-space: nowrap;
+}
+
+.tuning-status-step.current .tuning-status-label {
+  color: var(--primary, #3b82f6);
+  font-weight: 600;
+}
+
+.tuning-status-step.done .tuning-status-label {
+  color: var(--success, #22c55e);
+}
+
+.tuning-status-line {
+  width: 32px;
+  height: 2px;
+  background: var(--border-color, #2d3139);
+  margin: 0 4px;
+  margin-bottom: 20px;
+}
+
+.tuning-status-line.done {
+  background: var(--success, #22c55e);
+}
+
+.tuning-status-body {
+  text-align: center;
+}
+
+.tuning-status-text {
+  margin: 0 0 12px;
+  color: var(--text-primary, #e4e4e7);
+  font-size: 14px;
+}
+
+.tuning-status-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wizard-btn-text {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #8b8fa3);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.wizard-btn-text:hover {
+  color: var(--text-primary, #e4e4e7);
+}
