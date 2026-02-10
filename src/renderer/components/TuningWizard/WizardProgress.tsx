@@ -1,11 +1,13 @@
 import React from 'react';
 import type { WizardStep } from '../../hooks/useTuningWizard';
+import type { TuningMode } from '@shared/types/tuning.types';
 
 interface WizardProgressProps {
   currentStep: WizardStep;
+  mode?: TuningMode;
 }
 
-const STEPS: { key: WizardStep; label: string }[] = [
+const ALL_STEPS: { key: WizardStep; label: string }[] = [
   { key: 'guide', label: 'Flight Guide' },
   { key: 'session', label: 'Session' },
   { key: 'filter', label: 'Filters' },
@@ -13,20 +15,24 @@ const STEPS: { key: WizardStep; label: string }[] = [
   { key: 'summary', label: 'Summary' },
 ];
 
-const stepOrder: Record<WizardStep, number> = {
-  guide: 0,
-  session: 1,
-  filter: 2,
-  pid: 3,
-  summary: 4,
-};
+function getStepsForMode(mode: TuningMode): { key: WizardStep; label: string }[] {
+  switch (mode) {
+    case 'filter':
+      return ALL_STEPS.filter(s => s.key !== 'pid');
+    case 'pid':
+      return ALL_STEPS.filter(s => s.key !== 'filter');
+    default:
+      return ALL_STEPS;
+  }
+}
 
-export function WizardProgress({ currentStep }: WizardProgressProps) {
-  const currentIndex = stepOrder[currentStep];
+export function WizardProgress({ currentStep, mode = 'full' }: WizardProgressProps) {
+  const steps = getStepsForMode(mode);
+  const currentIndex = steps.findIndex(s => s.key === currentStep);
 
   return (
     <div className="wizard-progress">
-      {STEPS.map((s, i) => {
+      {steps.map((s, i) => {
         const isDone = i < currentIndex;
         const isCurrent = i === currentIndex;
         const className = isDone ? 'done' : isCurrent ? 'current' : 'upcoming';

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTuningWizard } from '../../hooks/useTuningWizard';
+import type { TuningMode } from '@shared/types/tuning.types';
 import { WizardProgress } from './WizardProgress';
 import { TestFlightGuideStep } from './TestFlightGuideStep';
 import { SessionSelectStep } from './SessionSelectStep';
@@ -11,16 +12,17 @@ import './TuningWizard.css';
 
 interface TuningWizardProps {
   logId: string;
+  mode?: TuningMode;
   onExit: () => void;
 }
 
-export function TuningWizard({ logId, onExit }: TuningWizardProps) {
-  const wizard = useTuningWizard(logId);
+export function TuningWizard({ logId, mode = 'full', onExit }: TuningWizardProps) {
+  const wizard = useTuningWizard(logId, mode);
 
   const renderStep = () => {
     switch (wizard.step) {
       case 'guide':
-        return <TestFlightGuideStep onContinue={() => wizard.setStep('session')} />;
+        return <TestFlightGuideStep onContinue={() => wizard.setStep('session')} mode={mode} />;
       case 'session':
         return (
           <SessionSelectStep
@@ -32,7 +34,7 @@ export function TuningWizard({ logId, onExit }: TuningWizardProps) {
             sessionIndex={wizard.sessionIndex}
             onSelectSession={(idx) => {
               wizard.setSessionIndex(idx);
-              wizard.setStep('filter');
+              wizard.setStep(mode === 'pid' ? 'pid' : 'filter');
             }}
           />
         );
@@ -44,7 +46,8 @@ export function TuningWizard({ logId, onExit }: TuningWizardProps) {
             filterProgress={wizard.filterProgress}
             filterError={wizard.filterError}
             runFilterAnalysis={wizard.runFilterAnalysis}
-            onContinue={() => wizard.setStep('pid')}
+            onContinue={() => wizard.setStep(mode === 'filter' ? 'summary' : 'pid')}
+            mode={mode}
           />
         );
       case 'pid':
@@ -63,6 +66,7 @@ export function TuningWizard({ logId, onExit }: TuningWizardProps) {
           <TuningSummaryStep
             filterResult={wizard.filterResult}
             pidResult={wizard.pidResult}
+            mode={mode}
             onExit={onExit}
             onApply={wizard.startApply}
             applyState={wizard.applyState}
@@ -86,7 +90,7 @@ export function TuningWizard({ logId, onExit }: TuningWizardProps) {
         </button>
       </div>
 
-      <WizardProgress currentStep={wizard.step} />
+      <WizardProgress currentStep={wizard.step} mode={mode} />
 
       <div className="tuning-wizard-content">
         {renderStep()}
