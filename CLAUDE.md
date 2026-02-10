@@ -369,6 +369,38 @@ When user selects drone size, defaults auto-populate:
 - Renderer: display errors in UI, log to console
 - MSP operations: retry logic with recovery attempts
 
+## Claude Code Configuration
+
+### Autonomous Repo Operations
+Claude has **full autonomous access** exclusively to `eddycek/bfautotune` repo:
+- Push, force push, merge — no confirmation needed
+- PR create, merge (with `--admin` flag to bypass branch protection), close
+- All gh CLI operations allowed
+
+**CRITICAL**: NEVER push, merge, or interact with any repository other than `eddycek/bfautotune`. All git push/pull operations MUST target only `origin` remote (which points to `github.com/eddycek/bfautotune`). Never add, modify, or push to other remotes. For `gh` commands, never specify `--repo` pointing to a different repository.
+
+### Permissions Strategy
+- **Allow**: git workflow, gh CLI, npm dev/build/test commands, filesystem ops, curated WebFetch domains
+- **Deny**: Credentials, secrets, SSH keys, certificates, `node -e`/`python3` (arbitrary code exec)
+- **Ask**: Destructive ops (`rm`, `git reset --hard`, `git clean`), package installations (`npm install`), lock files
+- **Location**: `.claude/settings.json` (project-specific)
+
+### Active Plugins
+- **developer@keboola-claude-kit**: PR creation, conflict handling, code review, security review
+- **incident-commander@keboola-claude-kit**: Postmortem generation from Slack incidents
+- **claude-md-management@claude-plugins-official**: CLAUDE.md audit and improvement
+
+### MCP Servers
+- **linear-server** (via developer plugin): Linear issue tracking — issues, projects, teams, initiatives, documents
+
+### Available Skills
+- `/create-pr` — AI-generated PR with title and description
+- `/handle-conflicts` — Predictable merge conflict resolution
+- `/gh-process-review` — Process GitHub PR review comments
+- `/create-postmortem` — Confluence postmortem from Slack channel
+- `/revise-claude-md` — Update CLAUDE.md with session learnings
+- `/claude-md-improver` — Audit and improve CLAUDE.md quality
+
 ## Platform-Specific Notes
 
 ### macOS
