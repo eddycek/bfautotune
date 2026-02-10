@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Betaflight PID AutoTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 3 - Analysis Charts + Parser Validation Fixes
+**Current Phase**: Phase 4 - Stateful Two-Flight Tuning Workflow
 
 **Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 
@@ -182,17 +182,34 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 - **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
+### Stateful Tuning Session
+
+Two-flight iterative tuning approach: filters first (hover + throttle sweeps), then PIDs (stick snaps).
+
+**State Machine** (`TuningPhase`): filter_flight_pending → filter_log_ready → filter_analysis → filter_applied → pid_flight_pending → pid_log_ready → pid_analysis → pid_applied → verification_pending → completed
+
+- **TuningSessionManager** (`src/main/storage/`): CRUD for per-profile session files at `{userData}/data/tuning/{profileId}.json`
+- **useTuningSession hook**: Manages session lifecycle with IPC and event subscription
+- **TuningStatusBanner**: Dashboard banner showing current phase, step indicator, action buttons
+- **TuningMode**: `'filter' | 'pid' | 'full'` — wizard components adapt UI/flow per mode
+- IPC: `TUNING_GET_SESSION`, `TUNING_START_SESSION`, `TUNING_UPDATE_PHASE`, `TUNING_RESET_SESSION` + `EVENT_TUNING_SESSION_CHANGED`
+- Design doc: `docs/TUNING_WORKFLOW_REVISION.md`
+
 ### Tuning Wizard (`src/renderer/components/TuningWizard/`)
 
-Guided multi-step wizard for automated tuning workflow.
+Guided multi-step wizard for automated tuning workflow. Supports mode-aware step routing.
 
-**Steps**: Flight Guide → Session Select → Filter Analysis → PID Analysis → Summary
+**Steps by mode**:
+- `filter`: Flight Guide → Session → Filters → Summary (skips PIDs)
+- `pid`: Flight Guide → Session → PIDs → Summary (skips Filters)
+- `full`: Flight Guide → Session → Filters → PIDs → Summary
 
-- **useTuningWizard hook**: State management for parse/filter/PID analysis and apply lifecycle
-- **WizardProgress**: Visual step indicator with done/current/upcoming states
-- **FlightGuideContent**: Shared flight phase instructions (hover, roll/pitch/yaw snaps)
+- **useTuningWizard hook**: State management for parse/filter/PID analysis and apply lifecycle, mode-aware auto-advance and apply
+- **WizardProgress**: Visual step indicator with done/current/upcoming states, dynamic step filtering by mode
+- **FlightGuideContent**: Mode-specific flight phase instructions (filter: throttle sweeps, pid: stick snaps, full: combined)
+- **TuningSummaryStep**: Mode-specific button labels (Apply Filters/PIDs) and success messages
 - **ApplyConfirmationModal**: Confirmation dialog before applying changes (snapshot option, reboot warning)
-- **TuningWorkflowModal**: Standalone modal for tuning preparation guide
+- **TuningWorkflowModal**: Standalone modal showing two-flight workflow with separate filter + PID guides
 - Flight guide data in `src/shared/constants/flightGuide.ts`
 - Triggered from BlackboxStatus component when log is available
 
@@ -245,11 +262,12 @@ Interactive visualization of analysis results using Recharts (SVG).
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 711 tests total across 39 test files
-- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, SnapshotDiffModal, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal
+- 796 tests total across 45 test files
+- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, SnapshotDiffModal, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal, TuningStatusBanner, FlightGuideContent, TestFlightGuideStep
 - Snapshot Diff: snapshotDiffUtils, SnapshotDiffModal (38 tests)
 - Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
-- Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard
+- Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard, useTuningSession
+- Tuning Session: TuningSessionManager (15 tests), TuningStatusBanner (13 tests), headerValidation (9 tests)
 - MSP Client: MSPClient (8 tests - filter config parsing, flash payload extraction)
 - Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (205 tests, incl. integration)
 - FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (98 tests)

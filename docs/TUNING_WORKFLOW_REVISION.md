@@ -1,6 +1,6 @@
 # Tuning Workflow Revision: Stateful Two-Flight Iterative Approach
 
-> **Status**: Proposed
+> **Status**: Implemented (17/19 steps done)
 > **Date**: 2026-02-10
 > **Scope**: Tuning Wizard, Flight Guide, Analysis Engine, IPC, Storage, UX Flow
 
@@ -428,7 +428,7 @@ BEFORE (current):                      AFTER (new):
 
 ---
 
-### Step 1: New Types and Constants
+### Step 1: New Types and Constants ✅ PR #23
 
 **Files to modify**:
 - `src/shared/types/tuning.types.ts` (new file)
@@ -529,7 +529,7 @@ export type TuningMode = 'filter' | 'pid' | 'full';
 
 ---
 
-### Step 2: TuningSessionManager (Backend)
+### Step 2: TuningSessionManager (Backend) ✅ PR #24
 
 **New file**: `src/main/storage/TuningSessionManager.ts`
 
@@ -562,7 +562,7 @@ export class TuningSessionManager {
 
 ---
 
-### Step 3: IPC Handlers for Tuning Session
+### Step 3: IPC Handlers for Tuning Session ✅ PR #27
 
 **Files to modify**:
 - `src/main/ipc/handlers.ts`
@@ -598,7 +598,7 @@ resetTuningSession(): Promise<void>;
 
 ---
 
-### Step 4: Smart Reconnect Detection
+### Step 4: Smart Reconnect Detection ✅ PR #27
 
 **Files to modify**:
 - `src/main/ipc/handlers.ts` (connection changed handler)
@@ -633,7 +633,7 @@ EVENT_TUNING_SESSION_CHANGED = 'event:tuning-session-changed',
 
 ---
 
-### Step 5: TuningStatusBanner Component
+### Step 5: TuningStatusBanner Component ✅ PR #29
 
 **New files**:
 - `src/renderer/components/TuningStatusBanner/TuningStatusBanner.tsx`
@@ -669,7 +669,7 @@ Tune → PID Flight → PID Tune". The current phase maps to one of these steps.
 
 ---
 
-### Step 6: useTuningSession Hook
+### Step 6: useTuningSession Hook ✅ PR #29
 
 **New file**: `src/renderer/hooks/useTuningSession.ts`
 
@@ -701,7 +701,7 @@ export function useTuningSession() {
 
 ---
 
-### Step 7: Update useTuningWizard Hook
+### Step 7: Update useTuningWizard Hook ✅ PR #28
 
 **Files to modify**:
 - `src/renderer/hooks/useTuningWizard.ts`
@@ -732,7 +732,7 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
 
 ---
 
-### Step 8: Update TuningWizard Component
+### Step 8: Update TuningWizard Component ✅ PR #30
 
 **Files to modify**:
 - `src/renderer/components/TuningWizard/TuningWizard.tsx`
@@ -757,7 +757,7 @@ interface TuningWizardProps {
 
 ---
 
-### Step 9: Update WizardProgress Component
+### Step 9: Update WizardProgress Component ✅ PR #30
 
 **Files to modify**:
 - `src/renderer/components/TuningWizard/WizardProgress.tsx`
@@ -780,7 +780,7 @@ interface WizardProgressProps {
 
 ---
 
-### Step 10: Update FlightGuideContent Component
+### Step 10: Update FlightGuideContent Component ✅ PR #28
 
 **Files to modify**:
 - `src/renderer/components/TuningWizard/FlightGuideContent.tsx`
@@ -802,7 +802,7 @@ interface FlightGuideContentProps {
 
 ---
 
-### Step 11: Update TestFlightGuideStep
+### Step 11: Update TestFlightGuideStep ✅ PR #28
 
 **Files to modify**:
 - `src/renderer/components/TuningWizard/TestFlightGuideStep.tsx`
@@ -819,7 +819,7 @@ interface FlightGuideContentProps {
 
 ---
 
-### Step 12: Update TuningSummaryStep
+### Step 12: Update TuningSummaryStep ✅ PR #30
 
 **Files to modify**:
 - `src/renderer/components/TuningWizard/TuningSummaryStep.tsx`
@@ -847,7 +847,7 @@ interface FlightGuideContentProps {
 
 ---
 
-### Step 13: Dashboard Integration
+### Step 13: Dashboard Integration ✅ PR #31
 
 **Files to modify**:
 - `src/renderer/components/BlackboxStatus.tsx` (or main dashboard component)
@@ -870,7 +870,7 @@ and FC is connected).
 
 ---
 
-### Step 14: Update TuningWorkflowModal
+### Step 14: Update TuningWorkflowModal ✅ PR #31
 
 **Files to modify**:
 - `src/renderer/components/TuningWorkflowModal/TuningWorkflowModal.tsx`
@@ -899,7 +899,7 @@ export const TUNING_WORKFLOW: WorkflowStep[] = [
 
 ---
 
-### Step 15: Extend SegmentSelector for Throttle Sweep
+### Step 15: Extend SegmentSelector for Throttle Sweep ✅ PR #25
 
 **Files to modify**:
 - `src/main/analysis/SegmentSelector.ts`
@@ -942,7 +942,7 @@ export const SWEEP_MAX_RESIDUAL = 0.15;
 
 ---
 
-### Step 16: BBL Header Validation (Logging Rate, Debug Mode)
+### Step 16: BBL Header Validation (Logging Rate, Debug Mode) ✅ PR #26
 
 **Files to modify**:
 - `src/main/analysis/FilterAnalyzer.ts`
@@ -973,7 +973,7 @@ warnings: AnalysisWarning[];
 
 ---
 
-### Step 17: Apply Handler — Auto-Erase Flash After Apply
+### Step 17: Apply Handler — Auto-Erase Flash After Apply ⏳ TODO
 
 **Files to modify**:
 - `src/main/ipc/handlers.ts`
@@ -992,7 +992,7 @@ selective application (empty arrays are skipped).
 
 ---
 
-### Step 18: Update Tests
+### Step 18: Update Tests ✅ (covered in each PR)
 
 **Files to modify / create**:
 - `src/main/storage/TuningSessionManager.test.ts` (new)
@@ -1057,7 +1057,7 @@ selective application (empty arrays are skipped).
 
 ---
 
-### Step 19: Update Documentation
+### Step 19: Update Documentation ✅ PR #32
 
 **Files to modify**:
 - `CLAUDE.md` — Tuning Wizard section, Architecture section, Storage section
