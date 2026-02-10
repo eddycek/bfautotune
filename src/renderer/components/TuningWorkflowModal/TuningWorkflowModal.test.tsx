@@ -29,20 +29,31 @@ describe('TuningWorkflowModal', () => {
     expect(screen.getByText('Verify')).toBeInTheDocument();
   });
 
-  it('shows flight guide phases', () => {
+  it('shows both flight guide sections', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
-    expect(screen.getByText('Take off & Hover')).toBeInTheDocument();
+    expect(screen.getByText('Flight 1: Filter Test Flight')).toBeInTheDocument();
+    expect(screen.getByText('Flight 2: PID Test Flight')).toBeInTheDocument();
+  });
+
+  it('shows filter flight guide phases', () => {
+    render(<TuningWorkflowModal onClose={onClose} />);
+    expect(screen.getByText('Throttle Sweep')).toBeInTheDocument();
+    expect(screen.getByText('Final Hover')).toBeInTheDocument();
+  });
+
+  it('shows PID flight guide phases', () => {
+    render(<TuningWorkflowModal onClose={onClose} />);
     expect(screen.getByText('Roll Snaps')).toBeInTheDocument();
     expect(screen.getByText('Pitch Snaps')).toBeInTheDocument();
     expect(screen.getByText('Yaw Snaps')).toBeInTheDocument();
-    expect(screen.getByText('Final Hover')).toBeInTheDocument();
-    expect(screen.getByText('Land')).toBeInTheDocument();
   });
 
-  it('shows tips', () => {
+  it('shows tips for both guides', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
-    expect(screen.getByText('Tips')).toBeInTheDocument();
-    expect(screen.getByText('Stay at 2–5 meters altitude')).toBeInTheDocument();
+    const tipHeaders = screen.getAllByText('Tips');
+    expect(tipHeaders.length).toBe(2);
+    const altitudeTips = screen.getAllByText('Stay at 2–5 meters altitude');
+    expect(altitudeTips.length).toBe(2);
   });
 
   it('calls onClose when "Got it" is clicked', async () => {
