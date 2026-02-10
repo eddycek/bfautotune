@@ -386,6 +386,9 @@ export class MSPClient extends EventEmitter {
       // FC to reboot — the CLI prompt never comes back, so waiting for
       // it would always time out.
       await this.connection.writeCLIRaw(CLI_COMMANDS.SAVE);
+      // FC is rebooting from save — it exits CLI mode on its own.
+      // Clear flag so close() doesn't send redundant 'exit'.
+      this.connection.clearFCRebootedFromCLI();
       // Give FC a moment to process the save command before we update state
       await new Promise(resolve => setTimeout(resolve, 500));
       this.connectionStatus = { connected: false };

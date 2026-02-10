@@ -13,6 +13,10 @@ export class MSPConnection extends EventEmitter {
   private responseQueue: Map<number, { resolve: (response: MSPResponse) => void; timeout: NodeJS.Timeout }> = new Map();
   private cliMode: boolean = false;
   private cliBuffer: string = '';
+  /** Whether we actually sent the FC into CLI mode during this session.
+   *  Unlike `cliMode` (which gets reset by exitCLI), this persists until close().
+   *  Used to know if we need to send `exit` (reboot) before closing. */
+  private fcEnteredCLI: boolean = false;
 
   constructor() {
     super();
@@ -47,6 +51,37 @@ export class MSPConnection extends EventEmitter {
 
   async close(): Promise<void> {
     if (!this.port?.isOpen) {
+      return;
+    }
+
+    // If FC was put into CLI mode during this session, send 'exit' to reboot
+    // it back to MSP mode. Without this, a software disconnect leaves the FC
+    // in CLI and MSP commands fail on the next connection.
+    // BF CLI 'exit' always calls systemReset() → FC reboots.
+    if (this.fcEnteredCLI) {
+      logger.info('FC was in CLI mode — sending exit to reboot before closing');
+      try {
+        await new Promise<void>((resolve) => {
+          this.port!.write('exit\r\n', (error) => {
+            if (error) { resolve(); return; }
+            this.port!.drain(() => resolve());
+          });
+        });
+        // Wait for FC to start rebooting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch {
+        // Ignore — port might already be closing from reboot
+      }
+      this.fcEnteredCLI = false;
+    }
+
+    // Port might have been closed by FC reboot — check again
+    if (!this.port?.isOpen) {
+      this.port = null;
+      this.buffer = Buffer.alloc(0);
+      this.responseQueue.clear();
+      this.cliMode = false;
+      this.cliBuffer = '';
       return;
     }
 
@@ -137,6 +172,7 @@ export class MSPConnection extends EventEmitter {
 
     this.cliMode = true;
     this.cliBuffer = '';
+    this.fcEnteredCLI = true;
 
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
@@ -163,9 +199,9 @@ export class MSPConnection extends EventEmitter {
 
     // IMPORTANT: In Betaflight, 'exit' command REBOOTS the FC (same as 'save' but
     // without saving). There is NO way to leave CLI mode without rebooting.
-    // So we just reset the local state flag — the FC remains in CLI mode until
-    // physically disconnected or rebooted. MSP commands will fail until then,
-    // but sendCommand() checks cliMode and calls this first.
+    // So we just reset the local cliMode flag (for data routing). The FC remains
+    // in CLI until close() sends 'exit' or until physically disconnected.
+    // fcEnteredCLI stays true so close() knows to send 'exit'.
     return new Promise((resolve) => {
       this.cliBuffer = '';
       this.cliMode = false;
@@ -183,6 +219,14 @@ export class MSPConnection extends EventEmitter {
       this.cliBuffer = '';
       resolve();
     });
+  }
+
+  /** Call after FC reboots (from `save` command) to clear the CLI tracking flag.
+   *  The FC exits CLI mode on reboot, so close() doesn't need to send `exit`. */
+  clearFCRebootedFromCLI(): void {
+    this.fcEnteredCLI = false;
+    this.cliMode = false;
+    this.cliBuffer = '';
   }
 
   async sendCLICommand(command: string, timeout: number = 10000): Promise<string> {
