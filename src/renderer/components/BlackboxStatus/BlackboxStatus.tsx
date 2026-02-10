@@ -6,9 +6,10 @@ import './BlackboxStatus.css';
 
 interface BlackboxStatusProps {
   onAnalyze?: (logId: string) => void;
+  readonly?: boolean;
 }
 
-export function BlackboxStatus({ onAnalyze }: BlackboxStatusProps) {
+export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
   const { info, loading, error, refresh: refreshInfo } = useBlackboxInfo();
   const { logs, deleteLog, openFolder, reload: reloadLogs } = useBlackboxLogs();
   const toast = useToast();
@@ -188,53 +189,57 @@ export function BlackboxStatus({ onAnalyze }: BlackboxStatusProps) {
               <span>Logs available for download</span>
             </div>
 
-            {/* Debug button for testing MSP_DATAFLASH_READ */}
-            <button
-              className="test-read-button"
-              onClick={handleTestRead}
-              title="Test if FC supports MSP_DATAFLASH_READ (reads 10 bytes)"
-            >
-              <span className="icon">🔬</span>
-              <span>Test Read (Debug)</span>
-            </button>
+            {!readonly && (
+              <>
+                {/* Debug button for testing MSP_DATAFLASH_READ */}
+                <button
+                  className="test-read-button"
+                  onClick={handleTestRead}
+                  title="Test if FC supports MSP_DATAFLASH_READ (reads 10 bytes)"
+                >
+                  <span className="icon">🔬</span>
+                  <span>Test Read (Debug)</span>
+                </button>
 
-            <div className="action-buttons">
-              <button
-                className="download-button"
-                onClick={handleDownload}
-                disabled={downloading}
-              >
-                {downloading ? (
-                  <>
-                    <span className="spinner" />
-                    <span>Downloading... {downloadProgress}%</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="icon">⬇️</span>
-                    <span>Download Logs</span>
-                  </>
+                <div className="action-buttons">
+                  <button
+                    className="download-button"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <>
+                        <span className="spinner" />
+                        <span>Downloading... {downloadProgress}%</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="icon">⬇️</span>
+                        <span>Download Logs</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    className="erase-flash-button"
+                    onClick={() => setShowEraseConfirm(true)}
+                    disabled={downloading || erasing}
+                    title="Permanently erase all logs from FC flash memory"
+                  >
+                    <span className="icon">🗑️</span>
+                    <span>Erase Flash</span>
+                  </button>
+                </div>
+
+                {downloading && downloadProgress > 0 && (
+                  <div className="download-progress">
+                    <div
+                      className="download-progress-bar"
+                      style={{ width: `${downloadProgress}%` }}
+                    />
+                  </div>
                 )}
-              </button>
-
-              <button
-                className="erase-flash-button"
-                onClick={() => setShowEraseConfirm(true)}
-                disabled={downloading || erasing}
-                title="Permanently erase all logs from FC flash memory"
-              >
-                <span className="icon">🗑️</span>
-                <span>Erase Flash</span>
-              </button>
-            </div>
-
-            {downloading && downloadProgress > 0 && (
-              <div className="download-progress">
-                <div
-                  className="download-progress-bar"
-                  style={{ width: `${downloadProgress}%` }}
-                />
-              </div>
+              </>
             )}
           </>
         )}
@@ -265,7 +270,7 @@ export function BlackboxStatus({ onAnalyze }: BlackboxStatusProps) {
                   </div>
                 </div>
                 <div className="log-actions">
-                  {onAnalyze && (
+                  {onAnalyze && !readonly && (
                     <button
                       className="log-analyze-button"
                       onClick={() => onAnalyze(log.id)}

@@ -188,7 +188,7 @@ function AppContent() {
             )}
             <ConnectionPanel />
             {isConnected && <FCInfoDisplay />}
-            {isConnected && <BlackboxStatus onAnalyze={handleAnalyze} />}
+            {isConnected && <BlackboxStatus onAnalyze={handleAnalyze} readonly={!!tuning.session} />}
             {isConnected && currentProfile && <SnapshotManager />}
           </div>
         )}

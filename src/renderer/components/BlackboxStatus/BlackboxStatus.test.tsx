@@ -163,4 +163,82 @@ describe('BlackboxStatus', () => {
       expect(window.betaflight.getBlackboxInfo).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('readonly mode', () => {
+    const mockLog = {
+      id: 'log-1',
+      filename: 'blackbox_2026-02-09.bbl',
+      filepath: '/tmp/blackbox_2026-02-09.bbl',
+      timestamp: '2026-02-09T12:00:00Z',
+      size: 6 * 1024 * 1024,
+      fcInfo: { variant: 'BTFL', version: '4.5.0' },
+    };
+
+    it('hides Download, Erase, and Test Read buttons when readonly', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+      render(<BlackboxStatus readonly />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Logs available for download')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Download Logs')).not.toBeInTheDocument();
+      expect(screen.queryByText('Erase Flash')).not.toBeInTheDocument();
+      expect(screen.queryByText('Test Read (Debug)')).not.toBeInTheDocument();
+    });
+
+    it('shows Download, Erase, and Test Read buttons when not readonly', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Download Logs')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Erase Flash')).toBeInTheDocument();
+      expect(screen.getByText('Test Read (Debug)')).toBeInTheDocument();
+    });
+
+    it('still shows storage stats in readonly mode', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+      render(<BlackboxStatus readonly />);
+
+      await waitFor(() => {
+        expect(screen.getByText('16.00 MB')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('50%')).toBeInTheDocument();
+    });
+
+    it('hides Analyze button on logs when readonly', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue([mockLog]);
+      const onAnalyze = vi.fn();
+
+      render(<BlackboxStatus onAnalyze={onAnalyze} readonly />);
+
+      await waitFor(() => {
+        expect(screen.getByText('blackbox_2026-02-09.bbl')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Analyze')).not.toBeInTheDocument();
+    });
+
+    it('shows Analyze button on logs when not readonly', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue([mockLog]);
+      const onAnalyze = vi.fn();
+
+      render(<BlackboxStatus onAnalyze={onAnalyze} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('blackbox_2026-02-09.bbl')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Analyze')).toBeInTheDocument();
+    });
+  });
 });
