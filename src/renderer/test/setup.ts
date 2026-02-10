@@ -83,6 +83,13 @@ global.window.betaflight = {
   applyRecommendations: vi.fn(),
   onApplyProgress: vi.fn(() => () => {}),
 
+  // Tuning Session
+  getTuningSession: vi.fn().mockResolvedValue(null),
+  startTuningSession: vi.fn(),
+  updateTuningPhase: vi.fn(),
+  resetTuningSession: vi.fn(),
+  onTuningSessionChanged: vi.fn(() => () => {}),
+
   // Events
   onError: vi.fn(() => () => {}),
   onLog: vi.fn(() => () => {})

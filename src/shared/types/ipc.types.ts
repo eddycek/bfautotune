@@ -15,6 +15,7 @@ import type {
 import type { PIDConfiguration } from './pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from './blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings, FilterRecommendation, PIDRecommendation } from './analysis.types';
+import type { TuningSession, TuningPhase } from './tuning.types';
 
 /** Progress during snapshot restore */
 export interface SnapshotRestoreProgress {
@@ -108,6 +109,10 @@ export enum IPCChannel {
 
   // Tuning
   TUNING_APPLY_RECOMMENDATIONS = 'tuning:apply-recommendations',
+  TUNING_GET_SESSION = 'tuning:get-session',
+  TUNING_START_SESSION = 'tuning:start-session',
+  TUNING_UPDATE_PHASE = 'tuning:update-phase',
+  TUNING_RESET_SESSION = 'tuning:reset-session',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -119,6 +124,7 @@ export enum IPCChannel {
   EVENT_ANALYSIS_PROGRESS = 'event:analysis-progress',
   EVENT_TUNING_APPLY_PROGRESS = 'event:tuning-apply-progress',
   EVENT_SNAPSHOT_RESTORE_PROGRESS = 'event:snapshot-restore-progress',
+  EVENT_TUNING_SESSION_CHANGED = 'event:tuning-session-changed',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log'
 }
@@ -187,6 +193,13 @@ export interface BetaflightAPI {
   // Tuning
   applyRecommendations(input: ApplyRecommendationsInput): Promise<ApplyRecommendationsResult>;
   onApplyProgress(callback: (progress: ApplyRecommendationsProgress) => void): () => void;
+
+  // Tuning Session
+  getTuningSession(): Promise<TuningSession | null>;
+  startTuningSession(): Promise<TuningSession>;
+  updateTuningPhase(phase: TuningPhase, data?: Partial<TuningSession>): Promise<TuningSession>;
+  resetTuningSession(): Promise<void>;
+  onTuningSessionChanged(callback: (session: TuningSession | null) => void): () => void;
 
   // Events
   onError(callback: (error: string) => void): () => void;
