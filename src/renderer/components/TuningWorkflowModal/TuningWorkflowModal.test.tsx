@@ -15,16 +15,18 @@ describe('TuningWorkflowModal', () => {
     expect(screen.getByText('How to Prepare Blackbox Data')).toBeInTheDocument();
   });
 
-  it('shows all 8 workflow steps', () => {
+  it('shows all 10 workflow steps for two-flight process', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
     expect(screen.getByText('Connect your drone')).toBeInTheDocument();
     expect(screen.getByText('Create a backup')).toBeInTheDocument();
+    expect(screen.getByText('Check Blackbox setup')).toBeInTheDocument();
     expect(screen.getByText('Erase Blackbox data')).toBeInTheDocument();
-    expect(screen.getByText('Fly the test flight')).toBeInTheDocument();
-    expect(screen.getByText('Download the Blackbox log')).toBeInTheDocument();
-    expect(screen.getByText('Analyze the data')).toBeInTheDocument();
-    expect(screen.getByText('Apply changes')).toBeInTheDocument();
-    expect(screen.getByText('Repeat')).toBeInTheDocument();
+    expect(screen.getByText('Fly: Filter test flight')).toBeInTheDocument();
+    expect(screen.getByText('Analyze & apply filters')).toBeInTheDocument();
+    expect(screen.getByText('Erase Blackbox data again')).toBeInTheDocument();
+    expect(screen.getByText('Fly: PID test flight')).toBeInTheDocument();
+    expect(screen.getByText('Analyze & apply PIDs')).toBeInTheDocument();
+    expect(screen.getByText('Verify')).toBeInTheDocument();
   });
 
   it('shows flight guide phases', () => {
