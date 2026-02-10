@@ -359,6 +359,11 @@ export class MSPClient extends EventEmitter {
       const pidRate = 8000 / Math.max(pidDenom, 1);
       const loggingRateHz = Math.round(pidRate / Math.pow(2, sampleRate));
 
+      // Exit CLI to restore MSP mode for other operations
+      if (!wasInCLI) {
+        try { await this.connection.exitCLI(); } catch {}
+      }
+
       return { debugMode, sampleRate, loggingRateHz };
     } catch (error) {
       // Try to recover CLI state
