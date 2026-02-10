@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findSteadySegments, normalizeThrottle, computeStd } from './SegmentSelector';
+import { findSteadySegments, findThrottleSweepSegments, normalizeThrottle, computeStd } from './SegmentSelector';
 import type { BlackboxFlightData, TimeSeries } from '@shared/types/blackbox.types';
 
 /**
@@ -252,5 +252,155 @@ describe('findSteadySegments', () => {
     const segments = findSteadySegments(data);
     expect(segments.length).toBeGreaterThan(0);
     expect(segments[0].averageThrottle).toBeCloseTo(0.5, 1);
+  });
+});
+
+describe('findThrottleSweepSegments', () => {
+  it('should find a linear throttle ramp (upward)', () => {
+    const sampleRate = 4000;
+    const duration = 5; // 5 seconds
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * duration,
+      throttle: (i) => {
+        // Linear ramp from 0.2 to 0.9 over 5 seconds
+        return 0.2 + (i / (sampleRate * duration)) * 0.7;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBeGreaterThanOrEqual(1);
+    expect(segments[0].durationSeconds).toBeGreaterThan(2);
+  });
+
+  it('should find a linear throttle ramp (downward)', () => {
+    const sampleRate = 4000;
+    const duration = 5;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * duration,
+      throttle: (i) => {
+        // Linear ramp from 0.9 to 0.2 over 5 seconds
+        return 0.9 - (i / (sampleRate * duration)) * 0.7;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should ignore short ramps below SWEEP_MIN_DURATION_S', () => {
+    const sampleRate = 4000;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * 1, // Only 1 second — below 2s minimum
+      throttle: (i) => {
+        return 0.2 + (i / (sampleRate * 1)) * 0.7;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBe(0);
+  });
+
+  it('should ignore ramps with insufficient throttle range', () => {
+    const sampleRate = 4000;
+    const duration = 5;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * duration,
+      throttle: (i) => {
+        // Only 20% range (0.4 to 0.6) — below 40% minimum
+        return 0.4 + (i / (sampleRate * duration)) * 0.2;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBe(0);
+  });
+
+  it('should ignore non-monotonic (random) throttle data', () => {
+    const sampleRate = 4000;
+    const duration = 5;
+    // Use a seed-like approach for deterministic "random"
+    let state = 42;
+    const pseudoRandom = () => {
+      state = (state * 1103515245 + 12345) & 0x7fffffff;
+      return state / 0x7fffffff;
+    };
+
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * duration,
+      throttle: () => {
+        return 0.2 + pseudoRandom() * 0.7;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBe(0);
+  });
+
+  it('should return empty for constant throttle (hover)', () => {
+    const sampleRate = 4000;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * 5,
+      throttle: () => 0.5,
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBe(0);
+  });
+
+  it('should return empty for empty flight data', () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      numSamples: 0,
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBe(0);
+  });
+
+  it('should detect multiple sweeps in one flight', () => {
+    const sampleRate = 4000;
+    const duration = 12;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * duration,
+      throttle: (i) => {
+        const t = i / sampleRate;
+        if (t < 4) {
+          // First sweep: ramp up from 0.2 to 0.8
+          return 0.2 + (t / 4) * 0.6;
+        }
+        if (t < 6) {
+          // Steady hover (no sweep)
+          return 0.5;
+        }
+        // Second sweep: ramp up from 0.3 to 0.9
+        return 0.3 + ((t - 6) / 6) * 0.6;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('should handle throttle in 1000-2000 range', () => {
+    const sampleRate = 4000;
+    const duration = 5;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * duration,
+      throttle: (i) => {
+        // Ramp from 1200 to 1900 (normalized: 0.2 to 0.9)
+        return 1200 + (i / (sampleRate * duration)) * 700;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBeGreaterThanOrEqual(1);
   });
 });

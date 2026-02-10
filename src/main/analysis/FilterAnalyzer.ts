@@ -12,7 +12,7 @@ import type {
   PowerSpectrum,
 } from '@shared/types/analysis.types';
 import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
-import { findSteadySegments } from './SegmentSelector';
+import { findSteadySegments, findThrottleSweepSegments } from './SegmentSelector';
 import { computePowerSpectrum, trimSpectrum } from './FFTCompute';
 import { analyzeAxisNoise, buildNoiseProfile } from './NoiseAnalyzer';
 import { recommend, generateSummary } from './FilterRecommender';
@@ -38,9 +38,13 @@ export async function analyze(
 ): Promise<FilterAnalysisResult> {
   const startTime = performance.now();
 
-  // Step 1: Find steady hover segments
+  // Step 1: Find flight segments — prefer throttle sweeps over steady hovers
   onProgress?.({ step: 'segmenting', percent: 5 });
-  const segments = findSteadySegments(flightData);
+  const sweepSegments = findThrottleSweepSegments(flightData);
+  const steadySegments = findSteadySegments(flightData);
+
+  // Prefer sweeps (higher quality noise data across RPM range), fall back to hovers
+  const segments = sweepSegments.length > 0 ? sweepSegments : steadySegments;
 
   // Use up to MAX_SEGMENTS
   const usedSegments = segments.slice(0, MAX_SEGMENTS);

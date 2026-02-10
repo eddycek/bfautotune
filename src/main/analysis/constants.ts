@@ -34,6 +34,20 @@ export const SEGMENT_MIN_DURATION_S = 0.5;
 /** Target window duration in seconds for gyro variance check */
 export const SEGMENT_WINDOW_DURATION_S = 0.15;
 
+// ---- Throttle Sweep Detection ----
+
+/** Minimum throttle range covered by a sweep (0-1 scale, 0.4 = 40%) */
+export const SWEEP_MIN_THROTTLE_RANGE = 0.4;
+
+/** Minimum sweep duration in seconds */
+export const SWEEP_MIN_DURATION_S = 2.0;
+
+/** Maximum sweep duration in seconds */
+export const SWEEP_MAX_DURATION_S = 15.0;
+
+/** Maximum throttle regression residual for "monotonic" classification */
+export const SWEEP_MAX_RESIDUAL = 0.15;
+
 // ---- Noise Analysis ----
 
 /** Peak detection: minimum prominence above local noise floor in dB */
