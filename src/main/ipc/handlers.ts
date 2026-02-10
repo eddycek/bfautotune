@@ -27,6 +27,7 @@ import { BlackboxParser } from '../blackbox/BlackboxParser';
 import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
 import { analyzePID } from '../analysis/PIDAnalyzer';
 import { extractFlightPIDs } from '../analysis/PIDRecommender';
+import { validateBBLHeader } from '../analysis/headerValidation';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -759,6 +760,9 @@ export function registerIPCHandlers(): void {
 
         const session = parseResult.sessions[idx];
 
+        // Validate BBL header for data quality warnings
+        const headerWarnings = validateBBLHeader(session.header);
+
         // Run analysis with progress reporting
         const result = await analyzeFilters(
           session.flightData,
@@ -768,6 +772,11 @@ export function registerIPCHandlers(): void {
             event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
           }
         );
+
+        // Attach header warnings to the result
+        if (headerWarnings.length > 0) {
+          result.warnings = [...headerWarnings, ...(result.warnings || [])];
+        }
 
         logger.info(
           `Filter analysis complete: ${result.recommendations.length} recommendations, ` +
@@ -826,6 +835,9 @@ export function registerIPCHandlers(): void {
 
         const session = parseResult.sessions[idx];
 
+        // Validate BBL header for data quality warnings
+        const headerWarnings = validateBBLHeader(session.header);
+
         // Extract flight-time PIDs from BBL header for convergent recommendations
         const flightPIDs = extractFlightPIDs(session.header.rawHeaders);
 
@@ -839,6 +851,11 @@ export function registerIPCHandlers(): void {
           },
           flightPIDs
         );
+
+        // Attach header warnings to the result
+        if (headerWarnings.length > 0) {
+          result.warnings = [...headerWarnings, ...(result.warnings || [])];
+        }
 
         logger.info(
           `PID analysis complete: ${result.recommendations.length} recommendations, ` +
