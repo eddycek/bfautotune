@@ -45,7 +45,7 @@ npm run rebuild
 
 **Main Process** (`src/main/`)
 - Entry point: `src/main/index.ts`
-- Manages MSPClient, ProfileManager, SnapshotManager, BlackboxManager
+- Manages MSPClient, ProfileManager, SnapshotManager, BlackboxManager, TuningSessionManager
 - Handles IPC communication via `src/main/ipc/handlers.ts`
 - Event-driven architecture: MSPClient emits events → IPC sends to renderer
 - Blackbox parsing: `src/main/blackbox/` (BBL binary log parser)
@@ -211,7 +211,7 @@ Guided multi-step wizard for automated tuning workflow. Supports mode-aware step
 - **ApplyConfirmationModal**: Confirmation dialog before applying changes (snapshot option, reboot warning)
 - **TuningWorkflowModal**: Standalone modal showing two-flight workflow with separate filter + PID guides
 - Flight guide data in `src/shared/constants/flightGuide.ts`
-- Triggered from BlackboxStatus component when log is available
+- Triggered from BlackboxStatus component when log is available (only when no tuning session active)
 
 ### Analysis Charts (`src/renderer/components/TuningWizard/charts/`)
 
@@ -262,7 +262,7 @@ Interactive visualization of analysis results using Recharts (SVG).
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 796 tests total across 45 test files
+- 801 tests total across 45 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, SnapshotDiffModal, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal, TuningStatusBanner, FlightGuideContent, TestFlightGuideStep
 - Snapshot Diff: snapshotDiffUtils, SnapshotDiffModal (38 tests)
 - Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
@@ -320,6 +320,13 @@ await waitFor(() => {
 - **Restore safety backup** auto-creates "Pre-restore (auto)" snapshot before applying
 - **Server-side filtering** by current profile's snapshotIds
 - **Compare** shows diff between snapshot and previous one (or empty config for oldest). Uses `snapshotDiffUtils.ts` to parse CLI diff, compute changes, and group by command type. Displayed in `SnapshotDiffModal` with GitHub-style color coding (green=added, red=removed, yellow=changed).
+
+### BlackboxStatus Readonly Mode
+- When a tuning session is active, `BlackboxStatus` enters readonly mode (`readonly={!!tuning.session}`)
+- Readonly hides all action buttons: Download, Erase Flash, Test Read, Analyze
+- Storage info and log list remain visible (information only)
+- All actions are driven by `TuningStatusBanner` (single point of action UX pattern)
+- When no tuning session is active, `BlackboxStatus` shows full functionality
 
 ### Event-Driven UI Updates
 Renderer components subscribe to events:

@@ -1,6 +1,6 @@
 # Tuning Workflow Revision: Stateful Two-Flight Iterative Approach
 
-> **Status**: Implemented (17/19 steps done)
+> **Status**: Implemented (18/20 steps done)
 > **Date**: 2026-02-10
 > **Scope**: Tuning Wizard, Flight Guide, Analysis Engine, IPC, Storage, UX Flow
 
@@ -870,6 +870,26 @@ and FC is connected).
 
 ---
 
+### Step 13b: BlackboxStatus Readonly Mode ✅ PR #34
+
+**Files to modify**:
+- `src/renderer/components/BlackboxStatus/BlackboxStatus.tsx`
+- `src/renderer/App.tsx`
+
+**Changes**:
+
+13b.1. Add `readonly?: boolean` prop to `BlackboxStatus`. When `true`, hide all action
+buttons (Download, Erase Flash, Test Read, Analyze) — only show storage info and log list.
+
+13b.2. In `App.tsx`, pass `readonly={!!tuning.session}` to `BlackboxStatus`.
+
+**UX rationale**: When a tuning session is active, `TuningStatusBanner` is the single
+point of action. Having duplicate action buttons in `BlackboxStatus` causes confusion
+("should I click Erase here or in the banner?"). Readonly mode eliminates this by making
+`BlackboxStatus` purely informational during guided tuning.
+
+---
+
 ### Step 14: Update TuningWorkflowModal ✅ PR #31
 
 **Files to modify**:
@@ -973,7 +993,7 @@ warnings: AnalysisWarning[];
 
 ---
 
-### Step 17: Apply Handler — Auto-Erase Flash After Apply ⏳ TODO
+### Step 17: Apply Handler — Auto-Erase Flash After Apply ⏳ TODO (last remaining)
 
 **Files to modify**:
 - `src/main/ipc/handlers.ts`
@@ -1093,7 +1113,8 @@ Step 1  (types + constants)              ← foundation, no dependencies
   │           │
   │           └── Step 5  (StatusBanner) ← depends on step 6
   │                 │
-  │                 └── Step 13 (dashboard integration) ← depends on step 5
+  │                 ├── Step 13 (dashboard integration) ← depends on step 5
+  │                 └── Step 13b (BlackboxStatus readonly) ← depends on step 13
   │
   ├── Step 7  (useTuningWizard)          ← depends on step 1
   │     │
