@@ -17,6 +17,7 @@ import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress } from '@shared/types/ipc.types';
+import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -446,7 +447,47 @@ const betaflightAPI: BetaflightAPI = {
     return () => {
       ipcRenderer.removeListener(IPCChannel.EVENT_PID_CHANGED, listener);
     };
-  }
+  },
+
+  // Tuning Session
+  async getTuningSession(): Promise<TuningSession | null> {
+    const response = await ipcRenderer.invoke(IPCChannel.TUNING_GET_SESSION);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get tuning session');
+    }
+    return response.data;
+  },
+
+  async startTuningSession(): Promise<TuningSession> {
+    const response = await ipcRenderer.invoke(IPCChannel.TUNING_START_SESSION);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to start tuning session');
+    }
+    return response.data;
+  },
+
+  async updateTuningPhase(phase: TuningPhase, data?: Partial<TuningSession>): Promise<TuningSession> {
+    const response = await ipcRenderer.invoke(IPCChannel.TUNING_UPDATE_PHASE, phase, data);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update tuning phase');
+    }
+    return response.data;
+  },
+
+  async resetTuningSession(): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.TUNING_RESET_SESSION);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to reset tuning session');
+    }
+  },
+
+  onTuningSessionChanged(callback: (session: TuningSession | null) => void): () => void {
+    const listener = (_: any, session: TuningSession | null) => callback(session);
+    ipcRenderer.on(IPCChannel.EVENT_TUNING_SESSION_CHANGED, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_TUNING_SESSION_CHANGED, listener);
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld('betaflight', betaflightAPI);

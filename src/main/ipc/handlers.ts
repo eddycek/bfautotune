@@ -19,6 +19,7 @@ import type {
 import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, CurrentFilterSettings } from '@shared/types/analysis.types';
+import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
@@ -33,6 +34,7 @@ let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
 let profileManager: any = null; // Will be set from main
 let blackboxManager: any = null; // Will be set from main
+let tuningSessionManager: any = null; // Will be set from main
 let isDownloadingBlackbox = false; // Guard against concurrent downloads
 
 export function setMSPClient(client: any): void {
@@ -49,6 +51,10 @@ export function setProfileManager(manager: any): void {
 
 export function setBlackboxManager(manager: any): void {
   blackboxManager = manager;
+}
+
+export function setTuningSessionManager(manager: any): void {
+  tuningSessionManager = manager;
 }
 
 function createResponse<T>(data: T | undefined, error?: string): IPCResponse<T> {
@@ -1068,6 +1074,110 @@ export function registerIPCHandlers(): void {
     }
   );
 
+  // Tuning Session handlers
+  ipcMain.handle(
+    IPCChannel.TUNING_GET_SESSION,
+    async (): Promise<IPCResponse<TuningSession | null>> => {
+      try {
+        if (!tuningSessionManager || !profileManager) {
+          return createResponse<TuningSession | null>(null);
+        }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<TuningSession | null>(null);
+        }
+        const session = await tuningSessionManager.getSession(profileId);
+        return createResponse<TuningSession | null>(session);
+      } catch (error) {
+        logger.error('Failed to get tuning session:', error);
+        return createResponse<TuningSession | null>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPCChannel.TUNING_START_SESSION,
+    async (): Promise<IPCResponse<TuningSession>> => {
+      try {
+        if (!tuningSessionManager || !profileManager) {
+          return createResponse<TuningSession>(undefined, 'Tuning session manager not initialized');
+        }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<TuningSession>(undefined, 'No active profile');
+        }
+
+        // Create safety snapshot before starting tuning
+        let baselineSnapshotId: string | undefined;
+        if (snapshotManager && mspClient?.isConnected()) {
+          try {
+            const snapshot = await snapshotManager.createSnapshot('Pre-tuning backup (auto)', 'auto');
+            baselineSnapshotId = snapshot.id;
+            logger.info(`Pre-tuning backup created: ${snapshot.id}`);
+          } catch (e) {
+            logger.warn('Could not create pre-tuning snapshot:', e);
+          }
+        }
+
+        const session = await tuningSessionManager.createSession(profileId);
+        if (baselineSnapshotId) {
+          await tuningSessionManager.updatePhase(profileId, 'filter_flight_pending', { baselineSnapshotId });
+        }
+
+        const updated = await tuningSessionManager.getSession(profileId);
+        sendTuningSessionChanged(updated);
+        return createResponse<TuningSession>(updated || session);
+      } catch (error) {
+        logger.error('Failed to start tuning session:', error);
+        return createResponse<TuningSession>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPCChannel.TUNING_UPDATE_PHASE,
+    async (_event, phase: TuningPhase, data?: Partial<TuningSession>): Promise<IPCResponse<TuningSession>> => {
+      try {
+        if (!tuningSessionManager || !profileManager) {
+          return createResponse<TuningSession>(undefined, 'Tuning session manager not initialized');
+        }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<TuningSession>(undefined, 'No active profile');
+        }
+
+        const updated = await tuningSessionManager.updatePhase(profileId, phase, data);
+        sendTuningSessionChanged(updated);
+        return createResponse<TuningSession>(updated);
+      } catch (error) {
+        logger.error('Failed to update tuning phase:', error);
+        return createResponse<TuningSession>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPCChannel.TUNING_RESET_SESSION,
+    async (): Promise<IPCResponse<void>> => {
+      try {
+        if (!tuningSessionManager || !profileManager) {
+          return createResponse<void>(undefined);
+        }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<void>(undefined);
+        }
+
+        await tuningSessionManager.deleteSession(profileId);
+        sendTuningSessionChanged(null);
+        return createResponse<void>(undefined);
+      } catch (error) {
+        logger.error('Failed to reset tuning session:', error);
+        return createResponse<void>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
   logger.info('IPC handlers registered');
 }
 
@@ -1113,5 +1223,12 @@ export function sendNewFCDetected(window: BrowserWindow, fcSerial: string, fcInf
 
 export function sendPIDChanged(window: BrowserWindow, config: PIDConfiguration): void {
   window.webContents.send(IPCChannel.EVENT_PID_CHANGED, config);
+}
+
+export function sendTuningSessionChanged(session: TuningSession | null): void {
+  const window = getMainWindow();
+  if (window) {
+    window.webContents.send(IPCChannel.EVENT_TUNING_SESSION_CHANGED, session);
+  }
 }
 
