@@ -92,8 +92,11 @@ npm run rebuild
 - `MSPClient.ts` - High-level API with retry logic
 
 **Important MSP Behaviors**:
-- FC may be stuck in CLI mode from previous session → `forceExitCLI()` on connect
-- CLI commands don't exit CLI mode automatically (prevents port closure on some FCs)
+- FC may be stuck in CLI mode from previous session → `forceExitCLI()` on connect (resets local flag only)
+- BF CLI `exit` command ALWAYS reboots FC (`systemReset()`) — no way to leave CLI without reboot
+- `MSPConnection.close()` sends `exit` before closing if CLI was entered during the session (`fcEnteredCLI` flag)
+- `exitCLI()`/`forceExitCLI()` only reset local `cliMode` flag — no commands sent to FC
+- `clearFCRebootedFromCLI()` clears the flag after `save` (FC already reboots from save)
 - Board name may be empty/invalid → fallback to target name
 - Connection requires 500ms stabilization delay after port open
 - Retry logic: 2 attempts with reset between failures
@@ -272,7 +275,7 @@ Interactive visualization of analysis results using Recharts (SVG).
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 ### Test Coverage
-- 834 tests total across 47 test files
+- 841 tests total across 47 test files
 - UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, SnapshotDiffModal, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal, TuningStatusBanner, FlightGuideContent, TestFlightGuideStep, AnalysisOverview
 - Snapshot Diff: snapshotDiffUtils, SnapshotDiffModal (38 tests)
 - Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
@@ -337,6 +340,22 @@ await waitFor(() => {
 - Storage info and log list remain visible (information only)
 - All actions are driven by `TuningStatusBanner` (single point of action UX pattern)
 - When no tuning session is active, `BlackboxStatus` shows full functionality
+
+### FC Info Blackbox Diagnostics
+- `FCInfoDisplay` shows `debug_mode` and `logging_rate` on the right side with ✓/⚠ indicators
+- Settings read from baseline snapshot CLI diff via `FC_GET_BLACKBOX_SETTINGS` IPC (not from live CLI session)
+- If setting not in diff → at BF default (debug_mode=NONE → warning, blackbox_sample_rate=1 → 4kHz OK)
+- Logging rate: `8000 / pid_process_denom / 2^blackbox_sample_rate`
+
+### Smart Reconnect Detection
+- On reconnect with existing profile, checks if tuning session is in `*_flight_pending` phase
+- If flash has data (`bbInfo.hasLogs && bbInfo.usedSize > 0`), auto-transitions to `*_log_ready`
+- Implemented in `src/main/index.ts` after `createBaselineIfMissing()`
+
+### Dashboard Layout
+- ConnectionPanel and ProfileSelector are side by side in `.top-row` flex container when connected
+- When disconnected, ConnectionPanel takes full width (ProfileSelector not rendered)
+- Post-erase UX: `erasedForPhase` pattern tracks erase per-phase, banner shows flight guide after erase
 
 ### Event-Driven UI Updates
 Renderer components subscribe to events:
