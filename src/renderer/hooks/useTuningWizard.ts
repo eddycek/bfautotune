@@ -6,6 +6,7 @@ import type {
   AnalysisProgress
 } from '@shared/types/analysis.types';
 import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
+import type { TuningMode } from '@shared/types/tuning.types';
 import { markIntentionalDisconnect } from './useConnection';
 
 export type ApplyState = 'idle' | 'confirming' | 'applying' | 'done' | 'error';
@@ -13,6 +14,7 @@ export type ApplyState = 'idle' | 'confirming' | 'applying' | 'done' | 'error';
 export type WizardStep = 'guide' | 'session' | 'filter' | 'pid' | 'summary';
 
 export interface UseTuningWizardReturn {
+  mode: TuningMode;
   step: WizardStep;
   setStep: (step: WizardStep) => void;
   logId: string;
@@ -50,7 +52,7 @@ export interface UseTuningWizardReturn {
   cancelApply: () => void;
 }
 
-export function useTuningWizard(logId: string): UseTuningWizardReturn {
+export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTuningWizardReturn {
   const [step, setStep] = useState<WizardStep>('guide');
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessions, setSessions] = useState<BlackboxLogSession[] | null>(null);
@@ -98,7 +100,12 @@ export function useTuningWizard(logId: string): UseTuningWizardReturn {
       // Auto-advance if single session
       if (result.sessions.length === 1) {
         setSessionIndex(0);
-        setStep('filter');
+        // Skip to the correct step based on mode
+        if (mode === 'pid') {
+          setStep('pid');
+        } else {
+          setStep('filter');
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to parse log';
@@ -183,9 +190,13 @@ export function useTuningWizard(logId: string): UseTuningWizardReturn {
     markIntentionalDisconnect();
 
     try {
+      // In mode-specific modes, only send relevant recommendations
+      const filterRecs = mode === 'pid' ? [] : (filterResult?.recommendations ?? []);
+      const pidRecs = mode === 'filter' ? [] : (pidResult?.recommendations ?? []);
+
       const result = await window.betaflight.applyRecommendations({
-        filterRecommendations: filterResult?.recommendations ?? [],
-        pidRecommendations: pidResult?.recommendations ?? [],
+        filterRecommendations: filterRecs,
+        pidRecommendations: pidRecs,
         createSnapshot,
       });
 
@@ -199,6 +210,7 @@ export function useTuningWizard(logId: string): UseTuningWizardReturn {
   }, [filterResult, pidResult]);
 
   return {
+    mode,
     step,
     setStep,
     logId,
