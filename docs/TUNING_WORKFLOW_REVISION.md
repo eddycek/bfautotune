@@ -1,6 +1,6 @@
 # Tuning Workflow Revision: Stateful Two-Flight Iterative Approach
 
-> **Status**: Implemented (18/20 steps done)
+> **Status**: Implemented (19/20 steps done)
 > **Date**: 2026-02-10
 > **Scope**: Tuning Wizard, Flight Guide, Analysis Engine, IPC, Storage, UX Flow
 
@@ -890,6 +890,43 @@ point of action. Having duplicate action buttons in `BlackboxStatus` causes conf
 
 ---
 
+### Step 13c: Read-Only Analysis Overview ✅ PR #35
+
+**New files**:
+- `src/renderer/components/AnalysisOverview/AnalysisOverview.tsx`
+- `src/renderer/components/AnalysisOverview/AnalysisOverview.css`
+- `src/renderer/components/AnalysisOverview/AnalysisOverview.test.tsx`
+- `src/renderer/hooks/useAnalysisOverview.ts`
+- `src/renderer/hooks/useAnalysisOverview.test.ts`
+
+**Files modified**:
+- `src/renderer/App.tsx`
+
+**Changes**:
+
+13c.1. Replaced `mode='full'` wizard path with a single-page read-only `AnalysisOverview`.
+When user clicks "Analyze" on a downloaded log **without an active tuning session**, the
+app opens `AnalysisOverview` instead of the multi-step wizard.
+
+13c.2. `useAnalysisOverview` hook: auto-parses on mount, auto-runs both filter and PID
+analyses in parallel after single-session parse, session picker for multi-session logs.
+No apply-related state.
+
+13c.3. `AnalysisOverview` component: single scrollable page with filter section (noise
+spectrum, axis summary, observations) and PID section (step metrics, current PIDs, step
+response chart, observations). Recommendations labeled "Observations" (read-only context).
+Reuses SpectrumChart, StepResponseChart, RecommendationCard from TuningWizard.
+
+13c.4. `App.tsx` routing: `analysisLogId` state opens AnalysisOverview, `activeLogId`
+state opens TuningWizard. `handleAnalyze` routes based on whether tuning session is active.
+
+**UX rationale**: The guided wizard (Flight Guide → Session → Analysis → Summary + Apply)
+makes sense for active tuning sessions where the user follows a structured process. But when
+the user just wants to look at their data (no tuning session), a simple single-page view
+is more appropriate — no steps to click through, no Apply button, auto-starts everything.
+
+---
+
 ### Step 14: Update TuningWorkflowModal ✅ PR #31
 
 **Files to modify**:
@@ -1172,7 +1209,8 @@ Step 19 (Documentation)                  ← at the end
 
 ## 8. Backward Compatibility
 
-- `TuningMode = 'full'` preserves the existing single-flight behavior completely
+- `TuningMode = 'full'` is no longer used in routing — replaced by `AnalysisOverview` for
+  read-only analysis. The type and wizard code still support it for backward compatibility.
 - Existing `FLIGHT_PHASES` and `FLIGHT_TIPS` exports remain unchanged
 - The IPC handler `TUNING_APPLY_RECOMMENDATIONS` requires no changes — selective
   application works out-of-the-box (empty arrays are skipped)
