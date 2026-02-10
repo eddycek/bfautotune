@@ -108,7 +108,7 @@ export function ConnectionPanel() {
         )}
 
         <div className="connection-status">
-          <span className="status-label">Status:</span>
+          <span className="status-label">Status: </span>
           {status.connected ? (
             <span className="status-connected">● Connected <span className="connection-port-info">{selectedPort}</span></span>
           ) : (

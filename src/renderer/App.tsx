@@ -167,8 +167,10 @@ function AppContent() {
           <TuningWizard logId={activeLogId} mode={wizardMode} onExit={() => setActiveLogId(null)} />
         ) : (
           <div className="main-content">
-            <ConnectionPanel />
-            {isConnected && currentProfile && <ProfileSelector />}
+            <div className={`top-row ${isConnected && currentProfile ? 'top-row-connected' : ''}`}>
+              <ConnectionPanel />
+              {isConnected && currentProfile && <ProfileSelector />}
+            </div>
             {isConnected && currentProfile && tuning.session && (
               <TuningStatusBanner
                 session={tuning.session}
