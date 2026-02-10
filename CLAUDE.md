@@ -385,22 +385,6 @@ Claude has **full autonomous access** exclusively to `eddycek/bfautotune` repo:
 - **Ask**: Destructive ops (`rm`, `git reset --hard`, `git clean`), package installations (`npm install`), lock files
 - **Location**: `.claude/settings.json` (project-specific)
 
-### Active Plugins
-- **developer@keboola-claude-kit**: PR creation, conflict handling, code review, security review
-- **incident-commander@keboola-claude-kit**: Postmortem generation from Slack incidents
-- **claude-md-management@claude-plugins-official**: CLAUDE.md audit and improvement
-
-### MCP Servers
-- **linear-server** (via developer plugin): Linear issue tracking — issues, projects, teams, initiatives, documents
-
-### Available Skills
-- `/create-pr` — AI-generated PR with title and description
-- `/handle-conflicts` — Predictable merge conflict resolution
-- `/gh-process-review` — Process GitHub PR review comments
-- `/create-postmortem` — Confluence postmortem from Slack channel
-- `/revise-claude-md` — Update CLAUDE.md with session learnings
-- `/claude-md-improver` — Audit and improve CLAUDE.md quality
-
 ## Platform-Specific Notes
 
 ### macOS
