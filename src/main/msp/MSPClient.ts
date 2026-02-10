@@ -5,8 +5,8 @@ import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
-import type { BlackboxInfo } from '@shared/types/blackbox.types';
-import { ConnectionError, MSPError } from '../utils/errors';
+import type { BlackboxInfo, BlackboxSettings } from '@shared/types/blackbox.types';
+import { ConnectionError, MSPError, TimeoutError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP, BETAFLIGHT } from '@shared/constants';
 
@@ -329,6 +329,54 @@ export class MSPClient extends EventEmitter {
 
   async getFCSerialNumber(): Promise<string> {
     return this.getUID();
+  }
+
+  /**
+   * Read blackbox-related settings from FC via CLI get commands.
+   * Returns debug_mode, sample rate, and computed logging rate in Hz.
+   */
+  async getBlackboxSettings(): Promise<BlackboxSettings> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    const wasInCLI = this.connection.isInCLI();
+
+    try {
+      if (!wasInCLI) {
+        await this.connection.enterCLI();
+      }
+
+      const debugOutput = await this.connection.sendCLICommand('get debug_mode', 3000);
+      const sampleOutput = await this.connection.sendCLICommand('get blackbox_sample_rate', 3000);
+      const pidDenomOutput = await this.connection.sendCLICommand('get pid_process_denom', 3000);
+
+      const debugMode = this.parseCLIGetValue(debugOutput, 'debug_mode') || 'NONE';
+      const sampleRate = parseInt(this.parseCLIGetValue(sampleOutput, 'blackbox_sample_rate') || '0', 10);
+      const pidDenom = parseInt(this.parseCLIGetValue(pidDenomOutput, 'pid_process_denom') || '1', 10);
+
+      // Effective logging rate: 8000 Hz gyro / pid_process_denom / 2^sample_rate
+      const pidRate = 8000 / Math.max(pidDenom, 1);
+      const loggingRateHz = Math.round(pidRate / Math.pow(2, sampleRate));
+
+      return { debugMode, sampleRate, loggingRateHz };
+    } catch (error) {
+      // Try to recover CLI state
+      try {
+        if (!wasInCLI) {
+          await this.connection.exitCLI();
+        }
+      } catch {}
+      throw error;
+    }
+  }
+
+  private parseCLIGetValue(output: string, key: string): string | undefined {
+    for (const line of output.split('\n')) {
+      const match = line.match(new RegExp(`${key}\\s*=\\s*(.+)`));
+      if (match) return match[1].trim();
+    }
+    return undefined;
   }
 
   async exportCLIDiff(): Promise<string> {
@@ -899,14 +947,49 @@ export class MSPClient extends EventEmitter {
     try {
       logger.warn('Erasing Blackbox flash - all logged data will be permanently deleted');
 
-      // MSP_DATAFLASH_ERASE has no payload
-      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_ERASE, Buffer.alloc(0), 30000);
-
-      if (response.error) {
-        throw new MSPError('Failed to erase Blackbox flash');
+      // Send erase command — some FCs respond immediately (async erase),
+      // others block until done (can take 30-60s). We catch timeout and
+      // poll MSP_DATAFLASH_SUMMARY to confirm erase completion.
+      try {
+        const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_ERASE, Buffer.alloc(0), 5000);
+        if (response.error) {
+          throw new MSPError('FC rejected erase command');
+        }
+        logger.info('Erase command acknowledged by FC');
+      } catch (err) {
+        if (err instanceof TimeoutError) {
+          logger.info('Erase command sent (FC did not ACK — polling for completion)');
+        } else {
+          throw err;
+        }
       }
 
-      logger.info('Blackbox flash erased successfully');
+      // Poll MSP_DATAFLASH_SUMMARY until usedSize === 0 (erase complete)
+      const POLL_INTERVAL = 1000;
+      const MAX_POLL_TIME = 60000;
+      const start = Date.now();
+
+      while (Date.now() - start < MAX_POLL_TIME) {
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+
+        if (!this.isConnected()) {
+          throw new ConnectionError('FC disconnected during erase');
+        }
+
+        try {
+          const info = await this.getBlackboxInfo();
+          if (info.usedSize === 0) {
+            logger.info('Blackbox flash erased successfully (verified via poll)');
+            return;
+          }
+          logger.debug(`Erase in progress: ${info.usedSize} bytes remaining`);
+        } catch {
+          // FC may be busy erasing — ignore poll errors and retry
+          logger.debug('Poll failed (FC busy), retrying...');
+        }
+      }
+
+      throw new MSPError('Blackbox flash erase timed out after 60s');
     } catch (error) {
       logger.error('Failed to erase Blackbox flash:', error);
       throw error;

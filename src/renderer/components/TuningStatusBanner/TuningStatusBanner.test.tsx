@@ -17,10 +17,11 @@ describe('TuningStatusBanner', () => {
   const onViewGuide = vi.fn();
   const onReset = vi.fn();
 
-  function renderBanner(session: TuningSession = baseSession) {
+  function renderBanner(session: TuningSession = baseSession, flashErased?: boolean) {
     return render(
       <TuningStatusBanner
         session={session}
+        flashErased={flashErased}
         onAction={onAction}
         onViewGuide={onViewGuide}
         onReset={onReset}
@@ -32,9 +33,9 @@ describe('TuningStatusBanner', () => {
     renderBanner();
 
     expect(screen.getByText('Prepare')).toBeInTheDocument();
-    expect(screen.getByText('Filter Flight')).toBeInTheDocument();
+    expect(screen.getByText('Filter Test Flight')).toBeInTheDocument();
     expect(screen.getByText('Filter Tune')).toBeInTheDocument();
-    expect(screen.getByText('PID Flight')).toBeInTheDocument();
+    expect(screen.getByText('PID Test Flight')).toBeInTheDocument();
     expect(screen.getByText('PID Tune')).toBeInTheDocument();
   });
 
@@ -129,5 +130,52 @@ describe('TuningStatusBanner', () => {
     expect(screen.getByText(/Download the Blackbox log/)).toBeInTheDocument();
     await user.click(screen.getByText('Download Log'));
     expect(onAction).toHaveBeenCalledWith('download_log');
+  });
+
+  it('shows flash erased state for filter_flight_pending', async () => {
+    const user = userEvent.setup();
+    renderBanner(baseSession, true);
+
+    expect(screen.getByText(/Flash erased! Disconnect your drone and fly the filter test flight/)).toBeInTheDocument();
+    // Primary button should be "View Flight Guide", not "Erase Flash"
+    expect(screen.queryByText('Erase Flash')).not.toBeInTheDocument();
+    const guideBtn = screen.getByText('View Flight Guide');
+    expect(guideBtn.className).toContain('wizard-btn-primary');
+    await user.click(guideBtn);
+    expect(onViewGuide).toHaveBeenCalledWith('filter');
+  });
+
+  it('advances step indicator after flash erased in filter_flight_pending', () => {
+    const { container } = renderBanner(baseSession, true);
+
+    // "Prepare" (step 1) should be done (checkmark), "Filter Flight" (step 2) should be current
+    const steps = container.querySelectorAll('.tuning-status-step');
+    expect(steps[0].className).toContain('done');
+    expect(steps[1].className).toContain('current');
+  });
+
+  it('shows flash erased state for pid_flight_pending', async () => {
+    const user = userEvent.setup();
+    renderBanner({ ...baseSession, phase: 'pid_flight_pending' }, true);
+
+    expect(screen.getByText(/Flash erased! Disconnect your drone and fly the PID test flight/)).toBeInTheDocument();
+    expect(screen.queryByText('Erase Flash')).not.toBeInTheDocument();
+    const guideBtn = screen.getByText('View Flight Guide');
+    await user.click(guideBtn);
+    expect(onViewGuide).toHaveBeenCalledWith('pid');
+  });
+
+  it('does not show flash erased state when flashErased is false', () => {
+    renderBanner(baseSession, false);
+
+    expect(screen.getByText('Erase Flash')).toBeInTheDocument();
+    expect(screen.queryByText(/Flash erased!/)).not.toBeInTheDocument();
+  });
+
+  it('does not show flash erased state for non-flight-pending phases', () => {
+    renderBanner({ ...baseSession, phase: 'filter_analysis' }, true);
+
+    expect(screen.queryByText(/Flash erased!/)).not.toBeInTheDocument();
+    expect(screen.getByText('Open Filter Wizard')).toBeInTheDocument();
   });
 });

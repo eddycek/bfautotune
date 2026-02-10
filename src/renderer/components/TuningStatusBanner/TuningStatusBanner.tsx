@@ -12,6 +12,8 @@ export type TuningAction =
 
 interface TuningStatusBannerProps {
   session: TuningSession;
+  flashErased?: boolean;
+  erasing?: boolean;
   onAction: (action: TuningAction) => void;
   onViewGuide: (mode: TuningMode) => void;
   onReset: () => void;
@@ -25,7 +27,7 @@ interface PhaseUI {
   guideTip?: TuningMode;
 }
 
-const STEP_LABELS = ['Prepare', 'Filter Flight', 'Filter Tune', 'PID Flight', 'PID Tune'];
+const STEP_LABELS = ['Prepare', 'Filter Test Flight', 'Filter Tune', 'PID Test Flight', 'PID Tune'];
 
 const PHASE_UI: Record<TuningPhase, PhaseUI> = {
   filter_flight_pending: {
@@ -93,15 +95,20 @@ const PHASE_UI: Record<TuningPhase, PhaseUI> = {
   },
 };
 
-export function TuningStatusBanner({ session, onAction, onViewGuide, onReset }: TuningStatusBannerProps) {
+export function TuningStatusBanner({ session, flashErased, erasing, onAction, onViewGuide, onReset }: TuningStatusBannerProps) {
   const ui = PHASE_UI[session.phase];
+  const isFlightPending = session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending';
+  const showErasedState = flashErased && isFlightPending;
+  const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
+  // After erase, advance step: "Prepare" becomes done, "Flight" becomes current
+  const activeStepIndex = showErasedState ? ui.stepIndex + 1 : ui.stepIndex;
 
   return (
     <div className="tuning-status-banner">
       <div className="tuning-status-steps">
         {STEP_LABELS.map((label, i) => {
-          const isDone = i < ui.stepIndex;
-          const isCurrent = i === ui.stepIndex;
+          const isDone = i < activeStepIndex;
+          const isCurrent = i === activeStepIndex;
           const className = isDone ? 'done' : isCurrent ? 'current' : 'upcoming';
           return (
             <React.Fragment key={label}>
@@ -118,21 +125,42 @@ export function TuningStatusBanner({ session, onAction, onViewGuide, onReset }: 
       </div>
 
       <div className="tuning-status-body">
-        <p className="tuning-status-text">{ui.text}</p>
+        <p className="tuning-status-text">
+          {showErasedState
+            ? `Flash erased! Disconnect your drone and fly the ${flightType} test flight.`
+            : ui.text}
+        </p>
         <div className="tuning-status-actions">
-          <button
-            className="wizard-btn wizard-btn-primary"
-            onClick={() => onAction(ui.action)}
-          >
-            {ui.buttonLabel}
-          </button>
-          {ui.guideTip && (
+          {showErasedState ? (
             <button
-              className="wizard-btn wizard-btn-secondary"
+              className="wizard-btn wizard-btn-primary"
               onClick={() => onViewGuide(ui.guideTip!)}
             >
               View Flight Guide
             </button>
+          ) : (
+            <>
+              <button
+                className="wizard-btn wizard-btn-primary"
+                onClick={() => onAction(ui.action)}
+                disabled={erasing}
+              >
+                {erasing ? (
+                  <>
+                    <span className="spinner" />
+                    Erasing...
+                  </>
+                ) : ui.buttonLabel}
+              </button>
+              {ui.guideTip && !erasing && (
+                <button
+                  className="wizard-btn wizard-btn-secondary"
+                  onClick={() => onViewGuide(ui.guideTip!)}
+                >
+                  View Flight Guide
+                </button>
+              )}
+            </>
           )}
           <button
             className="wizard-btn wizard-btn-text"
