@@ -161,32 +161,27 @@ export class MSPConnection extends EventEmitter {
       return;
     }
 
-    // Send 'exit' to leave CLI mode and return to MSP mode.
-    // Note: 'exit' does NOT close the port or reboot (unlike 'save').
+    // IMPORTANT: In Betaflight, 'exit' command REBOOTS the FC (same as 'save' but
+    // without saving). There is NO way to leave CLI mode without rebooting.
+    // So we just reset the local state flag — the FC remains in CLI mode until
+    // physically disconnected or rebooted. MSP commands will fail until then,
+    // but sendCommand() checks cliMode and calls this first.
     return new Promise((resolve) => {
       this.cliBuffer = '';
-      this.port!.write('exit\r\n', () => {
-        setTimeout(() => {
-          this.cliMode = false;
-          resolve();
-        }, 500);
-      });
+      this.cliMode = false;
+      resolve();
     });
   }
 
   async forceExitCLI(): Promise<void> {
-    // Force exit CLI mode without checking state.
-    // Used during connection to handle FC stuck in CLI from a previous session.
-    // Sends 'exit' which returns FC to MSP mode (does not reboot or close port).
-    // If FC is already in MSP mode, the text is harmlessly ignored.
+    // Force reset CLI mode flag without sending any commands.
+    // Used during connection to clear stale state. If the FC is actually stuck
+    // in CLI mode, it will be resolved by the physical disconnect/reconnect cycle.
+    // We cannot send 'exit' because it reboots the FC.
     return new Promise((resolve) => {
       this.cliMode = false;
       this.cliBuffer = '';
-      this.port!.write('exit\r\n', () => {
-        setTimeout(() => {
-          resolve();
-        }, 500);
-      });
+      resolve();
     });
   }
 

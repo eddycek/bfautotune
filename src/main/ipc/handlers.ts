@@ -65,6 +65,18 @@ function createResponse<T>(data: T | undefined, error?: string): IPCResponse<T> 
   } as IPCResponse<T>;
 }
 
+/**
+ * Parse a `set key = value` line from CLI diff output.
+ * Returns the value string, or undefined if the key is not found.
+ */
+function parseDiffSetting(cliDiff: string, key: string): string | undefined {
+  for (const line of cliDiff.split('\n')) {
+    const match = line.match(new RegExp(`^set\\s+${key}\\s*=\\s*(.+)`, 'i'));
+    if (match) return match[1].trim();
+  }
+  return undefined;
+}
+
 export function registerIPCHandlers(): void {
   // Connection handlers
   ipcMain.handle(IPCChannel.CONNECTION_LIST_PORTS, async (): Promise<IPCResponse<PortInfo[]>> => {
@@ -150,11 +162,59 @@ export function registerIPCHandlers(): void {
 
   ipcMain.handle(IPCChannel.FC_GET_BLACKBOX_SETTINGS, async (): Promise<IPCResponse<BlackboxSettings>> => {
     try {
-      if (!mspClient) {
-        throw new Error('MSP client not initialized');
+      if (!profileManager || !snapshotManager) {
+        throw new Error('Profile/Snapshot manager not initialized');
       }
-      const settings = await mspClient.getBlackboxSettings();
-      return createResponse<BlackboxSettings>(settings);
+      // Parse blackbox settings from the baseline snapshot's CLI diff.
+      // This avoids entering CLI mode (BF CLI 'exit' reboots the FC).
+      const currentProfile = await profileManager.getCurrentProfile();
+      if (!currentProfile) {
+        throw new Error('No active profile');
+      }
+
+      // Find the baseline snapshot
+      const baselineId = currentProfile.snapshotIds.find(async (id: string) => {
+        const snap = await snapshotManager.loadSnapshot(id);
+        return snap?.type === 'baseline';
+      });
+
+      let cliDiff = '';
+      // Try to find baseline snapshot by iterating
+      for (const snapId of currentProfile.snapshotIds) {
+        try {
+          const snap = await snapshotManager.loadSnapshot(snapId);
+          if (snap && snap.type === 'baseline') {
+            cliDiff = snap.configuration.cliDiff || '';
+            break;
+          }
+        } catch {}
+      }
+
+      // If no baseline found, try the most recent snapshot
+      if (!cliDiff && currentProfile.snapshotIds.length > 0) {
+        try {
+          const lastId = currentProfile.snapshotIds[currentProfile.snapshotIds.length - 1];
+          const snap = await snapshotManager.loadSnapshot(lastId);
+          if (snap) {
+            cliDiff = snap.configuration.cliDiff || '';
+          }
+        } catch {}
+      }
+
+      // Parse settings from CLI diff output.
+      // If a setting is not in the diff, it's at the BF default.
+      const debugMode = parseDiffSetting(cliDiff, 'debug_mode') || 'NONE';
+      const sampleRateStr = parseDiffSetting(cliDiff, 'blackbox_sample_rate');
+      const pidDenomStr = parseDiffSetting(cliDiff, 'pid_process_denom');
+
+      const sampleRate = sampleRateStr !== undefined ? parseInt(sampleRateStr, 10) : 1;
+      const pidDenom = pidDenomStr !== undefined ? parseInt(pidDenomStr, 10) : 1;
+
+      // Effective logging rate: 8kHz gyro / pid_denom / 2^sample_rate
+      const pidRate = 8000 / Math.max(pidDenom, 1);
+      const loggingRateHz = Math.round(pidRate / Math.pow(2, sampleRate));
+
+      return createResponse<BlackboxSettings>({ debugMode, sampleRate, loggingRateHz });
     } catch (error) {
       logger.error('Failed to get blackbox settings:', error);
       return createResponse<BlackboxSettings>(undefined, getErrorMessage(error));

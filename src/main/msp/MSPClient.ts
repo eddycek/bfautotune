@@ -5,7 +5,7 @@ import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
-import type { BlackboxInfo, BlackboxSettings } from '@shared/types/blackbox.types';
+import type { BlackboxInfo } from '@shared/types/blackbox.types';
 import { ConnectionError, MSPError, TimeoutError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP, BETAFLIGHT } from '@shared/constants';
@@ -329,59 +329,6 @@ export class MSPClient extends EventEmitter {
 
   async getFCSerialNumber(): Promise<string> {
     return this.getUID();
-  }
-
-  /**
-   * Read blackbox-related settings from FC via CLI get commands.
-   * Returns debug_mode, sample rate, and computed logging rate in Hz.
-   */
-  async getBlackboxSettings(): Promise<BlackboxSettings> {
-    if (!this.isConnected()) {
-      throw new ConnectionError('Flight controller not connected');
-    }
-
-    const wasInCLI = this.connection.isInCLI();
-
-    try {
-      if (!wasInCLI) {
-        await this.connection.enterCLI();
-      }
-
-      const debugOutput = await this.connection.sendCLICommand('get debug_mode', 3000);
-      const sampleOutput = await this.connection.sendCLICommand('get blackbox_sample_rate', 3000);
-      const pidDenomOutput = await this.connection.sendCLICommand('get pid_process_denom', 3000);
-
-      const debugMode = this.parseCLIGetValue(debugOutput, 'debug_mode') || 'NONE';
-      const sampleRate = parseInt(this.parseCLIGetValue(sampleOutput, 'blackbox_sample_rate') || '0', 10);
-      const pidDenom = parseInt(this.parseCLIGetValue(pidDenomOutput, 'pid_process_denom') || '1', 10);
-
-      // Effective logging rate: 8000 Hz gyro / pid_process_denom / 2^sample_rate
-      const pidRate = 8000 / Math.max(pidDenom, 1);
-      const loggingRateHz = Math.round(pidRate / Math.pow(2, sampleRate));
-
-      // Exit CLI to restore MSP mode for other operations
-      if (!wasInCLI) {
-        try { await this.connection.exitCLI(); } catch {}
-      }
-
-      return { debugMode, sampleRate, loggingRateHz };
-    } catch (error) {
-      // Try to recover CLI state
-      try {
-        if (!wasInCLI) {
-          await this.connection.exitCLI();
-        }
-      } catch {}
-      throw error;
-    }
-  }
-
-  private parseCLIGetValue(output: string, key: string): string | undefined {
-    for (const line of output.split('\n')) {
-      const match = line.match(new RegExp(`${key}\\s*=\\s*(.+)`));
-      if (match) return match[1].trim();
-    }
-    return undefined;
   }
 
   async exportCLIDiff(): Promise<string> {
