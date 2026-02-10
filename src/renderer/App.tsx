@@ -155,7 +155,7 @@ function AppContent() {
         ) : (
           <div className="main-content">
             {isConnected && currentProfile && <ProfileSelector />}
-            {isConnected && tuning.session && (
+            {isConnected && currentProfile && tuning.session && (
               <TuningStatusBanner
                 session={tuning.session}
                 onAction={handleTuningAction}
@@ -168,6 +168,23 @@ function AppContent() {
                   }
                 }}
               />
+            )}
+            {isConnected && currentProfile && !tuning.session && !tuning.loading && (
+              <div className="start-tuning-banner">
+                <p>Ready to tune? Start a guided two-flight tuning session.</p>
+                <button
+                  className="wizard-btn wizard-btn-primary"
+                  onClick={async () => {
+                    try {
+                      await tuning.startSession();
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : 'Failed to start tuning session');
+                    }
+                  }}
+                >
+                  Start Tuning Session
+                </button>
+              </div>
             )}
             <ConnectionPanel />
             {isConnected && <FCInfoDisplay />}

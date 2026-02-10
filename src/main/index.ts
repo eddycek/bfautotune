@@ -5,7 +5,8 @@ import { MSPClient } from './msp/MSPClient';
 import { SnapshotManager } from './storage/SnapshotManager';
 import { ProfileManager } from './storage/ProfileManager';
 import { BlackboxManager } from './storage/BlackboxManager';
-import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected } from './ipc/handlers';
+import { TuningSessionManager } from './storage/TuningSessionManager';
+import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected } from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
 
@@ -13,6 +14,7 @@ let mspClient: MSPClient;
 let snapshotManager: SnapshotManager;
 let profileManager: ProfileManager;
 let blackboxManager: BlackboxManager;
+let tuningSessionManager: TuningSessionManager;
 
 async function initialize(): Promise<void> {
   // Create MSP client
@@ -42,11 +44,17 @@ async function initialize(): Promise<void> {
     throw error;
   }
 
+  // Create Tuning Session manager
+  const tuningStoragePath = join(app.getPath('userData'), 'data/tuning');
+  tuningSessionManager = new TuningSessionManager(tuningStoragePath);
+  await tuningSessionManager.initialize();
+
   // Set up IPC handlers
   setMSPClient(mspClient);
   setSnapshotManager(snapshotManager);
   setProfileManager(profileManager);
   setBlackboxManager(blackboxManager);
+  setTuningSessionManager(tuningSessionManager);
   registerIPCHandlers();
 
   // Listen for connection changes
