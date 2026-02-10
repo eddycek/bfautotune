@@ -58,6 +58,13 @@ export interface FilterRecommendation {
   confidence: 'high' | 'medium' | 'low';
 }
 
+/** A warning about data quality or configuration issues */
+export interface AnalysisWarning {
+  code: 'low_logging_rate' | 'wrong_debug_mode' | 'no_sweep_segments' | 'few_steps';
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
 /** Complete filter analysis result */
 export interface FilterAnalysisResult {
   /** Noise profile for all axes */
@@ -72,6 +79,8 @@ export interface FilterAnalysisResult {
   sessionIndex: number;
   /** How many steady flight segments were used */
   segmentsUsed: number;
+  /** Data quality warnings */
+  warnings?: AnalysisWarning[];
 }
 
 /** A steady flight segment identified from throttle/gyro data */
@@ -218,4 +227,6 @@ export interface PIDAnalysisResult {
   stepsDetected: number;
   /** Current PID configuration used for analysis */
   currentPIDs: PIDConfiguration;
+  /** Data quality warnings */
+  warnings?: AnalysisWarning[];
 }
