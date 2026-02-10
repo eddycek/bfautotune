@@ -789,4 +789,157 @@ describe('TuningWizard', () => {
       expect(svg).toBeNull();
     });
   });
+
+  // ---- Mode-specific tests ----
+
+  it('mode=filter shows filter flight guide on first step', () => {
+    render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
+
+    expect(screen.getByText('Throttle Sweep')).toBeInTheDocument();
+    expect(screen.queryByText('Roll Snaps')).not.toBeInTheDocument();
+  });
+
+  it('mode=pid shows pid flight guide on first step', () => {
+    render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} />);
+
+    expect(screen.getByText('Roll Snaps')).toBeInTheDocument();
+    expect(screen.queryByText('Throttle Sweep')).not.toBeInTheDocument();
+  });
+
+  it('mode=filter WizardProgress hides PIDs step', () => {
+    render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
+
+    const progressLabels = screen.getAllByText(/(Flight Guide|Session|Filters|PIDs|Summary)/);
+    const labels = progressLabels.map(el => el.textContent);
+    expect(labels).toContain('Filters');
+    expect(labels).not.toContain('PIDs');
+  });
+
+  it('mode=pid WizardProgress hides Filters step', () => {
+    render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} />);
+
+    const progressLabels = screen.getAllByText(/(Flight Guide|Session|Filters|PIDs|Summary)/);
+    const labels = progressLabels.map(el => el.textContent);
+    expect(labels).toContain('PIDs');
+    expect(labels).not.toContain('Filters');
+  });
+
+  it('mode=filter skips from filter results directly to summary', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
+
+    await passGuide(user);
+
+    await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run Filter Analysis'));
+
+    await waitFor(() => expect(screen.getByText('Filter Analysis Results')).toBeInTheDocument());
+
+    // In filter mode, "Continue" should go to summary, not PIDs
+    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to Summary'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Tuning Summary')).toBeInTheDocument();
+      expect(screen.getByText('Apply Filters')).toBeInTheDocument();
+    });
+  });
+
+  it('mode=filter summary shows filter-specific success message', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      snapshotId: 'snap-1',
+      appliedPIDs: 0,
+      appliedFilters: 1,
+      rebooted: true,
+    });
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
+
+    await passGuide(user);
+
+    await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run Filter Analysis'));
+    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to Summary'));
+    await waitFor(() => expect(screen.getByText('Apply Filters')).toBeInTheDocument());
+
+    await user.click(screen.getByText('Apply Filters'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument();
+    });
+
+    // Click Apply in the modal
+    const modalApplyBtns = screen.getAllByText('Apply Changes');
+    await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Filters applied!', { exact: false })).toBeInTheDocument();
+      expect(screen.getByText(/fly the PID test flight/)).toBeInTheDocument();
+    });
+  });
+
+  it('mode=pid summary shows Apply PIDs button and pid success message', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      appliedPIDs: 1,
+      appliedFilters: 0,
+      rebooted: true,
+    });
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} />);
+
+    await passGuide(user);
+
+    // pid mode auto-advances to pid step (single session)
+    await waitFor(() => expect(screen.getByText('Run PID Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run PID Analysis'));
+    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to Summary'));
+
+    await waitFor(() => expect(screen.getByText('Apply PIDs')).toBeInTheDocument());
+
+    await user.click(screen.getByText('Apply PIDs'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument();
+    });
+
+    const modalApplyBtns = screen.getAllByText('Apply Changes');
+    await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText('PIDs applied!', { exact: false })).toBeInTheDocument();
+      expect(screen.getByText(/verify the feel/)).toBeInTheDocument();
+    });
+  });
+
+  it('mode=filter summary hides PID recommendation section', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
+
+    await passGuide(user);
+    await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run Filter Analysis'));
+    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to Summary'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Filter Recommendations')).toBeInTheDocument();
+      expect(screen.queryByText('PID Recommendations')).not.toBeInTheDocument();
+    });
+  });
 });

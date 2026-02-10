@@ -2,11 +2,13 @@ import React from 'react';
 import { RecommendationCard, SETTING_LABELS } from './RecommendationCard';
 import type { FilterAnalysisResult, PIDAnalysisResult, FilterRecommendation, PIDRecommendation } from '@shared/types/analysis.types';
 import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
+import type { TuningMode } from '@shared/types/tuning.types';
 import type { ApplyState } from '../../hooks/useTuningWizard';
 
 interface TuningSummaryStepProps {
   filterResult: FilterAnalysisResult | null;
   pidResult: PIDAnalysisResult | null;
+  mode?: TuningMode;
   onExit: () => void;
   onApply: () => void;
   applyState: ApplyState;
@@ -27,9 +29,62 @@ function getChangeText(current: number, recommended: number): { text: string; cl
   };
 }
 
+function getApplyButtonLabel(mode: TuningMode, applyState: ApplyState): string {
+  if (applyState === 'applying') return 'Applying...';
+  switch (mode) {
+    case 'filter': return 'Apply Filters';
+    case 'pid': return 'Apply PIDs';
+    default: return 'Apply Changes';
+  }
+}
+
+function getSuccessMessage(mode: TuningMode, applyResult: ApplyRecommendationsResult): React.ReactNode {
+  switch (mode) {
+    case 'filter':
+      return (
+        <>
+          <strong>Filters applied!</strong>
+          <br />
+          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written to FC.
+          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
+          <br />
+          Next: erase Blackbox, fly the PID test flight (stick snaps on all axes),
+          then reconnect to continue tuning.
+          <br />
+          <em>After your next flight, check motor temperatures.</em>
+        </>
+      );
+    case 'pid':
+      return (
+        <>
+          <strong>PIDs applied!</strong>
+          <br />
+          {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} written to FC.
+          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
+          <br />
+          Fly a normal flight to verify the feel, then reconnect to download
+          the verification log.
+        </>
+      );
+    default:
+      return (
+        <>
+          <strong>Changes applied successfully!</strong>
+          <br />
+          {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} and{' '}
+          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written to FC.
+          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
+          <br />
+          Your FC is rebooting. Close the wizard and reconnect via the Connection panel.
+        </>
+      );
+  }
+}
+
 export function TuningSummaryStep({
   filterResult,
   pidResult,
+  mode = 'full',
   onExit,
   onApply,
   applyState,
@@ -37,8 +92,10 @@ export function TuningSummaryStep({
   applyResult,
   applyError,
 }: TuningSummaryStepProps) {
-  const filterRecs = filterResult?.recommendations ?? [];
-  const pidRecs = pidResult?.recommendations ?? [];
+  const showFilter = mode !== 'pid';
+  const showPid = mode !== 'filter';
+  const filterRecs = showFilter ? (filterResult?.recommendations ?? []) : [];
+  const pidRecs = showPid ? (pidResult?.recommendations ?? []) : [];
   const allRecs: (FilterRecommendation | PIDRecommendation)[] = [...filterRecs, ...pidRecs];
   const totalRecs = allRecs.length;
 
@@ -172,13 +229,7 @@ export function TuningSummaryStep({
 
       {applyState === 'done' && applyResult && (
         <div className="apply-success">
-          <strong>Changes applied successfully!</strong>
-          <br />
-          {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} and{' '}
-          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written to FC.
-          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
-          <br />
-          Your FC is rebooting. Close the wizard and reconnect via the Connection panel.
+          {getSuccessMessage(mode, applyResult)}
         </div>
       )}
 
@@ -202,7 +253,7 @@ export function TuningSummaryStep({
             disabled={isApplyDisabled}
             onClick={onApply}
           >
-            {applyState === 'applying' ? 'Applying...' : 'Apply Changes'}
+            {getApplyButtonLabel(mode, applyState)}
           </button>
         ) : null}
         <button

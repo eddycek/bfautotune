@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { RecommendationCard } from './RecommendationCard';
 import { SpectrumChart } from './charts/SpectrumChart';
 import type { FilterAnalysisResult, AnalysisProgress } from '@shared/types/analysis.types';
+import type { TuningMode } from '@shared/types/tuning.types';
 
 interface FilterAnalysisStepProps {
   filterResult: FilterAnalysisResult | null;
@@ -10,6 +11,7 @@ interface FilterAnalysisStepProps {
   filterError: string | null;
   runFilterAnalysis: () => Promise<void>;
   onContinue: () => void;
+  mode?: TuningMode;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -33,7 +35,10 @@ export function FilterAnalysisStep({
   filterError,
   runFilterAnalysis,
   onContinue,
+  mode = 'full',
 }: FilterAnalysisStepProps) {
+  const continueLabel = mode === 'filter' ? 'Continue to Summary' : 'Continue to PID Analysis';
+  const skipLabel = mode === 'filter' ? 'Skip to Summary' : 'Skip to PIDs';
   const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(true);
 
   if (filterAnalyzing) {
@@ -69,7 +74,7 @@ export function FilterAnalysisStep({
             Retry
           </button>
           <button className="wizard-btn wizard-btn-secondary" onClick={onContinue}>
-            Skip to PIDs
+            {skipLabel}
           </button>
         </div>
       </div>
@@ -168,7 +173,7 @@ export function FilterAnalysisStep({
 
         <div className="analysis-actions">
           <button className="wizard-btn wizard-btn-primary" onClick={onContinue}>
-            Continue to PID Analysis
+            {continueLabel}
           </button>
         </div>
       </div>
