@@ -97,7 +97,19 @@ export function FilterAnalysisStep({
           <span className="analysis-meta-pill">
             {filterResult.segmentsUsed} segment{filterResult.segmentsUsed !== 1 ? 's' : ''} analyzed
           </span>
+          {filterResult.rpmFilterActive !== undefined && (
+            <span className={`analysis-meta-pill ${filterResult.rpmFilterActive ? 'rpm-active' : 'rpm-inactive'}`}>
+              RPM Filter: {filterResult.rpmFilterActive ? 'Active' : 'Not detected'}
+            </span>
+          )}
         </div>
+
+        {filterResult.rpmFilterActive && (
+          <div className="analysis-warning analysis-warning--info">
+            <span className="analysis-warning-icon">{'\u2139\uFE0F'}</span>
+            <span>RPM filter is active — filter recommendations are optimized for lower latency.</span>
+          </div>
+        )}
 
         {filterResult.warnings && filterResult.warnings.length > 0 && (
           <div className="analysis-warnings">

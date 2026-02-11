@@ -419,6 +419,56 @@ describe('AnalysisOverview', () => {
     expect(screen.queryByText(/Feedforward is active/)).not.toBeInTheDocument();
   });
 
+  it('shows RPM Filter: Active pill when rpmFilterActive is true', async () => {
+    const rpmResult: FilterAnalysisResult = {
+      ...mockFilterResult,
+      rpmFilterActive: true,
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(rpmResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('RPM Filter: Active')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/RPM filter is active/)).toBeInTheDocument();
+  });
+
+  it('shows RPM Filter: Not detected pill when rpmFilterActive is false', async () => {
+    const rpmResult: FilterAnalysisResult = {
+      ...mockFilterResult,
+      rpmFilterActive: false,
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(rpmResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('RPM Filter: Not detected')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/RPM filter is active/)).not.toBeInTheDocument();
+  });
+
+  it('hides RPM pill when rpmFilterActive is undefined', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('low')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/RPM Filter:/)).not.toBeInTheDocument();
+  });
+
   it('shows axis summary cards for filter results', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);

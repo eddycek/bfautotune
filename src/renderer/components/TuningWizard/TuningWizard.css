@@ -429,6 +429,17 @@
   color: #ff8787;
 }
 
+/* RPM filter status pills */
+.analysis-meta-pill.rpm-active {
+  background: rgba(81, 207, 102, 0.12);
+  color: #51cf66;
+}
+
+.analysis-meta-pill.rpm-inactive {
+  background: rgba(170, 170, 170, 0.12);
+  color: #aaa;
+}
+
 /* Noise details toggle */
 .noise-details-toggle {
   background: none;
