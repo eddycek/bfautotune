@@ -10,7 +10,7 @@
  */
 
 import type { BBLLogHeader } from '@shared/types/blackbox.types';
-import type { AnalysisWarning } from '@shared/types/analysis.types';
+import type { AnalysisWarning, CurrentFilterSettings } from '@shared/types/analysis.types';
 
 /** Minimum recommended logging rate in Hz for meaningful FFT */
 const MIN_LOGGING_RATE_HZ = 2000;
@@ -83,4 +83,51 @@ export function validateBBLHeader(header: BBLLogHeader): AnalysisWarning[] {
   }
 
   return warnings;
+}
+
+/**
+ * Enrich CurrentFilterSettings with RPM filter data from BBL raw headers.
+ *
+ * Used as a fallback when the FC is not connected or the MSP response
+ * doesn't include RPM data. BBL headers contain `dshot_bidir` and
+ * `rpm_filter_harmonics` which are sufficient to detect RPM filter state.
+ *
+ * @param settings - Current filter settings (may lack RPM fields)
+ * @param rawHeaders - BBL raw header key-value pairs
+ * @returns Enriched settings if RPM data found in headers, null otherwise
+ */
+export function enrichSettingsFromBBLHeaders(
+  settings: CurrentFilterSettings,
+  rawHeaders: Map<string, string>
+): CurrentFilterSettings | null {
+  const harmonicsStr = rawHeaders.get('rpm_filter_harmonics');
+  if (harmonicsStr === undefined) return null;
+
+  const harmonics = parseInt(harmonicsStr, 10);
+  if (isNaN(harmonics)) return null;
+
+  const enriched: CurrentFilterSettings = {
+    ...settings,
+    rpm_filter_harmonics: harmonics,
+  };
+
+  const minHzStr = rawHeaders.get('rpm_filter_min_hz');
+  if (minHzStr !== undefined) {
+    const minHz = parseInt(minHzStr, 10);
+    if (!isNaN(minHz)) enriched.rpm_filter_min_hz = minHz;
+  }
+
+  const dynCountStr = rawHeaders.get('dyn_notch_count');
+  if (dynCountStr !== undefined) {
+    const dynCount = parseInt(dynCountStr, 10);
+    if (!isNaN(dynCount)) enriched.dyn_notch_count = dynCount;
+  }
+
+  const dynQStr = rawHeaders.get('dyn_notch_q');
+  if (dynQStr !== undefined) {
+    const dynQ = parseInt(dynQStr, 10);
+    if (!isNaN(dynQ)) enriched.dyn_notch_q = dynQ;
+  }
+
+  return enriched;
 }

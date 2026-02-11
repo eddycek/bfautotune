@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { validateBBLHeader } from './headerValidation';
+import { validateBBLHeader, enrichSettingsFromBBLHeaders } from './headerValidation';
 import type { BBLLogHeader } from '@shared/types/blackbox.types';
+import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
 
 function createHeader(overrides: Partial<BBLLogHeader> = {}): BBLLogHeader {
   const defaults: BBLLogHeader = {
@@ -142,5 +143,72 @@ describe('validateBBLHeader', () => {
     const warnings = validateBBLHeader(header);
     expect(warnings).toHaveLength(1);
     expect(warnings[0].code).toBe('wrong_debug_mode');
+  });
+});
+
+describe('enrichSettingsFromBBLHeaders', () => {
+  it('enriches settings with RPM harmonics from BBL headers', () => {
+    const headers = new Map<string, string>([
+      ['rpm_filter_harmonics', '3'],
+      ['rpm_filter_min_hz', '100'],
+    ]);
+
+    const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
+    expect(result).not.toBeNull();
+    expect(result!.rpm_filter_harmonics).toBe(3);
+    expect(result!.rpm_filter_min_hz).toBe(100);
+  });
+
+  it('enriches settings with dynamic notch count and Q', () => {
+    const headers = new Map<string, string>([
+      ['rpm_filter_harmonics', '3'],
+      ['dyn_notch_count', '1'],
+      ['dyn_notch_q', '500'],
+    ]);
+
+    const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
+    expect(result).not.toBeNull();
+    expect(result!.dyn_notch_count).toBe(1);
+    expect(result!.dyn_notch_q).toBe(500);
+  });
+
+  it('returns null when rpm_filter_harmonics not in headers', () => {
+    const headers = new Map<string, string>([
+      ['dshot_bidir', '1'],
+    ]);
+
+    const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when rpm_filter_harmonics is not a number', () => {
+    const headers = new Map<string, string>([
+      ['rpm_filter_harmonics', 'invalid'],
+    ]);
+
+    const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
+    expect(result).toBeNull();
+  });
+
+  it('preserves existing settings while adding RPM data', () => {
+    const headers = new Map<string, string>([
+      ['rpm_filter_harmonics', '2'],
+    ]);
+
+    const settings = { ...DEFAULT_FILTER_SETTINGS, gyro_lpf1_static_hz: 100 };
+    const result = enrichSettingsFromBBLHeaders(settings, headers);
+    expect(result).not.toBeNull();
+    expect(result!.gyro_lpf1_static_hz).toBe(100);
+    expect(result!.rpm_filter_harmonics).toBe(2);
+  });
+
+  it('handles rpm_filter_harmonics = 0 (RPM disabled)', () => {
+    const headers = new Map<string, string>([
+      ['rpm_filter_harmonics', '0'],
+    ]);
+
+    const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
+    expect(result).not.toBeNull();
+    expect(result!.rpm_filter_harmonics).toBe(0);
   });
 });
