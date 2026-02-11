@@ -175,15 +175,15 @@ describe('AnalysisOverview', () => {
     vi.clearAllMocks();
   });
 
-  it('renders header with Exit button', async () => {
+  it('renders header with log filename and Exit button', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     expect(screen.getByText('Analysis Overview')).toBeInTheDocument();
-    expect(screen.getByText('Log: log-1')).toBeInTheDocument();
+    expect(screen.getByText('blackbox_2026-02-11.bbl')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Exit' })).toBeInTheDocument();
   });
 
@@ -193,7 +193,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
     const user = userEvent.setup();
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await user.click(screen.getByRole('button', { name: 'Exit' }));
     expect(onExit).toHaveBeenCalledTimes(1);
@@ -204,7 +204,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(window.betaflight.parseBlackboxLog).toHaveBeenCalledWith('log-1', expect.any(Function));
@@ -214,7 +214,7 @@ describe('AnalysisOverview', () => {
   it('shows session picker for multi-session logs', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockMultiSessionResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('Select Flight Session')).toBeInTheDocument();
@@ -230,7 +230,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(window.betaflight.analyzeFilters).toHaveBeenCalled();
@@ -243,7 +243,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('low')).toBeInTheDocument();
@@ -257,7 +257,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
@@ -272,7 +272,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('low')).toBeInTheDocument();
@@ -287,7 +287,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('low')).toBeInTheDocument();
@@ -302,7 +302,7 @@ describe('AnalysisOverview', () => {
       new Error('Corrupt log file')
     );
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('Corrupt log file')).toBeInTheDocument();
@@ -318,7 +318,7 @@ describe('AnalysisOverview', () => {
     );
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('Not enough hover data')).toBeInTheDocument();
@@ -335,7 +335,7 @@ describe('AnalysisOverview', () => {
       new Error('No step inputs found')
     );
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('No step inputs found')).toBeInTheDocument();
@@ -347,7 +347,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Frequency spectrum/)).toBeInTheDocument();
@@ -371,7 +371,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(filterWithRec);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithRec);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Your noise levels are moderate\./)).toBeInTheDocument();
@@ -388,7 +388,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
     const user = userEvent.setup();
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('Session 1')).toBeInTheDocument();
@@ -418,7 +418,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithFF);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('Feedforward is active on this flight.')).toBeInTheDocument();
@@ -430,7 +430,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText(/steps detected/)).toBeInTheDocument();
@@ -448,7 +448,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(rpmResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('RPM Filter: Active')).toBeInTheDocument();
@@ -466,7 +466,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(rpmResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('RPM Filter: Not detected')).toBeInTheDocument();
@@ -480,7 +480,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('low')).toBeInTheDocument();
@@ -489,7 +489,7 @@ describe('AnalysisOverview', () => {
     expect(screen.queryByText(/RPM Filter:/)).not.toBeInTheDocument();
   });
 
-  it('shows flight style pill when flightStyle present in PID result', async () => {
+  it('does not show flight style pill even when flightStyle present in PID result', async () => {
     const pidWithStyle: PIDAnalysisResult = {
       ...mockPIDResult,
       flightStyle: 'aggressive',
@@ -498,19 +498,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithStyle);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Tuning for: Aggressive flying/)).toBeInTheDocument();
-    });
-  });
-
-  it('does not show flight style pill when flightStyle absent', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
-    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
-    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
-
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
@@ -524,7 +512,7 @@ describe('AnalysisOverview', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
       expect(screen.getByText('low')).toBeInTheDocument();
@@ -534,6 +522,99 @@ describe('AnalysisOverview', () => {
     expect(screen.getAllByText('roll').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('pitch').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('yaw').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows session breadcrumb with metadata after single-session analysis', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Session 1')).toBeInTheDocument();
+    });
+
+    // Session metadata line
+    expect(screen.getByText(/60\.0s/)).toBeInTheDocument();
+    expect(screen.getByText(/480,000 frames/)).toBeInTheDocument();
+    expect(screen.getByText(/8000 Hz/)).toBeInTheDocument();
+  });
+
+  it('shows session breadcrumb after selecting session in multi-session log', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockMultiSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
+
+    // Session picker visible
+    await waitFor(() => {
+      expect(screen.getByText('Select Flight Session')).toBeInTheDocument();
+    });
+
+    // Select Session 1
+    await user.click(screen.getByText('Session 1'));
+
+    // Breadcrumb now shows session info
+    await waitFor(() => {
+      expect(screen.getByText(/Session 1/)).toBeInTheDocument();
+    });
+
+    // Session metadata visible
+    await waitFor(() => {
+      expect(screen.getByText(/60\.0s/)).toBeInTheDocument();
+    });
+  });
+
+  it('clicking log name returns to session picker in multi-session log', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockMultiSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    const user = userEvent.setup();
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
+
+    // Session picker visible
+    await waitFor(() => {
+      expect(screen.getByText('Select Flight Session')).toBeInTheDocument();
+    });
+
+    // Select Session 1
+    await user.click(screen.getByText('Session 1'));
+
+    // Wait for analysis to complete
+    await waitFor(() => {
+      expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
+    });
+
+    // Log name is a clickable button in multi-session mode
+    const logButton = screen.getByRole('button', { name: 'blackbox_2026-02-11.bbl' });
+    expect(logButton).toBeInTheDocument();
+
+    // Click to go back to session picker
+    await user.click(logButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Flight Session')).toBeInTheDocument();
+    });
+  });
+
+  it('log name is not clickable for single-session logs', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('low')).toBeInTheDocument();
+    });
+
+    // Log name is a static span, not a button
+    expect(screen.queryByRole('button', { name: 'blackbox_2026-02-11.bbl' })).not.toBeInTheDocument();
+    expect(screen.getByText('blackbox_2026-02-11.bbl')).toBeInTheDocument();
   });
 
 });

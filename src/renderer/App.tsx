@@ -32,6 +32,7 @@ function AppContent() {
   const [isConnected, setIsConnected] = useState(false);
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
   const [analysisLogId, setAnalysisLogId] = useState<string | null>(null);
+  const [analysisLogName, setAnalysisLogName] = useState<string | null>(null);
   const [wizardMode, setWizardMode] = useState<TuningMode>('filter');
   const [showWorkflowHelp, setShowWorkflowHelp] = useState(false);
   const [showFlightGuideMode, setShowFlightGuideMode] = useState<TuningMode | null>(null);
@@ -216,7 +217,7 @@ function AppContent() {
     }
   };
 
-  const handleAnalyze = (logId: string) => {
+  const handleAnalyze = (logId: string, logName?: string) => {
     if (tuning.session) {
       // Active tuning session — open wizard in mode matching current phase
       const phase = tuning.session.phase;
@@ -231,6 +232,7 @@ function AppContent() {
     } else {
       // No tuning session — open read-only analysis overview
       setAnalysisLogId(logId);
+      setAnalysisLogName(logName || null);
     }
   };
 
@@ -255,7 +257,7 @@ function AppContent() {
 
       <main className="app-main">
         {analysisLogId ? (
-          <AnalysisOverview logId={analysisLogId} onExit={() => setAnalysisLogId(null)} />
+          <AnalysisOverview logId={analysisLogId} logName={analysisLogName || analysisLogId} onExit={() => { setAnalysisLogId(null); setAnalysisLogName(null); }} />
         ) : activeLogId ? (
           <TuningWizard logId={activeLogId} mode={wizardMode} onExit={() => setActiveLogId(null)} onApplyComplete={handleApplyComplete} />
         ) : (
