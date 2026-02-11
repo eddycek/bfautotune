@@ -49,36 +49,8 @@
   color: #4ade80;
 }
 
-.snapshot-diff-legend {
-  display: flex;
-  gap: 8px;
-  padding: 12px 20px 0;
-}
-
-.diff-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-
-.diff-badge-added {
-  background-color: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
-}
-
-.diff-badge-removed {
-  background-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-}
-
-.diff-badge-changed {
-  background-color: rgba(234, 179, 8, 0.2);
-  color: #facc15;
-}
-
 .snapshot-diff-summary {
-  padding: 8px 20px;
+  padding: 12px 20px 0;
   font-size: 12px;
   color: #999999;
 }
