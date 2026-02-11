@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTuningWizard } from '../../hooks/useTuningWizard';
-import type { TuningMode } from '@shared/types/tuning.types';
+import type { TuningMode, AppliedChange } from '@shared/types/tuning.types';
 import { WizardProgress } from './WizardProgress';
 import { TestFlightGuideStep } from './TestFlightGuideStep';
 import { SessionSelectStep } from './SessionSelectStep';
@@ -14,10 +14,43 @@ interface TuningWizardProps {
   logId: string;
   mode?: TuningMode;
   onExit: () => void;
+  onApplyComplete?: (changes: { filterChanges?: AppliedChange[]; pidChanges?: AppliedChange[] }) => void;
 }
 
-export function TuningWizard({ logId, mode = 'full', onExit }: TuningWizardProps) {
+export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: TuningWizardProps) {
   const wizard = useTuningWizard(logId, mode);
+  const applyCalled = useRef(false);
+
+  // Notify parent when apply completes successfully
+  useEffect(() => {
+    if (wizard.applyState === 'done' && !applyCalled.current) {
+      applyCalled.current = true;
+
+      if (onApplyComplete) {
+        const filterChanges = mode !== 'pid'
+          ? wizard.filterResult?.recommendations.map(r => ({
+              setting: r.setting,
+              previousValue: r.currentValue,
+              newValue: r.recommendedValue,
+            }))
+          : undefined;
+
+        const pidChanges = mode !== 'filter'
+          ? wizard.pidResult?.recommendations.map(r => ({
+              setting: r.setting,
+              previousValue: r.currentValue,
+              newValue: r.recommendedValue,
+            }))
+          : undefined;
+
+        onApplyComplete({ filterChanges, pidChanges });
+      }
+    }
+
+    if (wizard.applyState === 'idle' || wizard.applyState === 'error') {
+      applyCalled.current = false;
+    }
+  }, [wizard.applyState, wizard.filterResult, wizard.pidResult, mode, onApplyComplete]);
 
   const renderStep = () => {
     switch (wizard.step) {

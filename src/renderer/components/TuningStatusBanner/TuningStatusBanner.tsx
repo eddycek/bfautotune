@@ -8,6 +8,7 @@ export type TuningAction =
   | 'open_filter_wizard'
   | 'open_pid_wizard'
   | 'start_new_cycle'
+  | 'complete_session'
   | 'dismiss';
 
 interface TuningStatusBannerProps {
@@ -79,8 +80,8 @@ const PHASE_UI: Record<TuningPhase, PhaseUI> = {
   pid_applied: {
     stepIndex: 4,
     text: 'PIDs applied! Fly a normal flight to verify the feel.',
-    buttonLabel: 'Start New Cycle',
-    action: 'start_new_cycle',
+    buttonLabel: 'Complete Tuning',
+    action: 'complete_session',
   },
   verification_pending: {
     stepIndex: 4,
