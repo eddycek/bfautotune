@@ -342,24 +342,44 @@ describe('AnalysisOverview', () => {
     });
   });
 
-  it('toggles noise details visibility', async () => {
+  it('always shows noise details without toggle in diagnostic view', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
 
-    const user = userEvent.setup();
     render(<AnalysisOverview logId="log-1" onExit={onExit} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Hide noise details')).toBeInTheDocument();
+      expect(screen.getByText(/Frequency spectrum/)).toBeInTheDocument();
     });
 
-    // Noise details should be open by default
-    expect(screen.getByText(/Frequency spectrum/)).toBeInTheDocument();
+    // No toggle button in diagnostic view
+    expect(screen.queryByText('Hide noise details')).not.toBeInTheDocument();
+    expect(screen.queryByText('Show noise details')).not.toBeInTheDocument();
+  });
 
-    await user.click(screen.getByText('Hide noise details'));
-    expect(screen.getByText('Show noise details')).toBeInTheDocument();
-    expect(screen.queryByText(/Frequency spectrum/)).not.toBeInTheDocument();
+  it('strips recommendation text from summaries', async () => {
+    const filterWithRec: FilterAnalysisResult = {
+      ...mockFilterResult,
+      summary: 'Your noise levels are moderate. 4 filter changes recommended.',
+    };
+    const pidWithRec: PIDAnalysisResult = {
+      ...mockPIDResult,
+      summary: 'Analyzed 22 stick inputs. Your PID tune looks good. No changes recommended.',
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(filterWithRec);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithRec);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Your noise levels are moderate\./)).toBeInTheDocument();
+    });
+
+    // Recommendation sentences should be stripped
+    expect(screen.queryByText(/filter changes recommended/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No changes recommended/)).not.toBeInTheDocument();
   });
 
   it('selects session in multi-session log and triggers analyses', async () => {

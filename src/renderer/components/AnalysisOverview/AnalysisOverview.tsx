@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAnalysisOverview } from '../../hooks/useAnalysisOverview';
 import { SpectrumChart } from '../TuningWizard/charts/SpectrumChart';
 import { StepResponseChart } from '../TuningWizard/charts/StepResponseChart';
 import type { FlightStyle } from '@shared/types/profile.types';
 import './AnalysisOverview.css';
+
+/** Strip recommendation sentences from analysis summaries (diagnostic-only view). */
+function stripRecommendation(summary: string): string {
+  return summary
+    .replace(/\s*\d+ filter changes? recommended\.$/, '')
+    .replace(/\s*Current filter settings look good — no changes needed\.$/, '')
+    .replace(/\s*No changes recommended\.$/, '')
+    .replace(/\s*\d+ adjustments? recommended\b[^.]*\.$/, '');
+}
 
 const FLIGHT_STYLE_LABELS: Record<FlightStyle, string> = {
   smooth: 'Smooth',
@@ -39,8 +48,6 @@ const PEAK_TYPE_LABELS: Record<string, string> = {
 
 export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
   const overview = useAnalysisOverview(logId);
-  const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(true);
-  const [stepChartOpen, setStepChartOpen] = useState(true);
 
   // Check if any trace data exists for step response chart
   const hasTraces = overview.pidResult
@@ -174,7 +181,7 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             <span className={`noise-level-badge ${overview.filterResult.noise.overallLevel}`}>
               {overview.filterResult.noise.overallLevel}
             </span>
-            {' '}&mdash; {overview.filterResult.summary}
+            {' '}&mdash; {stripRecommendation(overview.filterResult.summary)}
           </p>
 
           <div className="analysis-meta">
@@ -206,15 +213,7 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             </div>
           )}
 
-          <button
-            className="noise-details-toggle"
-            onClick={() => setNoiseDetailsOpen(!noiseDetailsOpen)}
-          >
-            {noiseDetailsOpen ? 'Hide noise details' : 'Show noise details'}
-          </button>
-
-          {noiseDetailsOpen && (
-            <div className="noise-details">
+          <div className="noise-details">
               <p className="chart-description">
                 Frequency spectrum of gyro noise during stable hover.
                 Peaks indicate noise sources &mdash; <strong>motor harmonics</strong> (propeller vibrations),{' '}
@@ -254,7 +253,6 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
                 })}
               </div>
             </div>
-          )}
 
         </div>
       )}
@@ -297,7 +295,7 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
         <div className="analysis-overview-section">
           <h3 className="analysis-overview-section-title">PID Analysis</h3>
           <p style={{ fontSize: 13, color: 'var(--text-secondary, #aaa)', margin: '0 0 8px 0' }}>
-            {overview.pidResult.summary}
+            {stripRecommendation(overview.pidResult.summary)}
           </p>
           <div className="analysis-meta">
             <span className="analysis-meta-pill">
@@ -374,34 +372,23 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
 
           {hasTraces && (
             <>
-              <button
-                className="noise-details-toggle"
-                onClick={() => setStepChartOpen(!stepChartOpen)}
-              >
-                {stepChartOpen ? 'Hide step response charts' : 'Show step response charts'}
-              </button>
-
-              {stepChartOpen && (
-                <>
-                  <p className="chart-description">
-                    How the quad responds to stick inputs (step response).
-                    The <strong>dashed white line</strong> is the commanded rate (setpoint) and the{' '}
-                    <strong>colored line</strong> is the actual gyro response.
-                    Ideally, the gyro should follow the setpoint quickly with minimal overshoot and no oscillation.
-                  </p>
-                  <p className="chart-legend">
-                    <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#fff' }} /> Setpoint</span>
-                    <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
-                    <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
-                    <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
-                  </p>
-                  <StepResponseChart
-                    roll={overview.pidResult!.roll}
-                    pitch={overview.pidResult!.pitch}
-                    yaw={overview.pidResult!.yaw}
-                  />
-                </>
-              )}
+              <p className="chart-description">
+                How the quad responds to stick inputs (step response).
+                The <strong>dashed white line</strong> is the commanded rate (setpoint) and the{' '}
+                <strong>colored line</strong> is the actual gyro response.
+                Ideally, the gyro should follow the setpoint quickly with minimal overshoot and no oscillation.
+              </p>
+              <p className="chart-legend">
+                <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#fff' }} /> Setpoint</span>
+                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
+                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
+                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
+              </p>
+              <StepResponseChart
+                roll={overview.pidResult!.roll}
+                pitch={overview.pidResult!.pitch}
+                yaw={overview.pidResult!.yaw}
+              />
             </>
           )}
 
