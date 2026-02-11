@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1440 tests across 75 files** (last verified: February 11, 2026)
+**Total: 1442 tests across 75 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -166,7 +166,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 18 | Profile editing, validation, form handling, flight style selector |
 | `ProfileDeleteModal.test.tsx` | 12 | Deletion confirmation, warnings |
-| `SnapshotManager/SnapshotManager.test.tsx` | 34 | Snapshot CRUD, export, restore, baseline handling |
+| `SnapshotManager/SnapshotManager.test.tsx` | 36 | Snapshot CRUD, export, restore, baseline handling, dynamic numbering |
 | `SnapshotManager/SnapshotDiffModal.test.tsx` | 13 | Snapshot diff view, change display |
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |

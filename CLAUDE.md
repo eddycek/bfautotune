@@ -254,7 +254,7 @@ Interactive visualization of analysis results using Recharts (SVG).
 
 **Apply Flow** (orchestrated in `TUNING_APPLY_RECOMMENDATIONS` IPC handler):
 1. Stage 1: Apply PID changes via MSP (must happen before CLI mode)
-2. Stage 2: Create pre-tuning safety snapshot (enters CLI mode)
+2. Stage 2: Enter CLI mode (no snapshot — Pre-tuning (auto) from Start Tuning covers rollback)
 3. Stage 3: Apply filter changes via CLI `set` commands
 4. Stage 4: Save to EEPROM and reboot FC
 
@@ -269,7 +269,16 @@ Interactive visualization of analysis results using Recharts (SVG).
 - Both 6-byte (no compression flag) and 7-byte (with compression flag) formats supported
 - Huffman compression not yet implemented (logs warning if detected)
 
-**Important**: Stage ordering matters — MSP commands must execute before CLI mode, because FC only processes CLI input while in CLI mode (MSP timeouts). Snapshot creation enters CLI mode via `exportCLIDiff()`.
+**Important**: Stage ordering matters — MSP commands must execute before CLI mode, because FC only processes CLI input while in CLI mode (MSP timeouts).
+
+**Auto-Snapshot Strategy** (3 per tuning cycle):
+- `Pre-tuning (auto)` — created by Start Tuning (rollback safety net)
+- `Post-filter (auto)` — created on reconnect after filter apply (filter result / pre-PID state)
+- `Post-tuning (auto)` — created on reconnect after PID apply (final tuned result)
+
+**Snapshot Display**: Dynamic `#N` numbering (oldest=#1, newest=#N), adjusts on deletion.
+
+**Diff Semantics**: Setting disappearing from CLI diff = "Changed to (default)", not "Removed" (BF restores factory default).
 
 ### Snapshot Restore (Rollback)
 
@@ -338,7 +347,8 @@ await waitFor(() => {
 - **Restore** sends `set` commands from snapshot CLI diff to FC via CLI, then saves and reboots
 - **Restore safety backup** auto-creates "Pre-restore (auto)" snapshot before applying
 - **Server-side filtering** by current profile's snapshotIds
-- **Compare** shows diff between snapshot and previous one (or empty config for oldest). Uses `snapshotDiffUtils.ts` to parse CLI diff, compute changes, and group by command type. Displayed in `SnapshotDiffModal` with GitHub-style color coding (green=added, red=removed, yellow=changed).
+- **Dynamic numbering** `#1` (oldest) through `#N` (newest) — recalculates on deletion
+- **Compare** shows diff between snapshot and previous one (or empty config for oldest). Uses `snapshotDiffUtils.ts` to parse CLI diff, compute changes, and group by command type. Displayed in `SnapshotDiffModal` with GitHub-style color coding (green=added, yellow=changed). Settings reverted to factory default show as "Changed to (default)".
 
 ### BlackboxStatus Readonly Mode
 - When a tuning session is active, `BlackboxStatus` enters readonly mode (`readonly={!!tuning.session}`)

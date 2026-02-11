@@ -122,8 +122,8 @@ async function initialize(): Promise<void> {
             // Create post-apply snapshot on first reconnect after tuning apply
             if (session.phase === 'filter_applied' || session.phase === 'pid_applied') {
               const label = session.phase === 'filter_applied'
-                ? 'Post-filter-tune (auto)'
-                : 'Post-PID-tune (auto)';
+                ? 'Post-filter (auto)'
+                : 'Post-tuning (auto)';
               logger.info(`Creating post-apply snapshot: ${label}`);
               await snapshotManager.createSnapshot(label, 'auto');
             }

@@ -16,7 +16,6 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
   const groups = groupDiffByCommand(diff);
 
   const addedCount = diff.filter(d => d.status === 'added').length;
-  const removedCount = diff.filter(d => d.status === 'removed').length;
   const changedCount = diff.filter(d => d.status === 'changed').length;
 
   return (
@@ -33,12 +32,11 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
 
         <div className="snapshot-diff-legend">
           <span className="diff-badge diff-badge-added">Added</span>
-          <span className="diff-badge diff-badge-removed">Removed</span>
           <span className="diff-badge diff-badge-changed">Changed</span>
         </div>
 
         <div className="snapshot-diff-summary">
-          {addedCount} added, {removedCount} removed, {changedCount} changed
+          {addedCount} added, {changedCount} changed
         </div>
 
         <div className="snapshot-diff-content">
@@ -55,13 +53,6 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
                         <span className="diff-prefix">+</span>
                         <span className="diff-key">{entry.key}</span>
                         <span className="diff-value">= {entry.newValue}</span>
-                      </div>
-                    )}
-                    {entry.status === 'removed' && (
-                      <div className="diff-line diff-line-removed">
-                        <span className="diff-prefix">-</span>
-                        <span className="diff-key">{entry.key}</span>
-                        <span className="diff-value">= {entry.oldValue}</span>
                       </div>
                     )}
                     {entry.status === 'changed' && (
