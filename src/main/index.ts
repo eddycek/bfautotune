@@ -125,7 +125,18 @@ async function initialize(): Promise<void> {
                 ? 'Post-filter (auto)'
                 : 'Post-tuning (auto)';
               logger.info(`Creating post-apply snapshot: ${label}`);
-              await snapshotManager.createSnapshot(label, 'auto');
+              const snapshot = await snapshotManager.createSnapshot(label, 'auto');
+
+              // Save snapshot ID to tuning session for history tracking
+              const snapshotField = session.phase === 'filter_applied'
+                ? 'postFilterSnapshotId'
+                : 'postTuningSnapshotId';
+              const updated = await tuningSessionManager.updatePhase(
+                existingProfile.id,
+                session.phase, // same phase — just adding data
+                { [snapshotField]: snapshot.id }
+              );
+              sendTuningSessionChanged(updated);
             }
           }
         } catch (err) {
