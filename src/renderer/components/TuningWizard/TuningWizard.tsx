@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useTuningWizard } from '../../hooks/useTuningWizard';
 import type { TuningMode, AppliedChange } from '@shared/types/tuning.types';
+import type { FilterMetricsSummary, PIDMetricsSummary } from '@shared/types/tuning-history.types';
+import { extractFilterMetrics, extractPIDMetrics } from '@shared/utils/metricsExtract';
 import { WizardProgress } from './WizardProgress';
 import { TestFlightGuideStep } from './TestFlightGuideStep';
 import { SessionSelectStep } from './SessionSelectStep';
@@ -14,7 +16,12 @@ interface TuningWizardProps {
   logId: string;
   mode?: TuningMode;
   onExit: () => void;
-  onApplyComplete?: (changes: { filterChanges?: AppliedChange[]; pidChanges?: AppliedChange[] }) => void;
+  onApplyComplete?: (changes: {
+    filterChanges?: AppliedChange[];
+    pidChanges?: AppliedChange[];
+    filterMetrics?: FilterMetricsSummary;
+    pidMetrics?: PIDMetricsSummary;
+  }) => void;
 }
 
 export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: TuningWizardProps) {
@@ -43,7 +50,15 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
             }))
           : undefined;
 
-        onApplyComplete({ filterChanges, pidChanges });
+        const filterMetrics = mode !== 'pid' && wizard.filterResult
+          ? extractFilterMetrics(wizard.filterResult)
+          : undefined;
+
+        const pidMetrics = mode !== 'filter' && wizard.pidResult
+          ? extractPIDMetrics(wizard.pidResult)
+          : undefined;
+
+        onApplyComplete({ filterChanges, pidChanges, filterMetrics, pidMetrics });
       }
     }
 

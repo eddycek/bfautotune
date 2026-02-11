@@ -9,6 +9,9 @@ export type TuningAction =
   | 'open_pid_wizard'
   | 'start_new_cycle'
   | 'complete_session'
+  | 'skip_verification'
+  | 'prepare_verification'
+  | 'analyze_verification'
   | 'dismiss';
 
 interface TuningStatusBannerProps {
@@ -16,6 +19,7 @@ interface TuningStatusBannerProps {
   flashErased?: boolean;
   erasing?: boolean;
   downloading?: boolean;
+  analyzingVerification?: boolean;
   bbSettingsOk?: boolean;
   fixingSettings?: boolean;
   onAction: (action: TuningAction) => void;
@@ -32,9 +36,9 @@ interface PhaseUI {
   guideTip?: TuningMode;
 }
 
-const STEP_LABELS = ['Prepare', 'Filter Test Flight', 'Filter Tune', 'PID Test Flight', 'PID Tune'];
+const STEP_LABELS = ['Prepare', 'Filter Flight', 'Filter Tune', 'PID Flight', 'PID Tune', 'Verify'];
 
-const PHASE_UI: Record<TuningPhase, PhaseUI> = {
+const PHASE_UI: Record<Exclude<TuningPhase, 'pid_applied' | 'verification_pending'>, PhaseUI> = {
   filter_flight_pending: {
     stepIndex: 0,
     text: 'Erase Blackbox data, then fly the filter test flight (hover + throttle sweeps).',
@@ -80,35 +84,179 @@ const PHASE_UI: Record<TuningPhase, PhaseUI> = {
     buttonLabel: 'Open PID Wizard',
     action: 'open_pid_wizard',
   },
-  pid_applied: {
-    stepIndex: 4,
-    text: 'PIDs applied! Fly a normal flight to verify the feel.',
-    buttonLabel: 'Complete Tuning',
-    action: 'complete_session',
-  },
-  verification_pending: {
-    stepIndex: 4,
-    text: 'Verification flight pending. Fly normally and check the feel.',
-    buttonLabel: 'Done',
-    action: 'dismiss',
-  },
   completed: {
-    stepIndex: 4,
+    stepIndex: 5,
     text: 'Tuning complete! Your drone is dialed in.',
     buttonLabel: 'Dismiss',
     action: 'dismiss',
   },
 };
 
-export function TuningStatusBanner({ session, flashErased, erasing, downloading, bbSettingsOk, fixingSettings, onAction, onViewGuide, onReset, onFixSettings }: TuningStatusBannerProps) {
-  const ui = PHASE_UI[session.phase];
+function getVerificationUI(session: TuningSession): { stepIndex: number; text: string } {
+  if (session.verificationLogId) {
+    return {
+      stepIndex: 5,
+      text: 'Verification log ready. Analyze to compare noise before and after tuning.',
+    };
+  }
+  return {
+    stepIndex: 5,
+    text: 'Download the verification hover log, or skip verification.',
+  };
+}
+
+export function TuningStatusBanner({ session, flashErased, erasing, downloading, analyzingVerification, bbSettingsOk, fixingSettings, onAction, onViewGuide, onReset, onFixSettings }: TuningStatusBannerProps) {
+  const isPidApplied = session.phase === 'pid_applied';
+  const isVerification = session.phase === 'verification_pending';
   const isFlightPending = session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending';
+
+  // Determine step index and text
+  let stepIndex: number;
+  let text: string;
+  let ui: PhaseUI | undefined;
+
+  if (isPidApplied) {
+    stepIndex = 4;
+    text = 'PIDs applied! Fly a short hover to verify noise improvement, or skip.';
+  } else if (isVerification) {
+    const vui = getVerificationUI(session);
+    stepIndex = vui.stepIndex;
+    text = vui.text;
+  } else {
+    ui = PHASE_UI[session.phase as Exclude<TuningPhase, 'pid_applied' | 'verification_pending'>];
+    stepIndex = ui.stepIndex;
+    text = ui.text;
+  }
+
   const showErasedState = flashErased && isFlightPending;
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
-  // After erase, advance step: "Prepare" becomes done, "Flight" becomes current
-  const activeStepIndex = showErasedState ? ui.stepIndex + 1 : ui.stepIndex;
+  const activeStepIndex = showErasedState ? stepIndex + 1 : stepIndex;
 
   const showBBWarning = isFlightPending && !showErasedState && bbSettingsOk === false;
+
+  const renderActions = () => {
+    // Flash erased state for flight pending phases
+    if (showErasedState && ui?.guideTip) {
+      return (
+        <button
+          className="wizard-btn wizard-btn-primary"
+          onClick={() => onViewGuide(ui!.guideTip!)}
+        >
+          View Flight Guide
+        </button>
+      );
+    }
+
+    // pid_applied: Prepare Verification + Skip
+    if (isPidApplied) {
+      return (
+        <>
+          <button
+            className="wizard-btn wizard-btn-primary"
+            onClick={() => onAction('prepare_verification')}
+            disabled={erasing}
+          >
+            {erasing ? (
+              <>
+                <span className="spinner" />
+                Preparing...
+              </>
+            ) : 'Erase & Verify'}
+          </button>
+          <button
+            className="wizard-btn wizard-btn-secondary"
+            onClick={() => onAction('skip_verification')}
+            disabled={erasing}
+          >
+            Skip & Complete
+          </button>
+        </>
+      );
+    }
+
+    // verification_pending: dynamic based on verificationLogId
+    if (isVerification) {
+      if (session.verificationLogId) {
+        return (
+          <>
+            <button
+              className="wizard-btn wizard-btn-primary"
+              onClick={() => onAction('analyze_verification')}
+              disabled={analyzingVerification}
+            >
+              {analyzingVerification ? (
+                <>
+                  <span className="spinner" />
+                  Analyzing...
+                </>
+              ) : 'Analyze Verification'}
+            </button>
+            <button
+              className="wizard-btn wizard-btn-secondary"
+              onClick={() => onAction('skip_verification')}
+              disabled={analyzingVerification}
+            >
+              Skip & Complete
+            </button>
+          </>
+        );
+      }
+      return (
+        <>
+          <button
+            className="wizard-btn wizard-btn-primary"
+            onClick={() => onAction('download_log')}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <>
+                <span className="spinner" />
+                Downloading...
+              </>
+            ) : 'Download Log'}
+          </button>
+          <button
+            className="wizard-btn wizard-btn-secondary"
+            onClick={() => onAction('skip_verification')}
+            disabled={downloading}
+          >
+            Skip & Complete
+          </button>
+        </>
+      );
+    }
+
+    // Default: static PHASE_UI action
+    return (
+      <>
+        <button
+          className="wizard-btn wizard-btn-primary"
+          onClick={() => onAction(ui!.action)}
+          disabled={erasing || downloading}
+        >
+          {erasing ? (
+            <>
+              <span className="spinner" />
+              Erasing...
+            </>
+          ) : downloading ? (
+            <>
+              <span className="spinner" />
+              Downloading...
+            </>
+          ) : ui!.buttonLabel}
+        </button>
+        {ui!.guideTip && !erasing && !downloading && (
+          <button
+            className="wizard-btn wizard-btn-secondary"
+            onClick={() => onViewGuide(ui!.guideTip!)}
+          >
+            View Flight Guide
+          </button>
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="tuning-status-banner">
@@ -149,45 +297,10 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
         <p className="tuning-status-text">
           {showErasedState
             ? `Flash erased! Disconnect your drone and fly the ${flightType} test flight.`
-            : ui.text}
+            : text}
         </p>
         <div className="tuning-status-actions">
-          {showErasedState ? (
-            <button
-              className="wizard-btn wizard-btn-primary"
-              onClick={() => onViewGuide(ui.guideTip!)}
-            >
-              View Flight Guide
-            </button>
-          ) : (
-            <>
-              <button
-                className="wizard-btn wizard-btn-primary"
-                onClick={() => onAction(ui.action)}
-                disabled={erasing || downloading}
-              >
-                {erasing ? (
-                  <>
-                    <span className="spinner" />
-                    Erasing...
-                  </>
-                ) : downloading ? (
-                  <>
-                    <span className="spinner" />
-                    Downloading...
-                  </>
-                ) : ui.buttonLabel}
-              </button>
-              {ui.guideTip && !erasing && !downloading && (
-                <button
-                  className="wizard-btn wizard-btn-secondary"
-                  onClick={() => onViewGuide(ui.guideTip!)}
-                >
-                  View Flight Guide
-                </button>
-              )}
-            </>
-          )}
+          {renderActions()}
           <button
             className="wizard-btn wizard-btn-text"
             onClick={onReset}

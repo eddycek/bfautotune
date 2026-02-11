@@ -42,10 +42,11 @@ describe('TuningStatusBanner', () => {
     renderBanner();
 
     expect(screen.getByText('Prepare')).toBeInTheDocument();
-    expect(screen.getByText('Filter Test Flight')).toBeInTheDocument();
+    expect(screen.getByText('Filter Flight')).toBeInTheDocument();
     expect(screen.getByText('Filter Tune')).toBeInTheDocument();
-    expect(screen.getByText('PID Test Flight')).toBeInTheDocument();
+    expect(screen.getByText('PID Flight')).toBeInTheDocument();
     expect(screen.getByText('PID Tune')).toBeInTheDocument();
+    expect(screen.getByText('Verify')).toBeInTheDocument();
   });
 
   it('shows filter_flight_pending UI', () => {
@@ -229,15 +230,47 @@ describe('TuningStatusBanner', () => {
     expect(onAction).toHaveBeenCalledWith('erase_flash');
   });
 
-  it('shows pid_applied UI with Complete Tuning button', async () => {
+  it('shows pid_applied UI with Erase & Verify and Skip buttons', async () => {
     const user = userEvent.setup();
     renderBanner({ ...baseSession, phase: 'pid_applied' });
 
     expect(screen.getByText(/PIDs applied/)).toBeInTheDocument();
-    expect(screen.getByText('Complete Tuning')).toBeInTheDocument();
+    expect(screen.getByText('Erase & Verify')).toBeInTheDocument();
+    expect(screen.getByText('Skip & Complete')).toBeInTheDocument();
 
-    await user.click(screen.getByText('Complete Tuning'));
-    expect(onAction).toHaveBeenCalledWith('complete_session');
+    await user.click(screen.getByText('Erase & Verify'));
+    expect(onAction).toHaveBeenCalledWith('prepare_verification');
+  });
+
+  it('shows verification_pending UI with Download Log', async () => {
+    const user = userEvent.setup();
+    renderBanner({ ...baseSession, phase: 'verification_pending' });
+
+    expect(screen.getByText(/Download the verification hover log/)).toBeInTheDocument();
+    expect(screen.getByText('Download Log')).toBeInTheDocument();
+    expect(screen.getByText('Skip & Complete')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Download Log'));
+    expect(onAction).toHaveBeenCalledWith('download_log');
+  });
+
+  it('shows verification_pending UI with Analyze when log downloaded', async () => {
+    const user = userEvent.setup();
+    renderBanner({ ...baseSession, phase: 'verification_pending', verificationLogId: 'log-ver' });
+
+    expect(screen.getByText(/Verification log ready/)).toBeInTheDocument();
+    expect(screen.getByText('Analyze Verification')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Analyze Verification'));
+    expect(onAction).toHaveBeenCalledWith('analyze_verification');
+  });
+
+  it('calls skip_verification from verification_pending', async () => {
+    const user = userEvent.setup();
+    renderBanner({ ...baseSession, phase: 'verification_pending' });
+
+    await user.click(screen.getByText('Skip & Complete'));
+    expect(onAction).toHaveBeenCalledWith('skip_verification');
   });
 
   // Blackbox settings pre-flight warning tests

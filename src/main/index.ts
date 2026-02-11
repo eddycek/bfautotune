@@ -6,7 +6,8 @@ import { SnapshotManager } from './storage/SnapshotManager';
 import { ProfileManager } from './storage/ProfileManager';
 import { BlackboxManager } from './storage/BlackboxManager';
 import { TuningSessionManager } from './storage/TuningSessionManager';
-import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected, sendTuningSessionChanged, consumePendingSettingsSnapshot } from './ipc/handlers';
+import { TuningHistoryManager } from './storage/TuningHistoryManager';
+import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, setTuningHistoryManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected, sendTuningSessionChanged, consumePendingSettingsSnapshot } from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
 
@@ -15,6 +16,7 @@ let snapshotManager: SnapshotManager;
 let profileManager: ProfileManager;
 let blackboxManager: BlackboxManager;
 let tuningSessionManager: TuningSessionManager;
+let tuningHistoryManager: TuningHistoryManager;
 
 async function initialize(): Promise<void> {
   // Create MSP client
@@ -49,12 +51,18 @@ async function initialize(): Promise<void> {
   tuningSessionManager = new TuningSessionManager(tuningStoragePath);
   await tuningSessionManager.initialize();
 
+  // Create Tuning History manager
+  const dataPath = join(app.getPath('userData'), 'data');
+  tuningHistoryManager = new TuningHistoryManager(dataPath);
+  await tuningHistoryManager.initialize();
+
   // Set up IPC handlers
   setMSPClient(mspClient);
   setSnapshotManager(snapshotManager);
   setProfileManager(profileManager);
   setBlackboxManager(blackboxManager);
   setTuningSessionManager(tuningSessionManager);
+  setTuningHistoryManager(tuningHistoryManager);
   registerIPCHandlers();
 
   // Listen for connection changes
