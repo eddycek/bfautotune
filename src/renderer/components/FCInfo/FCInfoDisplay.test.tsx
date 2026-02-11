@@ -45,6 +45,9 @@ describe('FCInfoDisplay', () => {
       sampleRate: 1,
       loggingRateHz: 4000
     });
+
+    // Default: FF config not available (most tests don't need it)
+    vi.mocked(window.betaflight.getFeedforwardConfig).mockRejectedValue(new Error('Not connected'));
   });
 
   it('renders nothing when not connected', () => {
@@ -332,5 +335,62 @@ describe('FCInfoDisplay', () => {
 
     // Should still render FC info without blackbox settings
     expect(screen.queryByText('Debug Mode:')).not.toBeInTheDocument();
+  });
+
+  // Feedforward configuration tests
+
+  it('displays feedforward section when FF config available', async () => {
+    vi.mocked(window.betaflight.getFeedforwardConfig).mockResolvedValue({
+      transition: 0,
+      rollGain: 120,
+      pitchGain: 120,
+      yawGain: 80,
+      boost: 15,
+      smoothFactor: 37,
+      jitterFactor: 7,
+      maxRateLimit: 100,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Feedforward')).toBeInTheDocument();
+      expect(screen.getByText('Boost:')).toBeInTheDocument();
+      expect(screen.getByText('15')).toBeInTheDocument();
+      expect(screen.getByText('120 / 120 / 80')).toBeInTheDocument();
+      expect(screen.getByText('Smoothing:')).toBeInTheDocument();
+      expect(screen.getByText('37')).toBeInTheDocument();
+    });
+  });
+
+  it('hides feedforward section when FF config fetch fails', async () => {
+    vi.mocked(window.betaflight.getFeedforwardConfig).mockRejectedValue(new Error('Not supported'));
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('BTFL')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Feedforward')).not.toBeInTheDocument();
+  });
+
+  it('calls getFeedforwardConfig on mount when connected', async () => {
+    vi.mocked(window.betaflight.getFeedforwardConfig).mockResolvedValue({
+      transition: 0,
+      rollGain: 0,
+      pitchGain: 0,
+      yawGain: 0,
+      boost: 0,
+      smoothFactor: 0,
+      jitterFactor: 0,
+      maxRateLimit: 0,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(window.betaflight.getFeedforwardConfig).toHaveBeenCalled();
+    });
   });
 });

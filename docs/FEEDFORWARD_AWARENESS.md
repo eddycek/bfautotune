@@ -121,64 +121,64 @@ See `docs/BF_VERSION_POLICY.md` for the full version compatibility policy.
 
 ## 3. Implementation Plan
 
-### Phase 1: Detection and Warning (Minimal — High Value)
+### Phase 1: Detection and Warning (Minimal — High Value) ✅
 
 **Goal**: Detect FF state, warn users, prevent misdiagnosis.
 
-#### Task 1.1: Add `FeedforwardContext` type and `feedforward_active` warning code
+#### Task 1.1: Add `FeedforwardContext` type and `feedforward_active` warning code ✅ (PR #55)
 - **File**: `src/shared/types/analysis.types.ts`, `src/shared/types/pid.types.ts`
 - **Changes**: Add `FeedforwardContext` interface, add `PIDFTerm` type, add `'feedforward_active'` to `AnalysisWarning.code` union
 - **Tests**: Type compilation only (no runtime logic yet)
 
-#### Task 1.2: Extract FF context from BBL headers
+#### Task 1.2: Extract FF context from BBL headers ✅ (PR #56)
 - **File**: `src/main/analysis/PIDRecommender.ts` (new function `extractFeedforwardContext()`)
 - **Changes**: Parse `feedforward_boost`, `feedforward_transition`, `feedforward_max_rate_limit` from `rawHeaders` (4.3+ naming only — minimum supported version).
 - **Tests**: Unit tests for present headers, missing headers, zero values
 
-#### Task 1.3: Wire FF context through PIDAnalyzer → PIDRecommender
+#### Task 1.3: Wire FF context through PIDAnalyzer → PIDRecommender ✅ (PR #57)
 - **File**: `src/main/analysis/PIDAnalyzer.ts`
 - **Changes**: Call `extractFeedforwardContext()` with BBL raw headers, pass to `recommendPID()`, attach to result
 - **Tests**: Integration test verifying FF context appears in analysis result
 
-#### Task 1.4: Emit `feedforward_active` warning when FF detected
+#### Task 1.4: Emit `feedforward_active` warning when FF detected ✅ (PR #57)
 - **File**: `src/main/analysis/PIDRecommender.ts`
 - **Changes**: When `feedforwardContext.active === true`, push a warning: _"Feedforward is active on this flight. Overshoot and rise time measurements include feedforward contribution — some overshoot may be from FF rather than P/D imbalance."_
 - **Tests**: Unit test: FF active → warning present; FF inactive → no warning
 
-#### Task 1.5: Display FF warning in UI
+#### Task 1.5: Display FF warning in UI ✅ (PR #58)
 - **File**: `src/renderer/components/TuningWizard/PIDAnalysisStep.tsx`, `src/renderer/components/AnalysisOverview/AnalysisOverview.tsx`
 - **Changes**: Render `feedforward_active` warning with appropriate styling (info severity)
 - **Tests**: Component tests verifying warning renders when present in analysis result
 
-### Phase 2: FF-Aware Recommendations (Advanced — Medium Value)
+### Phase 2: FF-Aware Recommendations (Advanced — Medium Value) ✅
 
 **Goal**: Use `pidF` time series to decompose FF contribution at overshoot points.
 
-#### Task 2.1: Analyze FF contribution at overshoot points
+#### Task 2.1: Analyze FF contribution at overshoot points ✅ (PR #59)
 - **File**: `src/main/analysis/StepMetrics.ts` (new method)
 - **Changes**: At each step's overshoot peak, compare `pidF[axis]` magnitude vs `pidP[axis]` magnitude. If `|pidF| > |pidP|` at the overshoot point, flag as "FF-dominated overshoot".
 - **Tests**: Unit tests with synthetic step data where FF dominates vs P dominates
 
-#### Task 2.2: Adjust recommender rules for FF-dominated overshoot
+#### Task 2.2: Adjust recommender rules for FF-dominated overshoot ✅ (PR #60)
 - **File**: `src/main/analysis/PIDRecommender.ts`
 - **Changes**: When a step's overshoot is FF-dominated, do NOT recommend P reduction or D increase. Instead, add an observation: _"Overshoot appears to be caused by feedforward, not P/D imbalance. Consider reducing feedforward_boost."_
 - **Tests**: Unit test: FF-dominated overshoot → no P/D changes, only FF observation
 
-#### Task 2.3: Add FF parameter recommendations
+#### Task 2.3: Add FF parameter recommendations ✅ (PR #60)
 - **File**: `src/main/analysis/PIDRecommender.ts`
 - **Changes**: Recommend `feedforward_boost` and `feedforward_smooth_factor` adjustments based on FF contribution analysis
 - **Tests**: Unit tests for various FF overshoot scenarios
 
-### Phase 3: MSP_PID_ADVANCED Support (Future)
+### Phase 3: MSP_PID_ADVANCED Support ✅
 
-#### Task 3.1: Implement MSP_PID_ADVANCED read
+#### Task 3.1: Implement MSP_PID_ADVANCED read ✅ (PR #61)
 - **File**: `src/main/msp/MSPClient.ts`
 - **Changes**: Add `getFeedforwardConfiguration()` method reading MSP command 94
 - **Tests**: Unit tests with mock MSP response buffers
 
-#### Task 3.2: Display FF values in FC Info
-- **File**: `src/renderer/components/FCInfoDisplay.tsx`
-- **Changes**: Show per-axis F gains and FF parameters when available
+#### Task 3.2: Display FF values in FC Info ✅ (PR #62)
+- **File**: `src/renderer/components/FCInfo/FCInfoDisplay.tsx`
+- **Changes**: Show per-axis F gains and FF parameters when available via MSP_PID_ADVANCED
 - **Tests**: Component tests
 
 ---
