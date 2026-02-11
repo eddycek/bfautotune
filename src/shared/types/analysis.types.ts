@@ -187,6 +187,8 @@ export interface StepResponse {
   steadyStateValue: number;
   /** Raw trace data for chart visualization */
   trace?: StepResponseTrace;
+  /** Whether overshoot is dominated by feedforward (|pidF| > |pidP| at peak) */
+  ffDominated?: boolean;
 }
 
 /** Aggregated step response metrics for one axis */
