@@ -8,12 +8,13 @@ import type { BlackboxFlightData } from '@shared/types/blackbox.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type {
   AnalysisProgress,
+  AnalysisWarning,
   PIDAnalysisResult,
   StepResponse,
 } from '@shared/types/analysis.types';
 import { detectSteps } from './StepDetector';
 import { computeStepResponse, aggregateAxisMetrics } from './StepMetrics';
-import { recommendPID, generatePIDSummary } from './PIDRecommender';
+import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -30,6 +31,7 @@ const DEFAULT_PIDS: PIDConfiguration = {
  * @param currentPIDs - Current PID configuration from the FC
  * @param onProgress - Optional progress callback
  * @param flightPIDs - PIDs from the BBL header (flight-time PIDs) for convergent recommendations
+ * @param rawHeaders - BBL raw headers for feedforward context extraction
  * @returns Complete PID analysis result with recommendations
  */
 export async function analyzePID(
@@ -37,7 +39,8 @@ export async function analyzePID(
   sessionIndex: number = 0,
   currentPIDs: PIDConfiguration = DEFAULT_PIDS,
   onProgress?: (progress: AnalysisProgress) => void,
-  flightPIDs?: PIDConfiguration
+  flightPIDs?: PIDConfiguration,
+  rawHeaders?: Map<string, string>
 ): Promise<PIDAnalysisResult> {
   const startTime = performance.now();
 
@@ -93,6 +96,20 @@ export async function analyzePID(
 
   onProgress?.({ step: 'scoring', percent: 100 });
 
+  // Extract feedforward context and generate warnings
+  const feedforwardContext = rawHeaders
+    ? extractFeedforwardContext(rawHeaders)
+    : undefined;
+
+  const warnings: AnalysisWarning[] = [];
+  if (feedforwardContext?.active) {
+    warnings.push({
+      code: 'feedforward_active',
+      message: 'Feedforward is active on this flight. Overshoot and rise time measurements include feedforward contribution — some overshoot may be from FF rather than P/D imbalance.',
+      severity: 'info',
+    });
+  }
+
   return {
     roll,
     pitch,
@@ -103,6 +120,8 @@ export async function analyzePID(
     sessionIndex,
     stepsDetected: steps.length,
     currentPIDs,
+    feedforwardContext,
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
 

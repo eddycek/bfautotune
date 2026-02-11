@@ -928,7 +928,8 @@ export function registerIPCHandlers(): void {
           (progress) => {
             event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
           },
-          flightPIDs
+          flightPIDs,
+          session.header.rawHeaders
         );
 
         // Attach header warnings to the result
