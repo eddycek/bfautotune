@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 11, 2026 | **Phase 4 Complete** | **881 tests, 47 files**
+**Last Updated:** February 12, 2026 | **Phase 4 Complete** | **1520 tests, 82 files**
 
 ---
 
@@ -16,7 +16,7 @@
 │  │                                                                        │  │
 │  │  ┌─────────────┐ ┌─────────────┐ ┌──────────────┐ ┌──────────────┐   │  │
 │  │  │ Connection  │ │  FC Info +  │ │  Blackbox    │ │  Snapshot    │   │  │
-│  │  │   Panel     │ │ Diagnostics │ │   Status     │ │   Manager   │   │  │
+│  │  │   Panel     │ │ Diagnostics │ │   Status     │ │  + History  │   │  │
 │  │  └──────┬──────┘ └──────┬──────┘ └──────┬───────┘ └──────┬──────┘   │  │
 │  │         │               │               │                │           │  │
 │  │  ┌──────┴──────┐ ┌──────┴──────┐ ┌──────┴───────┐ ┌──────┴──────┐   │  │
@@ -51,7 +51,7 @@
 │  │  ┌───┴───┐ ┌────┴────┐ ┌──┴───────┐ ┌──┴──────┐ ┌┴──────────┐    │  │
 │  │  │ MSP   │ │Snapshot │ │ Profile  │ │Blackbox │ │  Tuning   │    │  │
 │  │  │Client │ │Manager  │ │ Manager  │ │Manager  │ │  Session  │    │  │
-│  │  │       │ │         │ │          │ │         │ │  Manager  │    │  │
+│  │  │       │ │         │ │          │ │         │ │ + History │    │  │
 │  │  └───┬───┘ └─────────┘ └──────────┘ └─────────┘ └───────────┘    │  │
 │  │      │                                                             │  │
 │  │  ┌───┴──────────┐  ┌─────────────────┐  ┌──────────────────┐      │  │
@@ -86,7 +86,7 @@
 
 ### Entry Point (`index.ts`, 172 lines)
 
-Creates and wires five managers:
+Creates and wires six managers:
 
 ```typescript
 const mspClient = new MSPClient();
@@ -94,6 +94,7 @@ const profileManager = new ProfileManager(`${userData}/data/profiles`);
 const snapshotManager = new SnapshotManager(`${userData}/data/snapshots`, mspClient);
 const blackboxManager = new BlackboxManager();                    // {userData}/data/blackbox-logs
 const tuningSessionManager = new TuningSessionManager(`${userData}/data`); // {userData}/data/tuning
+const tuningHistoryManager = new TuningHistoryManager(`${userData}/data`); // {userData}/data/tuning-history
 ```
 
 **Event wiring (MSPClient → Main Window):**
@@ -280,13 +281,13 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `FFTCompute.ts` | 171 | 20 | Welch's method, Hanning window |
 | `SegmentSelector.ts` | 195 | 27 | Hover + throttle sweep detection |
 | `NoiseAnalyzer.ts` | 246 | 25 | Peak detection, noise classification |
-| `FilterRecommender.ts` | 330 | 28 | Noise-based filter targets |
-| `FilterAnalyzer.ts` | 206 | 9 | Filter analysis orchestrator |
+| `FilterRecommender.ts` | 330 | 41 | Noise-based filter targets, RPM-aware bounds |
+| `FilterAnalyzer.ts` | 206 | 14 | Filter analysis orchestrator |
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
 | `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
-| `PIDRecommender.ts` | 380 | 32 | Flight-PID-anchored P/D recommendations, FF-aware rules, extractFeedforwardContext |
-| `PIDAnalyzer.ts` | 185 | 14 | PID analysis orchestrator (FF context wiring) |
-| `headerValidation.ts` | 94 | 14 | BB header diagnostics |
+| `PIDRecommender.ts` | 380 | 40 | Flight-PID-anchored P/D recommendations, FF-aware rules, flight style thresholds |
+| `PIDAnalyzer.ts` | 185 | 17 | PID analysis orchestrator (FF context wiring, flight style) |
+| `headerValidation.ts` | 94 | 20 | BB header diagnostics, version-aware debug mode, RPM enrichment |
 | `constants.ts` | 177 | — | All tunable thresholds |
 
 #### Filter Analysis Pipeline
@@ -407,6 +408,7 @@ Checks before analysis:
 | `SnapshotManager` | `{userData}/data/snapshots/` | `{id}.json` per snapshot |
 | `BlackboxManager` | `{userData}/data/blackbox-logs/` | `blackbox_{timestamp}.bbl` + `logs.json` index |
 | `TuningSessionManager` | `{userData}/data/tuning/` | `{profileId}.json` per session |
+| `TuningHistoryManager` | `{userData}/data/tuning-history/` | `{profileId}.json` per profile (archived records) |
 
 **User data path:** `~/Library/Application Support/bfautotune/` (macOS) | `%APPDATA%/bfautotune/` (Windows) | `~/.config/bfautotune/` (Linux)
 
@@ -463,7 +465,12 @@ TuningSession {
   appliedFilterChanges?: AppliedChange[],
   pidLogId?: string,
   appliedPIDChanges?: AppliedChange[],
-  verificationLogId?: string
+  verificationLogId?: string,
+  postFilterSnapshotId?: string,
+  postTuningSnapshotId?: string,
+  filterMetrics?: FilterMetricsSummary,
+  pidMetrics?: PIDMetricsSummary,
+  verificationMetrics?: FilterMetricsSummary
 }
 ```
 
@@ -481,8 +488,9 @@ TuningSession {
 | Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
 | Blackbox (8) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log` | Flash ops + parsing |
 | Analysis (2) | `run_filter`, `run_pid` | FFT + step response analysis |
-| Tuning (5) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session` | Apply + session state |
+| Tuning (6) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session`, `get_history` | Apply + session state + history |
 | PID (3) | `get_config`, `update_config`, `save_config` | MSP PID read/write |
+| BB Settings (1) | `fix_blackbox_settings` | Fix debug_mode + logging rate via CLI |
 
 **14 Event types** (Main → Renderer):
 
@@ -591,6 +599,9 @@ App (ToastProvider wrapper)
 │   │   ├── TuningStatusBanner (if tuning session active)
 │   │   │   └── Step indicator + action buttons + post-erase guidance
 │   │   │
+│   │   ├── TuningCompletionSummary (if session.phase === 'completed')
+│   │   │   └── Noise comparison chart + applied changes + PID metrics + actions
+│   │   │
 │   │   ├── "Start Tuning Session" banner (if no session, connected)
 │   │   │
 │   │   ├── FCInfoDisplay (if connected)
@@ -599,15 +610,18 @@ App (ToastProvider wrapper)
 │   │   ├── BlackboxStatus (if connected)
 │   │   │   └── Flash info + logs + Download/Erase/Analyze (readonly if session)
 │   │   │
-│   │   └── SnapshotManager (if connected + profile)
-│   │       └── Create + list + diff view + restore
+│   │   ├── SnapshotManager (if connected + profile)
+│   │   │   └── Create + list + diff view + restore
+│   │   │
+│   │   └── TuningHistoryPanel (if history exists)
+│   │       └── Expandable history cards → TuningSessionDetail
 │   │
 │   ├── ProfileWizard (modal, on new FC detection)
 │   ├── TuningWorkflowModal (help modal)
 │   └── ToastContainer
 ```
 
-### React Hooks (16 hooks)
+### React Hooks (17 hooks)
 
 | Hook | Key Returns | Purpose |
 |------|-------------|---------|
@@ -619,6 +633,7 @@ App (ToastProvider wrapper)
 | `useBlackboxLogs` | `{logs, deleteLog, refresh}` | Downloaded log list |
 | `useTuningSession` | `{session, startSession, resetSession}` | Tuning session lifecycle |
 | `useTuningWizard` | `{parseResult, filterResult, pidResult, applying, ...}` | Wizard state machine |
+| `useTuningHistory` | `{history, loading, reload}` | Tuning history loading + auto-reload |
 | `useAnalysisOverview` | `{parseResult, filterResult, pidResult, ...}` | Auto-parse + dual analysis |
 | `useToast` | `{success, error, warning, info}` | Toast notifications |
 
@@ -666,10 +681,23 @@ Built with **Recharts** (SVG):
 ```
 
 **TuningStatusBanner** renders per-phase:
-- Current step (1–5) with progress indicator
+- Current step (1–6) with progress indicator (includes Verify step)
 - Phase-specific text and action button
 - Post-erase state: "Flash erased! Disconnect and fly..." + "View Flight Guide"
+- Pre-flight BB settings warning when `bbSettingsOk === false` with "Fix Settings" button
 - Reset button to abandon session
+
+**TuningCompletionSummary** replaces banner when `session.phase === 'completed'`:
+- Noise comparison chart (before/after spectrum overlay with dB delta) when verification data available
+- Falls back to numeric noise stats without verification
+- Applied filter and PID changes tables
+- PID step response metrics per axis
+- "Start New Tuning Cycle" and "Dismiss" actions
+
+**TuningHistoryPanel** shows archived past sessions:
+- Expandable cards with date, change count summary, noise level
+- Detail view reuses NoiseComparisonChart and AppliedChangesTable
+- Auto-reloads on profile change and session dismissal
 
 **BlackboxStatus** enters readonly mode (`readonly={!!tuning.session}`) — hides all action buttons, shows only storage info and log list. All actions driven by TuningStatusBanner.
 
@@ -751,34 +779,46 @@ Hardware error (FC timeout, USB disconnect)
 
 ---
 
-## Shared Types (`src/shared/types/`, 8 files)
+## Shared Types (`src/shared/types/`, 9 files)
 
 | File | Key Types |
 |------|-----------|
 | `common.types.ts` | `FCInfo`, `ConnectionStatus`, `PortInfo`, `ConfigurationSnapshot`, `SnapshotMetadata` |
-| `profile.types.ts` | `DroneProfile`, `DroneProfileMetadata`, `ProfileCreationInput`, `DroneSize`, `BatteryType` |
+| `profile.types.ts` | `DroneProfile`, `DroneProfileMetadata`, `ProfileCreationInput`, `DroneSize`, `BatteryType`, `FlightStyle` |
 | `pid.types.ts` | `PIDTerm { P, I, D }`, `PIDFTerm extends PIDTerm { F }`, `PIDConfiguration`, `FeedforwardConfiguration` |
 | `blackbox.types.ts` | `BlackboxInfo`, `BlackboxParseResult`, `BlackboxFlightData`, `BBLLogHeader`, `BBLEncoding`, `BBLPredictor` |
 | `analysis.types.ts` | `PowerSpectrum`, `NoiseProfile`, `FilterRecommendation`, `StepResponse` (with `ffDominated`), `StepResponseTrace`, `PIDRecommendation`, `AxisStepMetrics`, `CurrentFilterSettings`, `FeedforwardContext` |
 | `tuning.types.ts` | `TuningPhase` (10 values), `TuningSession`, `TuningMode`, `AppliedChange` |
+| `tuning-history.types.ts` | `CompactSpectrum`, `FilterMetricsSummary`, `PIDMetricsSummary`, `CompletedTuningRecord` |
 | `ipc.types.ts` | `ApplyRecommendationsInput/Progress/Result`, `SnapshotRestoreProgress/Result`, `BetaflightAPI` (complete API interface) |
 | `toast.types.ts` | `ToastType`, `Toast` |
+
+## Shared Utilities (`src/shared/utils/`)
+
+| File | Key Exports |
+|------|-------------|
+| `metricsExtract.ts` | `downsampleSpectrum()`, `extractFilterMetrics()`, `extractPIDMetrics()` — compact metrics for history storage |
 
 ---
 
 ## Testing Strategy
 
-**911 tests across 47 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1520 tests across 82 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
-| Blackbox Parser | 8 | 227 |
-| FFT Analysis | 5 | 130 |
-| Step Response | 4 | 84 |
-| Header Validation | 1 | 20 |
-| UI Components | 17 | 293 |
-| React Hooks | 6 | 90 |
+| Blackbox Parser | 8 | 245 |
+| FFT Analysis | 5 | 141 |
+| Step Response | 4 | 95 |
+| Header Validation + Constants | 2 | 27 |
+| MSP Protocol & Client | 3 | 123 |
+| Storage Managers | 7 | 115 |
+| IPC Handlers | 1 | 103 |
+| UI Components | 29 | 390 |
+| React Hooks | 12 | 125 |
 | Charts | 3 | 35 |
-| Storage/MSP/Other | 3 | 38 |
+| Shared Constants & Utils | 4 | 24 |
+| E2E Workflows | 1 | 30 |
+| Real-data Pipeline | 1 | 20 |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
