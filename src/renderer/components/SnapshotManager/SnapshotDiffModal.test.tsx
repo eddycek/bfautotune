@@ -48,17 +48,36 @@ describe('SnapshotDiffModal', () => {
     expect(screen.getByText('After tune')).toBeInTheDocument();
   });
 
-  it('displays legend badges', () => {
+  it('displays only relevant legend badges', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
+    // This diff has added, changed, and removed entries → all badges visible
     expect(screen.getByText('Added')).toBeInTheDocument();
     expect(screen.getByText('Changed')).toBeInTheDocument();
     expect(screen.getByText('Reset to default')).toBeInTheDocument();
+  });
+
+  it('hides legend badges for statuses with zero entries', () => {
+    // Only changed entries (no added, no removed)
+    const a = makeSnapshot({ id: 'x', label: 'A', cliDiff: 'set gyro_lpf1_static_hz = 150' });
+    const b = makeSnapshot({ id: 'y', label: 'B', cliDiff: 'set gyro_lpf1_static_hz = 200' });
+    render(<SnapshotDiffModal snapshotA={a} snapshotB={b} onClose={vi.fn()} />);
+    expect(screen.getByText('Changed')).toBeInTheDocument();
+    expect(screen.queryByText('Added')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reset to default')).not.toBeInTheDocument();
   });
 
   it('displays summary counts', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
     // gyro_lpf1 changed, feature GPS removed (reset to default), feature TELEMETRY added
     expect(screen.getByText('1 added, 1 changed, 1 reset to default')).toBeInTheDocument();
+  });
+
+  it('omits zero counts from summary', () => {
+    // Only changed entries
+    const a = makeSnapshot({ id: 'x', label: 'A', cliDiff: 'set gyro_lpf1_static_hz = 150' });
+    const b = makeSnapshot({ id: 'y', label: 'B', cliDiff: 'set gyro_lpf1_static_hz = 200' });
+    render(<SnapshotDiffModal snapshotA={a} snapshotB={b} onClose={vi.fn()} />);
+    expect(screen.getByText('1 changed')).toBeInTheDocument();
   });
 
   it('renders added lines with + prefix', () => {
@@ -146,7 +165,7 @@ describe('SnapshotDiffModal', () => {
   it('handles empty before snapshot (compare with empty)', () => {
     const empty = makeSnapshot({ id: 'e', label: 'Empty', cliDiff: '' });
     render(<SnapshotDiffModal snapshotA={empty} snapshotB={snapshotB} onClose={vi.fn()} />);
-    // All entries in B should be "added"
-    expect(screen.getByText(/3 added, 0 changed, 0 reset to default/)).toBeInTheDocument();
+    // All entries in B should be "added" — only "added" in summary
+    expect(screen.getByText('3 added')).toBeInTheDocument();
   });
 });
