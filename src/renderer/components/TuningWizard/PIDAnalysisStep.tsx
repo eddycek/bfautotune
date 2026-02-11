@@ -85,6 +85,18 @@ export function PIDAnalysisStep({
           {pidResult.stepsDetected} step inputs detected across all axes.
         </p>
 
+        {pidResult.warnings && pidResult.warnings.length > 0 && (
+          <div className="analysis-warnings">
+            {pidResult.warnings.map((w, i) => (
+              <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
+                <span className="analysis-warning-icon">
+                  {w.severity === 'error' ? '\u274C' : w.severity === 'info' ? '\u2139\uFE0F' : '\u26A0\uFE0F'}
+                </span>
+                <span>{w.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {pidResult.currentPIDs && (
           <>
