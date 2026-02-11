@@ -1,6 +1,6 @@
 # Tuning Session History & Before/After Comparison
 
-> **Status**: Proposed
+> **Status**: Complete (PRs #96–#99)
 > **Date**: 2026-02-11
 > **Scope**: Storage, IPC, Renderer, Types
 > **Related**: UX Ideas #3 (Before/After Comparison), #5 (Verification Flight Guidance), #6 (Tuning Session History)

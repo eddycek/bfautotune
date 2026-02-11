@@ -152,6 +152,15 @@ window.betaflight.onConnectionChanged((status) => {
 
 **Critical**: Snapshot filtering happens server-side (main process) based on current profile's `snapshotIds` array. This prevents snapshots from different profiles mixing in UI.
 
+**Tuning History Storage** (`TuningHistoryManager.ts`):
+- Location: `{userData}/data/tuning-history/{profileId}.json`
+- Array of `CompletedTuningRecord[]` per profile (oldest-first on disk, newest-first in API)
+- Archived from completed sessions with self-contained metrics + applied changes
+- Deleted when profile is deleted
+- Compact metrics: `FilterMetricsSummary` (noise floor, peaks, 128-bin spectrum), `PIDMetricsSummary` (step response)
+- Spectrum downsampling: `downsampleSpectrum()` in `src/shared/utils/metricsExtract.ts`
+- Design doc: `docs/TUNING_HISTORY_AND_COMPARISON.md`
+
 ### Blackbox Parser (`src/main/blackbox/`)
 
 Parses Betaflight .bbl/.bfl binary log files into typed time series data.
@@ -207,9 +216,11 @@ Two-flight iterative tuning approach: filters first (hover + throttle sweeps), t
 
 - **TuningSessionManager** (`src/main/storage/`): CRUD for per-profile session files at `{userData}/data/tuning/{profileId}.json`
 - **useTuningSession hook**: Manages session lifecycle with IPC and event subscription
-- **TuningStatusBanner**: Dashboard banner showing current phase, step indicator, action buttons
+- **TuningStatusBanner**: Dashboard banner showing current phase, 6-step indicator (Prepare → Filter Flight → Filter Tune → PID Flight → PID Tune → Verify), action buttons
 - **TuningMode**: `'filter' | 'pid' | 'full'` — wizard components adapt UI/flow per mode
-- IPC: `TUNING_GET_SESSION`, `TUNING_START_SESSION`, `TUNING_UPDATE_PHASE`, `TUNING_RESET_SESSION` + `EVENT_TUNING_SESSION_CHANGED`
+- **Verification flow**: After PID apply → "Erase & Verify" → erase flash → fly hover → download → analyze → completed. Or "Skip & Complete" to skip.
+- **Archive on completion**: When phase transitions to `completed`, session is archived to `TuningHistoryManager` before becoming dismissable
+- IPC: `TUNING_GET_SESSION`, `TUNING_START_SESSION`, `TUNING_UPDATE_PHASE`, `TUNING_RESET_SESSION`, `TUNING_GET_HISTORY` + `EVENT_TUNING_SESSION_CHANGED`
 - Design doc: `docs/TUNING_WORKFLOW_REVISION.md`
 
 ### Analysis Overview (`src/renderer/components/AnalysisOverview/`)
@@ -249,6 +260,20 @@ Interactive visualization of analysis results using Recharts (SVG).
 - **chartUtils**: Data conversion utilities (Float64Array → Recharts format), downsampling, findBestStep scoring
 - **StepResponseTrace**: Raw trace data (timeMs, setpoint, gyro arrays) extracted in `StepMetrics.computeStepResponse()` and attached to each `StepResponse`
 - Dependency: `recharts`
+
+### Tuning History & Comparison (`src/renderer/components/TuningHistory/`)
+
+Completed tuning sessions are archived with self-contained metrics for comparison.
+
+- **TuningCompletionSummary**: Shown when `session.phase === 'completed'` instead of the generic banner. Shows noise chart (if verification data available), applied changes, PID metrics, Dismiss/Start New buttons
+- **NoiseComparisonChart**: Before/after spectrum overlay using Recharts. "Before" from filter hover flight, "After" from verification hover flight. Delta pill shows dB improvement/regression
+- **AppliedChangesTable**: Reusable table of setting changes with old → new values and % change
+- **TuningHistoryPanel**: Dashboard section below SnapshotManager. Expandable cards per completed tuning session (newest first)
+- **TuningSessionDetail**: Expanded view reusing NoiseComparisonChart and AppliedChangesTable
+- **useTuningHistory hook**: Loads history for current profile, reloads on profile change and session dismissal
+- Verification flight: optional hover after PID apply. Compare filter hover spectrum (before) vs verification hover spectrum (after)
+- Types in `src/shared/types/tuning-history.types.ts` (CompactSpectrum, FilterMetricsSummary, PIDMetricsSummary, CompletedTuningRecord)
+- Design doc: `docs/TUNING_HISTORY_AND_COMPARISON.md`
 
 ### Auto-Apply Recommendations
 

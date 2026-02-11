@@ -14,7 +14,7 @@ Overview of all design documents in this directory. Each document starts as a de
 | [RPM_FILTER_AWARENESS](./RPM_FILTER_AWARENESS.md) | **Complete** | #63–#69 | RPM filter detection via MSP/BBL, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics |
 | [TUNING_WORKFLOW_REVISION](./TUNING_WORKFLOW_REVISION.md) | **Complete** | #31–#50 | Stateful two-flight tuning workflow design (10-phase state machine) |
 | [TUNING_WORKFLOW_FIXES](./TUNING_WORKFLOW_FIXES.md) | **Complete** | #42–#43 | Fix for download/analyze being blocked during tuning session + phase transition after apply |
-| [TUNING_HISTORY_AND_COMPARISON](./TUNING_HISTORY_AND_COMPARISON.md) | **Proposed** | — | Tuning session history + before/after comparison on completion (UX #3 + #6) |
+| [TUNING_HISTORY_AND_COMPARISON](./TUNING_HISTORY_AND_COMPARISON.md) | **Complete** | #96–#99 | Tuning session history + before/after comparison on completion (UX #3 + #6) |
 | [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (1/7 done, rest are future work) |
 
 ## Status Legend
