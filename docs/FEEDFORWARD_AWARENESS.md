@@ -111,11 +111,11 @@ The recommender needs to know whether FF is active to adjust its interpretation:
 
 ### 2.5 BF Version Compatibility
 
-Parameter naming changed between BF versions:
-- **BF 4.1-4.2**: `ff_boost`, `ff_transition`, `ff_smooth_factor`, `ff_max_rate_limit`
-- **BF 4.3+**: `feedforward_boost`, `feedforward_transition`, `feedforward_smooth_factor`, `feedforward_max_rate_limit`
+The app's minimum supported version is **BF 4.3** (API 1.44). All feedforward parameters
+use the `feedforward_*` naming convention introduced in 4.3. No dual-naming support for
+the older `ff_*` prefix (BF 4.2 and earlier) is needed.
 
-The detection code must check both naming conventions when reading BBL headers.
+See `docs/BF_VERSION_POLICY.md` for the full version compatibility policy.
 
 ---
 
@@ -132,8 +132,8 @@ The detection code must check both naming conventions when reading BBL headers.
 
 #### Task 1.2: Extract FF context from BBL headers
 - **File**: `src/main/analysis/PIDRecommender.ts` (new function `extractFeedforwardContext()`)
-- **Changes**: Parse `feedforward_boost` / `ff_boost`, `feedforward_transition` / `ff_transition`, `feedforward_max_rate_limit` / `ff_max_rate_limit` from `rawHeaders`. Check both BF 4.2 and 4.3+ naming.
-- **Tests**: Unit tests for both naming conventions, missing headers, zero values
+- **Changes**: Parse `feedforward_boost`, `feedforward_transition`, `feedforward_max_rate_limit` from `rawHeaders` (4.3+ naming only — minimum supported version).
+- **Tests**: Unit tests for present headers, missing headers, zero values
 
 #### Task 1.3: Wire FF context through PIDAnalyzer → PIDRecommender
 - **File**: `src/main/analysis/PIDAnalyzer.ts`

@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 848 tests across 47 files** (last verified: February 11, 2026)
+**Total: 853 tests across 47 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -250,4 +250,4 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `analysis/headerValidation.test.ts` | 9 | GYRO_SCALED check, logging rate validation |
+| `analysis/headerValidation.test.ts` | 14 | GYRO_SCALED check, logging rate validation, BF version-aware debug mode |

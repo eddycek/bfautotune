@@ -3,6 +3,10 @@
  *
  * Checks logging rate and debug mode from the parsed BBL header
  * and generates warnings when the configuration is suboptimal.
+ *
+ * Version-aware: BF 2025.12+ removed DEBUG_GYRO_SCALED (index 6) because
+ * unfiltered gyro is logged by default. The debug mode check is skipped
+ * for firmware versions that don't need it.
  */
 
 import type { BBLLogHeader } from '@shared/types/blackbox.types';
@@ -11,8 +15,30 @@ import type { AnalysisWarning } from '@shared/types/analysis.types';
 /** Minimum recommended logging rate in Hz for meaningful FFT */
 const MIN_LOGGING_RATE_HZ = 2000;
 
-/** Debug mode value for GYRO_SCALED (unfiltered gyro for noise analysis) */
+/** Debug mode value for GYRO_SCALED (unfiltered gyro for noise analysis) — BF 4.3–4.5 only */
 const GYRO_SCALED_DEBUG_MODE = 6;
+
+/**
+ * Parse firmware version string (e.g. "4.5.1") into comparable numbers.
+ * Returns [major, minor, patch] or null if unparseable.
+ */
+function parseFirmwareVersion(version: string): [number, number, number] | null {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+}
+
+/**
+ * Check if firmware version is BF 2025.12+ (CalVer) where DEBUG_GYRO_SCALED was removed.
+ * BF 2025.12 has version "4.6.0" in MSP_FC_VERSION (internal version kept incrementing).
+ * In practice, any version >= 4.6.0 means 2025.12+.
+ */
+function isGyroScaledRemoved(firmwareVersion: string): boolean {
+  const parsed = parseFirmwareVersion(firmwareVersion);
+  if (!parsed) return false;
+  const [major, minor] = parsed;
+  return major > 4 || (major === 4 && minor >= 6);
+}
 
 /**
  * Validate BBL header and return warnings about data quality.
@@ -37,18 +63,22 @@ export function validateBBLHeader(header: BBLLogHeader): AnalysisWarning[] {
     }
   }
 
-  // Check debug mode
-  const debugModeStr = header.rawHeaders.get('debug_mode');
-  if (debugModeStr !== undefined) {
-    const debugMode = parseInt(debugModeStr, 10);
-    if (!isNaN(debugMode) && debugMode !== GYRO_SCALED_DEBUG_MODE) {
-      warnings.push({
-        code: 'wrong_debug_mode',
-        message: `Debug mode is not GYRO_SCALED (current: ${debugModeStr}). ` +
-          `FFT may analyze filtered gyro data instead of raw noise. ` +
-          `Set debug_mode = GYRO_SCALED in Betaflight for best filter analysis results.`,
-        severity: 'info',
-      });
+  // Check debug mode — only for BF 4.3–4.5.x
+  // BF 2025.12+ (4.6+) logs unfiltered gyro by default, DEBUG_GYRO_SCALED was removed
+  const firmwareVersion = header.firmwareVersion || '';
+  if (!isGyroScaledRemoved(firmwareVersion)) {
+    const debugModeStr = header.rawHeaders.get('debug_mode');
+    if (debugModeStr !== undefined) {
+      const debugMode = parseInt(debugModeStr, 10);
+      if (!isNaN(debugMode) && debugMode !== GYRO_SCALED_DEBUG_MODE) {
+        warnings.push({
+          code: 'wrong_debug_mode',
+          message: `Debug mode is not GYRO_SCALED (current: ${debugModeStr}). ` +
+            `FFT may analyze filtered gyro data instead of raw noise. ` +
+            `Set debug_mode = GYRO_SCALED in Betaflight for best filter analysis results.`,
+          severity: 'info',
+        });
+      }
     }
   }
 

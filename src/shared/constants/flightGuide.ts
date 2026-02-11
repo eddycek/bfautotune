@@ -47,7 +47,7 @@ export const FILTER_FLIGHT_TIPS: string[] = [
   'Keep the drone as still as possible during hover phases',
   'Throttle sweeps should be slow and smooth — no jerky movements',
   'Make sure Blackbox logging is enabled with 2 kHz rate',
-  'Set debug_mode = GYRO_SCALED in Betaflight for best results',
+  'Set debug_mode = GYRO_SCALED in Betaflight for best results (BF 4.3–4.5 only; not needed on 2025.12+)',
   'After landing, check motor temperatures — if too hot to touch, do not reduce filters further',
 ];
 
@@ -146,7 +146,7 @@ export const FLIGHT_TIPS: string[] = [
 export const TUNING_WORKFLOW: WorkflowStep[] = [
   { title: 'Connect your drone', description: 'Plug in via USB and wait for connection.' },
   { title: 'Create a backup', description: 'Save a snapshot of your current settings before making changes.' },
-  { title: 'Check Blackbox setup', description: 'Set logging rate to 2 kHz and debug_mode to GYRO_SCALED.' },
+  { title: 'Check Blackbox setup', description: 'Set logging rate to 2 kHz. On BF 4.3–4.5, also set debug_mode to GYRO_SCALED (not needed on 2025.12+).' },
   { title: 'Erase Blackbox data', description: 'Clear old logs for a clean recording.' },
   { title: 'Fly: Filter test flight', description: 'Hover + throttle sweeps (~30 sec). Follow the filter flight guide.' },
   { title: 'Analyze & apply filters', description: 'Download the log. Run the Filter Wizard. Apply changes.' },

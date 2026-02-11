@@ -9,6 +9,7 @@ import type { BlackboxInfo } from '@shared/types/blackbox.types';
 import { ConnectionError, MSPError, TimeoutError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP, BETAFLIGHT } from '@shared/constants';
+import { UnsupportedVersionError } from '../utils/errors';
 
 export class MSPClient extends EventEmitter {
   private connection: MSPConnection;
@@ -115,6 +116,9 @@ export class MSPClient extends EventEmitter {
         }
       }
 
+      // Version gate: reject firmware below minimum supported version
+      this.validateFirmwareVersion(fcInfo!);
+
       this.connectionStatus = {
         connected: true,
         portPath,
@@ -173,6 +177,34 @@ export class MSPClient extends EventEmitter {
     await this.disconnect();
     await this.delay(1000);
     await this.connect(port);
+  }
+
+  /**
+   * Validate that the connected FC runs a supported firmware version.
+   * Minimum: BF 4.3 (API 1.44). Throws UnsupportedVersionError if below.
+   */
+  private validateFirmwareVersion(fcInfo: FCInfo): void {
+    const { apiVersion, version } = fcInfo;
+    const { major, minor } = apiVersion;
+    const { MIN_API_VERSION, MIN_VERSION } = BETAFLIGHT;
+
+    if (major < MIN_API_VERSION.major ||
+        (major === MIN_API_VERSION.major && minor < MIN_API_VERSION.minor)) {
+      // Close the port before throwing — we don't want to leave it open
+      this.connection.close().catch(() => {});
+      this.connectionStatus = { connected: false };
+      this.currentPort = null;
+
+      throw new UnsupportedVersionError(
+        `Betaflight ${version} (API ${major}.${minor}) is not supported. ` +
+        `Minimum required: Betaflight ${MIN_VERSION} (API ${MIN_API_VERSION.major}.${MIN_API_VERSION.minor}). ` +
+        `Please update your firmware.`,
+        version,
+        { major, minor }
+      );
+    }
+
+    logger.info(`Firmware version check passed: ${version} (API ${major}.${minor})`);
   }
 
   isConnected(): boolean {

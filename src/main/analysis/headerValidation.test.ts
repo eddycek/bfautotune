@@ -104,4 +104,43 @@ describe('validateBBLHeader', () => {
     const warnings = validateBBLHeader(header);
     expect(warnings).toHaveLength(0);
   });
+
+  // BF 2025.12+ (4.6+) version-aware tests
+  it('skips debug mode check for BF 4.6+ (2025.12) where GYRO_SCALED was removed', () => {
+    const header = createHeader({ firmwareVersion: '4.6.0', looptime: 500 });
+    header.rawHeaders.set('debug_mode', '0'); // NONE — should be fine on 4.6+
+    const warnings = validateBBLHeader(header);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('skips debug mode check for BF 4.6.1', () => {
+    const header = createHeader({ firmwareVersion: '4.6.1', looptime: 500 });
+    header.rawHeaders.set('debug_mode', '42'); // any value
+    const warnings = validateBBLHeader(header);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('still warns about debug mode for BF 4.5.x', () => {
+    const header = createHeader({ firmwareVersion: '4.5.1', looptime: 500 });
+    header.rawHeaders.set('debug_mode', '0');
+    const warnings = validateBBLHeader(header);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].code).toBe('wrong_debug_mode');
+  });
+
+  it('still warns about debug mode for BF 4.4.0', () => {
+    const header = createHeader({ firmwareVersion: '4.4.0', looptime: 500 });
+    header.rawHeaders.set('debug_mode', '3');
+    const warnings = validateBBLHeader(header);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].code).toBe('wrong_debug_mode');
+  });
+
+  it('handles missing firmwareVersion gracefully (assumes pre-4.6)', () => {
+    const header = createHeader({ firmwareVersion: '', looptime: 500 });
+    header.rawHeaders.set('debug_mode', '0');
+    const warnings = validateBBLHeader(header);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].code).toBe('wrong_debug_mode');
+  });
 });

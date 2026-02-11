@@ -7,6 +7,14 @@ import './FCInfoDisplay.css';
 const RECOMMENDED_DEBUG_MODE = 'GYRO_SCALED';
 const MIN_LOGGING_RATE_HZ = 2000;
 
+/** BF 2025.12+ (4.6+) logs unfiltered gyro by default — DEBUG_GYRO_SCALED was removed */
+function isGyroScaledNotNeeded(version: string): boolean {
+  const match = version.match(/^(\d+)\.(\d+)/);
+  if (!match) return false;
+  const [, major, minor] = match;
+  return parseInt(major) > 4 || (parseInt(major) === 4 && parseInt(minor) >= 6);
+}
+
 export function FCInfoDisplay() {
   const { status } = useConnection();
   const { fcInfo, loading, error, fetchFCInfo, exportCLI } = useFCInfo();
@@ -53,7 +61,9 @@ export function FCInfoDisplay() {
 
   const info = status.fcInfo || fcInfo;
 
-  const debugModeOk = bbSettings?.debugMode === RECOMMENDED_DEBUG_MODE;
+  const fcVersion = info?.version || '';
+  const gyroScaledNotNeeded = isGyroScaledNotNeeded(fcVersion);
+  const debugModeOk = gyroScaledNotNeeded || bbSettings?.debugMode === RECOMMENDED_DEBUG_MODE;
   const loggingRateOk = bbSettings ? bbSettings.loggingRateHz >= MIN_LOGGING_RATE_HZ : true;
 
   return (
@@ -102,8 +112,8 @@ export function FCInfoDisplay() {
                   <span className="fc-bb-label">Logging Rate:</span>
                   <span className="fc-bb-value">{formatRate(bbSettings.loggingRateHz)}</span>
                 </div>
-                {!debugModeOk && (
-                  <div className="fc-bb-hint">Set <code>debug_mode = GYRO_SCALED</code> for noise analysis</div>
+                {!debugModeOk && !gyroScaledNotNeeded && (
+                  <div className="fc-bb-hint">Set <code>debug_mode = GYRO_SCALED</code> for noise analysis (BF 4.3–4.5)</div>
                 )}
                 {!loggingRateOk && (
                   <div className="fc-bb-hint">Increase logging rate to 2 kHz or higher</div>
