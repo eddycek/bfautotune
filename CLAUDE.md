@@ -420,6 +420,23 @@ When user selects drone size, defaults auto-populate:
 - Hooks in `src/renderer/hooks/`
 - Shared types in `src/shared/types/`
 
+### Design Documents (`docs/`)
+
+Design docs follow a lifecycle: **Proposed → Complete**. See `docs/README.md` for the full index.
+
+**Workflow:**
+1. Before implementing a non-trivial feature, create a design doc in `docs/` with `> **Status**: Proposed` header
+2. The doc describes the problem, analysis, implementation plan with numbered tasks, and risk assessment
+3. During implementation, reference the doc's task numbers in PR descriptions
+4. After all tasks are merged, update the status header to `> **Status**: Complete (PRs #XX–#YY)` and update `docs/README.md` index
+
+**Conventions:**
+- Language: English only
+- Status header format: `> **Status**: Complete/Proposed/Active` on line 3 of every doc
+- Each doc is self-contained — problem statement, analysis, implementation plan, file list
+- Completed docs are kept as historical records (don't delete — they explain *why* decisions were made)
+- `docs/README.md` is the central index — update it whenever adding or completing a doc
+
 ### React Patterns
 - Functional components with hooks
 - Custom hooks for business logic (useConnection, useProfiles, useSnapshots)
