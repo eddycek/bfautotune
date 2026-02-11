@@ -1,0 +1,142 @@
+import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { TuningHistoryPanel } from './TuningHistoryPanel';
+import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
+
+// ResponsiveContainer mock (for expanded detail with chart)
+vi.mock('recharts', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('recharts')>();
+  const { cloneElement } = await import('react');
+  return {
+    ...mod,
+    ResponsiveContainer: ({ children }: { children: React.ReactElement }) =>
+      cloneElement(children, { width: 700, height: 260 }),
+  };
+});
+
+const makeRecord = (id: string, date: string, filterCount = 2, pidCount = 1): CompletedTuningRecord => ({
+  id,
+  profileId: 'profile-1',
+  startedAt: '2026-01-01T00:00:00Z',
+  completedAt: date,
+  baselineSnapshotId: null,
+  postFilterSnapshotId: null,
+  postTuningSnapshotId: null,
+  filterLogId: null,
+  pidLogId: null,
+  verificationLogId: null,
+  appliedFilterChanges: Array.from({ length: filterCount }, (_, i) => ({
+    setting: `filter_setting_${i}`,
+    previousValue: 100,
+    newValue: 120,
+  })),
+  appliedPIDChanges: Array.from({ length: pidCount }, (_, i) => ({
+    setting: `pid_setting_${i}`,
+    previousValue: 45,
+    newValue: 50,
+  })),
+  filterMetrics: {
+    noiseLevel: 'low',
+    roll: { noiseFloorDb: -40, peakCount: 1 },
+    pitch: { noiseFloorDb: -38, peakCount: 0 },
+    yaw: { noiseFloorDb: -42, peakCount: 0 },
+    segmentsUsed: 3,
+    summary: 'Low noise',
+  },
+  pidMetrics: null,
+  verificationMetrics: null,
+});
+
+describe('TuningHistoryPanel', () => {
+  it('renders nothing when loading', () => {
+    const { container } = render(<TuningHistoryPanel history={[]} loading={true} />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('renders nothing when history is empty', () => {
+    const { container } = render(<TuningHistoryPanel history={[]} loading={false} />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('renders title when history exists', () => {
+    const records = [makeRecord('r1', '2026-02-10T00:00:00Z')];
+    render(<TuningHistoryPanel history={records} loading={false} />);
+
+    expect(screen.getByText('Tuning History')).toBeInTheDocument();
+  });
+
+  it('renders history cards with date and summary', () => {
+    const records = [
+      makeRecord('r1', '2026-02-10T00:00:00Z', 3, 2),
+      makeRecord('r2', '2026-01-28T00:00:00Z', 1, 0),
+    ];
+    render(<TuningHistoryPanel history={records} loading={false} />);
+
+    expect(screen.getByText('Feb 10, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Jan 28, 2026')).toBeInTheDocument();
+    expect(screen.getByText(/3 filter \+ 2 PID changes/)).toBeInTheDocument();
+    expect(screen.getByText(/1 filter changes/)).toBeInTheDocument();
+  });
+
+  it('expands card on click', async () => {
+    const user = userEvent.setup();
+    const records = [makeRecord('r1', '2026-02-10T00:00:00Z')];
+    render(<TuningHistoryPanel history={records} loading={false} />);
+
+    const header = screen.getByRole('button', { name: /Feb 10, 2026/ });
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(header);
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('collapses card on second click', async () => {
+    const user = userEvent.setup();
+    const records = [makeRecord('r1', '2026-02-10T00:00:00Z')];
+    render(<TuningHistoryPanel history={records} loading={false} />);
+
+    const header = screen.getByRole('button', { name: /Feb 10, 2026/ });
+    await user.click(header);
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(header);
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows expanded detail with filter changes', async () => {
+    const user = userEvent.setup();
+    const records = [makeRecord('r1', '2026-02-10T00:00:00Z')];
+    render(<TuningHistoryPanel history={records} loading={false} />);
+
+    await user.click(screen.getByRole('button', { name: /Feb 10, 2026/ }));
+
+    expect(screen.getByText('Filter Changes (2)')).toBeInTheDocument();
+    expect(screen.getByText('filter_setting_0')).toBeInTheDocument();
+  });
+
+  it('only expands one card at a time', async () => {
+    const user = userEvent.setup();
+    const records = [
+      makeRecord('r1', '2026-02-10T00:00:00Z'),
+      makeRecord('r2', '2026-01-28T00:00:00Z'),
+    ];
+    render(<TuningHistoryPanel history={records} loading={false} />);
+
+    const headers = screen.getAllByRole('button');
+    await user.click(headers[0]);
+    expect(headers[0]).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(headers[1]);
+    expect(headers[0]).toHaveAttribute('aria-expanded', 'false');
+    expect(headers[1]).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('shows noise level in summary', () => {
+    const records = [makeRecord('r1', '2026-02-10T00:00:00Z')];
+    render(<TuningHistoryPanel history={records} loading={false} />);
+
+    expect(screen.getByText(/Noise: low/)).toBeInTheDocument();
+  });
+});

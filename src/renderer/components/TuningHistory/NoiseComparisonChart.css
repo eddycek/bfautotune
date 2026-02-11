@@ -1,0 +1,64 @@
+.noise-comparison-chart {
+  margin: 12px 0;
+}
+
+.noise-comparison-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.noise-comparison-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.noise-delta-pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.noise-delta-pill.improved {
+  background: rgba(81, 207, 102, 0.15);
+  color: #51cf66;
+}
+
+.noise-delta-pill.regressed {
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff6b6b;
+}
+
+.noise-comparison-container {
+  background: var(--bg-tertiary, #1e1e1e);
+  border-radius: 6px;
+  padding: 12px 8px 4px 0;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.noise-comparison-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #aaa);
+  font-size: 13px;
+}
+
+.noise-comparison-floors {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.noise-floor-item {
+  font-family: monospace;
+}
+
+.noise-comparison-container .recharts-tooltip-cursor {
+  stroke: #555;
+}
