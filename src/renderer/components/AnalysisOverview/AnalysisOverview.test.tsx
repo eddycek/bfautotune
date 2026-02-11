@@ -260,7 +260,7 @@ describe('AnalysisOverview', () => {
     render(<AnalysisOverview logId="log-1" onExit={onExit} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/12 step inputs detected/)).toBeInTheDocument();
+      expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
     });
 
     expect(screen.getByText('Current PID Values')).toBeInTheDocument();
@@ -413,7 +413,7 @@ describe('AnalysisOverview', () => {
     render(<AnalysisOverview logId="log-1" onExit={onExit} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/step inputs detected/)).toBeInTheDocument();
+      expect(screen.getByText(/steps detected/)).toBeInTheDocument();
     });
 
     expect(screen.queryByText(/Feedforward is active/)).not.toBeInTheDocument();
@@ -467,6 +467,36 @@ describe('AnalysisOverview', () => {
     });
 
     expect(screen.queryByText(/RPM Filter:/)).not.toBeInTheDocument();
+  });
+
+  it('shows flight style pill when flightStyle present in PID result', async () => {
+    const pidWithStyle: PIDAnalysisResult = {
+      ...mockPIDResult,
+      flightStyle: 'aggressive',
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithStyle);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Tuning for: Aggressive flying/)).toBeInTheDocument();
+    });
+  });
+
+  it('does not show flight style pill when flightStyle absent', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Tuning for:/)).not.toBeInTheDocument();
   });
 
   it('shows axis summary cards for filter results', async () => {

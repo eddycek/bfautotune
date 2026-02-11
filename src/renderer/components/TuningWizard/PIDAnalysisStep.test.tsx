@@ -1,0 +1,99 @@
+import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { PIDAnalysisStep } from './PIDAnalysisStep';
+import type { PIDAnalysisResult } from '@shared/types/analysis.types';
+
+// Mock recharts to avoid SVG rendering in tests
+vi.mock('recharts', () => ({
+  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
+  LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+  Line: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  Tooltip: () => null,
+  ReferenceLine: () => null,
+}));
+
+const mockPIDResult: PIDAnalysisResult = {
+  roll: { responses: [], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
+  pitch: { responses: [], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
+  yaw: { responses: [], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
+  recommendations: [],
+  summary: 'Your PIDs look good.',
+  analysisTimeMs: 200,
+  sessionIndex: 0,
+  stepsDetected: 12,
+  currentPIDs: {
+    roll: { P: 45, I: 80, D: 30 },
+    pitch: { P: 47, I: 84, D: 32 },
+    yaw: { P: 45, I: 80, D: 0 },
+  },
+};
+
+describe('PIDAnalysisStep', () => {
+  const defaultProps = {
+    pidResult: null as PIDAnalysisResult | null,
+    pidAnalyzing: false,
+    pidProgress: null,
+    pidError: null,
+    runPIDAnalysis: vi.fn(),
+    onContinue: vi.fn(),
+  };
+
+  it('shows flight style pill when flightStyle is present', () => {
+    render(
+      <PIDAnalysisStep
+        {...defaultProps}
+        pidResult={{ ...mockPIDResult, flightStyle: 'smooth' }}
+      />
+    );
+
+    expect(screen.getByText(/Tuning for: Smooth flying/)).toBeInTheDocument();
+  });
+
+  it('shows Aggressive label for aggressive flight style', () => {
+    render(
+      <PIDAnalysisStep
+        {...defaultProps}
+        pidResult={{ ...mockPIDResult, flightStyle: 'aggressive' }}
+      />
+    );
+
+    expect(screen.getByText(/Tuning for: Aggressive flying/)).toBeInTheDocument();
+  });
+
+  it('does not show flight style pill when flightStyle is absent', () => {
+    render(
+      <PIDAnalysisStep
+        {...defaultProps}
+        pidResult={mockPIDResult}
+      />
+    );
+
+    expect(screen.queryByText(/Tuning for:/)).not.toBeInTheDocument();
+  });
+
+  it('shows step count pill with correct pluralization', () => {
+    render(
+      <PIDAnalysisStep
+        {...defaultProps}
+        pidResult={mockPIDResult}
+      />
+    );
+
+    expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
+  });
+
+  it('uses singular "step" for single step', () => {
+    render(
+      <PIDAnalysisStep
+        {...defaultProps}
+        pidResult={{ ...mockPIDResult, stepsDetected: 1 }}
+      />
+    );
+
+    expect(screen.getByText(/1 step detected/)).toBeInTheDocument();
+  });
+});

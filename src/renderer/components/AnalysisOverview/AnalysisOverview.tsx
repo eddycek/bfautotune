@@ -2,7 +2,14 @@ import React, { useState } from 'react';
 import { useAnalysisOverview } from '../../hooks/useAnalysisOverview';
 import { SpectrumChart } from '../TuningWizard/charts/SpectrumChart';
 import { StepResponseChart } from '../TuningWizard/charts/StepResponseChart';
+import type { FlightStyle } from '@shared/types/profile.types';
 import './AnalysisOverview.css';
+
+const FLIGHT_STYLE_LABELS: Record<FlightStyle, string> = {
+  smooth: 'Smooth',
+  balanced: 'Balanced',
+  aggressive: 'Aggressive',
+};
 
 interface AnalysisOverviewProps {
   logId: string;
@@ -292,9 +299,16 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
           <p style={{ fontSize: 13, color: 'var(--text-secondary, #aaa)', margin: '0 0 8px 0' }}>
             {overview.pidResult.summary}
           </p>
-          <p className="analysis-section-detail">
-            {overview.pidResult.stepsDetected} step inputs detected across all axes.
-          </p>
+          <div className="analysis-meta">
+            <span className="analysis-meta-pill">
+              {overview.pidResult.stepsDetected} step{overview.pidResult.stepsDetected !== 1 ? 's' : ''} detected
+            </span>
+            {overview.pidResult.flightStyle && (
+              <span className="analysis-meta-pill">
+                Tuning for: {FLIGHT_STYLE_LABELS[overview.pidResult.flightStyle]} flying
+              </span>
+            )}
+          </div>
 
           {overview.pidResult.warnings && overview.pidResult.warnings.length > 0 && (
             <div className="analysis-warnings">
