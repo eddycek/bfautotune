@@ -1,20 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useConnection } from '../../hooks/useConnection';
 import { useFCInfo } from '../../hooks/useFCInfo';
+import { computeBBSettingsStatus } from '../../utils/bbSettingsUtils';
+import { FixSettingsConfirmModal } from './FixSettingsConfirmModal';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
 import type { FeedforwardConfiguration } from '@shared/types/pid.types';
 import './FCInfoDisplay.css';
-
-const RECOMMENDED_DEBUG_MODE = 'GYRO_SCALED';
-const MIN_LOGGING_RATE_HZ = 2000;
-
-/** BF 2025.12+ (4.6+) logs unfiltered gyro by default — DEBUG_GYRO_SCALED was removed */
-function isGyroScaledNotNeeded(version: string): boolean {
-  const match = version.match(/^(\d+)\.(\d+)/);
-  if (!match) return false;
-  const [, major, minor] = match;
-  return parseInt(major) > 4 || (parseInt(major) === 4 && parseInt(minor) >= 6);
-}
 
 export function FCInfoDisplay() {
   const { status } = useConnection();
@@ -22,6 +13,8 @@ export function FCInfoDisplay() {
   const [bbSettings, setBbSettings] = useState<BlackboxSettings | null>(null);
   const [bbLoading, setBbLoading] = useState(false);
   const [ffConfig, setFfConfig] = useState<FeedforwardConfiguration | null>(null);
+  const [fixing, setFixing] = useState(false);
+  const [showFixConfirm, setShowFixConfirm] = useState(false);
 
   useEffect(() => {
     if (status.connected && status.fcInfo) {
@@ -62,16 +55,25 @@ export function FCInfoDisplay() {
     }
   };
 
+  const handleFixSettings = async () => {
+    setShowFixConfirm(false);
+    setFixing(true);
+    try {
+      await window.betaflight.fixBlackboxSettings({ commands: bbStatus.fixCommands });
+    } catch {
+      // FC reboots — reconnect will re-fetch settings
+    } finally {
+      setFixing(false);
+    }
+  };
+
   if (!status.connected) {
     return null;
   }
 
   const info = status.fcInfo || fcInfo;
-
   const fcVersion = info?.version || '';
-  const gyroScaledNotNeeded = isGyroScaledNotNeeded(fcVersion);
-  const debugModeOk = gyroScaledNotNeeded || bbSettings?.debugMode === RECOMMENDED_DEBUG_MODE;
-  const loggingRateOk = bbSettings ? bbSettings.loggingRateHz >= MIN_LOGGING_RATE_HZ : true;
+  const bbStatus = computeBBSettingsStatus(bbSettings, fcVersion);
 
   return (
     <div className="panel">
@@ -109,23 +111,34 @@ export function FCInfoDisplay() {
 
             {bbSettings && (
               <div className="fc-bb-settings">
-                {!gyroScaledNotNeeded && (
-                  <div className={`fc-bb-setting ${debugModeOk ? 'ok' : 'warn'}`}>
-                    <span className="fc-bb-indicator">{debugModeOk ? '\u2713' : '\u26A0'}</span>
+                {!bbStatus.gyroScaledNotNeeded && (
+                  <div className={`fc-bb-setting ${bbStatus.debugModeOk ? 'ok' : 'warn'}`}>
+                    <span className="fc-bb-indicator">{bbStatus.debugModeOk ? '\u2713' : '\u26A0'}</span>
                     <span className="fc-bb-label">Debug Mode:</span>
                     <span className="fc-bb-value">{bbSettings.debugMode}</span>
                   </div>
                 )}
-                <div className={`fc-bb-setting ${loggingRateOk ? 'ok' : 'warn'}`}>
-                  <span className="fc-bb-indicator">{loggingRateOk ? '\u2713' : '\u26A0'}</span>
+                <div className={`fc-bb-setting ${bbStatus.loggingRateOk ? 'ok' : 'warn'}`}>
+                  <span className="fc-bb-indicator">{bbStatus.loggingRateOk ? '\u2713' : '\u26A0'}</span>
                   <span className="fc-bb-label">Logging Rate:</span>
                   <span className="fc-bb-value">{formatRate(bbSettings.loggingRateHz)}</span>
                 </div>
-                {!debugModeOk && !gyroScaledNotNeeded && (
+                {!bbStatus.debugModeOk && !bbStatus.gyroScaledNotNeeded && (
                   <div className="fc-bb-hint">Set <code>debug_mode = GYRO_SCALED</code> for noise analysis (BF 4.3–4.5)</div>
                 )}
-                {!loggingRateOk && (
+                {!bbStatus.loggingRateOk && (
                   <div className="fc-bb-hint">Increase logging rate to 2 kHz or higher</div>
+                )}
+                {bbStatus.fixCommands.length > 0 && !fixing && (
+                  <button
+                    className="fc-bb-fix-btn"
+                    onClick={() => setShowFixConfirm(true)}
+                  >
+                    Fix Settings
+                  </button>
+                )}
+                {fixing && (
+                  <span className="fc-bb-fixing">Fixing settings...</span>
                 )}
               </div>
             )}
@@ -165,6 +178,14 @@ export function FCInfoDisplay() {
             </button>
           </div>
         </>
+      )}
+
+      {showFixConfirm && (
+        <FixSettingsConfirmModal
+          commands={bbStatus.fixCommands}
+          onConfirm={handleFixSettings}
+          onCancel={() => setShowFixConfirm(false)}
+        />
       )}
     </div>
   );

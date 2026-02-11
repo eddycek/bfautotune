@@ -47,7 +47,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Blackbox log download from FC flash storage (adaptive chunking)
 - Binary BBL log parser (validated against BF Explorer, 205 tests)
 - Multi-session support (multiple flights per file)
-- FC diagnostics: debug_mode, logging rate, and feedforward configuration display with warnings
+- FC diagnostics: debug_mode, logging rate, and feedforward configuration display with warnings + one-click fix
 
 ### Automated Tuning
 - **Filter tuning**: FFT noise analysis (Welch's method, Hanning window, peak detection)
@@ -261,12 +261,7 @@ Before flying, check the **Flight Controller Information** panel:
 - **Logging Rate** should be at least 2 kHz (shown with green checkmark or amber warning)
 - **Feedforward** section shows current FF configuration read from FC (boost, per-axis gains, smoothing, jitter factor, transition, max rate limit)
 
-To change these settings (BF 4.3–4.5), use Betaflight Configurator:
-```
-set debug_mode = GYRO_SCALED
-set blackbox_sample_rate = 0    # Full rate logging
-save
-```
+If settings are wrong, click **Fix Settings** in the FC info panel — the app sends the CLI commands and reboots the FC automatically. During an active tuning session, the **TuningStatusBanner** also shows an amber pre-flight warning with a one-click fix button.
 
 ### 3. Guided Two-Flight Tuning
 

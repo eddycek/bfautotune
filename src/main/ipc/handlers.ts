@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, app, shell } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { IPCChannel, IPCResponse } from '@shared/types/ipc.types';
-import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress } from '@shared/types/ipc.types';
+import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress, FixBlackboxSettingsInput, FixBlackboxSettingsResult } from '@shared/types/ipc.types';
 import type {
   PortInfo,
   FCInfo,
@@ -231,6 +231,37 @@ export function registerIPCHandlers(): void {
     } catch (error) {
       logger.error('Failed to get feedforward configuration:', error);
       return createResponse<FeedforwardConfiguration>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.FC_FIX_BLACKBOX_SETTINGS, async (_, input: FixBlackboxSettingsInput): Promise<IPCResponse<FixBlackboxSettingsResult>> => {
+    try {
+      if (!mspClient) throw new Error('MSP client not initialized');
+      if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
+
+      if (!input.commands || input.commands.length === 0) {
+        throw new Error('No commands to apply');
+      }
+
+      logger.info(`Fixing blackbox settings: ${input.commands.length} commands`);
+
+      await mspClient.connection.enterCLI();
+
+      for (const cmd of input.commands) {
+        await mspClient.connection.sendCLICommand(cmd);
+      }
+
+      await mspClient.saveAndReboot();
+
+      logger.info('Blackbox settings fixed, FC rebooting');
+      return createResponse<FixBlackboxSettingsResult>({
+        success: true,
+        appliedCommands: input.commands.length,
+        rebooted: true,
+      });
+    } catch (error) {
+      logger.error('Failed to fix blackbox settings:', error);
+      return createResponse<FixBlackboxSettingsResult>(undefined, getErrorMessage(error));
     }
   });
 

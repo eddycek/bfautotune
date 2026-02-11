@@ -16,7 +16,7 @@ import type {
 import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress, BlackboxSettings } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
-import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress } from '@shared/types/ipc.types';
+import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress, FixBlackboxSettingsInput, FixBlackboxSettingsResult } from '@shared/types/ipc.types';
 import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
 
 const betaflightAPI: BetaflightAPI = {
@@ -88,6 +88,14 @@ const betaflightAPI: BetaflightAPI = {
     const response = await ipcRenderer.invoke(IPCChannel.FC_GET_FEEDFORWARD_CONFIG);
     if (!response.success) {
       throw new Error(response.error || 'Failed to get feedforward configuration');
+    }
+    return response.data;
+  },
+
+  async fixBlackboxSettings(input: FixBlackboxSettingsInput): Promise<FixBlackboxSettingsResult> {
+    const response = await ipcRenderer.invoke(IPCChannel.FC_FIX_BLACKBOX_SETTINGS, input);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to fix blackbox settings');
     }
     return response.data;
   },

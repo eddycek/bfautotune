@@ -32,6 +32,18 @@ export interface SnapshotRestoreResult {
   rebooted: boolean;
 }
 
+/** Input for fixing blackbox settings on the FC */
+export interface FixBlackboxSettingsInput {
+  commands: string[];
+}
+
+/** Result of fixing blackbox settings */
+export interface FixBlackboxSettingsResult {
+  success: boolean;
+  appliedCommands: number;
+  rebooted: boolean;
+}
+
 /** Input for applying tuning recommendations to the FC */
 export interface ApplyRecommendationsInput {
   filterRecommendations: FilterRecommendation[];
@@ -67,6 +79,7 @@ export enum IPCChannel {
   FC_EXPORT_CLI = 'fc:export-cli',
   FC_GET_BLACKBOX_SETTINGS = 'fc:get-blackbox-settings',
   FC_GET_FEEDFORWARD_CONFIG = 'fc:get-feedforward-config',
+  FC_FIX_BLACKBOX_SETTINGS = 'fc:fix-blackbox-settings',
 
   // Snapshots
   SNAPSHOT_CREATE = 'snapshot:create',
@@ -150,6 +163,7 @@ export interface BetaflightAPI {
   exportCLI(format: 'diff' | 'dump'): Promise<string>;
   getBlackboxSettings(): Promise<BlackboxSettings>;
   getFeedforwardConfig(): Promise<FeedforwardConfiguration>;
+  fixBlackboxSettings(input: FixBlackboxSettingsInput): Promise<FixBlackboxSettingsResult>;
 
   // Snapshots
   createSnapshot(label?: string): Promise<ConfigurationSnapshot>;

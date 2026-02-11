@@ -119,3 +119,38 @@
 @keyframes tuning-spin {
   to { transform: rotate(360deg); }
 }
+
+.tuning-bb-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+.wizard-btn-warning {
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #d97706;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.wizard-btn-warning:hover:not(:disabled) {
+  background: #b45309;
+}
+
+.wizard-btn-warning:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
