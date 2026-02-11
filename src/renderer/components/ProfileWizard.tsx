@@ -5,6 +5,7 @@ import { SIZE_DEFAULTS, PRESET_PROFILES } from '@shared/constants';
 import type {
   DroneSize,
   BatteryType,
+  FlightStyle,
   ProfileCreationInput
 } from '@shared/types/profile.types';
 import type { FCInfo } from '@shared/types/common.types';
@@ -13,11 +14,20 @@ import './ProfileWizard.css';
 interface ProfileWizardProps {
   fcSerial: string;
   fcInfo: FCInfo;
-  onComplete: (input: ProfileCreationInput | { presetId: string; customName?: string }) => void;
+  onComplete: (input: ProfileCreationInput | { presetId: string; customName?: string; flightStyle?: FlightStyle }) => void;
 }
 
 type WizardStep = 'method' | 'preset' | 'basic' | 'review';
 type CreationMethod = 'preset' | 'custom';
+
+const PRESET_FLIGHT_STYLES: Record<string, FlightStyle> = {
+  '5inch-race': 'aggressive',
+  '5inch-cinematic': 'smooth',
+  '3inch-cinewhoop': 'smooth',
+  '6inch-longrange': 'smooth',
+  '7inch-longrange': 'smooth',
+  '10inch-ultra-longrange': 'smooth',
+};
 
 export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardProps) {
   const [step, setStep] = useState<WizardStep>('method');
@@ -26,6 +36,9 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
   // Preset path
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [presetCustomName, setPresetCustomName] = useState('');
+
+  // Flight style (shared between custom and preset paths)
+  const [flightStyle, setFlightStyle] = useState<FlightStyle>('balanced');
 
   // Custom path - basic
   const [name, setName] = useState('');
@@ -46,6 +59,11 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
       setBattery(defaults.battery);
       setPropSize(defaults.propSize);
     }
+  };
+
+  const handlePresetSelect = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    setFlightStyle(PRESET_FLIGHT_STYLES[presetId] || 'balanced');
   };
 
   const handleMethodSelect = (selectedMethod: CreationMethod) => {
@@ -70,7 +88,8 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
     if (method === 'preset' && selectedPresetId) {
       onComplete({
         presetId: selectedPresetId,
-        customName: presetCustomName || undefined
+        customName: presetCustomName || undefined,
+        flightStyle,
       });
     } else {
       const input: ProfileCreationInput = {
@@ -82,7 +101,8 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
         battery,
         weight,
         motorKV,
-        notes: notes || undefined
+        notes: notes || undefined,
+        flightStyle,
       };
       onComplete(input);
     }
@@ -113,7 +133,7 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
           <PresetStep
             selectedPresetId={selectedPresetId}
             customName={presetCustomName}
-            onPresetSelect={setSelectedPresetId}
+            onPresetSelect={handlePresetSelect}
             onNameChange={setPresetCustomName}
             onBack={() => setStep('method')}
             onContinue={handlePresetContinue}
@@ -130,6 +150,7 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
             weight={weight}
             motorKV={motorKV}
             notes={notes}
+            flightStyle={flightStyle}
             onNameChange={setName}
             onSizeChange={handleSizeChange}
             onPropSizeChange={setPropSize}
@@ -137,6 +158,7 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
             onWeightChange={setWeight}
             onMotorKVChange={setMotorKV}
             onNotesChange={setNotes}
+            onFlightStyleChange={setFlightStyle}
             onBack={() => setStep('method')}
             onContinue={handleBasicContinue}
             canContinue={canContinueBasic}
@@ -155,6 +177,7 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
             weight={weight}
             motorKV={motorKV}
             notes={notes}
+            flightStyle={flightStyle}
             onBack={() => setStep(method === 'preset' ? 'preset' : 'basic')}
             onCreate={handleComplete}
           />
@@ -247,6 +270,44 @@ function PresetStep({
   );
 }
 
+const FLIGHT_STYLE_OPTIONS: { value: FlightStyle; label: string; description: string }[] = [
+  { value: 'smooth', label: 'Smooth', description: 'Cinematic, smooth transitions, minimal overshoot' },
+  { value: 'balanced', label: 'Balanced', description: 'General freestyle, good all-around response' },
+  { value: 'aggressive', label: 'Aggressive', description: 'Racing, maximum snap, fast tracking' },
+];
+
+function FlightStyleSelector({
+  value,
+  onChange,
+}: {
+  value: FlightStyle;
+  onChange: (style: FlightStyle) => void;
+}) {
+  return (
+    <div className="wizard-form-group">
+      <label>Flying Style</label>
+      <div className="flight-style-options">
+        {FLIGHT_STYLE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            className={`flight-style-option${value === opt.value ? ' selected' : ''}`}
+            onClick={() => onChange(opt.value)}
+          >
+            <div className="flight-style-option-name">
+              {opt.label}{opt.value === 'balanced' ? ' (default)' : ''}
+            </div>
+            <div className="flight-style-option-desc">{opt.description}</div>
+          </button>
+        ))}
+      </div>
+      <div className="flight-style-note">
+        This affects how PID tuning thresholds are calibrated for your flying preference.
+      </div>
+    </div>
+  );
+}
+
 // Basic info step
 function BasicStep({
   name,
@@ -256,6 +317,7 @@ function BasicStep({
   weight,
   motorKV,
   notes,
+  flightStyle,
   onNameChange,
   onSizeChange,
   onPropSizeChange,
@@ -263,6 +325,7 @@ function BasicStep({
   onWeightChange,
   onMotorKVChange,
   onNotesChange,
+  onFlightStyleChange,
   onBack,
   onContinue,
   canContinue
@@ -274,6 +337,7 @@ function BasicStep({
   weight: number;
   motorKV: number;
   notes: string;
+  flightStyle: FlightStyle;
   onNameChange: (value: string) => void;
   onSizeChange: (value: DroneSize) => void;
   onPropSizeChange: (value: string) => void;
@@ -281,6 +345,7 @@ function BasicStep({
   onWeightChange: (value: number) => void;
   onMotorKVChange: (value: number) => void;
   onNotesChange: (value: string) => void;
+  onFlightStyleChange: (value: FlightStyle) => void;
   onBack: () => void;
   onContinue: () => void;
   canContinue: boolean;
@@ -363,6 +428,8 @@ function BasicStep({
         />
       </div>
 
+      <FlightStyleSelector value={flightStyle} onChange={onFlightStyleChange} />
+
       <div className="wizard-form-group">
         <label>Notes</label>
         <textarea
@@ -390,6 +457,12 @@ function BasicStep({
 }
 
 // Review step
+const FLIGHT_STYLE_LABELS: Record<FlightStyle, string> = {
+  smooth: 'Smooth',
+  balanced: 'Balanced',
+  aggressive: 'Aggressive',
+};
+
 function ReviewStep({
   method,
   presetId,
@@ -401,6 +474,7 @@ function ReviewStep({
   weight,
   motorKV,
   notes,
+  flightStyle,
   onBack,
   onCreate
 }: {
@@ -414,6 +488,7 @@ function ReviewStep({
   weight: number;
   motorKV: number;
   notes: string;
+  flightStyle: FlightStyle;
   onBack: () => void;
   onCreate: () => void;
 }) {
@@ -460,6 +535,11 @@ function ReviewStep({
         <div className="review-row">
           <div className="review-label">Motor KV</div>
           <div className="review-value">{method === 'preset' ? preset?.motorKV : motorKV}</div>
+        </div>
+
+        <div className="review-row">
+          <div className="review-label">Flying Style</div>
+          <div className="review-value">{FLIGHT_STYLE_LABELS[flightStyle]}</div>
         </div>
 
         {notes && (
