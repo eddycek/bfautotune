@@ -175,6 +175,25 @@ export const RINGING_MAX_COUNT = 2;
 /** Maximum acceptable settling time (ms) — feed-forward makes 150-200ms normal */
 export const SETTLING_MAX_MS = 200;
 
+// ---- PID Style Thresholds ----
+
+import type { FlightStyle } from '@shared/types/profile.types';
+
+export interface PIDStyleThresholds {
+  overshootIdeal: number;
+  overshootMax: number;
+  settlingMax: number;
+  ringingMax: number;
+  moderateOvershoot: number;
+  sluggishRise: number;
+}
+
+export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
+  smooth:     { overshootIdeal: 3,  overshootMax: 12, settlingMax: 250, ringingMax: 1, moderateOvershoot: 8,  sluggishRise: 120 },
+  balanced:   { overshootIdeal: 10, overshootMax: 25, settlingMax: 200, ringingMax: 2, moderateOvershoot: 15, sluggishRise: 80  },
+  aggressive: { overshootIdeal: 18, overshootMax: 35, settlingMax: 150, ringingMax: 3, moderateOvershoot: 25, sluggishRise: 50  },
+} as const;
+
 // ---- PID Safety Bounds ----
 
 /** Minimum P gain */
