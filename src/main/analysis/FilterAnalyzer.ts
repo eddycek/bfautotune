@@ -8,6 +8,7 @@ import type { BlackboxFlightData } from '@shared/types/blackbox.types';
 import type {
   FilterAnalysisResult,
   AnalysisProgress,
+  AnalysisWarning,
   CurrentFilterSettings,
   PowerSpectrum,
 } from '@shared/types/analysis.types';
@@ -50,8 +51,13 @@ export async function analyze(
   const usedSegments = segments.slice(0, MAX_SEGMENTS);
 
   if (usedSegments.length === 0) {
-    // No steady segments found — analyze the entire flight as one segment
-    return analyzeEntireFlight(flightData, sessionIndex, currentSettings, startTime, onProgress);
+    // No steady segments found — analyze the entire flight as one segment (with warning)
+    const warnings: AnalysisWarning[] = [{
+      code: 'no_sweep_segments',
+      message: 'No hover or throttle sweep segments found. The entire flight was analyzed, which may include stick transients and reduce accuracy. For best results, fly gentle hovers with smooth throttle sweeps.',
+      severity: 'warning',
+    }];
+    return analyzeEntireFlight(flightData, sessionIndex, currentSettings, startTime, onProgress, warnings);
   }
 
   // Yield to event loop
@@ -117,7 +123,8 @@ async function analyzeEntireFlight(
   sessionIndex: number,
   currentSettings: CurrentFilterSettings,
   startTime: number,
-  onProgress?: (progress: AnalysisProgress) => void
+  onProgress?: (progress: AnalysisProgress) => void,
+  warnings?: AnalysisWarning[]
 ): Promise<FilterAnalysisResult> {
   onProgress?.({ step: 'fft', percent: 30 });
 
@@ -152,6 +159,7 @@ async function analyzeEntireFlight(
     analysisTimeMs: Math.round(performance.now() - startTime),
     sessionIndex,
     segmentsUsed: 0,
+    warnings,
   };
 }
 

@@ -209,6 +209,35 @@ describe('analyze', () => {
     expect(result.noise).toBeDefined();
   });
 
+  it('should include no_sweep_segments warning when falling back to entire flight', async () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      durationS: 2,
+      throttle: 0.05, // Below hover threshold — no segments found
+      backgroundNoise: 0.5,
+    });
+
+    const result = await analyze(data, 0);
+    expect(result.segmentsUsed).toBe(0);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.length).toBeGreaterThan(0);
+    expect(result.warnings![0].code).toBe('no_sweep_segments');
+    expect(result.warnings![0].severity).toBe('warning');
+  });
+
+  it('should not include warnings when segments are found', async () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      durationS: 3,
+      throttle: 0.5,
+      backgroundNoise: 0.5,
+    });
+
+    const result = await analyze(data, 0);
+    // Either no warnings field or empty array
+    expect(result.warnings?.length ?? 0).toBe(0);
+  });
+
   it('should produce deterministic noise levels for clean vs noisy signals', async () => {
     const cleanData = createFlightData({
       sampleRate: 4000,

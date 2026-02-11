@@ -177,6 +177,17 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             </span>
           </div>
 
+          {overview.filterResult.warnings && overview.filterResult.warnings.length > 0 && (
+            <div className="analysis-warnings">
+              {overview.filterResult.warnings.map((w, i) => (
+                <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
+                  <span className="analysis-warning-icon">{w.severity === 'error' ? '\u274C' : '\u26A0\uFE0F'}</span>
+                  <span>{w.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <button
             className="noise-details-toggle"
             onClick={() => setNoiseDetailsOpen(!noiseDetailsOpen)}
