@@ -3,6 +3,7 @@
  */
 
 import type { PIDConfiguration } from './pid.types';
+import type { FlightStyle } from './profile.types';
 
 
 /** Power spectrum for one axis */
@@ -254,6 +255,8 @@ export interface PIDAnalysisResult {
   currentPIDs: PIDConfiguration;
   /** Feedforward context detected from flight log */
   feedforwardContext?: FeedforwardContext;
+  /** Flying style used for threshold calibration */
+  flightStyle?: FlightStyle;
   /** Data quality warnings */
   warnings?: AnalysisWarning[];
 }
