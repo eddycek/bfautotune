@@ -3,7 +3,7 @@ import { SerialPort } from 'serialport';
 import { MSPConnection } from './MSPConnection';
 import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
-import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { BlackboxInfo } from '@shared/types/blackbox.types';
 import { ConnectionError, MSPError, TimeoutError } from '../utils/errors';
@@ -521,6 +521,53 @@ export class MSPClient extends EventEmitter {
 
     logger.info('Filter configuration read:', settings);
     return settings;
+  }
+
+  /**
+   * Read feedforward configuration from flight controller via MSP_PID_ADVANCED.
+   *
+   * Byte layout (BF 4.3+, API 1.44+, from betaflight-configurator MSPHelper.js):
+   *  0-1:  U16 (reserved)        14-15: U16 pidMaxVelocity
+   *  2-3:  U16 (reserved)        16-17: U16 pidMaxVelocityYaw
+   *  4-5:  U16 (reserved)        18:    U8  levelAngleLimit
+   *  6:    U8  (reserved)        19:    U8  levelSensitivity
+   *  7:    U8  vbatPidComp       20-21: U16 (reserved)
+   *  8:    U8  ffTransition      22-23: U16 antiGravityGain
+   *  9-10: U16 (reserved)        24-25: U16 ffRoll
+   * 11:    U8  (reserved)        26-27: U16 ffPitch
+   * 12:    U8  (reserved)        28-29: U16 ffYaw
+   * 13:    U8  (reserved)        30:    U8  antiGravityMode
+   *
+   * 31-33: U8×3 d_min[R/P/Y]    40:    U8  ffAveraging
+   * 34:    U8  d_min_gain        41:    U8  ffSmoothFactor
+   * 35:    U8  d_min_advance     42:    U8  ffBoost
+   * 36:    U8  integratedYaw     43:    U8  ffMaxRateLimit
+   * 37:    U8  motorOutLimit     44:    U8  ffJitterFactor
+   * 38:    U8  autoProfCellCnt
+   * 39:    U8  idleMinRpm
+   */
+  async getFeedforwardConfiguration(): Promise<FeedforwardConfiguration> {
+    const response = await this.connection.sendCommand(MSPCommand.MSP_PID_ADVANCED);
+
+    if (response.data.length < 45) {
+      throw new MSPError(
+        `Invalid MSP_PID_ADVANCED response - expected at least 45 bytes, got ${response.data.length}`
+      );
+    }
+
+    const config: FeedforwardConfiguration = {
+      transition: response.data.readUInt8(8),
+      rollGain: response.data.readUInt16LE(24),
+      pitchGain: response.data.readUInt16LE(26),
+      yawGain: response.data.readUInt16LE(28),
+      boost: response.data.readUInt8(42),
+      smoothFactor: response.data.readUInt8(41),
+      jitterFactor: response.data.readUInt8(44),
+      maxRateLimit: response.data.readUInt8(43),
+    };
+
+    logger.info('Feedforward configuration read:', config);
+    return config;
   }
 
   /**

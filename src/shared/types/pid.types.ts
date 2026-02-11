@@ -16,3 +16,21 @@ export interface PIDConfiguration {
   pitch: PIDTerm;
   yaw: PIDTerm;
 }
+
+/** Feedforward configuration from MSP_PID_ADVANCED (BF 4.3+, API 1.44+) */
+export interface FeedforwardConfiguration {
+  /** Center-stick FF attenuation (0-100) */
+  transition: number;
+  /** Per-axis FF gains */
+  rollGain: number;
+  pitchGain: number;
+  yawGain: number;
+  /** Stick acceleration component (default 15) */
+  boost: number;
+  /** FF smoothing (default 37) */
+  smoothFactor: number;
+  /** Dynamic attenuation for slow inputs (default 7) */
+  jitterFactor: number;
+  /** Predictive overshoot prevention (default 100) */
+  maxRateLimit: number;
+}
