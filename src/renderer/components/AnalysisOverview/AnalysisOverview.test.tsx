@@ -382,6 +382,43 @@ describe('AnalysisOverview', () => {
     });
   });
 
+  it('renders feedforward_active warning in PID section', async () => {
+    const pidWithFF: PIDAnalysisResult = {
+      ...mockPIDResult,
+      feedforwardContext: { active: true, boost: 15 },
+      warnings: [
+        {
+          code: 'feedforward_active',
+          message: 'Feedforward is active on this flight.',
+          severity: 'info',
+        },
+      ],
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithFF);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Feedforward is active on this flight.')).toBeInTheDocument();
+    });
+  });
+
+  it('does not render PID warnings when none present', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/step inputs detected/)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Feedforward is active/)).not.toBeInTheDocument();
+  });
+
   it('shows axis summary cards for filter results', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);

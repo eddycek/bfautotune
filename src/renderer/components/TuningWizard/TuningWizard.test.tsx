@@ -378,6 +378,30 @@ describe('TuningWizard', () => {
     expect(screen.getByText('pid_roll_p')).toBeInTheDocument();
   });
 
+  it('renders feedforward_active warning in PID results', async () => {
+    const pidWithFF: PIDAnalysisResult = {
+      ...mockPIDResult,
+      feedforwardContext: { active: true, boost: 15 },
+      warnings: [
+        {
+          code: 'feedforward_active',
+          message: 'Feedforward is active on this flight.',
+          severity: 'info',
+        },
+      ],
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithFF);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToPIDResults(user);
+
+    expect(screen.getByText('Feedforward is active on this flight.')).toBeInTheDocument();
+  });
+
   it('reaches summary step with all recommendations', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);

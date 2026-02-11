@@ -284,6 +284,19 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             {overview.pidResult.stepsDetected} step inputs detected across all axes.
           </p>
 
+          {overview.pidResult.warnings && overview.pidResult.warnings.length > 0 && (
+            <div className="analysis-warnings">
+              {overview.pidResult.warnings.map((w, i) => (
+                <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
+                  <span className="analysis-warning-icon">
+                    {w.severity === 'error' ? '\u274C' : w.severity === 'info' ? '\u2139\uFE0F' : '\u26A0\uFE0F'}
+                  </span>
+                  <span>{w.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {overview.pidResult.currentPIDs && (
             <>
               <h4 className="current-pids-heading">Current PID Values</h4>
