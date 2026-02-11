@@ -5,6 +5,11 @@ export interface PIDTerm {
   D: number;
 }
 
+/** PID term extended with feedforward gain */
+export interface PIDFTerm extends PIDTerm {
+  F: number;
+}
+
 /** PID configuration for all axes */
 export interface PIDConfiguration {
   roll: PIDTerm;

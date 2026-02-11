@@ -60,7 +60,7 @@ export interface FilterRecommendation {
 
 /** A warning about data quality or configuration issues */
 export interface AnalysisWarning {
-  code: 'low_logging_rate' | 'wrong_debug_mode' | 'no_sweep_segments' | 'few_steps';
+  code: 'low_logging_rate' | 'wrong_debug_mode' | 'no_sweep_segments' | 'few_steps' | 'feedforward_active';
   message: string;
   severity: 'info' | 'warning' | 'error';
 }
@@ -128,6 +128,18 @@ export const DEFAULT_FILTER_SETTINGS: CurrentFilterSettings = {
   dyn_notch_min_hz: 100,
   dyn_notch_max_hz: 600,
 };
+
+/** Feedforward state detected from BBL headers */
+export interface FeedforwardContext {
+  /** Whether FF is meaningfully active (any axis has F > 0 or boost > 0) */
+  active: boolean;
+  /** Per-axis F gains (if available) */
+  fGains?: { roll: number; pitch: number; yaw: number };
+  /** FF boost value */
+  boost?: number;
+  /** FF max rate limit */
+  maxRateLimit?: number;
+}
 
 // ---- PID Step Response Analysis Types ----
 
@@ -227,6 +239,8 @@ export interface PIDAnalysisResult {
   stepsDetected: number;
   /** Current PID configuration used for analysis */
   currentPIDs: PIDConfiguration;
+  /** Feedforward context detected from flight log */
+  feedforwardContext?: FeedforwardContext;
   /** Data quality warnings */
   warnings?: AnalysisWarning[];
 }
