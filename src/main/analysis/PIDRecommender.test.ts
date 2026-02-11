@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { recommendPID, generatePIDSummary, extractFlightPIDs } from './PIDRecommender';
+import { recommendPID, generatePIDSummary, extractFlightPIDs, extractFeedforwardContext } from './PIDRecommender';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { AxisStepProfile, StepResponse, StepEvent } from '@shared/types/analysis.types';
 import { P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
@@ -340,6 +340,44 @@ describe('PIDRecommender', () => {
       expect(result!.pitch).toEqual({ P: 47, I: 0, D: 32 });
       // Missing D → undefined → 0
       expect(result!.yaw).toEqual({ P: 45, I: 80, D: 0 });
+    });
+  });
+
+  describe('extractFeedforwardContext', () => {
+    it('should detect FF active when boost > 0', () => {
+      const headers = new Map<string, string>();
+      headers.set('feedforward_boost', '15');
+      headers.set('feedforward_max_rate_limit', '100');
+
+      const ctx = extractFeedforwardContext(headers);
+      expect(ctx.active).toBe(true);
+      expect(ctx.boost).toBe(15);
+      expect(ctx.maxRateLimit).toBe(100);
+    });
+
+    it('should detect FF inactive when boost is 0', () => {
+      const headers = new Map<string, string>();
+      headers.set('feedforward_boost', '0');
+
+      const ctx = extractFeedforwardContext(headers);
+      expect(ctx.active).toBe(false);
+      expect(ctx.boost).toBe(0);
+    });
+
+    it('should detect FF inactive when headers are missing', () => {
+      const ctx = extractFeedforwardContext(new Map());
+      expect(ctx.active).toBe(false);
+      expect(ctx.boost).toBeUndefined();
+      expect(ctx.maxRateLimit).toBeUndefined();
+    });
+
+    it('should handle non-numeric header values gracefully', () => {
+      const headers = new Map<string, string>();
+      headers.set('feedforward_boost', 'abc');
+
+      const ctx = extractFeedforwardContext(headers);
+      expect(ctx.active).toBe(false);
+      expect(ctx.boost).toBeUndefined();
     });
   });
 
