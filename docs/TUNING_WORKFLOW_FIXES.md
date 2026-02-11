@@ -14,8 +14,8 @@ Tracking document for fixing the two-flight tuning workflow orchestration issues
 | P2 | Critical | Download/Analyze blocked during tuning session (readonly) | ✅ Done (PR #42) |
 | P1 | Critical | Phase transitions after apply never happen | ✅ Done (PR #43) |
 | P3 | Medium | appliedFilterChanges/PIDChanges never populated | ✅ Done (PR #43) |
-| P4 | Low | No flight type validation warning in filter analysis | 🔴 TODO |
-| P5 | Low | No post-apply snapshot | 🔴 TODO |
+| P4 | Low | No flight type validation warning in filter analysis | ✅ Done (PR #44) |
+| P5 | Low | No post-apply snapshot | ✅ Done (PR #45) |
 
 ---
 

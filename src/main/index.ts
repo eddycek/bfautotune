@@ -92,16 +92,28 @@ async function initialize(): Promise<void> {
         logger.info('Creating baseline for existing profile...');
         await snapshotManager.createBaselineIfMissing();
 
-        // Smart reconnect: check if tuning session is waiting for flight data
+        // Smart reconnect: check tuning session state
         try {
           const session = await tuningSessionManager.getSession(existingProfile.id);
-          if (session && (session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending')) {
-            const bbInfo = await mspClient.getBlackboxInfo();
-            if (bbInfo.hasLogs && bbInfo.usedSize > 0) {
-              const nextPhase = session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
-              logger.info(`Smart reconnect: flash has data, transitioning ${session.phase} → ${nextPhase}`);
-              const updated = await tuningSessionManager.updatePhase(existingProfile.id, nextPhase);
-              sendTuningSessionChanged(updated);
+          if (session) {
+            // Auto-transition from *_flight_pending → *_log_ready if flash has data
+            if (session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending') {
+              const bbInfo = await mspClient.getBlackboxInfo();
+              if (bbInfo.hasLogs && bbInfo.usedSize > 0) {
+                const nextPhase = session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
+                logger.info(`Smart reconnect: flash has data, transitioning ${session.phase} → ${nextPhase}`);
+                const updated = await tuningSessionManager.updatePhase(existingProfile.id, nextPhase);
+                sendTuningSessionChanged(updated);
+              }
+            }
+
+            // Create post-apply snapshot on first reconnect after tuning apply
+            if (session.phase === 'filter_applied' || session.phase === 'pid_applied') {
+              const label = session.phase === 'filter_applied'
+                ? 'Post-filter-tune (auto)'
+                : 'Post-PID-tune (auto)';
+              logger.info(`Creating post-apply snapshot: ${label}`);
+              await snapshotManager.createSnapshot(label, 'auto');
             }
           }
         } catch (err) {
