@@ -48,24 +48,6 @@ describe('SnapshotDiffModal', () => {
     expect(screen.getByText('After tune')).toBeInTheDocument();
   });
 
-  it('displays only relevant legend badges', () => {
-    render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
-    // This diff has added, changed, and removed entries → all badges visible
-    expect(screen.getByText('Added')).toBeInTheDocument();
-    expect(screen.getByText('Changed')).toBeInTheDocument();
-    expect(screen.getByText('Reset to default')).toBeInTheDocument();
-  });
-
-  it('hides legend badges for statuses with zero entries', () => {
-    // Only changed entries (no added, no removed)
-    const a = makeSnapshot({ id: 'x', label: 'A', cliDiff: 'set gyro_lpf1_static_hz = 150' });
-    const b = makeSnapshot({ id: 'y', label: 'B', cliDiff: 'set gyro_lpf1_static_hz = 200' });
-    render(<SnapshotDiffModal snapshotA={a} snapshotB={b} onClose={vi.fn()} />);
-    expect(screen.getByText('Changed')).toBeInTheDocument();
-    expect(screen.queryByText('Added')).not.toBeInTheDocument();
-    expect(screen.queryByText('Reset to default')).not.toBeInTheDocument();
-  });
-
   it('displays summary counts', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
     // gyro_lpf1 changed, feature GPS removed (reset to default), feature TELEMETRY added

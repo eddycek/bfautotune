@@ -36,12 +36,6 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
           </div>
         </div>
 
-        <div className="snapshot-diff-legend">
-          {addedCount > 0 && <span className="diff-badge diff-badge-added">Added</span>}
-          {changedCount > 0 && <span className="diff-badge diff-badge-changed">Changed</span>}
-          {removedCount > 0 && <span className="diff-badge diff-badge-removed">Reset to default</span>}
-        </div>
-
         <div className="snapshot-diff-summary">
           {summaryParts.join(', ') || 'No changes'}
         </div>
