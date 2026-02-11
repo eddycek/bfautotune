@@ -105,6 +105,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | P/D balance: run guided stick snap flights; compute step responses; recommend P/D adjustments | :white_check_mark: | Step detection + metrics + scoring + recommendations + interactive step response chart |
+| Flight style-aware PID thresholds (smooth/balanced/aggressive) | :white_check_mark: | Per-profile FlightStyle selector, style-based PID_STYLE_THRESHOLDS map, preset defaults, UI context display |
 | D sweep multi-log comparison (vary D, compare response quality) | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
 | Master gain step: scale P/D together; detect onset of oscillation | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
 | Restore and tune secondary parameters (FF, I, anti-gravity, etc.) | :construction: | FF detection from BBL headers, FF-aware PID recommendations (skip P/D when FF-dominated), MSP_PID_ADVANCED read, FF config display in FC Info. FF/I write-back not yet implemented. |
@@ -251,7 +252,7 @@ High-level user journey:
 - TuningWorkflowModal (two-flight workflow preparation)
 
 ### Phase 4: Stateful Two-Flight Tuning Workflow :white_check_mark:
-**Status:** Complete | **PRs:** #31–#62 | **Tests:** 881 across 47 files
+**Status:** Complete | **PRs:** #31–#78 | **Tests:** 963 across 52 files
 
 - TuningSessionManager (10-phase state machine, per-profile persistence)
 - TuningStatusBanner (dashboard banner with step indicator, action buttons)
@@ -264,6 +265,8 @@ High-level user journey:
 - Feedforward awareness: FF detection from BBL headers, FF-dominated overshoot classification, FF-aware PID recommendations (PRs #55–#60)
 - MSP_PID_ADVANCED read: feedforward configuration via MSP command 94 (PR #61)
 - Feedforward display in FC Info panel: boost, per-axis gains, smoothing, jitter, transition, max rate limit (PR #62)
+- RPM filter awareness: RPM state detection via MSP/BBL headers, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics (PRs #66–#70)
+- Flight style preferences: Smooth/Balanced/Aggressive selector in profiles, style-based PID thresholds, preset defaults, UI context display (PRs #71–#78)
 
 ### Phase 5: Complete Manual Testing & UX Polish :x:
 **Status:** Not started
@@ -320,7 +323,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 11, 2026 | **Tests:** 881 across 47 files | **PRs Merged:** #1–#62
+**Last Updated:** February 11, 2026 | **Tests:** 963 across 52 files | **PRs Merged:** #1–#78
 
 | Phase | Status | Notes |
 |-------|--------|-------|
