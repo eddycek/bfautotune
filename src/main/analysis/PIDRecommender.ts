@@ -5,7 +5,7 @@
  * beginner-friendly PID tuning recommendations with safety bounds.
  */
 import type { PIDConfiguration } from '@shared/types/pid.types';
-import type { AxisStepProfile, PIDRecommendation } from '@shared/types/analysis.types';
+import type { AxisStepProfile, FeedforwardContext, PIDRecommendation } from '@shared/types/analysis.types';
 import {
   OVERSHOOT_IDEAL_PERCENT,
   OVERSHOOT_MAX_PERCENT,
@@ -214,6 +214,35 @@ export function extractFlightPIDs(
   };
 
   return { roll: parse(rollPID), pitch: parse(pitchPID), yaw: parse(yawPID) };
+}
+
+/**
+ * Extract feedforward context from BBL raw headers.
+ *
+ * BF 4.3+ logs feedforward parameters in the blackbox header.
+ * FF is considered "active" when boost > 0 (BF default is 15).
+ * Missing headers are treated as FF inactive (graceful fallback for older FW).
+ */
+export function extractFeedforwardContext(
+  rawHeaders: Map<string, string>
+): FeedforwardContext {
+  const boost = parseIntOr(rawHeaders.get('feedforward_boost'));
+  const maxRateLimit = parseIntOr(rawHeaders.get('feedforward_max_rate_limit'));
+
+  const active = (boost ?? 0) > 0;
+
+  return {
+    active,
+    ...(boost !== undefined ? { boost } : {}),
+    ...(maxRateLimit !== undefined ? { maxRateLimit } : {}),
+  };
+}
+
+/** Parse an integer from a string, returning undefined if missing or NaN. */
+function parseIntOr(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? undefined : n;
 }
 
 function clamp(value: number, min: number, max: number): number {
