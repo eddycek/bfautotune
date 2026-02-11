@@ -102,17 +102,17 @@ export async function analyzePID(
 
   await yieldToEventLoop();
 
-  // Step 3: Generate recommendations
-  onProgress?.({ step: 'scoring', percent: 80 });
-  const recommendations = recommendPID(roll, pitch, yaw, currentPIDs, flightPIDs);
-  const summary = generatePIDSummary(roll, pitch, yaw, recommendations);
-
-  onProgress?.({ step: 'scoring', percent: 100 });
-
-  // Extract feedforward context and generate warnings
+  // Extract feedforward context before recommendations (needed for FF-aware rules)
   const feedforwardContext = rawHeaders
     ? extractFeedforwardContext(rawHeaders)
     : undefined;
+
+  // Step 3: Generate recommendations
+  onProgress?.({ step: 'scoring', percent: 80 });
+  const recommendations = recommendPID(roll, pitch, yaw, currentPIDs, flightPIDs, feedforwardContext);
+  const summary = generatePIDSummary(roll, pitch, yaw, recommendations);
+
+  onProgress?.({ step: 'scoring', percent: 100 });
 
   const warnings: AnalysisWarning[] = [];
   if (feedforwardContext?.active) {

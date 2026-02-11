@@ -37,7 +37,8 @@ export function recommendPID(
   pitch: AxisStepProfile,
   yaw: AxisStepProfile,
   currentPIDs: PIDConfiguration,
-  flightPIDs?: PIDConfiguration
+  flightPIDs?: PIDConfiguration,
+  feedforwardContext?: FeedforwardContext
 ): PIDRecommendation[] {
   const recommendations: PIDRecommendation[] = [];
   const profiles = [roll, pitch, yaw] as const;
@@ -52,14 +53,37 @@ export function recommendPID(
     // Skip axes with no step data
     if (profile.responses.length === 0) continue;
 
+    // Check if overshoot on this axis is FF-dominated (majority of steps)
+    const ffClassified = profile.responses.filter(r => r.ffDominated !== undefined);
+    const ffDominatedCount = ffClassified.filter(r => r.ffDominated === true).length;
+    const axisFFDominated = ffClassified.length > 0 && ffDominatedCount > ffClassified.length / 2;
+
     // Yaw is analyzed with relaxed thresholds
     const isYaw = axis === 2;
     const overshootThreshold = isYaw ? OVERSHOOT_MAX_PERCENT * 1.5 : OVERSHOOT_MAX_PERCENT;
     const moderateOvershoot = isYaw ? OVERSHOOT_MAX_PERCENT : 15;
     const sluggishRiseMs = isYaw ? 120 : 80;
 
-    // Rule 1: Severe overshoot → D-first strategy (BF guide: increase D for bounce-back)
-    if (profile.meanOvershoot > overshootThreshold) {
+    // FF-dominated overshoot: skip P/D rules, recommend FF adjustment instead
+    if (axisFFDominated && profile.meanOvershoot > moderateOvershoot) {
+      const boost = feedforwardContext?.boost;
+      // Only emit feedforward_boost recommendation once (not per-axis)
+      const existingFFRec = recommendations.find(r => r.setting === 'feedforward_boost');
+      if (!existingFFRec && boost !== undefined && boost > 0) {
+        const targetBoost = Math.max(0, boost - 5);
+        recommendations.push({
+          setting: 'feedforward_boost',
+          currentValue: boost,
+          recommendedValue: targetBoost,
+          reason: `Overshoot on ${axisName} appears to be caused by feedforward, not P/D imbalance (${Math.round(profile.meanOvershoot)}%). Reducing feedforward_boost will tame the overshoot without losing PID responsiveness.`,
+          impact: 'stability',
+          confidence: 'medium',
+        });
+      }
+      // Skip P/D overshoot rules for this axis (continue to other rules)
+      // Still check ringing and settling which are PID-related
+    } else if (profile.meanOvershoot > overshootThreshold) {
+      // Rule 1: Severe overshoot → D-first strategy (non-FF case)
       // Always increase D first (anchored to flight PIDs)
       const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
       if (targetD !== pids.D) {

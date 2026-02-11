@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { recommendPID, generatePIDSummary, extractFlightPIDs, extractFeedforwardContext } from './PIDRecommender';
 import type { PIDConfiguration } from '@shared/types/pid.types';
-import type { AxisStepProfile, StepResponse, StepEvent } from '@shared/types/analysis.types';
+import type { AxisStepProfile, FeedforwardContext, StepResponse, StepEvent } from '@shared/types/analysis.types';
 import { P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
 
 function makeStep(): StepEvent {
@@ -297,6 +297,58 @@ describe('PIDRecommender', () => {
 
       // Should still produce recommendations when flightPIDs is undefined
       expect(recs.length).toBeGreaterThan(0);
+    });
+
+    // --- FF-aware recommendation tests ---
+
+    it('should recommend feedforward_boost reduction for FF-dominated overshoot', () => {
+      const ffResponse = makeResponse({ overshootPercent: 30, ffDominated: true });
+      const profile = makeProfile({
+        responses: [ffResponse],
+        meanOvershoot: 30,
+      });
+      const ffContext: FeedforwardContext = { active: true, boost: 15 };
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, ffContext);
+
+      const ffRec = recs.find(r => r.setting === 'feedforward_boost');
+      expect(ffRec).toBeDefined();
+      expect(ffRec!.recommendedValue).toBe(10);
+      expect(ffRec!.reason).toContain('feedforward');
+      // Should NOT have P/D recommendations for this axis
+      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const pRec = recs.find(r => r.setting === 'pid_roll_p');
+      expect(dRec).toBeUndefined();
+      expect(pRec).toBeUndefined();
+    });
+
+    it('should not recommend FF changes when overshoot is P-dominated', () => {
+      const pResponse = makeResponse({ overshootPercent: 30, ffDominated: false });
+      const profile = makeProfile({
+        responses: [pResponse],
+        meanOvershoot: 30,
+      });
+      const ffContext: FeedforwardContext = { active: true, boost: 15 };
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, ffContext);
+
+      const ffRec = recs.find(r => r.setting === 'feedforward_boost');
+      expect(ffRec).toBeUndefined();
+      // Should have normal D recommendation
+      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+    });
+
+    it('should emit feedforward_boost recommendation only once across axes', () => {
+      const ffResponse = makeResponse({ overshootPercent: 30, ffDominated: true });
+      const rollProfile = makeProfile({ responses: [ffResponse], meanOvershoot: 30 });
+      const pitchProfile = makeProfile({ responses: [ffResponse], meanOvershoot: 30 });
+      const ffContext: FeedforwardContext = { active: true, boost: 15 };
+
+      const recs = recommendPID(rollProfile, pitchProfile, emptyProfile(), DEFAULT_PIDS, undefined, ffContext);
+
+      const ffRecs = recs.filter(r => r.setting === 'feedforward_boost');
+      expect(ffRecs.length).toBe(1);
     });
   });
 
