@@ -153,14 +153,14 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 858 tests across 47 files** (last verified: February 11, 2026)
+**Total: 881 tests across 47 files** (last verified: February 11, 2026)
 
 ### UI Components
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 12 | Connection flow, port scanning, cooldown |
-| `FCInfo/FCInfoDisplay.test.tsx` | 21 | FC information display, CLI export, diagnostics, version-aware debug mode |
+| `FCInfo/FCInfoDisplay.test.tsx` | 24 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config |
 | `BlackboxStatus/BlackboxStatus.test.tsx` | 14 | Blackbox status, download trigger, readonly mode |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 15 | Profile editing, validation, form handling |
@@ -171,11 +171,11 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
 | `TuningStatusBanner/TuningStatusBanner.test.tsx` | 22 | Workflow banner, step indicator, actions, downloading, applied phases |
-| `TuningWizard/TuningWizard.test.tsx` | 42 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete |
+| `TuningWizard/TuningWizard.test.tsx` | 43 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete, FF warning |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
-| `AnalysisOverview/AnalysisOverview.test.tsx` | 15 | Diagnostic-only analysis view, auto-parse, session picker |
+| `AnalysisOverview/AnalysisOverview.test.tsx` | 17 | Diagnostic-only analysis view, auto-parse, session picker, FF warning |
 
 ### Charts
 
@@ -206,7 +206,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `msp/MSPClient.test.ts` | 8 | Filter config parsing, flash payload extraction |
+| `msp/MSPClient.test.ts` | 11 | Filter config parsing, flash payload extraction, feedforward config |
 
 ### Storage
 
@@ -242,9 +242,9 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
-| `analysis/StepMetrics.test.ts` | 19 | Rise time, overshoot, settling, latency, ringing |
-| `analysis/PIDRecommender.test.ts` | 25 | Flight PID anchoring, convergence, safety bounds |
-| `analysis/PIDAnalyzer.test.ts` | 10 | End-to-end pipeline, progress reporting |
+| `analysis/StepMetrics.test.ts` | 22 | Rise time, overshoot, settling, latency, ringing, FF contribution classification |
+| `analysis/PIDRecommender.test.ts` | 32 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations |
+| `analysis/PIDAnalyzer.test.ts` | 14 | End-to-end pipeline, progress reporting, FF context wiring |
 
 ### Header Validation
 
