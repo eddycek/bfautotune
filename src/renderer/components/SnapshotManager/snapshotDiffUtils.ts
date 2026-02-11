@@ -76,7 +76,7 @@ export function computeDiff(
 
   for (const [key, oldValue] of before) {
     if (!after.has(key)) {
-      entries.push({ key, oldValue, newValue: '(default)', status: 'changed' });
+      entries.push({ key, oldValue, status: 'removed' });
     }
   }
 
