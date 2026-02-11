@@ -153,14 +153,15 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 963 tests across 52 files** (last verified: February 11, 2026)
+**Total: 987 tests across 55 files** (last verified: February 11, 2026)
 
 ### UI Components
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 12 | Connection flow, port scanning, cooldown |
-| `FCInfo/FCInfoDisplay.test.tsx` | 24 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config |
+| `FCInfo/FCInfoDisplay.test.tsx` | 30 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix settings button |
+| `FCInfo/FixSettingsConfirmModal.test.tsx` | 4 | Fix settings confirmation modal, reboot warning, confirm/cancel |
 | `BlackboxStatus/BlackboxStatus.test.tsx` | 14 | Blackbox status, download trigger, readonly mode |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 18 | Profile editing, validation, form handling, flight style selector |
@@ -170,7 +171,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
-| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 22 | Workflow banner, step indicator, actions, downloading, applied phases |
+| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 28 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning |
 | `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete, FF warning, RPM status, flight style display |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
@@ -203,6 +204,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useTuningWizard.test.ts` | 22 | Wizard state, parse/analyze/apply lifecycle |
 | `hooks/useTuningSession.test.ts` | 8 | Tuning session lifecycle, IPC events |
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
+| `utils/bbSettingsUtils.test.ts` | 13 | BB settings status computation, version-aware debug mode, fix commands |
 
 ### MSP Client
 

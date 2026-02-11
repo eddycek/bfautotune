@@ -2,9 +2,9 @@
 
 Collected ideas for improving the tuning workflow UX. Roughly prioritized by impact.
 
-## 1. Pre-Flight Blackbox Settings Check
+## ~~1. Pre-Flight Blackbox Settings Check~~ :white_check_mark: Done
 
-Check `debug_mode` and `logging_rate` in `TuningStatusBanner` during `*_flight_pending` phases before allowing "Erase Flash". Warn or offer one-click fix if settings are wrong (e.g., `debug_mode` not `GYRO_SCALED`). Prevents wasted flights with unusable data.
+Implemented: FCInfoDisplay shows "Fix Settings" button when blackbox settings are wrong. TuningStatusBanner shows amber pre-flight warning during `*_flight_pending` phases with one-click "Fix Settings" button. Both trigger `FC_FIX_BLACKBOX_SETTINGS` IPC → CLI commands → save & reboot.
 
 ## 2. Flight Type Validation After Download
 

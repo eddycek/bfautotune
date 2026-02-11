@@ -16,9 +16,12 @@ interface TuningStatusBannerProps {
   flashErased?: boolean;
   erasing?: boolean;
   downloading?: boolean;
+  bbSettingsOk?: boolean;
+  fixingSettings?: boolean;
   onAction: (action: TuningAction) => void;
   onViewGuide: (mode: TuningMode) => void;
   onReset: () => void;
+  onFixSettings?: () => void;
 }
 
 interface PhaseUI {
@@ -97,13 +100,15 @@ const PHASE_UI: Record<TuningPhase, PhaseUI> = {
   },
 };
 
-export function TuningStatusBanner({ session, flashErased, erasing, downloading, onAction, onViewGuide, onReset }: TuningStatusBannerProps) {
+export function TuningStatusBanner({ session, flashErased, erasing, downloading, bbSettingsOk, fixingSettings, onAction, onViewGuide, onReset, onFixSettings }: TuningStatusBannerProps) {
   const ui = PHASE_UI[session.phase];
   const isFlightPending = session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending';
   const showErasedState = flashErased && isFlightPending;
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
   // After erase, advance step: "Prepare" becomes done, "Flight" becomes current
   const activeStepIndex = showErasedState ? ui.stepIndex + 1 : ui.stepIndex;
+
+  const showBBWarning = isFlightPending && !showErasedState && bbSettingsOk === false;
 
   return (
     <div className="tuning-status-banner">
@@ -127,6 +132,20 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
       </div>
 
       <div className="tuning-status-body">
+        {showBBWarning && (
+          <div className="tuning-bb-warning">
+            <span>Blackbox settings need to be fixed before flying. Data may be unusable.</span>
+            {onFixSettings && (
+              <button
+                className="wizard-btn wizard-btn-warning"
+                onClick={onFixSettings}
+                disabled={fixingSettings}
+              >
+                {fixingSettings ? 'Fixing...' : 'Fix Settings'}
+              </button>
+            )}
+          </div>
+        )}
         <p className="tuning-status-text">
           {showErasedState
             ? `Flash erased! Disconnect your drone and fly the ${flightType} test flight.`

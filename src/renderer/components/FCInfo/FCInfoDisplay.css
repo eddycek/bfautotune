@@ -84,6 +84,68 @@
   font-size: 13px;
 }
 
+.fc-bb-fix-btn {
+  margin-top: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  background: #2563eb;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.fc-bb-fix-btn:hover {
+  background: #1d4ed8;
+}
+
+.fc-bb-fixing {
+  font-size: 12px;
+  color: #60a5fa;
+  margin-top: 4px;
+}
+
+/* Fix Settings Confirm Modal */
+.fix-settings-modal {
+  max-width: 460px;
+}
+
+.fix-settings-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.fix-settings-cmd {
+  display: block;
+  padding: 6px 10px;
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 4px;
+  font-size: 13px;
+  color: #93c5fd;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.fix-settings-warning {
+  padding: 12px;
+  background: rgba(255, 212, 59, 0.1);
+  border: 1px solid rgba(255, 212, 59, 0.25);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #ffd43b;
+  margin-bottom: 24px;
+}
+
+.fix-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 /* Feedforward configuration section */
 .fc-ff-section {
   margin-top: 12px;

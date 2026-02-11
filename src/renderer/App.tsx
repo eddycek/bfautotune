@@ -10,12 +10,15 @@ import { TuningWizard } from './components/TuningWizard/TuningWizard';
 import { AnalysisOverview } from './components/AnalysisOverview/AnalysisOverview';
 import { TuningWorkflowModal } from './components/TuningWorkflowModal/TuningWorkflowModal';
 import { TuningStatusBanner } from './components/TuningStatusBanner/TuningStatusBanner';
+import { FixSettingsConfirmModal } from './components/FCInfo/FixSettingsConfirmModal';
+import { computeBBSettingsStatus } from './utils/bbSettingsUtils';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { useProfiles } from './hooks/useProfiles';
 import { useTuningSession } from './hooks/useTuningSession';
 import { useToast } from './hooks/useToast';
-import type { FCInfo } from '@shared/types/common.types';
+import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
+import type { BlackboxSettings } from '@shared/types/blackbox.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
 import type { TuningMode, AppliedChange } from '@shared/types/tuning.types';
 import type { TuningAction } from './components/TuningStatusBanner/TuningStatusBanner';
@@ -34,14 +37,31 @@ function AppContent() {
   const [erasedForPhase, setErasedForPhase] = useState<string | null>(null);
   const [erasing, setErasing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [bbSettings, setBbSettings] = useState<BlackboxSettings | null>(null);
+  const [fixingSettings, setFixingSettings] = useState(false);
+  const [showBannerFixConfirm, setShowBannerFixConfirm] = useState(false);
+  const [fcVersion, setFcVersion] = useState('');
   const { createProfile, createProfileFromPreset, updateProfile, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const toast = useToast();
+
+  const fetchBBSettings = (connStatus: ConnectionStatus) => {
+    if (connStatus.connected) {
+      setFcVersion(connStatus.fcInfo?.version || '');
+      window.betaflight.getBlackboxSettings()
+        .then(s => setBbSettings(s))
+        .catch(() => setBbSettings(null));
+    } else {
+      setBbSettings(null);
+      setFcVersion('');
+    }
+  };
 
   useEffect(() => {
     // Listen for connection changes
     const unsubscribeConnection = window.betaflight.onConnectionChanged((status) => {
       setIsConnected(status.connected);
+      fetchBBSettings(status);
     });
 
     // Listen for new FC detection
@@ -179,6 +199,21 @@ function AppContent() {
     }
   };
 
+  const bbStatus = computeBBSettingsStatus(bbSettings, fcVersion);
+
+  const handleBannerFixSettings = async () => {
+    setShowBannerFixConfirm(false);
+    setFixingSettings(true);
+    try {
+      await window.betaflight.fixBlackboxSettings({ commands: bbStatus.fixCommands });
+      toast.success('Blackbox settings fixed, FC rebooting');
+    } catch {
+      // FC reboots — reconnect will re-fetch settings
+    } finally {
+      setFixingSettings(false);
+    }
+  };
+
   const handleAnalyze = (logId: string) => {
     if (tuning.session) {
       // Active tuning session — open wizard in mode matching current phase
@@ -233,6 +268,9 @@ function AppContent() {
                 flashErased={erasedForPhase === tuning.session.phase}
                 erasing={erasing}
                 downloading={downloading}
+                bbSettingsOk={bbStatus.allOk}
+                fixingSettings={fixingSettings}
+                onFixSettings={() => setShowBannerFixConfirm(true)}
                 onAction={handleTuningAction}
                 onViewGuide={(mode) => setShowFlightGuideMode(mode)}
                 onReset={async () => {
@@ -284,6 +322,14 @@ function AppContent() {
 
       {showFlightGuideMode && (
         <TuningWorkflowModal onClose={() => setShowFlightGuideMode(null)} />
+      )}
+
+      {showBannerFixConfirm && bbStatus.fixCommands.length > 0 && (
+        <FixSettingsConfirmModal
+          commands={bbStatus.fixCommands}
+          onConfirm={handleBannerFixSettings}
+          onCancel={() => setShowBannerFixConfirm(false)}
+        />
       )}
 
       <ToastContainer />

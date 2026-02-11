@@ -352,6 +352,9 @@ await waitFor(() => {
 - Settings read from baseline snapshot CLI diff via `FC_GET_BLACKBOX_SETTINGS` IPC (not from live CLI session)
 - If setting not in diff → at BF default (debug_mode=NONE → warning, blackbox_sample_rate=1 → 4kHz OK)
 - Logging rate: `8000 / pid_process_denom / 2^blackbox_sample_rate`
+- **Fix Settings button**: When warnings present, shows "Fix Settings" → `FixSettingsConfirmModal` → `FC_FIX_BLACKBOX_SETTINGS` IPC (CLI commands + save & reboot)
+- **TuningStatusBanner pre-flight check**: During `*_flight_pending` phases, shows amber warning if `bbSettingsOk === false` with "Fix Settings" button
+- Shared logic in `src/renderer/utils/bbSettingsUtils.ts` (`computeBBSettingsStatus`)
 
 ### Smart Reconnect Detection
 - On reconnect with existing profile, checks if tuning session is in `*_flight_pending` phase

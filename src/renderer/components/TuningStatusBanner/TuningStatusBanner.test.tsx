@@ -17,14 +17,23 @@ describe('TuningStatusBanner', () => {
   const onViewGuide = vi.fn();
   const onReset = vi.fn();
 
-  function renderBanner(session: TuningSession = baseSession, flashErased?: boolean) {
+  const onFixSettings = vi.fn();
+
+  function renderBanner(
+    session: TuningSession = baseSession,
+    flashErased?: boolean,
+    overrides?: { bbSettingsOk?: boolean; fixingSettings?: boolean }
+  ) {
     return render(
       <TuningStatusBanner
         session={session}
         flashErased={flashErased}
+        bbSettingsOk={overrides?.bbSettingsOk}
+        fixingSettings={overrides?.fixingSettings}
         onAction={onAction}
         onViewGuide={onViewGuide}
         onReset={onReset}
+        onFixSettings={onFixSettings}
       />
     );
   }
@@ -229,5 +238,46 @@ describe('TuningStatusBanner', () => {
 
     await user.click(screen.getByText('Complete Tuning'));
     expect(onAction).toHaveBeenCalledWith('complete_session');
+  });
+
+  // Blackbox settings pre-flight warning tests
+
+  it('shows BB warning during filter_flight_pending with bbSettingsOk=false', () => {
+    renderBanner(baseSession, false, { bbSettingsOk: false });
+
+    expect(screen.getByText(/Blackbox settings need to be fixed/)).toBeInTheDocument();
+    expect(screen.getByText('Fix Settings')).toBeInTheDocument();
+  });
+
+  it('shows BB warning during pid_flight_pending with bbSettingsOk=false', () => {
+    renderBanner({ ...baseSession, phase: 'pid_flight_pending' }, false, { bbSettingsOk: false });
+
+    expect(screen.getByText(/Blackbox settings need to be fixed/)).toBeInTheDocument();
+  });
+
+  it('does not show BB warning when bbSettingsOk=true', () => {
+    renderBanner(baseSession, false, { bbSettingsOk: true });
+
+    expect(screen.queryByText(/Blackbox settings need to be fixed/)).not.toBeInTheDocument();
+  });
+
+  it('does not show BB warning for non-flight-pending phases', () => {
+    renderBanner({ ...baseSession, phase: 'filter_analysis' }, false, { bbSettingsOk: false });
+
+    expect(screen.queryByText(/Blackbox settings need to be fixed/)).not.toBeInTheDocument();
+  });
+
+  it('does not show BB warning after flash erased', () => {
+    renderBanner(baseSession, true, { bbSettingsOk: false });
+
+    expect(screen.queryByText(/Blackbox settings need to be fixed/)).not.toBeInTheDocument();
+  });
+
+  it('calls onFixSettings when Fix Settings clicked in warning', async () => {
+    const user = userEvent.setup();
+    renderBanner(baseSession, false, { bbSettingsOk: false });
+
+    await user.click(screen.getByText('Fix Settings'));
+    expect(onFixSettings).toHaveBeenCalled();
   });
 });

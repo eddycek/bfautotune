@@ -393,4 +393,121 @@ describe('FCInfoDisplay', () => {
       expect(window.betaflight.getFeedforwardConfig).toHaveBeenCalled();
     });
   });
+
+  // Fix Settings button tests
+
+  it('shows Fix Settings button when debug_mode is wrong', async () => {
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 4000,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix Settings')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Fix Settings button when logging rate is low', async () => {
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'GYRO_SCALED',
+      sampleRate: 3,
+      loggingRateHz: 1000,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix Settings')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show Fix Settings when settings are correct', async () => {
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('4 kHz')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Fix Settings')).not.toBeInTheDocument();
+  });
+
+  it('does not show Fix Settings for BF 4.6+ with only wrong debug_mode', async () => {
+    vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
+      connected: true,
+      portPath: '/dev/ttyUSB0',
+      fcInfo: { ...mockFCInfo, version: '4.6.0' },
+    });
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 4000,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('4 kHz')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Fix Settings')).not.toBeInTheDocument();
+  });
+
+  it('opens confirm modal when Fix Settings is clicked', async () => {
+    const user = userEvent.setup();
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 4000,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix Settings')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Fix Settings'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix Blackbox Settings')).toBeInTheDocument();
+      expect(screen.getByText('set debug_mode = GYRO_SCALED')).toBeInTheDocument();
+    });
+  });
+
+  it('calls fixBlackboxSettings on confirm', async () => {
+    const user = userEvent.setup();
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 3,
+      loggingRateHz: 1000,
+    });
+    vi.mocked(window.betaflight.fixBlackboxSettings).mockResolvedValue({
+      success: true,
+      appliedCommands: 2,
+      rebooted: true,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix Settings')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Fix Settings'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix & Reboot')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Fix & Reboot'));
+
+    await waitFor(() => {
+      expect(window.betaflight.fixBlackboxSettings).toHaveBeenCalledWith({
+        commands: ['set debug_mode = GYRO_SCALED', 'set blackbox_sample_rate = 1'],
+      });
+    });
+  });
 });
