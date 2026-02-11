@@ -96,6 +96,9 @@ export function SnapshotManager() {
       const afterSnapshot = await loadSnapshot(snapshotId);
       if (!afterSnapshot) return;
 
+      const afterNum = snapshots.length - index;
+      const afterWithNum = { ...afterSnapshot, label: `#${afterNum} ${afterSnapshot.label}` };
+
       if (index >= snapshots.length - 1) {
         // Oldest snapshot — compare with empty config
         const emptyBefore: ConfigurationSnapshot = {
@@ -104,11 +107,13 @@ export function SnapshotManager() {
           label: '(empty)',
           configuration: { cliDiff: '' },
         };
-        setDiffSnapshots({ before: emptyBefore, after: afterSnapshot });
+        setDiffSnapshots({ before: emptyBefore, after: afterWithNum });
       } else {
         const beforeSnapshot = await loadSnapshot(snapshots[index + 1].id);
         if (!beforeSnapshot) return;
-        setDiffSnapshots({ before: beforeSnapshot, after: afterSnapshot });
+        const beforeNum = snapshots.length - (index + 1);
+        const beforeWithNum = { ...beforeSnapshot, label: `#${beforeNum} ${beforeSnapshot.label}` };
+        setDiffSnapshots({ before: beforeWithNum, after: afterWithNum });
       }
     } finally {
       setLoadingDiff(false);

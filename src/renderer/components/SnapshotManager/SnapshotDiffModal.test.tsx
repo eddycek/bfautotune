@@ -48,17 +48,17 @@ describe('SnapshotDiffModal', () => {
     expect(screen.getByText('After tune')).toBeInTheDocument();
   });
 
-  it('displays legend badges (Added and Changed only)', () => {
+  it('displays legend badges', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
     expect(screen.getByText('Added')).toBeInTheDocument();
     expect(screen.getByText('Changed')).toBeInTheDocument();
-    expect(screen.queryByText('Removed')).not.toBeInTheDocument();
+    expect(screen.getByText('Reset to default')).toBeInTheDocument();
   });
 
   it('displays summary counts', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
-    // gyro_lpf1 changed, feature GPS reverted to default (changed), feature TELEMETRY added = 1 added, 2 changed
-    expect(screen.getByText('1 added, 2 changed')).toBeInTheDocument();
+    // gyro_lpf1 changed, feature GPS removed (reset to default), feature TELEMETRY added
+    expect(screen.getByText('1 added, 1 changed, 1 reset to default')).toBeInTheDocument();
   });
 
   it('renders added lines with + prefix', () => {
@@ -72,14 +72,18 @@ describe('SnapshotDiffModal', () => {
     expect(telemetryAdded).toBeTruthy();
   });
 
-  it('shows (default) value for settings reverted to factory default', () => {
+  it('shows reset-to-default entries with tag', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
-    // feature GPS was in snapshotA but not in snapshotB → shown as changed to (default)
-    const changedNewLines = document.querySelectorAll('.diff-line-changed-new');
-    const gpsDefault = Array.from(changedNewLines).find(
-      el => el.textContent?.includes('feature GPS') && el.textContent?.includes('(default)')
+    // feature GPS was in snapshotA but not in snapshotB → shown as removed with "reset to default" tag
+    const removedLines = document.querySelectorAll('.diff-line-removed');
+    const gpsRemoved = Array.from(removedLines).find(
+      el => el.textContent?.includes('feature GPS')
     );
-    expect(gpsDefault).toBeTruthy();
+    expect(gpsRemoved).toBeTruthy();
+    // Should have the "reset to default" inline tag
+    const tag = gpsRemoved?.querySelector('.diff-default-tag');
+    expect(tag).toBeTruthy();
+    expect(tag?.textContent).toBe('reset to default');
   });
 
   it('renders changed lines with old and new values', () => {
@@ -143,6 +147,6 @@ describe('SnapshotDiffModal', () => {
     const empty = makeSnapshot({ id: 'e', label: 'Empty', cliDiff: '' });
     render(<SnapshotDiffModal snapshotA={empty} snapshotB={snapshotB} onClose={vi.fn()} />);
     // All entries in B should be "added"
-    expect(screen.getByText(/3 added, 0 changed/)).toBeInTheDocument();
+    expect(screen.getByText(/3 added, 0 changed, 0 reset to default/)).toBeInTheDocument();
   });
 });

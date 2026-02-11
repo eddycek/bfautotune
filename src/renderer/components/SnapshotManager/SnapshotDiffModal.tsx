@@ -17,6 +17,7 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
 
   const addedCount = diff.filter(d => d.status === 'added').length;
   const changedCount = diff.filter(d => d.status === 'changed').length;
+  const removedCount = diff.filter(d => d.status === 'removed').length;
 
   return (
     <div className="snapshot-diff-overlay" onClick={onClose}>
@@ -33,10 +34,11 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
         <div className="snapshot-diff-legend">
           <span className="diff-badge diff-badge-added">Added</span>
           <span className="diff-badge diff-badge-changed">Changed</span>
+          <span className="diff-badge diff-badge-removed">Reset to default</span>
         </div>
 
         <div className="snapshot-diff-summary">
-          {addedCount} added, {changedCount} changed
+          {addedCount} added, {changedCount} changed, {removedCount} reset to default
         </div>
 
         <div className="snapshot-diff-content">
@@ -53,6 +55,14 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
                         <span className="diff-prefix">+</span>
                         <span className="diff-key">{entry.key}</span>
                         <span className="diff-value">= {entry.newValue}</span>
+                      </div>
+                    )}
+                    {entry.status === 'removed' && (
+                      <div className="diff-line diff-line-removed">
+                        <span className="diff-prefix">-</span>
+                        <span className="diff-key">{entry.key}</span>
+                        <span className="diff-value">= {entry.oldValue}</span>
+                        <span className="diff-default-tag">reset to default</span>
                       </div>
                     )}
                     {entry.status === 'changed' && (

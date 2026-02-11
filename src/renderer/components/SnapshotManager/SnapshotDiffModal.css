@@ -148,6 +148,17 @@
   color: #f87171;
 }
 
+.diff-default-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
 .diff-line-changed-old {
   background-color: rgba(239, 68, 68, 0.1);
   color: #f87171;
