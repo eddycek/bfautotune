@@ -148,22 +148,22 @@ Existing profiles have no `flightStyle` field. When loaded:
 
 ## 3. Implementation Plan
 
-### Task 1: Add `FlightStyle` type and update profile interfaces
+### ~~Task 1: Add `FlightStyle` type and update profile interfaces~~ ✅ DONE (PR #71)
 - **File**: `src/shared/types/profile.types.ts`
 - **Changes**: Add `FlightStyle` type, add `flightStyle?: FlightStyle` to `DroneProfileOptional`
 - **Tests**: Type compilation; verify `ProfileCreationInput` and `ProfileUpdateInput` inherit the new field
 
-### Task 2: Add flight style selector to ProfileWizard
+### ~~Task 2: Add flight style selector to ProfileWizard~~ ✅ DONE (PR #72)
 - **File**: `src/renderer/components/ProfileWizard.tsx`
 - **Changes**: Add `flightStyle` state (default: `'balanced'`). Add three-option selector in BasicStep with icons/descriptions. Include in `ProfileCreationInput` on complete. When using presets, auto-set based on preset ID mapping.
 - **Tests**: Component test: default selection is balanced; changing selection persists; custom path includes flightStyle in output; preset path maps correctly
 
-### Task 3: Add flight style selector to ProfileEditModal
+### ~~Task 3: Add flight style selector to ProfileEditModal~~ ✅ DONE (PR #73)
 - **File**: `src/renderer/components/ProfileEditModal.tsx`
 - **Changes**: Add `flightStyle` state initialized from `profile.flightStyle ?? 'balanced'`. Add same selector UI. Include in `ProfileUpdateInput` on save.
 - **Tests**: Component test: loads existing value; saves updated value; defaults to balanced for old profiles
 
-### Task 4: Add style-based PID threshold constants
+### ~~Task 4: Add style-based PID threshold constants~~ ✅ DONE (PR #74)
 - **File**: `src/main/analysis/constants.ts`
 - **Changes**: Add threshold map:
   ```typescript
@@ -176,7 +176,7 @@ Existing profiles have no `flightStyle` field. When loaded:
   Keep existing individual constants unchanged (they remain the `balanced` defaults for backward compatibility).
 - **Tests**: Verify threshold values exist for all three styles
 
-### Task 5: Make `recommendPID()` accept FlightStyle parameter
+### ~~Task 5: Make `recommendPID()` accept FlightStyle parameter~~ ✅ DONE (PR #75)
 - **File**: `src/main/analysis/PIDRecommender.ts`
 - **Changes**: Add `flightStyle: FlightStyle = 'balanced'` parameter. Replace hardcoded threshold constants with lookups from `PID_STYLE_THRESHOLDS[flightStyle]`. Update `generatePIDSummary()` to mention style context.
 - **Tests**:
@@ -186,17 +186,17 @@ Existing profiles have no `flightStyle` field. When loaded:
   - smooth style + 100ms rise time → no sluggish warning (acceptable for smooth)
   - aggressive style + 70ms rise time → sluggish warning (too slow for aggressive)
 
-### Task 6: Wire FlightStyle through analysis pipeline
+### ~~Task 6: Wire FlightStyle through analysis pipeline~~ ✅ DONE (PR #76)
 - **File**: `src/main/analysis/PIDAnalyzer.ts`, `src/main/ipc/handlers.ts`
 - **Changes**: Pass profile's `flightStyle` from IPC handler through PIDAnalyzer to `recommendPID()`. Read from current profile when running PID analysis.
 - **Tests**: Integration test verifying style flows from profile to recommendations
 
-### Task 7: Display flight style context in analysis UI
+### ~~Task 7: Display flight style context in analysis UI~~ ✅ DONE (PR #77)
 - **File**: `src/renderer/components/TuningWizard/PIDAnalysisStep.tsx`, `src/renderer/components/AnalysisOverview/AnalysisOverview.tsx`
 - **Changes**: Show the active flight style preference as context: "Tuning for: Balanced flying". Include in summary text.
 - **Tests**: Component tests verifying style label renders
 
-### Task 8: Map preset profiles to default flight styles
+### ~~Task 8: Map preset profiles to default flight styles~~ ✅ DONE (PR #78)
 - **File**: `src/shared/constants.ts`
 - **Changes**: Add `flightStyle` field to `PresetProfile` interface and populate:
   ```typescript

@@ -52,6 +52,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 ### Automated Tuning
 - **Filter tuning**: FFT noise analysis (Welch's method, Hanning window, peak detection)
 - **PID tuning**: Step response analysis (rise time, overshoot, settling, ringing)
+- **Flight style preferences**: Smooth (cinematic), Balanced (freestyle), or Aggressive (racing) — PID thresholds adapt to pilot preference
 - **RPM filter awareness**: Detects RPM filter state via MSP or BBL headers, widens safety bounds when active (gyro LPF1 up to 500 Hz), recommends dynamic notch optimization (count/Q), diagnoses motor harmonic anomalies
 - **Feedforward awareness**: Detects FF state from BBL headers, classifies FF-dominated overshoot, adjusts P/D recommendations accordingly
 - Convergent recommendations (idempotent - rerunning produces same result)
@@ -464,6 +465,19 @@ The recommendation engine applies rule-based tuning logic anchored to the PID va
 
 **Decision Table:**
 
+The thresholds below show the **Balanced** (default) values. These adapt based on the pilot's **flight style preference** (set in the profile):
+
+| Threshold | Smooth | Balanced | Aggressive |
+|-----------|--------|----------|------------|
+| Overshoot ideal | 3% | 10% | 18% |
+| Overshoot max | 12% | 25% | 35% |
+| Settling max | 250 ms | 200 ms | 150 ms |
+| Ringing max | 1 cycle | 2 cycles | 3 cycles |
+| Moderate overshoot | 8% | 15% | 25% |
+| Sluggish rise time | 120 ms | 80 ms | 50 ms |
+
+**Decision Table (Balanced thresholds shown):**
+
 | Condition | Action | Step Size | Confidence | Rationale |
 |-----------|--------|-----------|------------|-----------|
 | Overshoot > 25% | Increase D | +5 | High | D-term dampens bounce-back (Betaflight guide) |
@@ -473,7 +487,7 @@ The recommendation engine applies rule-based tuning logic anchored to the PID va
 | Ringing > 2 cycles | Increase D | +5 | Medium | Oscillation = underdamped response |
 | Settling > 200 ms AND overshoot < 15% | Increase D | +5 | Low | Slow convergence, may have other causes |
 
-*Yaw axis uses relaxed thresholds (1.5x overshoot limit, 120 ms sluggish threshold).*
+*Yaw axis uses relaxed thresholds (1.5x overshoot limit, 1.5x sluggish threshold).*
 
 **Safety Bounds:**
 
@@ -489,6 +503,7 @@ The recommendation engine applies rule-based tuning logic anchored to the PID va
 - **Step size of ±5** — Consistent with FPVSIM tuning guidance ("lower P incrementally by ~5 units"). Small incremental changes allow iterative refinement across multiple flights.
 - **Flight-PID anchoring** — Recommendations target values relative to the PIDs recorded in the Blackbox header, not the FC's current values. This prevents recommendation drift when PIDs are changed between flights and log analysis.
 - **Feedforward awareness** — The recommender detects whether feedforward is active from BBL headers (`feedforward_boost > 0`). At each step's overshoot peak, it compares `|pidF|` vs `|pidP|` magnitude. When overshoot is FF-dominated (FF contributes more than P), the engine skips P/D changes and instead recommends reducing `feedforward_boost`. This prevents misattributing FF-caused overshoot to P/D imbalance.
+- **Flight style adaptation** — PID thresholds adjust based on the user's profile flight style. Smooth (cinematic) pilots get tighter overshoot tolerances and accept slower response. Aggressive (racing) pilots tolerate more overshoot in exchange for maximum snap. The Balanced default matches the standard thresholds. Style is set per-profile and preset profiles include sensible defaults (e.g., 5" Race → Aggressive).
 
 ### Interactive Analysis Charts
 

@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 911 tests across 47 files** (last verified: February 11, 2026)
+**Total: 963 tests across 52 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `FCInfo/FCInfoDisplay.test.tsx` | 24 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config |
 | `BlackboxStatus/BlackboxStatus.test.tsx` | 14 | Blackbox status, download trigger, readonly mode |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
-| `ProfileEditModal.test.tsx` | 15 | Profile editing, validation, form handling |
+| `ProfileEditModal.test.tsx` | 18 | Profile editing, validation, form handling, flight style selector |
 | `ProfileDeleteModal.test.tsx` | 12 | Deletion confirmation, warnings |
 | `SnapshotManager/SnapshotManager.test.tsx` | 34 | Snapshot CRUD, export, restore, baseline handling |
 | `SnapshotManager/SnapshotDiffModal.test.tsx` | 13 | Snapshot diff view, change display |
@@ -171,11 +171,13 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
 | `TuningStatusBanner/TuningStatusBanner.test.tsx` | 22 | Workflow banner, step indicator, actions, downloading, applied phases |
-| `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete, FF warning, RPM status |
+| `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete, FF warning, RPM status, flight style display |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
-| `AnalysisOverview/AnalysisOverview.test.tsx` | 20 | Diagnostic-only analysis view, auto-parse, session picker, FF warning, RPM status |
+| `AnalysisOverview/AnalysisOverview.test.tsx` | 22 | Diagnostic-only analysis view, auto-parse, session picker, FF warning, RPM status, flight style display |
+| `TuningWizard/PIDAnalysisStep.test.tsx` | 5 | PID results display, flight style pill, step count pluralization |
+| `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |
 
 ### Charts
 
@@ -243,8 +245,21 @@ npm run test:ui           # Visual interface with DOM snapshots
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
 | `analysis/StepMetrics.test.ts` | 22 | Rise time, overshoot, settling, latency, ringing, FF contribution classification |
-| `analysis/PIDRecommender.test.ts` | 32 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations |
-| `analysis/PIDAnalyzer.test.ts` | 14 | End-to-end pipeline, progress reporting, FF context wiring |
+| `analysis/PIDRecommender.test.ts` | 40 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds |
+| `analysis/PIDAnalyzer.test.ts` | 17 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation |
+
+### Header Validation
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `analysis/constants.test.ts` | 7 | PID style threshold validation, ordering constraints, balanced-matches-existing |
+
+### Shared Constants & Types
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
+| `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |
 
 ### Header Validation
 
