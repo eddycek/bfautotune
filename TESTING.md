@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 841 tests across 47 files** (last verified: February 10, 2026)
+**Total: 849 tests across 47 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -170,8 +170,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
-| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 18 | Workflow banner, step indicator, actions, post-erase UX |
-| `TuningWizard/TuningWizard.test.tsx` | 40 | Multi-step wizard flow, results display, apply, mode-aware routing |
+| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 22 | Workflow banner, step indicator, actions, downloading, applied phases |
+| `TuningWizard/TuningWizard.test.tsx` | 42 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete |
 | `TuningWizard/FlightGuideContent.test.tsx` | 6 | Flight guide content rendering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
@@ -235,7 +235,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/SegmentSelector.test.ts` | 27 | Hover detection, throttle normalization |
 | `analysis/NoiseAnalyzer.test.ts` | 25 | Peak detection, classification, noise floor |
 | `analysis/FilterRecommender.test.ts` | 28 | Noise-based targets, convergence, safety bounds |
-| `analysis/FilterAnalyzer.test.ts` | 9 | End-to-end pipeline, progress reporting |
+| `analysis/FilterAnalyzer.test.ts` | 11 | End-to-end pipeline, progress reporting, segment fallback warnings |
 
 ### Step Response Analysis
 
