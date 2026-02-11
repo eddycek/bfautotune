@@ -950,6 +950,19 @@ export function registerIPCHandlers(): void {
         // Extract flight-time PIDs from BBL header for convergent recommendations
         const flightPIDs = extractFlightPIDs(session.header.rawHeaders);
 
+        // Read flight style from current profile for style-aware thresholds
+        let flightStyle: 'smooth' | 'balanced' | 'aggressive' = 'balanced';
+        if (profileManager) {
+          try {
+            const currentProfile = await profileManager.getCurrentProfile();
+            if (currentProfile?.flightStyle) {
+              flightStyle = currentProfile.flightStyle;
+            }
+          } catch {
+            // Fall back to balanced
+          }
+        }
+
         // Run PID analysis with progress reporting
         const result = await analyzePID(
           session.flightData,
@@ -959,7 +972,8 @@ export function registerIPCHandlers(): void {
             event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
           },
           flightPIDs,
-          session.header.rawHeaders
+          session.header.rawHeaders,
+          flightStyle
         );
 
         // Attach header warnings to the result

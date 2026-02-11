@@ -6,6 +6,7 @@
  */
 import type { BlackboxFlightData } from '@shared/types/blackbox.types';
 import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { FlightStyle } from '@shared/types/profile.types';
 import type {
   AnalysisProgress,
   AnalysisWarning,
@@ -32,6 +33,7 @@ const DEFAULT_PIDS: PIDConfiguration = {
  * @param onProgress - Optional progress callback
  * @param flightPIDs - PIDs from the BBL header (flight-time PIDs) for convergent recommendations
  * @param rawHeaders - BBL raw headers for feedforward context extraction
+ * @param flightStyle - Pilot's flying style preference (affects thresholds)
  * @returns Complete PID analysis result with recommendations
  */
 export async function analyzePID(
@@ -40,7 +42,8 @@ export async function analyzePID(
   currentPIDs: PIDConfiguration = DEFAULT_PIDS,
   onProgress?: (progress: AnalysisProgress) => void,
   flightPIDs?: PIDConfiguration,
-  rawHeaders?: Map<string, string>
+  rawHeaders?: Map<string, string>,
+  flightStyle: FlightStyle = 'balanced'
 ): Promise<PIDAnalysisResult> {
   const startTime = performance.now();
 
@@ -109,8 +112,8 @@ export async function analyzePID(
 
   // Step 3: Generate recommendations
   onProgress?.({ step: 'scoring', percent: 80 });
-  const recommendations = recommendPID(roll, pitch, yaw, currentPIDs, flightPIDs, feedforwardContext);
-  const summary = generatePIDSummary(roll, pitch, yaw, recommendations);
+  const recommendations = recommendPID(roll, pitch, yaw, currentPIDs, flightPIDs, feedforwardContext, flightStyle);
+  const summary = generatePIDSummary(roll, pitch, yaw, recommendations, flightStyle);
 
   onProgress?.({ step: 'scoring', percent: 100 });
 
@@ -134,6 +137,7 @@ export async function analyzePID(
     stepsDetected: steps.length,
     currentPIDs,
     feedforwardContext,
+    flightStyle,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }

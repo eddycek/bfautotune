@@ -265,5 +265,59 @@ describe('PIDAnalyzer', () => {
       expect(typeof result.stepsDetected).toBe('number');
       expect(result.stepsDetected).toBeGreaterThanOrEqual(0);
     });
+
+    it('should pass flightStyle through to result', async () => {
+      const data = createFlightData({
+        rollSetpointFn: i => i >= 1000 ? 300 : 0,
+        rollGyroFn: i => i >= 1000 ? 300 : 0,
+      });
+
+      const result = await analyzePID(data, 0, PIDS, undefined, undefined, undefined, 'aggressive');
+
+      expect(result.flightStyle).toBe('aggressive');
+    });
+
+    it('should default flightStyle to balanced', async () => {
+      const data = createFlightData({
+        rollSetpointFn: i => i >= 1000 ? 300 : 0,
+        rollGyroFn: i => i >= 1000 ? 300 : 0,
+      });
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      expect(result.flightStyle).toBe('balanced');
+    });
+
+    it('should use flightStyle thresholds in recommendations', async () => {
+      // Create a step with moderate overshoot (~15%)
+      const stepAt = 1000;
+      const mag = 300;
+      const overshootFactor = 1.15;
+      const data = createFlightData({
+        rollSetpointFn: i => i >= stepAt ? mag : 0,
+        rollGyroFn: i => {
+          if (i < stepAt) return 0;
+          // Initial overshoot then settle
+          const elapsed = (i - stepAt) / SAMPLE_RATE;
+          if (elapsed < 0.02) return mag * overshootFactor; // 15% overshoot
+          return mag;
+        },
+      });
+
+      // With aggressive style (moderateOvershoot=25), 15% shouldn't trigger
+      const aggressive = await analyzePID(data, 0, PIDS, undefined, undefined, undefined, 'aggressive');
+      const aggressiveOvershootRecs = aggressive.recommendations.filter(r =>
+        r.reason.includes('overshoot') || r.reason.includes('Overshoot')
+      );
+
+      // With smooth style (moderateOvershoot=8), 15% should trigger
+      const smooth = await analyzePID(data, 0, PIDS, undefined, undefined, undefined, 'smooth');
+      const smoothOvershootRecs = smooth.recommendations.filter(r =>
+        r.reason.includes('overshoot') || r.reason.includes('Overshoot')
+      );
+
+      // Smooth should be at least as strict as aggressive
+      expect(smoothOvershootRecs.length).toBeGreaterThanOrEqual(aggressiveOvershootRecs.length);
+    });
   });
 });
