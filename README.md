@@ -61,10 +61,18 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 
 ### Two-Flight Guided Workflow
 - Stateful tuning session: filters first (hover + throttle sweeps), then PIDs (stick snaps)
-- Step-by-step banner with progress indicator (10 phases)
+- Step-by-step banner with progress indicator (10 phases including optional verification)
 - Smart reconnect detection: auto-advances when flight data detected
 - Post-erase guidance: flash erased notification with flight guide
 - Mode-aware wizard adapts UI for filter vs PID analysis
+- Optional verification hover after PID apply for before/after noise comparison
+- Tuning completion summary with applied changes, noise metrics, and PID response data
+
+### Tuning History
+- Archived tuning records per profile (persistent across sessions)
+- Before/after noise spectrum overlay with dB delta indicators
+- Applied filter and PID changes table with old → new values
+- Expandable history cards on the dashboard
 
 ### Interactive Charts
 - FFT spectrum chart (noise per axis, floor lines, peak markers)
@@ -127,7 +135,7 @@ This will:
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Test suite:** 1440 tests across 75 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Test suite:** 1520 tests across 82 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
 ```bash
 # Run tests in watch mode
@@ -187,6 +195,7 @@ bfautotune/
 │   │   │   ├── SnapshotManager.ts       # Configuration snapshots
 │   │   │   ├── BlackboxManager.ts       # BB log file management
 │   │   │   ├── TuningSessionManager.ts  # Tuning session state machine
+│   │   │   ├── TuningHistoryManager.ts # Tuning history archive
 │   │   │   └── FileStorage.ts           # Generic file storage utilities
 │   │   ├── ipc/                 # IPC handlers
 │   │   │   ├── handlers.ts     # All IPC request handlers
@@ -207,6 +216,7 @@ bfautotune/
 │   │   │   │   └── charts/            # SpectrumChart, StepResponseChart, AxisTabs
 │   │   │   ├── TuningStatusBanner/    # Workflow progress banner
 │   │   │   ├── AnalysisOverview/      # Read-only analysis view
+│   │   │   ├── TuningHistory/         # History panel, completion summary, noise chart
 │   │   │   ├── TuningWorkflowModal/   # Two-flight workflow help
 │   │   │   ├── Toast/                 # Toast notification system
 │   │   │   ├── ProfileWizard.tsx      # New FC profile creation wizard
@@ -221,6 +231,7 @@ bfautotune/
 │   │   │   ├── useTuningSession.ts    # Tuning session lifecycle
 │   │   │   ├── useTuningWizard.ts     # Wizard state (parse/analyze/apply)
 │   │   │   ├── useAnalysisOverview.ts # Read-only analysis state
+│   │   │   ├── useTuningHistory.ts    # Tuning history loading
 │   │   │   ├── useBlackboxInfo.ts     # BB flash info
 │   │   │   ├── useBlackboxLogs.ts     # BB log list
 │   │   │   ├── useFCInfo.ts           # FC info polling
@@ -231,15 +242,21 @@ bfautotune/
 │   │       └── setup.ts         # window.betaflight mock
 │   │
 │   └── shared/                  # Shared types & constants
-│       ├── types/               # TypeScript interfaces (8 type files)
+│       ├── types/               # TypeScript interfaces (9 type files)
+│       ├── utils/               # Shared utilities (metrics extraction, spectrum downsampling)
 │       └── constants/           # MSP codes, presets, flight guides
 │
-└── docs/                        # Design docs
-    ├── BBL_PARSER_VALIDATION.md       # Parser validation against BF Explorer
-    ├── COMPREHENSIVE_TESTING_PLAN.md  # 9-phase testing plan (1440 tests / 75 files)
-    ├── FEEDFORWARD_AWARENESS.md       # FF detection, warnings, recommendations design
-    ├── RPM_FILTER_AWARENESS.md        # RPM filter detection and filter recommendation adjustments
-    └── TUNING_WORKFLOW_REVISION.md    # Phase 4 design doc
+└── docs/                        # Design docs (see docs/README.md for full index)
+    ├── BBL_PARSER_VALIDATION.md             # Parser validation against BF Explorer
+    ├── BF_VERSION_POLICY.md                 # BF version compatibility policy
+    ├── COMPREHENSIVE_TESTING_PLAN.md        # 9-phase testing plan
+    ├── FEEDFORWARD_AWARENESS.md             # FF detection, warnings, recommendations
+    ├── FLIGHT_STYLE_PROFILES.md             # Smooth/Balanced/Aggressive flight styles
+    ├── RPM_FILTER_AWARENESS.md              # RPM filter detection and bounds
+    ├── TUNING_HISTORY_AND_COMPARISON.md     # Session history + before/after comparison
+    ├── TUNING_WORKFLOW_REVISION.md          # Two-flight tuning workflow design
+    ├── TUNING_WORKFLOW_FIXES.md             # Download/analyze fix + phase transitions
+    └── UX_IMPROVEMENT_IDEAS.md              # UX improvement backlog
 ```
 
 ## Usage
@@ -290,7 +307,11 @@ Click **Start Tuning Session** to begin the guided workflow. The status banner a
    - Shows step response charts and PID recommendations
    - Click **Apply PIDs** to apply changes
 
-After both flights, the session shows as **completed**. You can start a new cycle to iterate further.
+#### Optional: Verification Hover
+10. After PID apply, the banner offers an optional **verification hover** (30s gentle hover)
+11. If flown, the app compares before/after noise spectra with a dB delta indicator
+
+The session shows a **completion summary** with all applied changes, noise metrics, and PID response data. You can start a new tuning cycle to iterate further. Past sessions are archived in the **Tuning History** panel on the dashboard.
 
 ### 4. Quick Analysis (No Tuning Session)
 
@@ -398,6 +419,7 @@ Subdirectories:
 - `snapshots/` — Configuration snapshot JSON files
 - `blackbox/` — Downloaded Blackbox log files (`.bbl`)
 - `tuning/` — Tuning session state files (per profile)
+- `tuning-history/` — Archived tuning records (per profile)
 
 ## How Autotuning Works
 
@@ -548,7 +570,7 @@ The autotuning rules and thresholds are based on established FPV community pract
 - **Phase 2**: ✅ Blackbox analysis, automated tuning, rollback
 - **Phase 2.5**: ✅ UX polish — profile simplification, interactive analysis charts
 - **Phase 3**: ✅ Mode-aware wizard, read-only analysis overview, flight guides
-- **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect
+- **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect, verification flight, tuning history
 - **Phase 5**: ⬜ Complete manual testing & UX polish (real hardware validation)
 - **Phase 6**: ⬜ CI/CD & cross-platform releases (macOS/Windows/Linux installers)
 - **Phase 7**: ⬜ E2E tests on real FC in CI pipeline

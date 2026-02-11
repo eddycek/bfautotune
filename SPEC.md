@@ -4,7 +4,7 @@
 
 **Source:** `fpv-betaflight-autotune-spec.pdf`
 **Generated:** 2026-01-29
-**Last Updated:** February 11, 2026
+**Last Updated:** February 12, 2026
 
 > This file is the authoritative project specification and the single source of truth for project status. Each requirement is annotated with its implementation status. Previous tracking files (`COMPLETION_REPORT.md`, `IMPLEMENTATION_SUMMARY.md`, `TODO.md`) have been consolidated here.
 
@@ -58,7 +58,7 @@ High-level user journey:
 | 1 | Connect drone over USB; read Betaflight version/target; create baseline backup snapshot | :white_check_mark: MSP connect + FC info + auto-baseline snapshot + smart reconnect detection |
 | 2 | Configure Blackbox logging for analysis (high logging rate, correct debug mode); ensure prerequisite settings | :white_check_mark: Blackbox info read + diagnostics (debug_mode, logging rate warnings). One-click "Fix Settings" in FCInfoDisplay + pre-flight warning in TuningStatusBanner → CLI commands → save & reboot. |
 | 3 | Filter tuning: guided throttle-sweep test flight; retrieve log; run noise analysis; propose safe filter adjustments; apply | :white_check_mark: Full pipeline with guided two-flight workflow, post-erase guidance, FFT analysis, interactive spectrum charts, auto-apply via CLI. |
-| 4 | PID tuning: guided stick snap test flight; retrieve log; analyze step responses; apply P/D recommendations | :white_check_mark: Step response analysis, interactive step response charts, auto-apply via MSP. D sweep multi-log comparison deferred. |
+| 4 | PID tuning: guided stick snap test flight; retrieve log; analyze step responses; apply P/D recommendations | :white_check_mark: Step response analysis, interactive step response charts, auto-apply via MSP, optional verification hover with before/after noise comparison. D sweep multi-log comparison deferred. |
 | 5 | Restore other parameters (FeedForward, I, dynamic damping if used); store tuned snapshot; test-fly; rollback if needed | :construction: Snapshot restore/rollback :white_check_mark:. FF detection + FF-aware PID analysis + MSP read :white_check_mark:. FF/I write-back tuning :x:. |
 
 ---
@@ -124,6 +124,8 @@ High-level user journey:
 | Profiles/History screen: list snapshots, compare, restore, export/import | :white_check_mark: | Snapshot list + delete + export + restore/rollback + GitHub-style diff comparison view |
 | Interactive analysis charts | :white_check_mark: | FFT spectrum chart + step response chart + axis tabs (Recharts) |
 | Read-only analysis overview (no tuning session) | :white_check_mark: | Single-page analysis view with both filter and PID results |
+| Tuning completion summary with before/after comparison | :white_check_mark: | Noise comparison chart, applied changes table, PID metrics, verification hover |
+| Tuning session history per profile | :white_check_mark: | Archived records, expandable history panel, detail view |
 
 ---
 
@@ -158,7 +160,7 @@ High-level user journey:
 
 | Requirement | Status | Implementation |
 |-------------|--------|----------------|
-| Local folder; store snapshots as JSON + CLI diff | :white_check_mark: | File-based JSON in `{userData}/data/` — profiles, snapshots, blackbox-logs, tuning sessions |
+| Local folder; store snapshots as JSON + CLI diff | :white_check_mark: | File-based JSON in `{userData}/data/` — profiles, snapshots, blackbox-logs, tuning sessions, tuning-history |
 
 ---
 
@@ -167,7 +169,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Package analysis engine as a stateless service (container) | :fast_forward: | Architecture supports this — analysis modules are pure functions |
-| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 269 tests (127 filter + 95 PID + 47 shared/pipeline) |
+| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 283 tests (141 filter + 95 PID + 47 shared/pipeline) |
 | Cloud optional; local remains primary | :white_check_mark: | Fully offline, no network calls |
 
 ---
@@ -252,14 +254,14 @@ High-level user journey:
 - TuningWorkflowModal (two-flight workflow preparation)
 
 ### Phase 4: Stateful Two-Flight Tuning Workflow :white_check_mark:
-**Status:** Complete | **PRs:** #31–#78 | **Tests:** 1440 across 75 files (after comprehensive testing plan PRs #85–#88)
+**Status:** Complete | **PRs:** #31–#99 | **Tests:** 1520 across 82 files
 
 - TuningSessionManager (10-phase state machine, per-profile persistence)
 - TuningStatusBanner (dashboard banner with step indicator, action buttons)
 - Smart reconnect detection (auto-advance when flight data detected)
 - Post-erase guidance (flash erased notification with flight guide link)
 - BlackboxStatus readonly mode during active tuning sessions
-- FC diagnostics (GYRO_SCALED check, logging rate verification)
+- FC diagnostics (GYRO_SCALED check, logging rate verification, one-click fix)
 - CLI disconnect/reconnect fix (exit reboot handling)
 - Dashboard layout (side-by-side Connection + Profile panels)
 - Feedforward awareness: FF detection from BBL headers, FF-dominated overshoot classification, FF-aware PID recommendations (PRs #55–#60)
@@ -267,7 +269,11 @@ High-level user journey:
 - Feedforward display in FC Info panel: boost, per-axis gains, smoothing, jitter, transition, max rate limit (PR #62)
 - RPM filter awareness: RPM state detection via MSP/BBL headers, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics (PRs #66–#70)
 - Flight style preferences: Smooth/Balanced/Aggressive selector in profiles, style-based PID thresholds, preset defaults, UI context display (PRs #71–#78)
-- Comprehensive testing plan: 9-phase plan adding 464 tests (MSP protocol, storage, IPC handlers, UI, hooks, BBL fuzz, analysis pipeline, E2E workflows, coverage infrastructure). PRs #85–#88. See [docs/COMPREHENSIVE_TESTING_PLAN.md](./docs/COMPREHENSIVE_TESTING_PLAN.md).
+- BF version policy: min 4.3 (API 1.44), version gate on connect, version-aware debug mode (PR #79)
+- Comprehensive testing plan: 9-phase plan adding 464 tests. PRs #85–#88. See [docs/COMPREHENSIVE_TESTING_PLAN.md](./docs/COMPREHENSIVE_TESTING_PLAN.md).
+- Verification flight: optional hover after PID apply for before/after noise comparison (PRs #89–#92)
+- Navigation breadcrumb in AnalysisOverview, snapshot/analysis UX fixes (PRs #93–#95)
+- Tuning history & comparison: session archive per profile, completion summary with noise spectrum overlay, applied changes table, PID metrics, expandable history panel (PRs #96–#99)
 
 ### Phase 5: Complete Manual Testing & UX Polish :x:
 **Status:** Not started
@@ -324,7 +330,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 11, 2026 | **Tests:** 1440 across 75 files | **PRs Merged:** #1–#88
+**Last Updated:** February 12, 2026 | **Tests:** 1520 across 82 files | **PRs Merged:** #1–#99
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -332,7 +338,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 | Phase 2: Blackbox Analysis & Tuning | **100%** :white_check_mark: | Parser, FFT, step response, auto-apply, rollback |
 | Phase 2.5: UX Polish | **100%** :white_check_mark: | Charts, diff view, toast |
 | Phase 3: Mode-Aware Analysis | **100%** :white_check_mark: | Wizard modes, read-only analysis, flight guides |
-| Phase 4: Two-Flight Workflow | **100%** :white_check_mark: | Session state machine, smart reconnect, status banner |
+| Phase 4: Two-Flight Workflow | **100%** :white_check_mark: | Session state machine, smart reconnect, status banner, verification flight, tuning history |
 | Phase 5: Manual Testing & UX Polish | **0%** :x: | Next up |
 | Phase 6: CI/CD & Releases | **0%** :x: | After Phase 5 |
 | Phase 7: E2E on Real FC | **0%** :x: | After Phase 6 |
