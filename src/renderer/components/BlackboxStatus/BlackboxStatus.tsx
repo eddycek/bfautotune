@@ -5,7 +5,7 @@ import { useToast } from '../../hooks/useToast';
 import './BlackboxStatus.css';
 
 interface BlackboxStatusProps {
-  onAnalyze?: (logId: string) => void;
+  onAnalyze?: (logId: string, logName: string) => void;
   readonly?: boolean;
 }
 
@@ -282,7 +282,7 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                   {onAnalyze && !readonly && (
                     <button
                       className="log-analyze-button"
-                      onClick={() => onAnalyze(log.id)}
+                      onClick={() => onAnalyze(log.id, log.filename)}
                       title="Analyze & Tune"
                     >
                       Analyze

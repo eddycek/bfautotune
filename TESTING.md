@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1442 tests across 75 files** (last verified: February 11, 2026)
+**Total: 1447 tests across 75 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -162,7 +162,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 13 | Connection flow, port scanning, cooldown, auto-cooldown on unexpected disconnect |
 | `FCInfo/FCInfoDisplay.test.tsx` | 33 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix/reset settings |
 | `FCInfo/FixSettingsConfirmModal.test.tsx` | 4 | Fix settings confirmation modal, reboot warning, confirm/cancel |
-| `BlackboxStatus/BlackboxStatus.test.tsx` | 14 | Blackbox status, download trigger, readonly mode |
+| `BlackboxStatus/BlackboxStatus.test.tsx` | 15 | Blackbox status, download trigger, readonly mode, onAnalyze with filename |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 18 | Profile editing, validation, form handling, flight style selector |
 | `ProfileDeleteModal.test.tsx` | 12 | Deletion confirmation, warnings |
@@ -176,7 +176,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
-| `AnalysisOverview/AnalysisOverview.test.tsx` | 22 | Diagnostic-only analysis view, auto-parse, session picker, FF warning, RPM status, flight style display |
+| `AnalysisOverview/AnalysisOverview.test.tsx` | 25 | Diagnostic-only analysis view, auto-parse, session picker, breadcrumb navigation, session metadata, FF warning, RPM status |
 | `TuningWizard/PIDAnalysisStep.test.tsx` | 5 | PID results display, flight style pill, step count pluralization |
 | `TuningWizard/RecommendationCard.test.tsx` | 9 | Setting label lookup, value display, change percentage, confidence |
 | `TuningWizard/ApplyConfirmationModal.test.tsx` | 9 | Change counts, snapshot checkbox, confirm/cancel, reboot warning |

@@ -2,7 +2,6 @@ import React from 'react';
 import { useAnalysisOverview } from '../../hooks/useAnalysisOverview';
 import { SpectrumChart } from '../TuningWizard/charts/SpectrumChart';
 import { StepResponseChart } from '../TuningWizard/charts/StepResponseChart';
-import type { FlightStyle } from '@shared/types/profile.types';
 import './AnalysisOverview.css';
 
 /** Strip recommendation sentences from analysis summaries (diagnostic-only view). */
@@ -14,14 +13,9 @@ function stripRecommendation(summary: string): string {
     .replace(/\s*\d+ adjustments? recommended\b[^.]*\.$/, '');
 }
 
-const FLIGHT_STYLE_LABELS: Record<FlightStyle, string> = {
-  smooth: 'Smooth',
-  balanced: 'Balanced',
-  aggressive: 'Aggressive',
-};
-
 interface AnalysisOverviewProps {
   logId: string;
+  logName: string;
   onExit: () => void;
 }
 
@@ -46,7 +40,7 @@ const PEAK_TYPE_LABELS: Record<string, string> = {
   unknown: 'Unknown',
 };
 
-export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
+export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewProps) {
   const overview = useAnalysisOverview(logId);
 
   // Check if any trace data exists for step response chart
@@ -56,12 +50,43 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
       )
     : false;
 
+  const isMultiSession = overview.sessions !== null && overview.sessions.length > 1;
+  const selectedSession = overview.sessionSelected && overview.sessions
+    ? overview.sessions[overview.sessionIndex]
+    : null;
+
   return (
     <div className="analysis-overview">
       <div className="analysis-overview-header">
         <div className="analysis-overview-header-left">
           <h2>Analysis Overview</h2>
-          <span className="analysis-overview-log-id">Log: {logId}</span>
+          <div className="analysis-breadcrumb">
+            {isMultiSession && overview.sessionSelected ? (
+              <button
+                className="analysis-breadcrumb-log"
+                onClick={overview.resetToSessionPicker}
+              >
+                {logName}
+              </button>
+            ) : (
+              <span className="analysis-breadcrumb-log-static">{logName}</span>
+            )}
+            {selectedSession && (
+              <>
+                <span className="analysis-breadcrumb-arrow">{'\u2192'}</span>
+                <span className="analysis-breadcrumb-session">Session {overview.sessionIndex + 1}</span>
+              </>
+            )}
+          </div>
+          {selectedSession && (
+            <div className="analysis-breadcrumb-meta">
+              {selectedSession.flightData.durationSeconds.toFixed(1)}s
+              {' \u2022 '}
+              {selectedSession.flightData.frameCount.toLocaleString()} frames
+              {' \u2022 '}
+              {selectedSession.flightData.sampleRateHz} Hz
+            </div>
+          )}
         </div>
         <button className="wizard-btn wizard-btn-secondary" onClick={onExit}>
           Exit
@@ -103,8 +128,8 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
         </div>
       )}
 
-      {/* Session picker — only for multi-session logs */}
-      {overview.sessions && overview.sessions.length > 1 && !overview.filterAnalyzing && !overview.pidAnalyzing && !overview.filterResult && !overview.pidResult && (
+      {/* Session picker — only for multi-session logs when no session selected */}
+      {overview.sessions && overview.sessions.length > 1 && !overview.sessionSelected && (
         <div className="analysis-overview-section">
           <h3 className="analysis-overview-section-title">Select Flight Session</h3>
           <p style={{ fontSize: 13, color: 'var(--text-secondary, #aaa)', margin: '0 0 16px 0' }}>
@@ -301,11 +326,6 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             <span className="analysis-meta-pill">
               {overview.pidResult.stepsDetected} step{overview.pidResult.stepsDetected !== 1 ? 's' : ''} detected
             </span>
-            {overview.pidResult.flightStyle && (
-              <span className="analysis-meta-pill">
-                Tuning for: {FLIGHT_STYLE_LABELS[overview.pidResult.flightStyle]} flying
-              </span>
-            )}
           </div>
 
           {overview.pidResult.warnings && overview.pidResult.warnings.length > 0 && (

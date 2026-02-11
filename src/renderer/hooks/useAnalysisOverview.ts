@@ -9,7 +9,9 @@ import type {
 export interface UseAnalysisOverviewReturn {
   logId: string;
   sessionIndex: number;
+  sessionSelected: boolean;
   setSessionIndex: (idx: number) => void;
+  resetToSessionPicker: () => void;
   sessions: BlackboxLogSession[] | null;
 
   // Parse
@@ -35,6 +37,7 @@ export interface UseAnalysisOverviewReturn {
 
 export function useAnalysisOverview(logId: string): UseAnalysisOverviewReturn {
   const [sessionIndex, setSessionIndex] = useState(0);
+  const [sessionSelected, setSessionSelected] = useState(false);
   const [sessions, setSessions] = useState<BlackboxLogSession[] | null>(null);
 
   // Parse state
@@ -130,6 +133,7 @@ export function useAnalysisOverview(logId: string): UseAnalysisOverviewReturn {
       // Auto-select and auto-analyze if single session
       if (result.sessions.length === 1) {
         setSessionIndex(0);
+        setSessionSelected(true);
         runBothAnalyses(0);
       }
     } catch (err) {
@@ -143,6 +147,7 @@ export function useAnalysisOverview(logId: string): UseAnalysisOverviewReturn {
   // Handle session selection for multi-session logs
   const selectSession = useCallback((idx: number) => {
     setSessionIndex(idx);
+    setSessionSelected(true);
     // Reset previous analysis results
     setFilterResult(null);
     setFilterError(null);
@@ -150,6 +155,14 @@ export function useAnalysisOverview(logId: string): UseAnalysisOverviewReturn {
     setPidError(null);
     runBothAnalyses(idx);
   }, [runBothAnalyses]);
+
+  const resetToSessionPicker = useCallback(() => {
+    setSessionSelected(false);
+    setFilterResult(null);
+    setFilterError(null);
+    setPidResult(null);
+    setPidError(null);
+  }, []);
 
   // Auto-parse on mount
   useEffect(() => {
@@ -171,7 +184,9 @@ export function useAnalysisOverview(logId: string): UseAnalysisOverviewReturn {
   return {
     logId,
     sessionIndex,
+    sessionSelected,
     setSessionIndex: selectSession,
+    resetToSessionPicker,
     sessions,
     parsing,
     parseProgress,

@@ -240,5 +240,23 @@ describe('BlackboxStatus', () => {
 
       expect(screen.getByText('Analyze')).toBeInTheDocument();
     });
+
+    it('calls onAnalyze with log id and filename', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue([mockLog]);
+      const onAnalyze = vi.fn();
+      const { default: userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+
+      render(<BlackboxStatus onAnalyze={onAnalyze} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('blackbox_2026-02-09.bbl')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Analyze'));
+
+      expect(onAnalyze).toHaveBeenCalledWith('log-1', 'blackbox_2026-02-09.bbl');
+    });
   });
 });
