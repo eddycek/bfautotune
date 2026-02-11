@@ -517,7 +517,15 @@ export class MSPClient extends EventEmitter {
       dterm_lpf2_static_hz: response.data.readUInt16LE(26),
       dyn_notch_min_hz: response.data.readUInt16LE(41),
       dyn_notch_max_hz: response.data.readUInt16LE(45),
+      dyn_notch_q: response.data.readUInt16LE(39),
+      rpm_filter_harmonics: response.data.readUInt8(43),
+      rpm_filter_min_hz: response.data.readUInt8(44),
     };
+
+    // dyn_notch_count is at byte 47 in BF 4.3+ extended response
+    if (response.data.length > 47) {
+      settings.dyn_notch_count = response.data.readUInt8(47);
+    }
 
     logger.info('Filter configuration read:', settings);
     return settings;
