@@ -6,7 +6,7 @@ import { SnapshotManager } from './storage/SnapshotManager';
 import { ProfileManager } from './storage/ProfileManager';
 import { BlackboxManager } from './storage/BlackboxManager';
 import { TuningSessionManager } from './storage/TuningSessionManager';
-import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected, sendTuningSessionChanged } from './ipc/handlers';
+import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected, sendTuningSessionChanged, consumePendingSettingsSnapshot } from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
 
@@ -91,6 +91,18 @@ async function initialize(): Promise<void> {
         // For new FCs, baseline will be created after profile is created
         logger.info('Creating baseline for existing profile...');
         await snapshotManager.createBaselineIfMissing();
+
+        // After a settings fix/reset, the FC reboots and reconnects.
+        // Create a clean snapshot now (MSP + CLI available, no mode conflicts).
+        if (consumePendingSettingsSnapshot()) {
+          try {
+            logger.info('Creating post-settings-change snapshot...');
+            await snapshotManager.createSnapshot('Post-settings-change (auto)', 'auto');
+            logger.info('Post-settings-change snapshot created');
+          } catch (err) {
+            logger.warn('Failed to create post-settings-change snapshot (non-fatal):', err);
+          }
+        }
 
         // Smart reconnect: check tuning session state
         try {
