@@ -135,17 +135,19 @@ Also read dynamic notch count/Q for recommendation context (already in the MSP r
 
 ## 3. Implementation Plan
 
-### Task 1: Extend `CurrentFilterSettings` type with RPM and dynamic notch fields
+### Task 1: Extend `CurrentFilterSettings` type with RPM and dynamic notch fields ✅
 - **File**: `src/shared/types/analysis.types.ts`
 - **Changes**: Add optional `rpm_filter_harmonics`, `rpm_filter_min_hz`, `dyn_notch_count`, `dyn_notch_q` fields
 - **Tests**: Type compilation; update existing tests that construct `CurrentFilterSettings` objects
+- **PR**: #63 (merged)
 
-### Task 2: Expose RPM filter bytes in `MSPClient.getFilterConfiguration()`
+### Task 2: Expose RPM filter bytes in `MSPClient.getFilterConfiguration()` ✅
 - **File**: `src/main/msp/MSPClient.ts`
 - **Changes**: Read bytes 43-44 (rpm_notch_harmonics, rpm_notch_min_hz) and bytes 37-39 (dyn_notch_q) into the returned settings object. Add `dyn_notch_count` if available in extended response (byte 47+ in BF 4.3+).
 - **Tests**: Unit tests with mock Buffer for both minimal (47-byte) and extended responses
+- **PR**: #64 (merged)
 
-### Task 3: Add RPM-aware safety bound constants
+### Task 3: Add RPM-aware safety bound constants ✅
 - **File**: `src/main/analysis/constants.ts`
 - **Changes**: Add RPM-conditional bounds:
   ```typescript
@@ -157,8 +159,9 @@ Also read dynamic notch count/Q for recommendation context (already in the MSP r
   export const DYN_NOTCH_Q_WITHOUT_RPM = 300;
   ```
 - **Tests**: N/A (constants only)
+- **PR**: #65 (merged)
 
-### Task 4: Make `FilterRecommender.recommend()` RPM-aware
+### Task 4: Make `FilterRecommender.recommend()` RPM-aware ✅
 - **File**: `src/main/analysis/FilterRecommender.ts`
 - **Changes**:
   1. Detect RPM state from `current.rpm_filter_harmonics`
@@ -170,16 +173,19 @@ Also read dynamic notch count/Q for recommendation context (already in the MSP r
   - RPM active: dynamic notch count/Q adjustment
   - RPM inactive: unchanged behavior (regression)
   - RPM state unknown (undefined): unchanged behavior (regression)
+- **PR**: #66 (merged)
 
-### Task 5: Add RPM context to `FilterAnalysisResult`
+### Task 5: Add RPM context to `FilterAnalysisResult` ✅
 - **File**: `src/shared/types/analysis.types.ts`, `src/main/analysis/FilterAnalyzer.ts`
 - **Changes**: Add `rpmFilterActive: boolean` field to `FilterAnalysisResult`. Wire detection through `FilterAnalyzer`.
 - **Tests**: Integration test verifying RPM context propagates to result
+- **PR**: #67 (merged)
 
-### Task 6: Extract RPM state from BBL headers as fallback
-- **File**: `src/main/analysis/FilterAnalyzer.ts`
-- **Changes**: When `CurrentFilterSettings` doesn't include RPM data (e.g., FC not connected), fall back to reading `dshot_bidir` and `rpm_filter_harmonics` from BBL `rawHeaders`
-- **Tests**: Unit test for BBL header fallback path
+### Task 6: Extract RPM state from BBL headers as fallback ✅
+- **File**: `src/main/analysis/headerValidation.ts`, `src/main/ipc/handlers.ts`
+- **Changes**: When `CurrentFilterSettings` doesn't include RPM data (e.g., FC not connected), fall back to reading `dshot_bidir` and `rpm_filter_harmonics` from BBL `rawHeaders` via `enrichSettingsFromBBLHeaders()`
+- **Tests**: Unit tests for BBL header fallback path in `headerValidation.test.ts`
+- **PR**: #68 (merged)
 
 ### Task 7: Display RPM filter status in analysis UI ✅
 - **File**: `src/renderer/components/TuningWizard/FilterAnalysisStep.tsx`, `src/renderer/components/AnalysisOverview/AnalysisOverview.tsx`

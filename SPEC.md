@@ -80,7 +80,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Import .bbl/.bfl files and/or download logs from onboard flash via MSP | :white_check_mark: | MSP_DATAFLASH_READ download + BlackboxManager storage |
-| Parse raw gyro and relevant channels (setpoint/gyro tracking) for analysis | :white_check_mark: | BlackboxParser: gyro, setpoint, PID, motor, debug as Float64Array (205 tests) |
+| Parse raw gyro and relevant channels (setpoint/gyro tracking) for analysis | :white_check_mark: | BlackboxParser: gyro, setpoint, PID, motor, debug as Float64Array (245 tests) |
 | Load multiple logs for comparative analysis (e.g., D sweep flights) | :fast_forward: | Single-log analysis works. Multi-log comparison deferred to future iteration. |
 | Ensure performance: large logs, FFT, and metric computation must not freeze UI | :white_check_mark: | Async parsing with progress events, FFT with event loop yielding |
 | FC diagnostics: validate debug_mode and logging rate from Blackbox header | :white_check_mark: | GYRO_SCALED check, logging rate warnings in FC info panel |
@@ -148,9 +148,9 @@ High-level user journey:
 | Backend | Electron Node process with serial/MSP + analysis workers | :white_check_mark: | Main process with MSPClient, managers, IPC handlers |
 | `msp-client` | connect, read/write settings, reboot, log download | :white_check_mark: | `src/main/msp/` — MSPProtocol, MSPConnection, MSPClient |
 | `config-vcs` | snapshots, diffs, rollback, export/import | :white_check_mark: | `src/main/storage/SnapshotManager.ts` + ProfileManager + snapshot restore + diff view |
-| `blackbox-parser` | decode logs | :white_check_mark: | `src/main/blackbox/` — 6 modules, 205 tests |
-| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 111 tests (convergent noise-based targets) |
-| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 84 tests (flight PID anchoring, convergent, FF-aware) |
+| `blackbox-parser` | decode logs | :white_check_mark: | `src/main/blackbox/` — 6 modules, 245 tests (incl. fuzz + real-flight regression) |
+| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 127 tests (convergent noise-based targets, RPM-aware) |
+| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 95 tests (flight PID anchoring, convergent, FF-aware) |
 | `tuning-orchestrator` | state machine + safety constraints | :white_check_mark: | TuningSessionManager (10-phase state machine) + apply handlers + restore handler |
 | `ui-wizard` | screens + explanations + charts | :white_check_mark: | TuningWizard (mode-aware) + AnalysisOverview + TuningStatusBanner + interactive charts |
 
@@ -167,7 +167,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Package analysis engine as a stateless service (container) | :fast_forward: | Architecture supports this — analysis modules are pure functions |
-| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 195 tests (111 filter + 84 PID) |
+| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 269 tests (127 filter + 95 PID + 47 shared/pipeline) |
 | Cloud optional; local remains primary | :white_check_mark: | Fully offline, no network calls |
 
 ---
@@ -190,7 +190,7 @@ High-level user journey:
 | Cross-platform desktop app (Win/macOS/Linux) | :construction: | Electron app runs. Cross-platform builds planned for Phase 6. |
 | USB connect + read/write Betaflight settings via MSP | :white_check_mark: | Complete |
 | Snapshot/versioning with rollback | :white_check_mark: | Complete with diff view |
-| Blackbox log import/download + parsing | :white_check_mark: | Complete (205 parser tests) |
+| Blackbox log import/download + parsing | :white_check_mark: | Complete (245 parser tests incl. fuzz) |
 | Filter analysis + apply changes | :white_check_mark: | Complete with interactive charts |
 | PID analysis (P/D balance) + apply changes | :white_check_mark: | Complete with interactive charts. Master gain deferred. |
 | Guided tutorial screens for required test flights | :white_check_mark: | Two-flight guided workflow with status banner, flight guides, post-erase guidance |
@@ -227,9 +227,9 @@ High-level user journey:
 **Status:** Complete | **PRs:** #2–#10
 
 - Blackbox MSP commands (download, erase, info)
-- Blackbox binary log parser (205 tests, validated against BF Explorer)
-- FFT analysis engine (98 tests, Welch's method, peak detection)
-- Step response analyzer (69 tests, flight-PID anchoring)
+- Blackbox binary log parser (245 tests, validated against BF Explorer)
+- FFT analysis engine (127 tests, Welch's method, peak detection, RPM-aware)
+- Step response analyzer (95 tests, flight-PID anchoring, FF-aware)
 - Guided wizard UI (5-step flow)
 - Auto-apply recommendations (MSP PIDs → snapshot → CLI filters → save)
 - Convergent recommendations (idempotent)
@@ -252,7 +252,7 @@ High-level user journey:
 - TuningWorkflowModal (two-flight workflow preparation)
 
 ### Phase 4: Stateful Two-Flight Tuning Workflow :white_check_mark:
-**Status:** Complete | **PRs:** #31–#78 | **Tests:** 963 across 52 files
+**Status:** Complete | **PRs:** #31–#78 | **Tests:** 1440 across 75 files (after comprehensive testing plan PRs #85–#88)
 
 - TuningSessionManager (10-phase state machine, per-profile persistence)
 - TuningStatusBanner (dashboard banner with step indicator, action buttons)
@@ -267,6 +267,7 @@ High-level user journey:
 - Feedforward display in FC Info panel: boost, per-axis gains, smoothing, jitter, transition, max rate limit (PR #62)
 - RPM filter awareness: RPM state detection via MSP/BBL headers, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics (PRs #66–#70)
 - Flight style preferences: Smooth/Balanced/Aggressive selector in profiles, style-based PID thresholds, preset defaults, UI context display (PRs #71–#78)
+- Comprehensive testing plan: 9-phase plan adding 464 tests (MSP protocol, storage, IPC handlers, UI, hooks, BBL fuzz, analysis pipeline, E2E workflows, coverage infrastructure). PRs #85–#88. See [docs/COMPREHENSIVE_TESTING_PLAN.md](./docs/COMPREHENSIVE_TESTING_PLAN.md).
 
 ### Phase 5: Complete Manual Testing & UX Polish :x:
 **Status:** Not started
@@ -323,7 +324,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 11, 2026 | **Tests:** 963 across 52 files | **PRs Merged:** #1–#78
+**Last Updated:** February 11, 2026 | **Tests:** 1440 across 75 files | **PRs Merged:** #1–#88
 
 | Phase | Status | Notes |
 |-------|--------|-------|

@@ -45,7 +45,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 
 ### Blackbox Analysis
 - Blackbox log download from FC flash storage (adaptive chunking)
-- Binary BBL log parser (validated against BF Explorer, 205 tests)
+- Binary BBL log parser (validated against BF Explorer, 245 tests)
 - Multi-session support (multiple flights per file)
 - FC diagnostics: debug_mode, logging rate, and feedforward configuration display with warnings + one-click fix
 
@@ -125,7 +125,9 @@ This will:
 
 ### Testing
 
-All UI changes must include tests. Tests automatically run before commits.
+All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
+
+**Test suite:** 1440 tests across 75 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
 ```bash
 # Run tests in watch mode
@@ -141,7 +143,7 @@ npm run test:ui
 npm run test:coverage
 ```
 
-See [TESTING.md](./TESTING.md) for complete testing guidelines and best practices.
+See [TESTING.md](./TESTING.md) for complete testing guidelines, test inventory, and best practices. See [docs/COMPREHENSIVE_TESTING_PLAN.md](./docs/COMPREHENSIVE_TESTING_PLAN.md) for the full testing plan and architecture.
 
 ## Building
 
@@ -166,7 +168,7 @@ bfautotune/
 │   │   │   ├── MSPProtocol.ts   # Protocol encoding/decoding (MSP v1)
 │   │   │   ├── commands.ts      # MSP command definitions
 │   │   │   └── types.ts         # MSP type definitions
-│   │   ├── blackbox/            # BBL binary log parser (6 modules, 227 tests)
+│   │   ├── blackbox/            # BBL binary log parser (6 modules, 245 tests)
 │   │   ├── analysis/            # FFT noise + step response analysis (10 modules, FF-aware)
 │   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
 │   │   │   ├── SegmentSelector.ts   # Hover segment detection
@@ -234,7 +236,9 @@ bfautotune/
 │
 └── docs/                        # Design docs
     ├── BBL_PARSER_VALIDATION.md       # Parser validation against BF Explorer
+    ├── COMPREHENSIVE_TESTING_PLAN.md  # 9-phase testing plan (1440 tests / 75 files)
     ├── FEEDFORWARD_AWARENESS.md       # FF detection, warnings, recommendations design
+    ├── RPM_FILTER_AWARENESS.md        # RPM filter detection and filter recommendation adjustments
     └── TUNING_WORKFLOW_REVISION.md    # Phase 4 design doc
 ```
 
