@@ -153,5 +153,5 @@ export const TUNING_WORKFLOW: WorkflowStep[] = [
   { title: 'Erase Blackbox data again', description: 'Clear the filter flight log.' },
   { title: 'Fly: PID test flight', description: 'Stick snaps on all axes (~30 sec). Follow the PID flight guide.' },
   { title: 'Analyze & apply PIDs', description: 'Download the log. Run the PID Wizard. Apply changes.' },
-  { title: 'Verify', description: 'Fly normally and check the feel. Repeat if needed.' },
+  { title: 'Optional: Verification hover', description: 'Fly a gentle 30-second hover, then download the log. The app compares before/after noise levels. You can skip this step.' },
 ];

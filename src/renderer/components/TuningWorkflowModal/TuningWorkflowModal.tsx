@@ -63,6 +63,13 @@ export function TuningWorkflowModal({ onClose }: TuningWorkflowModalProps) {
         <h3 className="workflow-subheading">Flight 2: PID Test Flight</h3>
         <FlightGuideContent mode="pid" fcVersion={fcVersion} />
 
+        <hr className="workflow-divider" />
+
+        <h3 className="workflow-subheading">Optional: Verification Hover</h3>
+        <p className="workflow-step-desc">
+          After applying PIDs, you can fly a short 30-second hover to compare noise levels before and after tuning. The app overlays the original and new noise spectra so you can see the improvement. This step is optional — skip it if the quad already feels good.
+        </p>
+
         <div className="workflow-modal-actions">
           <button className="wizard-btn wizard-btn-primary" onClick={onClose}>
             Got it

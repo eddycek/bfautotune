@@ -26,13 +26,14 @@ describe('TuningWorkflowModal', () => {
     expect(screen.getByText('Erase Blackbox data again')).toBeInTheDocument();
     expect(screen.getByText('Fly: PID test flight')).toBeInTheDocument();
     expect(screen.getByText('Analyze & apply PIDs')).toBeInTheDocument();
-    expect(screen.getByText('Verify')).toBeInTheDocument();
+    expect(screen.getByText('Optional: Verification hover')).toBeInTheDocument();
   });
 
-  it('shows both flight guide sections', () => {
+  it('shows all three flight guide sections', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
     expect(screen.getByText('Flight 1: Filter Test Flight')).toBeInTheDocument();
     expect(screen.getByText('Flight 2: PID Test Flight')).toBeInTheDocument();
+    expect(screen.getByText('Optional: Verification Hover')).toBeInTheDocument();
   });
 
   it('shows filter flight guide phases', () => {
