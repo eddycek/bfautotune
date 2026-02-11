@@ -207,4 +207,27 @@ describe('TuningStatusBanner', () => {
 
     expect(screen.getByRole('button', { name: /Downloading/ })).toBeDisabled();
   });
+
+  it('shows filter_applied UI with Continue button and PID guide', async () => {
+    const user = userEvent.setup();
+    renderBanner({ ...baseSession, phase: 'filter_applied' });
+
+    expect(screen.getByText(/Filters applied/)).toBeInTheDocument();
+    expect(screen.getByText('Continue')).toBeInTheDocument();
+    expect(screen.getByText('View Flight Guide')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Continue'));
+    expect(onAction).toHaveBeenCalledWith('erase_flash');
+  });
+
+  it('shows pid_applied UI with Complete Tuning button', async () => {
+    const user = userEvent.setup();
+    renderBanner({ ...baseSession, phase: 'pid_applied' });
+
+    expect(screen.getByText(/PIDs applied/)).toBeInTheDocument();
+    expect(screen.getByText('Complete Tuning')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Complete Tuning'));
+    expect(onAction).toHaveBeenCalledWith('complete_session');
+  });
 });

@@ -16,7 +16,7 @@ import { useTuningSession } from './hooks/useTuningSession';
 import { useToast } from './hooks/useToast';
 import type { FCInfo } from '@shared/types/common.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
-import type { TuningMode } from '@shared/types/tuning.types';
+import type { TuningMode, AppliedChange } from '@shared/types/tuning.types';
 import type { TuningAction } from './components/TuningStatusBanner/TuningStatusBanner';
 import './App.css';
 
@@ -81,8 +81,17 @@ function AppContent() {
       case 'erase_flash':
         try {
           setErasing(true);
+          const currentPhase = tuning.session?.phase;
+
+          // filter_applied "Continue" → transition to pid_flight_pending before erase
+          if (currentPhase === 'filter_applied') {
+            await tuning.updatePhase('pid_flight_pending');
+          }
+
           await window.betaflight.eraseBlackboxFlash();
-          setErasedForPhase(tuning.session?.phase ?? null);
+          // Re-read phase after potential transition above
+          const phaseForErase = currentPhase === 'filter_applied' ? 'pid_flight_pending' : (tuning.session?.phase ?? null);
+          setErasedForPhase(phaseForErase);
           toast.success('Flash memory erased');
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to erase flash');
@@ -137,6 +146,14 @@ function AppContent() {
           toast.error(err instanceof Error ? err.message : 'Failed to start new cycle');
         }
         break;
+      case 'complete_session':
+        try {
+          setErasedForPhase(null);
+          await tuning.updatePhase('completed');
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to complete session');
+        }
+        break;
       case 'dismiss':
         try {
           setErasedForPhase(null);
@@ -145,6 +162,15 @@ function AppContent() {
           toast.error(err instanceof Error ? err.message : 'Failed to reset session');
         }
         break;
+    }
+  };
+
+  const handleApplyComplete = async (changes: { filterChanges?: AppliedChange[]; pidChanges?: AppliedChange[] }) => {
+    const phase = tuning.session?.phase;
+    if (phase === 'filter_analysis') {
+      await tuning.updatePhase('filter_applied', { appliedFilterChanges: changes.filterChanges });
+    } else if (phase === 'pid_analysis') {
+      await tuning.updatePhase('pid_applied', { appliedPIDChanges: changes.pidChanges });
     }
   };
 
@@ -186,7 +212,7 @@ function AppContent() {
         {analysisLogId ? (
           <AnalysisOverview logId={analysisLogId} onExit={() => setAnalysisLogId(null)} />
         ) : activeLogId ? (
-          <TuningWizard logId={activeLogId} mode={wizardMode} onExit={() => setActiveLogId(null)} />
+          <TuningWizard logId={activeLogId} mode={wizardMode} onExit={() => setActiveLogId(null)} onApplyComplete={handleApplyComplete} />
         ) : (
           <div className="main-content">
             <div className={`top-row ${isConnected && currentProfile ? 'top-row-connected' : ''}`}>

@@ -924,6 +924,75 @@ describe('TuningWizard', () => {
     });
   });
 
+  it('calls onApplyComplete with filter changes after successful filter apply', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      snapshotId: 'snap-1',
+      appliedPIDs: 0,
+      appliedFilters: 1,
+      rebooted: true,
+    });
+
+    const onApplyComplete = vi.fn();
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} onApplyComplete={onApplyComplete} />);
+
+    await passGuide(user);
+    await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run Filter Analysis'));
+    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to Summary'));
+    await waitFor(() => expect(screen.getByText('Apply Filters')).toBeInTheDocument());
+    await user.click(screen.getByText('Apply Filters'));
+    await waitFor(() => expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument());
+
+    const modalApplyBtns = screen.getAllByText('Apply Changes');
+    await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(onApplyComplete).toHaveBeenCalledWith({
+        filterChanges: [{ setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 300 }],
+        pidChanges: undefined,
+      });
+    });
+  });
+
+  it('calls onApplyComplete with PID changes after successful PID apply', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      appliedPIDs: 1,
+      appliedFilters: 0,
+      rebooted: true,
+    });
+
+    const onApplyComplete = vi.fn();
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} onApplyComplete={onApplyComplete} />);
+
+    await passGuide(user);
+    await waitFor(() => expect(screen.getByText('Run PID Analysis')).toBeInTheDocument());
+    await user.click(screen.getByText('Run PID Analysis'));
+    await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
+    await user.click(screen.getByText('Continue to Summary'));
+    await waitFor(() => expect(screen.getByText('Apply PIDs')).toBeInTheDocument());
+    await user.click(screen.getByText('Apply PIDs'));
+    await waitFor(() => expect(screen.getByText('Apply Tuning Changes')).toBeInTheDocument());
+
+    const modalApplyBtns = screen.getAllByText('Apply Changes');
+    await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(onApplyComplete).toHaveBeenCalledWith({
+        filterChanges: undefined,
+        pidChanges: [{ setting: 'pid_roll_p', previousValue: 45, newValue: 50 }],
+      });
+    });
+  });
+
   it('mode=filter summary hides PID recommendation section', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
