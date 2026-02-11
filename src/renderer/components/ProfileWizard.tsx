@@ -20,14 +20,7 @@ interface ProfileWizardProps {
 type WizardStep = 'method' | 'preset' | 'basic' | 'review';
 type CreationMethod = 'preset' | 'custom';
 
-const PRESET_FLIGHT_STYLES: Record<string, FlightStyle> = {
-  '5inch-race': 'aggressive',
-  '5inch-cinematic': 'smooth',
-  '3inch-cinewhoop': 'smooth',
-  '6inch-longrange': 'smooth',
-  '7inch-longrange': 'smooth',
-  '10inch-ultra-longrange': 'smooth',
-};
+// Flight style derived from preset definitions in constants.ts
 
 export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardProps) {
   const [step, setStep] = useState<WizardStep>('method');
@@ -63,7 +56,8 @@ export function ProfileWizard({ fcSerial, fcInfo, onComplete }: ProfileWizardPro
 
   const handlePresetSelect = (presetId: string) => {
     setSelectedPresetId(presetId);
-    setFlightStyle(PRESET_FLIGHT_STYLES[presetId] || 'balanced');
+    const preset = PRESET_PROFILES[presetId as keyof typeof PRESET_PROFILES];
+    setFlightStyle(preset?.flightStyle ?? 'balanced');
   };
 
   const handleMethodSelect = (selectedMethod: CreationMethod) => {
