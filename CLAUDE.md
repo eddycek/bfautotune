@@ -274,18 +274,11 @@ Interactive visualization of analysis results using Recharts (SVG).
 
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
+**Important**: After adding or removing tests, update the test inventory in `TESTING.md`. Keep counts and file lists accurate.
+
 ### Test Coverage
-- 841 tests total across 47 test files
-- UI Components: ConnectionPanel, ProfileSelector, FCInfoDisplay, SnapshotManager, SnapshotDiffModal, ProfileEditModal, ProfileDeleteModal, BlackboxStatus, Toast, ToastContainer, TuningWizard, ApplyConfirmationModal, TuningWorkflowModal, TuningStatusBanner, FlightGuideContent, TestFlightGuideStep, AnalysisOverview
-- Snapshot Diff: snapshotDiffUtils, SnapshotDiffModal (38 tests)
-- Charts: SpectrumChart, StepResponseChart, chartUtils (30 tests)
-- Hooks: useConnection, useProfiles, useSnapshots, useTuningWizard, useTuningSession, useAnalysisOverview
-- Tuning Session: TuningSessionManager (15 tests), TuningStatusBanner (13 tests), headerValidation (9 tests)
-- MSP Client: MSPClient (8 tests - filter config parsing, flash payload extraction)
-- Blackbox Parser: BlackboxParser, StreamReader, HeaderParser, ValueDecoder, PredictorApplier, FrameParser (205 tests, incl. integration)
-- FFT Analysis: FFTCompute, SegmentSelector, NoiseAnalyzer, FilterRecommender, FilterAnalyzer (98 tests)
-- Step Response Analysis: StepDetector, StepMetrics, PIDRecommender, PIDAnalyzer (69 tests)
-- See `TESTING.md` for detailed guidelines
+- See `TESTING.md` for the authoritative test inventory (counts per file, descriptions)
+- Test files are co-located with source: `Component.tsx` + `Component.test.tsx`
 
 ### Mock Setup
 Tests use `src/renderer/test/setup.ts` which mocks `window.betaflight` API. Key points:
