@@ -20,9 +20,11 @@ When session reaches `completed`, show a diff of pre-tuning vs post-tuning snaps
 
 Allow users to select individual recommendations instead of all-or-nothing apply. Checkboxes on `RecommendationCard` items in `TuningSummaryStep`. Useful for experienced users who want fine-grained control.
 
-## 5. Verification Flight Guidance
+## 5. Verification Flight Guidance :arrow_right: [Design Doc](./TUNING_HISTORY_AND_COMPARISON.md)
 
-The `verification_pending` phase exists but has no guidance. Offer "Fly a verification flight" flow: download log, open `AnalysisOverview` (diagnostic dashboard), compare metrics with pre-tuning baseline to confirm improvements.
+The `verification_pending` phase exists but has no guidance. Offer "Fly a verification flight" flow: download log, run filter analysis, show before/after noise comparison.
+
+**Planned**: Verification hover flight provides "after" noise spectrum for overlay chart comparison with the original filter flight ("before"). Optional — user can skip. See design doc section 2.9 for details.
 
 ## 6. Tuning Session History :arrow_right: [Design Doc](./TUNING_HISTORY_AND_COMPARISON.md)
 
