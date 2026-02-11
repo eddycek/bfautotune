@@ -1,0 +1,159 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ProfileWizard } from './ProfileWizard';
+import type { FCInfo } from '@shared/types/common.types';
+
+const mockFCInfo: FCInfo = {
+  variant: 'BTFL',
+  firmwareVersion: '4.5.0',
+  apiVersion: '1.46',
+  target: 'STM32F405',
+  boardName: 'BETAFPV F405',
+  serialNumber: 'ABC123',
+};
+
+describe('ProfileWizard flight style', () => {
+  const onComplete = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('defaults to balanced flight style in custom path', async () => {
+    const user = userEvent.setup();
+    render(<ProfileWizard fcSerial="ABC123" fcInfo={mockFCInfo} onComplete={onComplete} />);
+
+    // Go to custom path
+    await user.click(screen.getByText('Custom Configuration'));
+
+    // Flight style selector should be visible with Balanced selected
+    expect(screen.getByText('Balanced (default)')).toBeInTheDocument();
+    expect(screen.getByText('Smooth')).toBeInTheDocument();
+    expect(screen.getByText('Aggressive')).toBeInTheDocument();
+
+    // Balanced should be selected (has .selected class)
+    const balancedBtn = screen.getByText('Balanced (default)').closest('.flight-style-option');
+    expect(balancedBtn?.classList.contains('selected')).toBe(true);
+  });
+
+  it('includes flightStyle in custom profile output', async () => {
+    const user = userEvent.setup();
+    render(<ProfileWizard fcSerial="ABC123" fcInfo={mockFCInfo} onComplete={onComplete} />);
+
+    // Custom path
+    await user.click(screen.getByText('Custom Configuration'));
+
+    // Fill required name
+    await user.type(screen.getByPlaceholderText('e.g., My 5 inch freestyle'), 'Test Drone');
+
+    // Select aggressive style
+    await user.click(screen.getByText('Aggressive'));
+
+    // Continue to review
+    await user.click(screen.getByText('Continue'));
+
+    // Review should show Flying Style
+    expect(screen.getByText('Flying Style')).toBeInTheDocument();
+    expect(screen.getByText('Aggressive')).toBeInTheDocument();
+
+    // Create
+    await user.click(screen.getByText('Create Profile'));
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Test Drone',
+        flightStyle: 'aggressive',
+      })
+    );
+  });
+
+  it('sets flight style from preset mapping for racing preset', async () => {
+    const user = userEvent.setup();
+    render(<ProfileWizard fcSerial="ABC123" fcInfo={mockFCInfo} onComplete={onComplete} />);
+
+    // Preset path
+    await user.click(screen.getByText('Use a Preset'));
+
+    // Select racing preset
+    const racePreset = screen.getByText('5" Race');
+    await user.click(racePreset);
+
+    // Continue to review
+    await user.click(screen.getByText('Continue'));
+
+    // Review should show Aggressive flight style
+    expect(screen.getByText('Aggressive')).toBeInTheDocument();
+
+    // Create
+    await user.click(screen.getByText('Create Profile'));
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        presetId: '5inch-race',
+        flightStyle: 'aggressive',
+      })
+    );
+  });
+
+  it('sets flight style from preset mapping for cinematic preset', async () => {
+    const user = userEvent.setup();
+    render(<ProfileWizard fcSerial="ABC123" fcInfo={mockFCInfo} onComplete={onComplete} />);
+
+    await user.click(screen.getByText('Use a Preset'));
+    const cinematicPreset = screen.getByText('5" Cinematic');
+    await user.click(cinematicPreset);
+    await user.click(screen.getByText('Continue'));
+
+    expect(screen.getByText('Smooth')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Create Profile'));
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        presetId: '5inch-cinematic',
+        flightStyle: 'smooth',
+      })
+    );
+  });
+
+  it('defaults to balanced for freestyle preset', async () => {
+    const user = userEvent.setup();
+    render(<ProfileWizard fcSerial="ABC123" fcInfo={mockFCInfo} onComplete={onComplete} />);
+
+    await user.click(screen.getByText('Use a Preset'));
+    const freestylePreset = screen.getByText('5" Freestyle');
+    await user.click(freestylePreset);
+    await user.click(screen.getByText('Continue'));
+
+    expect(screen.getByText('Balanced')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Create Profile'));
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        presetId: '5inch-freestyle',
+        flightStyle: 'balanced',
+      })
+    );
+  });
+
+  it('allows changing flight style in custom path', async () => {
+    const user = userEvent.setup();
+    render(<ProfileWizard fcSerial="ABC123" fcInfo={mockFCInfo} onComplete={onComplete} />);
+
+    await user.click(screen.getByText('Custom Configuration'));
+    await user.type(screen.getByPlaceholderText('e.g., My 5 inch freestyle'), 'My Cinewhoop');
+
+    // Click smooth
+    await user.click(screen.getByText('Smooth'));
+
+    // Smooth should now be selected
+    const smoothBtn = screen.getByText('Smooth').closest('.flight-style-option');
+    expect(smoothBtn?.classList.contains('selected')).toBe(true);
+
+    // Balanced should no longer be selected
+    const balancedBtn = screen.getByText('Balanced (default)').closest('.flight-style-option');
+    expect(balancedBtn?.classList.contains('selected')).toBe(false);
+  });
+});

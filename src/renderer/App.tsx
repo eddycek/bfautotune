@@ -4,6 +4,7 @@ import { FCInfoDisplay } from './components/FCInfo/FCInfoDisplay';
 import { BlackboxStatus } from './components/BlackboxStatus/BlackboxStatus';
 import { SnapshotManager } from './components/SnapshotManager/SnapshotManager';
 import { ProfileWizard } from './components/ProfileWizard';
+import type { FlightStyle } from '@shared/types/profile.types';
 import { ProfileSelector } from './components/ProfileSelector';
 import { TuningWizard } from './components/TuningWizard/TuningWizard';
 import { AnalysisOverview } from './components/AnalysisOverview/AnalysisOverview';
@@ -33,7 +34,7 @@ function AppContent() {
   const [erasedForPhase, setErasedForPhase] = useState<string | null>(null);
   const [erasing, setErasing] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
+  const { createProfile, createProfileFromPreset, updateProfile, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const toast = useToast();
 
@@ -56,13 +57,17 @@ function AppContent() {
     };
   }, []);
 
-  const handleProfileWizardComplete = async (input: ProfileCreationInput | { presetId: string; customName?: string }) => {
+  const handleProfileWizardComplete = async (input: ProfileCreationInput | { presetId: string; customName?: string; flightStyle?: FlightStyle }) => {
     try {
       if ('presetId' in input) {
         // Create from preset
-        await createProfileFromPreset(input.presetId, input.customName);
+        const profile = await createProfileFromPreset(input.presetId, input.customName);
+        // Apply flight style selection (may differ from preset default)
+        if (input.flightStyle) {
+          await updateProfile(profile.id, { flightStyle: input.flightStyle });
+        }
       } else {
-        // Create custom profile
+        // Create custom profile (flightStyle included in ProfileCreationInput)
         await createProfile(input);
       }
       setShowProfileWizard(false);
