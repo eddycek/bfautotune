@@ -43,7 +43,10 @@ export class UnsupportedVersionError extends BetaflightError {
 
 export class SnapshotError extends BetaflightError {
   constructor(message: string, details?: any) {
-    super(message, 'SNAPSHOT_ERROR', details);
+    // Surface inner error message so it reaches the user, not just "Failed to create snapshot"
+    const innerMsg = details instanceof Error ? details.message : undefined;
+    const fullMessage = innerMsg ? `${message}: ${innerMsg}` : message;
+    super(fullMessage, 'SNAPSHOT_ERROR', details);
     this.name = 'SnapshotError';
   }
 }
