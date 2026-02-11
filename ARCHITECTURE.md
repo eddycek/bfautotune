@@ -1,517 +1,766 @@
 # Architecture Overview
 
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Electron App                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌────────────────────────────────────────────────────────┐     │
-│  │                  Renderer Process (React)              │     │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐  │     │
-│  │  │ Connection   │  │   FC Info    │  │  Snapshot   │  │     │
-│  │  │    Panel     │  │   Display    │  │   Manager   │  │     │
-│  │  └──────┬───────┘  └──────┬───────┘  └──────┬──────┘  │     │
-│  │         │                 │                  │         │     │
-│  │  ┌──────┴─────────────────┴──────────────────┴──────┐  │     │
-│  │  │            Custom React Hooks                    │  │     │
-│  │  │  useConnection | useFCInfo | useSnapshots        │  │     │
-│  │  └──────────────────────┬───────────────────────────┘  │     │
-│  │                         │                              │     │
-│  │                  window.betaflight API                 │     │
-│  └─────────────────────────┼──────────────────────────────┘     │
-│                            │                                     │
-│  ┌─────────────────────────┼──────────────────────────────┐     │
-│  │               Preload Script (Security)               │     │
-│  │         contextBridge.exposeInMainWorld()             │     │
-│  └─────────────────────────┼──────────────────────────────┘     │
-│                            │ IPC                                │
-│                            │                                     │
-│  ┌─────────────────────────┼──────────────────────────────┐     │
-│  │                  Main Process (Node.js)               │     │
-│  │                         │                              │     │
-│  │  ┌──────────────────────┴─────────────────────────┐   │     │
-│  │  │           IPC Handlers                         │   │     │
-│  │  │  connection:* | fc:* | snapshot:*             │   │     │
-│  │  └──────┬───────────────────────────┬─────────────┘   │     │
-│  │         │                           │                 │     │
-│  │  ┌──────┴──────┐         ┌──────────┴─────────┐      │     │
-│  │  │  MSPClient  │         │  SnapshotManager   │      │     │
-│  │  │             │         │                    │      │     │
-│  │  │ - connect() │         │ - create()         │      │     │
-│  │  │ - getFCInfo()         │ - load()           │      │     │
-│  │  │ - exportCLI()         │ - list()           │      │     │
-│  │  └──────┬──────┘         │ - delete()         │      │     │
-│  │         │                └──────────┬─────────┘      │     │
-│  │  ┌──────┴──────┐                    │                │     │
-│  │  │MSPConnection│         ┌──────────┴─────────┐      │     │
-│  │  │             │         │   FileStorage      │      │     │
-│  │  │ - CLI mode  │         │                    │      │     │
-│  │  │ - sendCmd() │         │ - save()           │      │     │
-│  │  └──────┬──────┘         │ - load()           │      │     │
-│  │         │                │ - list()           │      │     │
-│  │  ┌──────┴──────┐         └────────────────────┘      │     │
-│  │  │ MSPProtocol │                                     │     │
-│  │  │             │                                     │     │
-│  │  │ - encode()  │                                     │     │
-│  │  │ - decode()  │                                     │     │
-│  │  └──────┬──────┘                                     │     │
-│  │         │                                            │     │
-│  └─────────┼────────────────────────────────────────────┘     │
-│            │                                                   │
-│  ┌─────────┴───────────────────────────────────────────┐      │
-│  │              serialport (Native Module)             │      │
-│  │                                                      │      │
-│  │         USB Serial Communication Layer              │      │
-│  └──────────────────────────┬───────────────────────────┘      │
-│                             │                                  │
-└─────────────────────────────┼──────────────────────────────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    │  USB Serial Port  │
-                    │                   │
-                    │  Flight Controller│
-                    │   (Betaflight)    │
-                    └───────────────────┘
-```
-
-## Data Flow
-
-### 1. Connection Flow
-
-```
-User clicks "Connect"
-  ↓
-ConnectionPanel → useConnection.connect(port)
-  ↓
-window.betaflight.connect(port)  [Preload API]
-  ↓
-IPC: connection:connect
-  ↓
-Main: IPC Handler → MSPClient.connect()
-  ↓
-MSPConnection.open(port) → serialport.open()
-  ↓
-MSPClient.getFCInfo() → Multiple MSP commands
-  ↓
-Event: connection-changed
-  ↓
-Renderer: onConnectionChanged callback
-  ↓
-UI updates with FC info
-```
-
-### 2. Snapshot Creation Flow
-
-```
-User clicks "Create Snapshot"
-  ↓
-SnapshotManager → useSnapshots.createSnapshot(label)
-  ↓
-window.betaflight.createSnapshot(label)
-  ↓
-IPC: snapshot:create
-  ↓
-Main: SnapshotManager.createSnapshot()
-  ↓
-MSPClient.exportCLIDiff() → Enter CLI mode → Run "diff all"
-  ↓
-MSPConnection.sendCLICommand() → serialport.write()
-  ↓
-Parse CLI output → Create snapshot object
-  ↓
-FileStorage.saveSnapshot() → Write JSON file
-  ↓
-Return snapshot to renderer
-  ↓
-UI updates snapshot list
-```
-
-### 2b. Snapshot Restore (Rollback) Flow
-
-```
-User clicks "Restore" on a snapshot → Confirmation dialog
-  ↓
-SnapshotManager → useSnapshots.restoreSnapshot(id, createBackup)
-  ↓
-window.betaflight.restoreSnapshot(id, createBackup)
-  ↓
-IPC: snapshot:restore
-  ↓
-Main: Load snapshot → Parse cliDiff → Extract "set" lines
-  ↓
-(Optional) Create "Pre-restore (auto)" backup snapshot
-  ↓
-MSPConnection.enterCLI() → Send each "set" command
-  ↓
-MSPClient.saveAndReboot() → FC reboots with restored config
-```
-
-### 3. MSP Message Flow
-
-```
-MSPClient.getFCVersion()
-  ↓
-MSPConnection.sendCommand(MSP_FC_VERSION)
-  ↓
-MSPProtocol.encode(command, data)
-  ↓
-Create MSP packet: [$][M][<][size][cmd][data][checksum]
-  ↓
-serialport.write(buffer)
-  ↓
-  ... FC processes and responds ...
-  ↓
-serialport.on('data') → MSPConnection receives buffer
-  ↓
-MSPProtocol.decode(buffer) → Parse response
-  ↓
-Resolve promise with response data
-  ↓
-MSPClient processes and returns version string
-```
-
-### 4. Auto-Apply Tuning Flow
-
-```
-User clicks "Apply" in TuningSummaryStep
-  ↓
-ApplyConfirmationModal shown (snapshot option + reboot warning)
-  ↓
-useTuningWizard.confirmApply()
-  ↓
-window.betaflight.applyRecommendations(input)
-  ↓
-IPC: tuning:apply-recommendations
-  ↓
-Main: TUNING_APPLY_RECOMMENDATIONS handler
-  ↓
-Stage 1: MSPClient.setPIDConfiguration() → MSP_SET_PID (must be before CLI)
-  ↓
-Stage 2: SnapshotManager.createSnapshot() → enters CLI mode
-  ↓
-Stage 3: CLI "set" commands for each filter recommendation
-  ↓
-Stage 4: CLI "save" → FC reboots
-  ↓
-Progress events → renderer updates progress bar
-```
-
-## Component Hierarchy
-
-```
-App
-├── ConnectionPanel
-│   ├── Port selection dropdown
-│   ├── Scan button
-│   ├── Connection status
-│   └── Connect/Disconnect button
-│
-├── ProfileSelector (when profiles exist)
-│   ├── Profile dropdown
-│   ├── Profile cards
-│   └── Edit/Delete modals
-│
-├── FCInfoDisplay (when connected)
-│   ├── FC information grid
-│   └── Export buttons (diff/dump)
-│
-├── BlackboxStatus (when connected)
-│   ├── Flash storage info
-│   ├── Download/Erase buttons
-│   └── Tuning Wizard trigger
-│
-├── SnapshotManager
-│   ├── Create snapshot button
-│   ├── Create dialog (modal)
-│   └── Snapshot list
-│       └── SnapshotItem (for each)
-│
-├── TuningWizard (when triggered)
-│   ├── WizardProgress (5-step indicator)
-│   ├── TestFlightGuideStep
-│   │   └── FlightGuideContent
-│   ├── SessionSelectStep
-│   ├── FilterAnalysisStep
-│   ├── PIDAnalysisStep
-│   ├── TuningSummaryStep
-│   └── ApplyConfirmationModal
-│
-├── TuningWorkflowModal (help modal)
-│   ├── Workflow steps
-│   └── FlightGuideContent
-│
-└── ProfileWizard (modal, on new FC)
-    └── Multi-step wizard
-```
-
-## State Management
-
-### Connection State
-```typescript
-// In useConnection hook
-{
-  ports: PortInfo[],           // Available serial ports
-  status: ConnectionStatus,    // Current connection state
-  loading: boolean,            // Operation in progress
-  error: string | null         // Last error message
-}
-```
-
-### FC Info State
-```typescript
-// In useFCInfo hook
-{
-  fcInfo: FCInfo | null,       // Flight controller information
-  loading: boolean,
-  error: string | null
-}
-```
-
-### Snapshot State
-```typescript
-// In useSnapshots hook
-{
-  snapshots: SnapshotMetadata[],  // List of snapshots
-  loading: boolean,
-  error: string | null
-}
-```
-
-## IPC Communication
-
-### Request-Response Pattern
-```typescript
-// Renderer → Main
-const response = await ipcRenderer.invoke(channel, ...args);
-if (!response.success) throw new Error(response.error);
-return response.data;
-
-// Main handler
-ipcMain.handle(channel, async (event, ...args) => {
-  try {
-    const data = await operation(args);
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-```
-
-### Event Pattern
-```typescript
-// Main → Renderer
-window.webContents.send(event, data);
-
-// Renderer listens
-ipcRenderer.on(event, (_, data) => callback(data));
-```
-
-## MSP Protocol Structure
-
-### MSP v1 Message Format
-```
-┌──────┬──────┬─────┬──────┬─────┬──────────┬──────────┐
-│  $   │  M   │  <  │ SIZE │ CMD │   DATA   │ CHECKSUM │
-├──────┼──────┼─────┼──────┼─────┼──────────┼──────────┤
-│ 0x24 │ 0x4D │ 0x3C│ uint8│uint8│ SIZE bytes│  uint8   │
-└──────┴──────┴─────┴──────┴─────┴──────────┴──────────┘
-
-Checksum = SIZE ^ CMD ^ DATA[0] ^ DATA[1] ^ ... ^ DATA[SIZE-1]
-```
-
-### Response Format
-```
-┌──────┬──────┬─────┬──────┬─────┬──────────┬──────────┐
-│  $   │  M   │  >  │ SIZE │ CMD │   DATA   │ CHECKSUM │
-├──────┼──────┼─────┼──────┼─────┼──────────┼──────────┤
-│ 0x24 │ 0x4D │ 0x3E│ uint8│uint8│ SIZE bytes│  uint8   │
-└──────┴──────┴─────┴──────┴─────┴──────────┴──────────┘
-```
-
-### Error Response
-```
-┌──────┬──────┬─────┬──────┬─────┬──────────┬──────────┐
-│  $   │  M   │  !  │ SIZE │ CMD │   DATA   │ CHECKSUM │
-├──────┼──────┼─────┼──────┼─────┼──────────┼──────────┤
-│ 0x24 │ 0x4D │ 0x21│ uint8│uint8│ SIZE bytes│  uint8   │
-└──────┴──────┴─────┴──────┴─────┴──────────┴──────────┘
-```
-
-## File System Structure
-
-### Application Data
-```
-~/Library/Application Support/betaflight-tune/  (macOS)
-%APPDATA%/betaflight-tune/                      (Windows)
-~/.config/betaflight-tune/                      (Linux)
-│
-├── data/
-│   └── snapshots/
-│       ├── {uuid-1}.json  (Baseline)
-│       ├── {uuid-2}.json  (Manual backup)
-│       └── {uuid-3}.json  (Auto backup)
-│
-└── logs/
-    └── main.log
-```
-
-### Snapshot File Format
-```json
-{
-  "id": "uuid",
-  "timestamp": "2026-02-02T15:30:00.000Z",
-  "label": "Baseline",
-  "type": "baseline",
-  "fcInfo": {
-    "variant": "BTFL",
-    "version": "4.5.0",
-    "target": "MATEKF722",
-    "boardName": "MATEKF722",
-    "apiVersion": { "protocol": 1, "major": 45, "minor": 0 }
-  },
-  "configuration": {
-    "cliDiff": "# diff all\nset gyro_lpf1_static_hz = 0\n..."
-  },
-  "metadata": {
-    "appVersion": "0.1.0",
-    "createdBy": "user"
-  }
-}
-```
-
-## Security Model
-
-### Process Isolation
-- **Main Process**: Full Node.js access, hardware access
-- **Renderer Process**: Sandboxed, no Node.js access
-- **Preload Script**: Bridge with contextBridge (secure)
-
-### IPC Security
-```typescript
-// ✅ Good: Preload exposes specific API
-contextBridge.exposeInMainWorld('betaflight', {
-  connect: (port: string) => ipcRenderer.invoke('connect', port)
-});
-
-// ❌ Bad: Exposing entire ipcRenderer
-window.ipcRenderer = ipcRenderer;  // Never do this!
-```
-
-### No Remote Code Execution
-- All IPC handlers validate input
-- File paths are sanitized
-- No eval() or dynamic code execution
-- SerialPort access only through main process
-
-## Error Handling Strategy
-
-### Error Propagation
-```
-Hardware Error (FC)
-  ↓
-MSPConnection throws ConnectionError
-  ↓
-MSPClient catches, logs, re-throws
-  ↓
-IPC handler catches, returns { success: false, error }
-  ↓
-Preload API throws Error
-  ↓
-React hook catches, sets error state
-  ↓
-UI displays error message to user
-```
-
-### Error Types
-- `ConnectionError`: Serial port issues
-- `MSPError`: Protocol issues
-- `TimeoutError`: Operation timed out
-- `SnapshotError`: File system issues
-
-## Performance Considerations
-
-### Efficient IPC
-- Single IPC call for multiple operations
-- Batch snapshot metadata loading
-- Lazy loading of full snapshots
-
-### Memory Management
-- Buffer pooling for MSP messages
-- Stream-based CLI output processing
-- Cleanup on disconnect
-
-### UI Responsiveness
-- Loading states for async operations
-- Debounced port scanning
-- Virtual scrolling for large snapshot lists (future)
-
-## Extension Points
-
-### Adding New MSP Commands
-1. Define command in `commands.ts`
-2. Add method in `MSPClient.ts`
-3. Add IPC handler in `handlers.ts`
-4. Expose in `preload/index.ts`
-5. Use in React components
-
-### Adding New Snapshot Types
-1. Update type in `common.types.ts`
-2. Add creation logic in `SnapshotManager.ts`
-3. Update UI in `SnapshotManager.tsx`
-
-### Adding New UI Panels
-1. Create component in `renderer/components/`
-2. Create hook if needed in `renderer/hooks/`
-3. Import in `App.tsx`
-
-## Testing Strategy
-
-### Unit Tests (569 tests across 32 files)
-- MSP protocol encoding/decoding, filter config parsing (3 tests)
-- Blackbox parser pipeline (171 tests)
-- FFT analysis pipeline (98 tests) — includes convergent noise-based filter targets
-- Step response analysis pipeline (65 tests) — includes flight PID anchoring & convergence
-- UI components and hooks
-- Tuning wizard flow
-
-### Integration Tests
-- MSP client with mock serial port
-- Snapshot manager with temp directory
-- IPC communication
-
-### E2E Tests
-- Full connection flow
-- Snapshot creation flow
-- Error scenarios
-
-## Deployment
-
-### Build Process
-```
-npm run build
-  ↓
-tsc (compile TypeScript)
-  ↓
-vite build (bundle renderer)
-  ↓
-electron-builder (package app)
-  ↓
-Output: release/Betaflight-Tune-{version}.{dmg|exe|AppImage}
-```
-
-### Platform Specifics
-- **macOS**: Code signing required for distribution
-- **Windows**: Installer with driver prompts
-- **Linux**: AppImage (portable) or .deb package
+**Last Updated:** February 10, 2026 | **Phase 4 Complete** | **841 tests, 47 files**
 
 ---
 
-This architecture provides:
-- ✅ Clean separation of concerns
-- ✅ Type safety across boundaries
-- ✅ Scalable for future features
-- ✅ Testable components
-- ✅ Secure IPC communication
-- ✅ Cross-platform compatibility
+## System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              Electron App                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │                     Renderer Process (React)                          │  │
+│  │                                                                        │  │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌──────────────┐ ┌──────────────┐   │  │
+│  │  │ Connection  │ │  FC Info +  │ │  Blackbox    │ │  Snapshot    │   │  │
+│  │  │   Panel     │ │ Diagnostics │ │   Status     │ │   Manager   │   │  │
+│  │  └──────┬──────┘ └──────┬──────┘ └──────┬───────┘ └──────┬──────┘   │  │
+│  │         │               │               │                │           │  │
+│  │  ┌──────┴──────┐ ┌──────┴──────┐ ┌──────┴───────┐ ┌──────┴──────┐   │  │
+│  │  │  Profile    │ │   Tuning    │ │   Tuning     │ │  Analysis   │   │  │
+│  │  │  Selector   │ │   Status    │ │   Wizard     │ │  Overview   │   │  │
+│  │  │ + Wizard    │ │   Banner    │ │ + Charts     │ │ (read-only) │   │  │
+│  │  └──────┬──────┘ └──────┬──────┘ └──────┬───────┘ └──────┬──────┘   │  │
+│  │         │               │               │                │           │  │
+│  │  ┌──────┴───────────────┴───────────────┴────────────────┴────────┐  │  │
+│  │  │                    Custom React Hooks                          │  │  │
+│  │  │  useConnection | useProfiles | useSnapshots | useTuningSession │  │  │
+│  │  │  useTuningWizard | useAnalysisOverview | useToast | ...        │  │  │
+│  │  └────────────────────────────┬───────────────────────────────────┘  │  │
+│  │                               │                                      │  │
+│  │                      window.betaflight API (60+ methods)             │  │
+│  └───────────────────────────────┼──────────────────────────────────────┘  │
+│                                  │                                         │
+│  ┌───────────────────────────────┼──────────────────────────────────────┐  │
+│  │              Preload Script (contextBridge, 501 lines)              │  │
+│  └───────────────────────────────┼──────────────────────────────────────┘  │
+│                                  │ IPC (60+ channels, 14 event types)      │
+│                                  │                                         │
+│  ┌───────────────────────────────┼──────────────────────────────────────┐  │
+│  │                     Main Process (Node.js)                          │  │
+│  │                                                                      │  │
+│  │  ┌────────────────────────────┴─────────────────────────────────┐   │  │
+│  │  │                    IPC Handlers (1307 lines)                  │   │  │
+│  │  │  connection:* | fc:* | snapshot:* | profile:* | blackbox:*  │   │  │
+│  │  │  analysis:* | tuning:* | pid:*                              │   │  │
+│  │  └───┬──────────┬──────────┬────────────┬──────────┬───────────┘   │  │
+│  │      │          │          │            │          │                │  │
+│  │  ┌───┴───┐ ┌────┴────┐ ┌──┴───────┐ ┌──┴──────┐ ┌┴──────────┐    │  │
+│  │  │ MSP   │ │Snapshot │ │ Profile  │ │Blackbox │ │  Tuning   │    │  │
+│  │  │Client │ │Manager  │ │ Manager  │ │Manager  │ │  Session  │    │  │
+│  │  │       │ │         │ │          │ │         │ │  Manager  │    │  │
+│  │  └───┬───┘ └─────────┘ └──────────┘ └─────────┘ └───────────┘    │  │
+│  │      │                                                             │  │
+│  │  ┌───┴──────────┐  ┌─────────────────┐  ┌──────────────────┐      │  │
+│  │  │MSPConnection │  │ BlackboxParser  │  │ Analysis Engine │      │  │
+│  │  │ + CLI Mode   │  │ (6 modules,     │  │ FFT + Step Resp │      │  │
+│  │  │ + fcEntered  │  │  227 tests)     │  │ (10 modules,    │      │  │
+│  │  │   CLI flag   │  │                 │  │  188 tests)     │      │  │
+│  │  └───┬──────────┘  └─────────────────┘  └──────────────────┘      │  │
+│  │      │                                                             │  │
+│  │  ┌───┴──────────┐                                                  │  │
+│  │  │ MSPProtocol  │                                                  │  │
+│  │  │ v1 + Jumbo   │                                                  │  │
+│  │  └───┬──────────┘                                                  │  │
+│  └──────┼─────────────────────────────────────────────────────────────┘  │
+│         │                                                                │
+│  ┌──────┴───────────────────────────────────────────────────────────┐    │
+│  │                  serialport (Native Module)                      │    │
+│  └──────────────────────────┬───────────────────────────────────────┘    │
+│                              │                                           │
+└──────────────────────────────┼───────────────────────────────────────────┘
+                               │
+                     ┌─────────┴─────────┐
+                     │  USB Serial Port  │
+                     │  Flight Controller│
+                     │   (Betaflight)    │
+                     └───────────────────┘
+```
+
+---
+
+## Main Process (`src/main/`)
+
+### Entry Point (`index.ts`, 172 lines)
+
+Creates and wires five managers:
+
+```typescript
+const mspClient = new MSPClient();
+const profileManager = new ProfileManager(`${userData}/data/profiles`);
+const snapshotManager = new SnapshotManager(`${userData}/data/snapshots`, mspClient);
+const blackboxManager = new BlackboxManager();                    // {userData}/data/blackbox-logs
+const tuningSessionManager = new TuningSessionManager(`${userData}/data`); // {userData}/data/tuning
+```
+
+**Event wiring (MSPClient → Main Window):**
+- `'connection-changed'` → `sendConnectionChanged(window, status)`
+- `'connected'` → Profile detection + baseline creation + smart reconnect
+- `'disconnected'` → Clear profile + notify UI
+
+**On FC connect flow:**
+1. Read FC serial number (`MSP_UID`)
+2. Read FC info (variant, version, board, target)
+3. Look up profile by serial (`findProfileBySerial`)
+4. If profile exists → set current, create baseline if missing, check tuning session
+5. If new FC → fire `EVENT_NEW_FC_DETECTED` → renderer shows ProfileWizard modal
+
+**Smart reconnect detection** (after step 4):
+```
+If tuning session exists AND phase is filter_flight_pending or pid_flight_pending:
+  Read flash info via MSP_DATAFLASH_SUMMARY
+  If flash has data (usedSize > 0):
+    Transition to filter_log_ready or pid_log_ready
+    Broadcast EVENT_TUNING_SESSION_CHANGED
+```
+
+---
+
+### MSP Layer (`src/main/msp/`)
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `MSPClient.ts` | 969 | High-level API with retry logic |
+| `MSPConnection.ts` | 309 | Serial port handling, CLI mode |
+| `MSPProtocol.ts` | 229 | MSP v1 packet encoding/decoding |
+| `commands.ts` | 16 | MSP command enum (21 commands) |
+| `types.ts` | 44 | MSP type definitions |
+
+#### MSP Protocol (v1)
+
+```
+Request:   $  M  <  [SIZE:u8] [CMD:u8] [DATA:SIZE bytes] [CHECKSUM:u8]
+Response:  $  M  >  [SIZE:u8] [CMD:u8] [DATA:SIZE bytes] [CHECKSUM:u8]
+Error:     $  M  !  [SIZE:u8] [CMD:u8] [DATA:SIZE bytes] [CHECKSUM:u8]
+
+Checksum = SIZE ^ CMD ^ DATA[0] ^ ... ^ DATA[SIZE-1]
+Jumbo: auto-upgraded when payload > 255 bytes (for flash reads)
+```
+
+#### MSP Commands Used
+
+| Command | Code | Purpose |
+|---------|------|---------|
+| `MSP_API_VERSION` | 1 | API version check |
+| `MSP_FC_VARIANT` | 2 | Firmware identification (BTFL) |
+| `MSP_FC_VERSION` | 3 | Firmware version string |
+| `MSP_BOARD_INFO` | 4 | Board name, target |
+| `MSP_DATAFLASH_SUMMARY` | 70 | Flash capacity/usage |
+| `MSP_DATAFLASH_READ` | 71 | Download Blackbox data |
+| `MSP_DATAFLASH_ERASE` | 72 | Erase flash |
+| `MSP_FILTER_CONFIG` | 92 | Read current filter settings (47 bytes, BF 4.4+) |
+| `MSP_PID` | 112 | Read PID configuration (9 bytes: 3 axes × 3 terms) |
+| `MSP_UID` | 160 | FC unique ID (96-bit, for profile matching) |
+| `MSP_SET_PID` | 202 | Write PID configuration |
+
+#### MSPConnection — CLI Mode Handling
+
+- **`cliMode: boolean`** — local flag, reset by `exitCLI()`
+- **`fcEnteredCLI: boolean`** — persistent flag tracking whether CLI was entered this session
+- **`enterCLI()`** — sends `#\r\n`, sets both flags
+- **`exitCLI()`** — resets only `cliMode` (FC stays in CLI until reboot)
+- **`clearFCRebootedFromCLI()`** — clears `fcEnteredCLI` after `save` (FC reboots from save)
+- **`close()`** — if `fcEnteredCLI` is set, sends `exit\r\n` (reboots FC) before closing port
+
+**Critical**: BF CLI `exit` always calls `systemReset()` — there's no way to leave CLI without rebooting. So `exitCLI()` only resets the local flag. The FC remains in CLI until `close()` sends exit or the USB cable is unplugged.
+
+**CLI prompt detection**: `sendCLICommand()` accumulates output and resolves when buffer ends with `\n#` (not just `#`, which false-matches `# comment` lines in `diff all` output).
+
+#### MSPClient — Key Methods
+
+**Connection:**
+- `connect(portPath)` — 500ms stabilization, `forceExitCLI()` to recover stuck state, retry logic (2 attempts with reset between)
+- `disconnect()` — close with 1s backend delay for port release
+- Cooldown: 3s UI timer after disconnect prevents "FC not responding"
+
+**FC info:** `getFCInfo()` → composite of `getApiVersion()`, `getFCVariant()`, `getFCVersion()`, `getBoardInfo()`
+
+**Configuration:** `exportCLIDiff()` / `exportCLIDump()` — enter CLI, run `diff all` / `dump`, stay in CLI mode (caller decides when to exit)
+
+**Blackbox download:** `downloadBlackboxLog(onProgress)` — adaptive chunking (starts 180B, max 240B per read), strips 6-7 byte dataflash header from each chunk
+
+**MSP_DATAFLASH_READ response format:**
+```
+[4B readAddress LE][2B dataSize LE][1B isCompressed (BF4.1+)][flash data]
+extractFlashPayload() auto-detects 6-byte vs 7-byte header by comparing response length with dataSize field.
+```
+
+**Erase:** `eraseBlackboxFlash()` — sends `MSP_DATAFLASH_ERASE`, polls `MSP_DATAFLASH_SUMMARY` until `usedSize === 0` (some FCs don't ACK the erase command).
+
+---
+
+### Blackbox Parser (`src/main/blackbox/`)
+
+Parses Betaflight `.bbl`/`.bfl` binary log files into typed time-series data. Validated against Betaflight Explorer for byte-exact compatibility.
+
+| File | Lines | Tests | Purpose |
+|------|-------|-------|---------|
+| `BlackboxParser.ts` | 855 | 35+9+13 | Main orchestrator, multi-session, corruption recovery |
+| `StreamReader.ts` | 123 | 35 | Binary cursor with VB encoding |
+| `HeaderParser.ts` | 188 | 25 | ASCII header parsing → `BBLLogHeader` |
+| `ValueDecoder.ts` | 273 | 64 | 10 encoding types → raw field values |
+| `PredictorApplier.ts` | 169 | 31 | 10 predictor types → absolute values |
+| `FrameParser.ts` | 479 | 15 | Frame-level assembly (I/P/S/E frames) |
+| `constants.ts` | 201 | — | Config thresholds |
+
+#### Pipeline
+
+```
+Buffer → StreamReader → HeaderParser → FrameParser → BlackboxParser
+           ↓               ↓              ↓
+      Binary Cursor    BBLLogHeader   Frame decode:
+           ↓                              ValueDecoder → PredictorApplier
+      VB encoding                         ↓
+                                     BlackboxFlightData {
+                                       gyro: [Roll, Pitch, Yaw] (Float64Array),
+                                       setpoint, pidP/I/D, motor, debug, rcCommand
+                                     }
+```
+
+#### Encoding Types (10)
+
+| ID | Name | Description |
+|----|------|-------------|
+| 0 | `SIGNED_VB` | Signed variable-byte (zigzag) |
+| 1 | `UNSIGNED_VB` | Unsigned variable-byte |
+| 3 | `NEG_14BIT` | `-signExtend14Bit(readUnsignedVB())` |
+| 6 | `TAG8_8SVB` | Tag byte → up to 8 signedVB values. **count==1 special case**: reads signedVB directly (no tag byte) |
+| 7 | `TAG2_3S32` | Tag byte (2 bits) → 3 values (16/32-bit) |
+| 8 | `TAG8_4S16` | Tag byte → 4 values (8/16-bit). Version-dependent bit layout |
+| 9 | `NULL` | No encoding (field skipped) |
+| 10 | `TAG2_3SVARIABLE` | Tag byte → 3 signedVB values |
+
+#### Predictor Types (10)
+
+| ID | Name | I-frame | P-frame |
+|----|------|---------|---------|
+| 0 | `ZERO` | value | value |
+| 1 | `PREVIOUS` | value | value + prev |
+| 2 | `STRAIGHT_LINE` | value | value + (2×prev - prev2) |
+| 3 | `AVERAGE_2` | value | value + `Math.trunc((prev + prev2)/2)` — C integer division |
+| 4 | `MINTHROTTLE` | value + minthrottle | value + prev |
+| 5 | `MOTOR_0` | value + motor[0] | value + prev |
+| 6 | `INCREMENT` | value | value + prev + 1 |
+| 9 | `VBATREF` | value + vbatref | value + prev |
+
+#### Frame Types
+
+```
+'I' (0x49) — Keyframe with absolute values
+'P' (0x50) — Predicted frame with deltas from previous
+'S' (0x53) — Slow-rate data
+'E' (0x45) — Event markers (LOG_END, DISARM, SYNC_BEEP, etc.)
+```
+
+**Event parsing** uses VB encoding (not fixed skip): SYNC_BEEP=1×UVB, DISARM=1×UVB, FLIGHT_MODE=2×UVB, LOGGING_RESUME=2×UVB, LOG_END validates `"End of log\0"` (anti-false-positive).
+
+#### Frame Validation (aligned with BF Explorer)
+
+| Check | Threshold |
+|-------|-----------|
+| Structural size | 256 bytes max |
+| Iteration jump | < 5000 |
+| Time jump | < 10 seconds |
+| I-frame backward tolerance | 50ms time, 500 iterations |
+
+No sensor value thresholds (debug/motor can exceed any fixed range). No consecutive corrupt frame limit. Corrupt frame recovery: rewind to `frameStart + 1`, continue byte-by-byte.
+
+---
+
+### Analysis Engine (`src/main/analysis/`)
+
+Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and **PID tuning** (step response metrics).
+
+| File | Lines | Tests | Purpose |
+|------|-------|-------|---------|
+| `FFTCompute.ts` | 171 | 20 | Welch's method, Hanning window |
+| `SegmentSelector.ts` | 195 | 27 | Hover + throttle sweep detection |
+| `NoiseAnalyzer.ts` | 246 | 25 | Peak detection, noise classification |
+| `FilterRecommender.ts` | 330 | 28 | Noise-based filter targets |
+| `FilterAnalyzer.ts` | 206 | 9 | Filter analysis orchestrator |
+| `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
+| `StepMetrics.ts` | 302 | 19 | Rise time, overshoot, settling, trace |
+| `PIDRecommender.ts` | 307 | 25 | Flight-PID-anchored P/D recommendations |
+| `PIDAnalyzer.ts` | 159 | 10 | PID analysis orchestrator |
+| `headerValidation.ts` | 94 | 9 | BB header diagnostics |
+| `constants.ts` | 177 | — | All tunable thresholds |
+
+#### Filter Analysis Pipeline
+
+```
+BlackboxFlightData → SegmentSelector → FFTCompute → NoiseAnalyzer → FilterRecommender
+                         ↓                ↓              ↓                ↓
+                    FlightSegments   PowerSpectrum   NoisePeaks    FilterRecommendation[]
+                    (hover/sweep)    (per axis)      (classified)  (with reasons)
+```
+
+**SegmentSelector** finds stable hover segments and throttle sweeps:
+- Hover: throttle 15–75%, gyro std < 50 deg/s, min 0.5s duration
+- Sweeps: throttle range > 40%, 2–15s duration, monotonic check
+- Prefers sweeps over hovers when available
+
+**FFTCompute**: Hanning window, Welch's method (50% overlap, 4096-sample window), returns `PowerSpectrum { frequencies, magnitudes }` (Float64Array)
+
+**NoiseAnalyzer** detects peaks by prominence (> 6 dB above local floor) and classifies:
+- **Frame resonance**: 80–200 Hz
+- **Motor harmonics**: equally-spaced peaks (≥ 3 peaks)
+- **Electrical noise**: > 500 Hz
+
+Noise floor: 25th percentile of magnitude spectrum.
+
+**FilterRecommender** — convergent noise-based targeting:
+
+```
+Target cutoff = linear interpolation:
+  noiseFloorDb = -10 dB → min cutoff (very noisy)
+  noiseFloorDb = -70 dB → max cutoff (very clean)
+
+Safety bounds:
+  Gyro LPF1:  75–300 Hz
+  D-term LPF1: 70–200 Hz
+
+Dead zone: 5 Hz minimum change to recommend
+Resonance: if prominent peak (>12 dB) is below current cutoff → lower cutoff to peak - 20 Hz
+```
+
+Recommendations are **convergent** (idempotent): re-analyzing the same log after applying produces no further changes.
+
+#### PID Analysis Pipeline
+
+```
+BlackboxFlightData → StepDetector → StepMetrics → PIDRecommender
+                         ↓              ↓              ↓
+                    StepDetection[]  StepResponse[] PIDRecommendation[]
+                    (per axis)       (with traces)  (flight-PID-anchored)
+```
+
+**StepDetector** finds sharp stick inputs:
+- Derivative threshold: 500 deg/s/s
+- Minimum magnitude: 100 deg/s
+- Hold time: ≥ 50ms, cooldown: ≥ 100ms between steps
+
+**StepMetrics** computes per-step response quality:
+
+| Metric | Definition |
+|--------|-----------|
+| Rise time | 10% → 90% of target (ms) |
+| Overshoot | (peak - target) / target × 100 (%) |
+| Settling time | Last exit from ±2% band (ms) |
+| Latency | Time to 5% movement from baseline (ms) |
+| Ringing | Post-step oscillation count (zero-crossings) |
+
+Each step also stores a `StepResponseTrace { timeMs, setpoint, gyro }` (Float64Array) for chart visualization.
+
+**PIDRecommender** — flight-PID-anchored convergent recommendations:
+
+```
+extractFlightPIDs(rawHeaders) → PIDConfiguration from BBL header
+  (P[0]/I[0]/D[0] fields = PIDs active during the flight)
+
+Decision rules:
+  Overshoot > 25%              → increase D +5 (high confidence)
+  Overshoot > 25% AND D ≥ 60%  → also decrease P -5
+  Overshoot 15–25%             → increase D +5 (medium confidence)
+  Overshoot < 10% AND rise > 80ms → increase P +5 (medium)
+  Ringing > 2 cycles           → increase D +5 (medium)
+  Yaw: relaxed thresholds (1.5× overshoot, 120ms sluggish)
+
+Safety bounds: P 20–120, D 15–80, I 30–120
+```
+
+Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**.
+
+#### Header Validation (`headerValidation.ts`)
+
+Checks before analysis:
+- `debug_mode` should be `GYRO_SCALED` (warning if `NONE` or other)
+- Logging rate should be ≥ 2 kHz (warning if < 2 kHz)
+- Results shown as amber warnings in FCInfoDisplay
+
+---
+
+### Storage Layer (`src/main/storage/`)
+
+| Manager | Storage Path | Format |
+|---------|-------------|--------|
+| `ProfileManager` | `{userData}/data/profiles/` | `{id}.json` + `profiles.json` index + `current-profile.txt` |
+| `SnapshotManager` | `{userData}/data/snapshots/` | `{id}.json` per snapshot |
+| `BlackboxManager` | `{userData}/data/blackbox-logs/` | `blackbox_{timestamp}.bbl` + `logs.json` index |
+| `TuningSessionManager` | `{userData}/data/tuning/` | `{profileId}.json` per session |
+
+**User data path:** `~/Library/Application Support/bfautotune/` (macOS) | `%APPDATA%/bfautotune/` (Windows) | `~/.config/bfautotune/` (Linux)
+
+#### Profile Data Model
+
+```typescript
+DroneProfile {
+  id: string,                    // UUID
+  fcSerialNumber: string,        // MSP_UID hex (profile ↔ FC link)
+  name: string,                  // "My 5 inch Freestyle"
+  size: DroneSize,               // '1"' | '2"' | ... | '10"'
+  battery: BatteryType,          // '1S' | ... | '6S'
+  propSize?: string,
+  weight?: number,
+  motorKV?: number,
+  notes?: string,
+  fcInfo: FCInfo,
+  createdAt: string,             // ISO timestamp
+  lastConnected?: string,
+  connectionCount: number,
+  snapshotIds: string[],         // Links to owned snapshots
+  baselineSnapshotId?: string
+}
+```
+
+10 preset profiles available: tiny-whoop, micro-whoop, 3inch-cinewhoop, 4inch-toothpick, 5inch-freestyle, 5inch-race, 5inch-cinematic, 6inch-longrange, 7inch-longrange, 10inch-ultra-longrange.
+
+#### Snapshot Data Model
+
+```typescript
+ConfigurationSnapshot {
+  id: string,
+  timestamp: string,
+  label: string,                // "Baseline", "Pre-tuning (auto)", user-defined
+  type: 'baseline' | 'manual' | 'auto',
+  fcInfo: FCInfo,
+  configuration: { cliDiff: string },
+  metadata: { appVersion: string, createdBy: string }
+}
+```
+
+Server-side filtering: `listSnapshots()` returns only snapshots whose IDs are in `currentProfile.snapshotIds` — prevents cross-profile data leaks.
+
+#### Tuning Session Data Model
+
+```typescript
+TuningSession {
+  profileId: string,
+  phase: TuningPhase,            // 10-phase state machine
+  startedAt: string,
+  updatedAt: string,
+  baselineSnapshotId?: string,
+  filterLogId?: string,
+  appliedFilterChanges?: AppliedChange[],
+  pidLogId?: string,
+  appliedPIDChanges?: AppliedChange[],
+  verificationLogId?: string
+}
+```
+
+---
+
+### IPC Layer (`src/main/ipc/`)
+
+**60+ IPC channels** organized by domain:
+
+| Domain | Channels | Key Operations |
+|--------|----------|---------------|
+| Connection (4) | `list_ports`, `connect`, `disconnect`, `get_status` | Port scanning, connect/disconnect |
+| FC Info (3) | `get_info`, `export_cli`, `get_blackbox_settings` | FC data, CLI export |
+| Profiles (10) | `create`, `create_from_preset`, `update`, `delete`, `list`, `get`, `get_current`, `set_current`, `export`, `get_fc_serial` | Full profile CRUD |
+| Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
+| Blackbox (8) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log` | Flash ops + parsing |
+| Analysis (2) | `run_filter`, `run_pid` | FFT + step response analysis |
+| Tuning (5) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session` | Apply + session state |
+| PID (3) | `get_config`, `update_config`, `save_config` | MSP PID read/write |
+
+**14 Event types** (Main → Renderer):
+
+| Event | Payload |
+|-------|---------|
+| `connection_changed` | `ConnectionStatus` |
+| `profile_changed` | `DroneProfile \| null` |
+| `new_fc_detected` | `(fcSerial, fcInfo)` |
+| `pid_changed` | `PIDConfiguration` |
+| `error` | `string` |
+| `log` | `(message, level)` |
+| `blackbox_download_progress` | `number` (0–100) |
+| `blackbox_parse_progress` | `BlackboxParseProgress` |
+| `analysis_progress` | `AnalysisProgress` |
+| `tuning_apply_progress` | `ApplyRecommendationsProgress` |
+| `snapshot_restore_progress` | `SnapshotRestoreProgress` |
+| `tuning_session_changed` | `TuningSession \| null` |
+
+#### Apply Recommendations Handler (critical ordering)
+
+```
+Stage 1: Apply PID changes via MSP (MSP_SET_PID)    ← MUST be before CLI mode
+Stage 2: Create safety snapshot (enters CLI via exportCLIDiff)
+Stage 3: Apply filter changes via CLI "set" commands
+Stage 4: CLI "save" → FC reboots
+
+Why: MSP commands fail while FC is in CLI mode (CLI captures all input).
+```
+
+#### Snapshot Restore Handler
+
+```
+Stage 1 (backup): Create "Pre-restore (auto)" snapshot
+Stage 2 (cli):    Enter CLI → send each restorable command
+Stage 3 (save):   CLI "save" → FC reboots
+
+Restorable commands: set, feature, serial, aux, beacon, map, resource, timer, dma
+Skipped: diff, batch, defaults, save, board_name, mcu_id, profile, rateprofile
+```
+
+---
+
+## Preload Bridge (`src/preload/index.ts`, 501 lines)
+
+Exposes `window.betaflight` API to renderer via `contextBridge.exposeInMainWorld()`. All methods return Promises; events return unsubscribe functions.
+
+**Pattern:**
+```typescript
+// Request-response (renderer → main → renderer)
+async connect(port: string): Promise<void> {
+  const response = await ipcRenderer.invoke(IPCChannel.CONNECTION_CONNECT, port);
+  if (!response.success) throw new Error(response.error);
+}
+
+// Event subscription (main → renderer)
+onConnectionChanged(callback: (status: ConnectionStatus) => void): () => void {
+  const handler = (_: any, status: ConnectionStatus) => callback(status);
+  ipcRenderer.on(IPCChannel.EVENT_CONNECTION_CHANGED, handler);
+  return () => ipcRenderer.removeListener(IPCChannel.EVENT_CONNECTION_CHANGED, handler);
+}
+```
+
+**Security model:**
+- Renderer has no direct `ipcRenderer` access
+- Only the methods defined in preload are exposed
+- All inputs validated in IPC handlers (main process)
+- No `eval()`, no dynamic code execution
+- SerialPort access only through main process
+
+---
+
+## Renderer (`src/renderer/`)
+
+### App State & Routing (`App.tsx`)
+
+Three view modes based on state:
+
+```
+analysisLogId set?  → <AnalysisOverview logId={...} />     (read-only analysis)
+activeLogId set?    → <TuningWizard logId={...} mode={...} /> (guided wizard)
+else                → Dashboard (ConnectionPanel, ProfileSelector, TuningStatusBanner,
+                       FCInfoDisplay, BlackboxStatus, SnapshotManager)
+```
+
+**Key state variables:**
+- `isConnected`, `currentProfile` — control what's visible on dashboard
+- `tuning.session` — drives TuningStatusBanner visibility and BlackboxStatus readonly mode
+- `erasedForPhase: string | null` — tracks flash erase per tuning phase (avoids stale boolean)
+- `wizardMode: 'filter' | 'pid'` — which analysis to run when wizard opens
+- `analysisLogId` vs `activeLogId` — read-only overview vs guided wizard
+
+### Component Hierarchy
+
+```
+App (ToastProvider wrapper)
+├── AppContent
+│   ├── Header: "Betaflight PID AutoTune" + version + "How to tune?" button
+│   │
+│   ├── [If analysisLogId] AnalysisOverview (read-only, single page)
+│   ├── [If activeLogId]   TuningWizard (guided multi-step)
+│   ├── [Else] Dashboard:
+│   │   ├── .top-row (flex, side-by-side):
+│   │   │   ├── ConnectionPanel
+│   │   │   └── ProfileSelector (if connected + profile)
+│   │   │
+│   │   ├── TuningStatusBanner (if tuning session active)
+│   │   │   └── Step indicator + action buttons + post-erase guidance
+│   │   │
+│   │   ├── "Start Tuning Session" banner (if no session, connected)
+│   │   │
+│   │   ├── FCInfoDisplay (if connected)
+│   │   │   └── FC info grid + BB diagnostics + export buttons
+│   │   │
+│   │   ├── BlackboxStatus (if connected)
+│   │   │   └── Flash info + logs + Download/Erase/Analyze (readonly if session)
+│   │   │
+│   │   └── SnapshotManager (if connected + profile)
+│   │       └── Create + list + diff view + restore
+│   │
+│   ├── ProfileWizard (modal, on new FC detection)
+│   ├── TuningWorkflowModal (help modal)
+│   └── ToastContainer
+```
+
+### React Hooks (16 hooks)
+
+| Hook | Key Returns | Purpose |
+|------|-------------|---------|
+| `useConnection` | `{ports, status, connect, disconnect, scanPorts}` | Serial port connection |
+| `useFCInfo` | `{fcInfo, loading}` | FC information polling |
+| `useProfiles` | `{profiles, currentProfile, createProfile, ...}` | Profile CRUD |
+| `useSnapshots` | `{snapshots, createSnapshot, restoreSnapshot, ...}` | Snapshot management |
+| `useBlackboxInfo` | `{info, refresh}` | Flash storage status |
+| `useBlackboxLogs` | `{logs, deleteLog, refresh}` | Downloaded log list |
+| `useTuningSession` | `{session, startSession, resetSession}` | Tuning session lifecycle |
+| `useTuningWizard` | `{parseResult, filterResult, pidResult, applying, ...}` | Wizard state machine |
+| `useAnalysisOverview` | `{parseResult, filterResult, pidResult, ...}` | Auto-parse + dual analysis |
+| `useToast` | `{success, error, warning, info}` | Toast notifications |
+
+### Interactive Charts (`TuningWizard/charts/`)
+
+Built with **Recharts** (SVG):
+
+- **SpectrumChart** — FFT noise spectrum per axis (roll/pitch/yaw). Shows noise floor reference lines, detected peak frequency markers, color-coded axes.
+- **StepResponseChart** — Overlaid setpoint vs gyro trace for individual steps. Prev/Next navigation, metrics overlay (overshoot %, rise time, settling, latency).
+- **AxisTabs** — Shared Roll/Pitch/Yaw/All tab selector for both charts.
+- **chartUtils** — `toRechartsData()` conversion, `downsampleData()`, `findBestStep()` scoring, `computeRobustYDomain()` (outlier-resistant Y axis).
+
+---
+
+## Tuning State Machine
+
+10-phase state machine persisted per-profile in `{userData}/data/tuning/{profileId}.json`.
+
+```
+                       START SESSION
+                            │
+                 filter_flight_pending ◄──── Erase flash, disconnect, fly
+                            │
+              [smart reconnect: flash has data]
+                            │
+                  filter_log_ready ◄──────── Download log from FC
+                            │
+                   filter_analysis ◄──────── Open wizard (mode='filter')
+                            │
+                   filter_applied ───────── Apply filters → auto-advance
+                            │
+                  pid_flight_pending ◄────── Erase flash, disconnect, fly
+                            │
+              [smart reconnect: flash has data]
+                            │
+                    pid_log_ready ◄───────── Download log from FC
+                            │
+                     pid_analysis ◄───────── Open wizard (mode='pid')
+                            │
+                     pid_applied ─────────── Apply PIDs → auto-advance
+                            │
+                 verification_pending
+                            │
+                       completed
+```
+
+**TuningStatusBanner** renders per-phase:
+- Current step (1–5) with progress indicator
+- Phase-specific text and action button
+- Post-erase state: "Flash erased! Disconnect and fly..." + "View Flight Guide"
+- Reset button to abandon session
+
+**BlackboxStatus** enters readonly mode (`readonly={!!tuning.session}`) — hides all action buttons, shows only storage info and log list. All actions driven by TuningStatusBanner.
+
+---
+
+## Data Flows
+
+### 1. Connect Flow
+
+```
+User clicks Connect → ConnectionPanel → useConnection.connect(port)
+  → window.betaflight.connect(port) → IPC → MSPClient.connect()
+  → MSPConnection.open() → 500ms stabilize → forceExitCLI()
+  → getFCInfo() (with 2× retry + reset) → emit 'connected'
+  → Main: profile lookup → baseline → smart reconnect check
+  → sendConnectionChanged() → renderer onConnectionChanged → UI update
+```
+
+### 2. Blackbox Download + Analysis Flow
+
+```
+User clicks Download → BlackboxStatus → window.betaflight.downloadBlackboxLog()
+  → IPC → MSPClient.downloadBlackboxLog() → adaptive chunks via MSP_DATAFLASH_READ
+  → BlackboxManager.saveLog() → return metadata
+  → User clicks Analyze → handleAnalyze() → set activeLogId → show TuningWizard
+  → useTuningWizard auto-parses: parseBlackboxLog(logId)
+  → BlackboxParser.parse(buffer) → StreamReader → Header → Frames → FlightData
+  → User picks session → auto-runs analysis:
+    Filter: SegmentSelector → FFTCompute → NoiseAnalyzer → FilterRecommender
+    PID:    StepDetector → StepMetrics → PIDRecommender
+  → Results display with interactive charts
+```
+
+### 3. Apply Recommendations Flow
+
+```
+User clicks Apply → ApplyConfirmationModal → useTuningWizard.confirmApply()
+  → window.betaflight.applyRecommendations(input) → IPC handler:
+  Stage 1: MSPClient.setPIDConfiguration() via MSP_SET_PID (before CLI)
+  Stage 2: SnapshotManager.createSnapshot() → enters CLI mode
+  Stage 3: CLI "set" commands for each filter recommendation
+  Stage 4: CLI "save" → FC reboots
+  → Progress events → renderer progress bar
+  → TuningSessionManager.updatePhase() → advance to next phase
+```
+
+### 4. Snapshot Restore Flow
+
+```
+User clicks Restore → confirmation dialog → useSnapshots.restoreSnapshot()
+  → window.betaflight.restoreSnapshot(id, createBackup) → IPC handler:
+  Stage 1: Create "Pre-restore (auto)" backup snapshot
+  Stage 2: Parse cliDiff → extract restorable commands → enterCLI → send each
+  Stage 3: CLI "save" → FC reboots
+  → Progress events → renderer progress bar
+```
+
+---
+
+## Error Handling
+
+```
+Hardware error (FC timeout, USB disconnect)
+  → MSPConnection throws ConnectionError / TimeoutError
+  → MSPClient catches, logs, re-throws with context
+  → IPC handler catches → returns { success: false, error: message }
+  → Preload API throws Error
+  → React hook catches → sets error state / shows toast
+  → UI displays error to user
+```
+
+**Error types:** `ConnectionError`, `MSPError`, `TimeoutError`, `SnapshotError`
+
+**Recovery patterns:**
+- Connection retry: 2 attempts with `forceExitCLI()` reset between
+- 3s cooldown after disconnect prevents port-in-use errors
+- Corrupt BBL frames: rewind + byte-by-byte resync (no data loss)
+- Analysis fallback: if no hover segments found, use entire flight
+
+---
+
+## Shared Types (`src/shared/types/`, 8 files)
+
+| File | Key Types |
+|------|-----------|
+| `common.types.ts` | `FCInfo`, `ConnectionStatus`, `PortInfo`, `ConfigurationSnapshot`, `SnapshotMetadata` |
+| `profile.types.ts` | `DroneProfile`, `DroneProfileMetadata`, `ProfileCreationInput`, `DroneSize`, `BatteryType` |
+| `pid.types.ts` | `PIDTerm { P, I, D }`, `PIDConfiguration { roll, pitch, yaw }` |
+| `blackbox.types.ts` | `BlackboxInfo`, `BlackboxParseResult`, `BlackboxFlightData`, `BBLLogHeader`, `BBLEncoding`, `BBLPredictor` |
+| `analysis.types.ts` | `PowerSpectrum`, `NoiseProfile`, `FilterRecommendation`, `StepResponse`, `StepResponseTrace`, `PIDRecommendation`, `AxisStepMetrics`, `CurrentFilterSettings` |
+| `tuning.types.ts` | `TuningPhase` (10 values), `TuningSession`, `TuningMode`, `AppliedChange` |
+| `ipc.types.ts` | `ApplyRecommendationsInput/Progress/Result`, `SnapshotRestoreProgress/Result`, `BetaflightAPI` (complete API interface) |
+| `toast.types.ts` | `ToastType`, `Toast` |
+
+---
+
+## Testing Strategy
+
+**841 tests across 47 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+
+| Area | Files | Tests |
+|------|-------|-------|
+| Blackbox Parser | 8 | 227 |
+| FFT Analysis | 5 | 109 |
+| Step Response | 4 | 70 |
+| UI Components | 17 | 268 |
+| React Hooks | 6 | 90 |
+| Charts | 3 | 35 |
+| Storage/MSP/Other | 4 | 42 |
+
+**Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
