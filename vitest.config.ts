@@ -12,7 +12,13 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', 'release'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80,
+      },
       exclude: [
         'node_modules/',
         'src/renderer/test/',
@@ -20,7 +26,12 @@ export default defineConfig({
         '**/*.d.ts',
         '**/types/',
         'dist/',
-        'release/'
+        'release/',
+        'src/main/window.ts',
+        'src/preload/index.ts',
+        'src/main/utils/logger.ts',
+        'src/main/msp/commands.ts',
+        'src/main/msp/types.ts',
       ]
     }
   },

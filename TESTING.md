@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1372 tests across 72 files** (last verified: February 11, 2026)
+**Total: 1440 tests across 75 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -246,6 +246,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `blackbox/BlackboxParser.test.ts` | 35 | End-to-end parsing, multi-session, corruption recovery |
+| `blackbox/BlackboxParser.fuzz.test.ts` | 18 | Fuzz/property-based: random bytes, truncation, extreme values, oversized frames, all-zero, huge iterations |
 | `blackbox/BlackboxParser.integration.test.ts` | 9 | Real flight BBL regression tests |
 | `blackbox/realflight.regression.test.ts` | 13 | Additional real-flight regression tests |
 | `blackbox/StreamReader.test.ts` | 35 | Binary stream reading, variable-byte encoding |
@@ -272,6 +273,13 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/StepMetrics.test.ts` | 22 | Rise time, overshoot, settling, latency, ringing, FF contribution classification |
 | `analysis/PIDRecommender.test.ts` | 40 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds |
 | `analysis/PIDAnalyzer.test.ts` | 17 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation |
+| `analysis/AnalysisPipeline.realdata.test.ts` | 20 | End-to-end filter+PID analysis with bf45-reference fixture and real_flight.bbl, safety bounds, determinism, performance |
+
+### E2E Workflow Tests
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `e2e/tuningWorkflow.e2e.test.ts` | 30 | Profile+connection workflow, snapshot CRUD+restore, tuning session lifecycle, apply recommendations 4-stage ordering, error recovery, BB settings fix, full tuning cycle |
 
 ### Header Validation
 
