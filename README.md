@@ -8,6 +8,16 @@ BFAutoTune connects to your Betaflight flight controller over USB, guides you th
 
 **How it works:** Connect FC → Fly hover + throttle sweeps → App tunes filters → Fly stick snaps → App tunes PIDs → Done.
 
+## Supported Betaflight Versions
+
+| Tier | Version | Notes |
+|------|---------|-------|
+| **Minimum** | BF 4.3 (API 1.44) | Oldest supported — connects and works |
+| **Recommended** | BF 4.5+ (API 1.46) | Best feature coverage |
+| **Actively tested** | BF 4.5.x, 2025.12.x | User's fleet |
+
+Connecting with BF 4.2 or earlier will show an error and auto-disconnect. See [BF Version Policy](./docs/BF_VERSION_POLICY.md) for detailed rationale and version-specific notes.
+
 ## Current Status
 
 - **Phase 1:** ✅ Complete - MSP connection, profile management, snapshots
@@ -243,10 +253,10 @@ On subsequent connections, the app recognizes the FC by serial number and auto-s
 
 Before flying, check the **Flight Controller Information** panel:
 
-- **Debug Mode** should be `GYRO_SCALED` for noise analysis (amber warning if set to `NONE`)
+- **Debug Mode** should be `GYRO_SCALED` for noise analysis — **BF 4.3–4.5 only** (not needed on BF 2025.12+, hidden automatically)
 - **Logging Rate** should be at least 2 kHz (shown with green checkmark or amber warning)
 
-To change these settings, use Betaflight Configurator:
+To change these settings (BF 4.3–4.5), use Betaflight Configurator:
 ```
 set debug_mode = GYRO_SCALED
 set blackbox_sample_rate = 0    # Full rate logging

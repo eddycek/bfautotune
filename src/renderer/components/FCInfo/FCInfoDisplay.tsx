@@ -102,11 +102,13 @@ export function FCInfoDisplay() {
 
             {bbSettings && (
               <div className="fc-bb-settings">
-                <div className={`fc-bb-setting ${debugModeOk ? 'ok' : 'warn'}`}>
-                  <span className="fc-bb-indicator">{debugModeOk ? '\u2713' : '\u26A0'}</span>
-                  <span className="fc-bb-label">Debug Mode:</span>
-                  <span className="fc-bb-value">{bbSettings.debugMode}</span>
-                </div>
+                {!gyroScaledNotNeeded && (
+                  <div className={`fc-bb-setting ${debugModeOk ? 'ok' : 'warn'}`}>
+                    <span className="fc-bb-indicator">{debugModeOk ? '\u2713' : '\u26A0'}</span>
+                    <span className="fc-bb-label">Debug Mode:</span>
+                    <span className="fc-bb-value">{bbSettings.debugMode}</span>
+                  </div>
+                )}
                 <div className={`fc-bb-setting ${loggingRateOk ? 'ok' : 'warn'}`}>
                   <span className="fc-bb-indicator">{loggingRateOk ? '\u2713' : '\u26A0'}</span>
                   <span className="fc-bb-label">Logging Rate:</span>

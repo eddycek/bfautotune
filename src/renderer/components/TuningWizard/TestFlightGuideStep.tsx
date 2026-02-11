@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TuningMode } from '@shared/types/tuning.types';
+import { useConnection } from '../../hooks/useConnection';
 import { FlightGuideContent } from './FlightGuideContent';
 
 interface TestFlightGuideStepProps {
@@ -14,12 +15,15 @@ const INTRO_TEXT: Record<TuningMode, string> = {
 };
 
 export function TestFlightGuideStep({ onContinue, mode = 'full' }: TestFlightGuideStepProps) {
+  const { status } = useConnection();
+  const fcVersion = status.fcInfo?.version;
+
   return (
     <div className="analysis-section">
       <h3>Test Flight Guide</h3>
       <p>{INTRO_TEXT[mode]}</p>
 
-      <FlightGuideContent mode={mode} />
+      <FlightGuideContent mode={mode} fcVersion={fcVersion} />
 
       <div className="analysis-actions">
         <button className="wizard-btn wizard-btn-primary" onClick={onContinue}>

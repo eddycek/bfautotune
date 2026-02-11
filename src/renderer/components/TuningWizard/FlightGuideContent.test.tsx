@@ -47,4 +47,22 @@ describe('FlightGuideContent', () => {
 
     expect(screen.getByText(/One pack = one test flight/)).toBeInTheDocument();
   });
+
+  it('shows GYRO_SCALED tip in filter mode without fcVersion', () => {
+    render(<FlightGuideContent mode="filter" />);
+
+    expect(screen.getByText(/GYRO_SCALED/)).toBeInTheDocument();
+  });
+
+  it('hides GYRO_SCALED tip in filter mode for BF 4.6+', () => {
+    render(<FlightGuideContent mode="filter" fcVersion="4.6.0" />);
+
+    expect(screen.queryByText(/GYRO_SCALED/)).not.toBeInTheDocument();
+  });
+
+  it('shows GYRO_SCALED tip in filter mode for BF 4.5.x', () => {
+    render(<FlightGuideContent mode="filter" fcVersion="4.5.1" />);
+
+    expect(screen.getByText(/GYRO_SCALED/)).toBeInTheDocument();
+  });
 });

@@ -26,7 +26,7 @@ global.window.betaflight = {
   listPorts: vi.fn(),
   connect: vi.fn(),
   disconnect: vi.fn(),
-  getConnectionStatus: vi.fn(),
+  getConnectionStatus: vi.fn().mockResolvedValue({ connected: false }),
   onConnectionChanged: vi.fn(() => () => {}),
 
   // FC Info
