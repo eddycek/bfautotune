@@ -95,6 +95,26 @@ export const DTERM_LPF1_MIN_HZ = 70;
 /** Absolute maximum D-term lowpass 1 cutoff in Hz */
 export const DTERM_LPF1_MAX_HZ = 200;
 
+// ---- RPM Filter Conditional Bounds ----
+
+/** Maximum gyro LPF1 cutoff when RPM filter is active (Hz) */
+export const GYRO_LPF1_MAX_HZ_RPM = 500;
+
+/** Maximum D-term LPF1 cutoff when RPM filter is active (Hz) */
+export const DTERM_LPF1_MAX_HZ_RPM = 300;
+
+/** Recommended dynamic notch count with RPM filter active (frame resonance only) */
+export const DYN_NOTCH_COUNT_WITH_RPM = 1;
+
+/** Recommended dynamic notch Q with RPM filter active */
+export const DYN_NOTCH_Q_WITH_RPM = 500;
+
+/** Default dynamic notch count without RPM filter (must track motor noise) */
+export const DYN_NOTCH_COUNT_WITHOUT_RPM = 3;
+
+/** Default dynamic notch Q without RPM filter */
+export const DYN_NOTCH_Q_WITHOUT_RPM = 300;
+
 /** dB level for extreme noise (maps to minimum cutoff in noise-based targeting) */
 export const NOISE_FLOOR_VERY_NOISY_DB = -10;
 
