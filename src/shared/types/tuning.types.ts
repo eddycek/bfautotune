@@ -8,6 +8,8 @@
  * A persistent TuningSession tracks progress across connect/disconnect cycles.
  */
 
+import type { FilterMetricsSummary, PIDMetricsSummary } from './tuning-history.types';
+
 /** Which analysis mode the wizard is operating in */
 export type TuningMode = 'filter' | 'pid' | 'full';
 
@@ -63,4 +65,19 @@ export interface TuningSession {
 
   /** Log ID of the verification flight (after download) */
   verificationLogId?: string;
+
+  /** Snapshot ID created after filter apply (on reconnect) */
+  postFilterSnapshotId?: string;
+
+  /** Snapshot ID created after PID apply (on reconnect) */
+  postTuningSnapshotId?: string;
+
+  /** Compact filter analysis metrics (saved for history) */
+  filterMetrics?: FilterMetricsSummary;
+
+  /** Compact PID analysis metrics (saved for history) */
+  pidMetrics?: PIDMetricsSummary;
+
+  /** Compact verification flight metrics (saved for history) */
+  verificationMetrics?: FilterMetricsSummary;
 }
