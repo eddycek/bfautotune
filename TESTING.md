@@ -153,14 +153,14 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 988 tests across 55 files** (last verified: February 11, 2026)
+**Total: 998 tests across 55 files** (last verified: February 11, 2026)
 
 ### UI Components
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 13 | Connection flow, port scanning, cooldown, auto-cooldown on unexpected disconnect |
-| `FCInfo/FCInfoDisplay.test.tsx` | 30 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix settings button |
+| `FCInfo/FCInfoDisplay.test.tsx` | 33 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix/reset settings |
 | `FCInfo/FixSettingsConfirmModal.test.tsx` | 4 | Fix settings confirmation modal, reboot warning, confirm/cancel |
 | `BlackboxStatus/BlackboxStatus.test.tsx` | 14 | Blackbox status, download trigger, readonly mode |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
@@ -204,13 +204,13 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useTuningWizard.test.ts` | 22 | Wizard state, parse/analyze/apply lifecycle |
 | `hooks/useTuningSession.test.ts` | 8 | Tuning session lifecycle, IPC events |
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
-| `utils/bbSettingsUtils.test.ts` | 13 | BB settings status computation, version-aware debug mode, fix commands |
+| `utils/bbSettingsUtils.test.ts` | 18 | BB settings status computation, version-aware debug mode, fix/reset commands |
 
 ### MSP Client
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `msp/MSPClient.test.ts` | 13 | Filter config parsing, flash payload extraction, feedforward config, RPM filter bytes |
+| `msp/MSPClient.test.ts` | 16 | Filter config parsing, flash payload extraction, feedforward config, RPM filter bytes, pid_process_denom |
 
 ### Storage
 

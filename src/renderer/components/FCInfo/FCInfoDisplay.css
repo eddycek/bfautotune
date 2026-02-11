@@ -84,6 +84,22 @@
   font-size: 13px;
 }
 
+.fc-bb-reset-btn {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #999;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.fc-bb-reset-btn:hover {
+  color: #e0e0e0;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 .fc-bb-fix-btn {
   margin-top: 4px;
   padding: 4px 12px;

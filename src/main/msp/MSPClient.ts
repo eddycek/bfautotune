@@ -532,6 +532,28 @@ export class MSPClient extends EventEmitter {
   }
 
   /**
+   * Read pid_process_denom from MSP_ADVANCED_CONFIG (command 90).
+   *
+   * Byte layout (from betaflight-configurator MSPHelper.js):
+   *  0: U8  gyro_sync_denom
+   *  1: U8  pid_process_denom
+   *  2: U8  use_unsynced_pwm
+   *  3: U8  motor_pwm_protocol
+   *  4-5: U16 motor_pwm_rate
+   *  6-7: U16 digital_idle_percent (÷100)
+   *  8: U8  gyro_use_32khz (BF 4.x)
+   */
+  async getPidProcessDenom(): Promise<number> {
+    const response = await this.connection.sendCommand(MSPCommand.MSP_ADVANCED_CONFIG);
+    if (response.data.length < 2) {
+      throw new MSPError(
+        `Invalid MSP_ADVANCED_CONFIG response - expected at least 2 bytes, got ${response.data.length}`
+      );
+    }
+    return response.data.readUInt8(1);
+  }
+
+  /**
    * Read feedforward configuration from flight controller via MSP_PID_ADVANCED.
    *
    * Byte layout (BF 4.3+, API 1.44+, from betaflight-configurator MSPHelper.js):

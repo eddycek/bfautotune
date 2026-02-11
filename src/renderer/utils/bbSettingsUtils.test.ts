@@ -103,4 +103,33 @@ describe('computeBBSettingsStatus', () => {
     );
     expect(result.loggingRateOk).toBe(false);
   });
+
+  it('provides resetCommands when GYRO_SCALED is active on BF < 4.6', () => {
+    const result = computeBBSettingsStatus(
+      { debugMode: 'GYRO_SCALED', sampleRate: 1, loggingRateHz: 4000 },
+      '4.5.0'
+    );
+    expect(result.resetCommands).toEqual(['set debug_mode = NONE']);
+  });
+
+  it('does not provide resetCommands when debug_mode is NONE', () => {
+    const result = computeBBSettingsStatus(
+      { debugMode: 'NONE', sampleRate: 1, loggingRateHz: 4000 },
+      '4.5.0'
+    );
+    expect(result.resetCommands).toEqual([]);
+  });
+
+  it('does not provide resetCommands on BF 4.6+', () => {
+    const result = computeBBSettingsStatus(
+      { debugMode: 'GYRO_SCALED', sampleRate: 1, loggingRateHz: 4000 },
+      '4.6.0'
+    );
+    expect(result.resetCommands).toEqual([]);
+  });
+
+  it('returns empty resetCommands when settings are null', () => {
+    const result = computeBBSettingsStatus(null, '4.5.0');
+    expect(result.resetCommands).toEqual([]);
+  });
 });

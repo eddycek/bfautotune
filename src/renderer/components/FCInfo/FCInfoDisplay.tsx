@@ -15,6 +15,7 @@ export function FCInfoDisplay() {
   const [ffConfig, setFfConfig] = useState<FeedforwardConfiguration | null>(null);
   const [fixing, setFixing] = useState(false);
   const [showFixConfirm, setShowFixConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     if (status.connected && status.fcInfo) {
@@ -55,12 +56,13 @@ export function FCInfoDisplay() {
     }
   };
 
-  const handleFixSettings = async () => {
+  const handleApplyCommands = async (commands: string[]) => {
     setShowFixConfirm(false);
+    setShowResetConfirm(false);
     setFixing(true);
     try {
       markIntentionalDisconnect();
-      await window.betaflight.fixBlackboxSettings({ commands: bbStatus.fixCommands });
+      await window.betaflight.fixBlackboxSettings({ commands });
     } catch {
       // FC reboots — reconnect will re-fetch settings
     } finally {
@@ -117,6 +119,14 @@ export function FCInfoDisplay() {
                     <span className="fc-bb-indicator">{bbStatus.debugModeOk ? '\u2713' : '\u26A0'}</span>
                     <span className="fc-bb-label">Debug Mode:</span>
                     <span className="fc-bb-value">{bbSettings.debugMode}</span>
+                    {bbStatus.resetCommands.length > 0 && !fixing && (
+                      <button
+                        className="fc-bb-reset-btn"
+                        onClick={() => setShowResetConfirm(true)}
+                      >
+                        Reset
+                      </button>
+                    )}
                   </div>
                 )}
                 <div className={`fc-bb-setting ${bbStatus.loggingRateOk ? 'ok' : 'warn'}`}>
@@ -184,8 +194,16 @@ export function FCInfoDisplay() {
       {showFixConfirm && (
         <FixSettingsConfirmModal
           commands={bbStatus.fixCommands}
-          onConfirm={handleFixSettings}
+          onConfirm={() => handleApplyCommands(bbStatus.fixCommands)}
           onCancel={() => setShowFixConfirm(false)}
+        />
+      )}
+
+      {showResetConfirm && (
+        <FixSettingsConfirmModal
+          commands={bbStatus.resetCommands}
+          onConfirm={() => handleApplyCommands(bbStatus.resetCommands)}
+          onCancel={() => setShowResetConfirm(false)}
         />
       )}
     </div>

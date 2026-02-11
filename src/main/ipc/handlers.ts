@@ -190,12 +190,25 @@ export function registerIPCHandlers(): void {
       // If a setting is not in the diff, it's at the BF default.
       const debugMode = parseDiffSetting(cliDiff, 'debug_mode') || 'NONE';
       const sampleRateStr = parseDiffSetting(cliDiff, 'blackbox_sample_rate');
-      const pidDenomStr = parseDiffSetting(cliDiff, 'pid_process_denom');
 
       const sampleRate = sampleRateStr !== undefined ? parseInt(sampleRateStr, 10) : 1;
-      const pidDenom = pidDenomStr !== undefined ? parseInt(pidDenomStr, 10) : 1;
+
+      // Read pid_process_denom from MSP for accuracy — CLI diff may omit target defaults.
+      let pidDenom = 1;
+      if (mspClient?.isConnected()) {
+        try {
+          pidDenom = await mspClient.getPidProcessDenom();
+        } catch {
+          const pidDenomStr = parseDiffSetting(cliDiff, 'pid_process_denom');
+          pidDenom = pidDenomStr !== undefined ? parseInt(pidDenomStr, 10) : 1;
+        }
+      } else {
+        const pidDenomStr = parseDiffSetting(cliDiff, 'pid_process_denom');
+        pidDenom = pidDenomStr !== undefined ? parseInt(pidDenomStr, 10) : 1;
+      }
 
       // Effective logging rate: 8kHz gyro / pid_denom / 2^sample_rate
+      // BF blackbox_sample_rate is a power-of-2 index: 0=1:1, 1=1:2, 2=1:4
       const pidRate = 8000 / Math.max(pidDenom, 1);
       const loggingRateHz = Math.round(pidRate / Math.pow(2, sampleRate));
 
