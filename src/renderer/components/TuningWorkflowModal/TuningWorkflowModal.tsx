@@ -67,7 +67,7 @@ export function TuningWorkflowModal({ onClose }: TuningWorkflowModalProps) {
 
         <h3 className="workflow-subheading">Optional: Verification Hover</h3>
         <p className="workflow-step-desc">
-          After applying PIDs, you can fly a short 30-second hover to compare noise levels before and after tuning. The app overlays the original and new noise spectra so you can see the improvement. This step is optional — skip it if the quad already feels good.
+          After applying PIDs, erase flash and fly a 30–60 second hover with gentle throttle sweeps — the same type of flight as the filter test. Reconnect, download the log, and click Analyze. The app runs filter analysis on the new log and overlays the before/after noise spectra so you can see the improvement at a glance. This step is optional — skip it if the quad already feels good.
         </p>
 
         <div className="workflow-modal-actions">
