@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { RecommendationCard } from './RecommendationCard';
 import { StepResponseChart } from './charts/StepResponseChart';
 import type { PIDAnalysisResult, AnalysisProgress } from '@shared/types/analysis.types';
+import type { FlightStyle } from '@shared/types/profile.types';
+
+const FLIGHT_STYLE_LABELS: Record<FlightStyle, string> = {
+  smooth: 'Smooth',
+  balanced: 'Balanced',
+  aggressive: 'Aggressive',
+};
 
 interface PIDAnalysisStepProps {
   pidResult: PIDAnalysisResult | null;
@@ -81,9 +88,16 @@ export function PIDAnalysisStep({
       <div className="analysis-section">
         <h3>PID Analysis Results</h3>
         <p>{pidResult.summary}</p>
-        <p className="analysis-section-detail">
-          {pidResult.stepsDetected} step inputs detected across all axes.
-        </p>
+        <div className="analysis-meta">
+          <span className="analysis-meta-pill">
+            {pidResult.stepsDetected} step{pidResult.stepsDetected !== 1 ? 's' : ''} detected
+          </span>
+          {pidResult.flightStyle && (
+            <span className="analysis-meta-pill">
+              Tuning for: {FLIGHT_STYLE_LABELS[pidResult.flightStyle]} flying
+            </span>
+          )}
+        </div>
 
         {pidResult.warnings && pidResult.warnings.length > 0 && (
           <div className="analysis-warnings">

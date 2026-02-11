@@ -374,7 +374,7 @@ describe('TuningWizard', () => {
 
     await navigateToPIDResults(user);
 
-    expect(screen.getByText('12 step inputs detected across all axes.')).toBeInTheDocument();
+    expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
     expect(screen.getByText('pid_roll_p')).toBeInTheDocument();
   });
 
