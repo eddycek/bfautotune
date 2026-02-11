@@ -141,7 +141,7 @@ export function SnapshotManager() {
           <h3>Create Snapshot</h3>
           <input
             type="text"
-            placeholder="Label (optional)"
+            placeholder="Name (optional)"
             value={snapshotLabel}
             onChange={(e) => setSnapshotLabel(e.target.value)}
           />
