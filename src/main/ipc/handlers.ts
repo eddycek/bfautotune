@@ -172,31 +172,16 @@ export function registerIPCHandlers(): void {
         throw new Error('No active profile');
       }
 
-      // Find the baseline snapshot
-      const baselineId = currentProfile.snapshotIds.find(async (id: string) => {
-        const snap = await snapshotManager.loadSnapshot(id);
-        return snap?.type === 'baseline';
-      });
-
+      // Use the most recent snapshot (last in array) for the freshest settings.
+      // Falls back to baseline if no other snapshots exist.
       let cliDiff = '';
-      // Try to find baseline snapshot by iterating
-      for (const snapId of currentProfile.snapshotIds) {
+      const ids = currentProfile.snapshotIds;
+      for (let i = ids.length - 1; i >= 0; i--) {
         try {
-          const snap = await snapshotManager.loadSnapshot(snapId);
-          if (snap && snap.type === 'baseline') {
-            cliDiff = snap.configuration.cliDiff || '';
+          const snap = await snapshotManager.loadSnapshot(ids[i]);
+          if (snap?.configuration?.cliDiff) {
+            cliDiff = snap.configuration.cliDiff;
             break;
-          }
-        } catch {}
-      }
-
-      // If no baseline found, try the most recent snapshot
-      if (!cliDiff && currentProfile.snapshotIds.length > 0) {
-        try {
-          const lastId = currentProfile.snapshotIds[currentProfile.snapshotIds.length - 1];
-          const snap = await snapshotManager.loadSnapshot(lastId);
-          if (snap) {
-            cliDiff = snap.configuration.cliDiff || '';
           }
         } catch {}
       }
@@ -249,6 +234,15 @@ export function registerIPCHandlers(): void {
 
       for (const cmd of input.commands) {
         await mspClient.connection.sendCLICommand(cmd);
+      }
+
+      // Capture a snapshot with the fixed settings before reboot.
+      // Settings are in RAM after CLI set commands — diff all will reflect them.
+      try {
+        await snapshotManager.createSnapshot('Post-fix settings (auto)', 'auto');
+        logger.info('Post-fix snapshot created');
+      } catch (snapErr) {
+        logger.warn('Failed to create post-fix snapshot (non-fatal):', snapErr);
       }
 
       await mspClient.saveAndReboot();

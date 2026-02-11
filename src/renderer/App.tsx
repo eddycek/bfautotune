@@ -17,6 +17,7 @@ import { ToastContainer } from './components/Toast/ToastContainer';
 import { useProfiles } from './hooks/useProfiles';
 import { useTuningSession } from './hooks/useTuningSession';
 import { useToast } from './hooks/useToast';
+import { markIntentionalDisconnect } from './hooks/useConnection';
 import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
@@ -205,6 +206,7 @@ function AppContent() {
     setShowBannerFixConfirm(false);
     setFixingSettings(true);
     try {
+      markIntentionalDisconnect();
       await window.betaflight.fixBlackboxSettings({ commands: bbStatus.fixCommands });
       toast.success('Blackbox settings fixed, FC rebooting');
     } catch {

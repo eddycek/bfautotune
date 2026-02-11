@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useConnection } from '../../hooks/useConnection';
+import { useConnection, markIntentionalDisconnect } from '../../hooks/useConnection';
 import { useFCInfo } from '../../hooks/useFCInfo';
 import { computeBBSettingsStatus } from '../../utils/bbSettingsUtils';
 import { FixSettingsConfirmModal } from './FixSettingsConfirmModal';
@@ -59,6 +59,7 @@ export function FCInfoDisplay() {
     setShowFixConfirm(false);
     setFixing(true);
     try {
+      markIntentionalDisconnect();
       await window.betaflight.fixBlackboxSettings({ commands: bbStatus.fixCommands });
     } catch {
       // FC reboots — reconnect will re-fetch settings

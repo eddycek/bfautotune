@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useConnection } from '../../hooks/useConnection';
 import './ConnectionPanel.css';
 
@@ -6,6 +6,7 @@ export function ConnectionPanel() {
   const { ports, status, loading, error, scanPorts, connect, disconnect } = useConnection();
   const [selectedPort, setSelectedPort] = useState<string>('');
   const [reconnectCooldown, setReconnectCooldown] = useState(0);
+  const wasConnectedRef = useRef(false);
 
   useEffect(() => {
     scanPorts();
@@ -33,6 +34,16 @@ export function ConnectionPanel() {
     }
   }, [ports, selectedPort]);
 
+  // Auto-set cooldown on any disconnect (FC reboot, USB unplug, etc.)
+  useEffect(() => {
+    if (wasConnectedRef.current && !status.connected) {
+      setReconnectCooldown(3);
+      // Rescan ports after disconnect to detect FC when it comes back
+      setTimeout(() => { scanPorts(); }, 1500);
+    }
+    wasConnectedRef.current = status.connected;
+  }, [status.connected, scanPorts]);
+
   useEffect(() => {
     if (reconnectCooldown > 0) {
       const timer = setTimeout(() => {
@@ -50,14 +61,7 @@ export function ConnectionPanel() {
 
   const handleDisconnect = async () => {
     await disconnect();
-    // Start 3 second cooldown after disconnect
-    setReconnectCooldown(3);
-
-    // Rescan ports after disconnect to detect new FC
-    // Wait a bit for the old port to be released
-    setTimeout(() => {
-      scanPorts();
-    }, 1500);
+    // Cooldown and port rescan are handled by the auto-disconnect effect
   };
 
   return (
