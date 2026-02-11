@@ -153,13 +153,13 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 987 tests across 55 files** (last verified: February 11, 2026)
+**Total: 988 tests across 55 files** (last verified: February 11, 2026)
 
 ### UI Components
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `ConnectionPanel/ConnectionPanel.test.tsx` | 12 | Connection flow, port scanning, cooldown |
+| `ConnectionPanel/ConnectionPanel.test.tsx` | 13 | Connection flow, port scanning, cooldown, auto-cooldown on unexpected disconnect |
 | `FCInfo/FCInfoDisplay.test.tsx` | 30 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix settings button |
 | `FCInfo/FixSettingsConfirmModal.test.tsx` | 4 | Fix settings confirmation modal, reboot warning, confirm/cancel |
 | `BlackboxStatus/BlackboxStatus.test.tsx` | 14 | Blackbox status, download trigger, readonly mode |

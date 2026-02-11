@@ -160,6 +160,32 @@ describe('ConnectionPanel', () => {
     });
   });
 
+  it('shows cooldown on unexpected disconnect (FC reboot)', async () => {
+    let connectionCallback: ((status: ConnectionStatus) => void) | null = null;
+    vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
+      connected: true,
+      portPath: '/dev/ttyUSB0'
+    });
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((cb) => {
+      connectionCallback = cb;
+      return () => {};
+    });
+
+    render(<ConnectionPanel />);
+
+    // Wait for connected state
+    await waitFor(() => {
+      expect(screen.getByText(/● connected/i)).toBeInTheDocument();
+    });
+
+    // Simulate FC reboot (port closes, no disconnect button click)
+    connectionCallback?.({ connected: false });
+
+    await waitFor(() => {
+      expect(screen.getByText(/wait \d+ second/i)).toBeInTheDocument();
+    });
+  });
+
   it('displays error message when connection fails', async () => {
     const user = userEvent.setup();
     const errorMessage = 'Failed to connect to port';
