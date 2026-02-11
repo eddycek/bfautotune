@@ -648,7 +648,9 @@ export class IPCTestHarness {
 
 ---
 
-## 8. Phase 4 — BBL Parser Hardening
+## 8. Phase 4 — BBL Parser Hardening ✅
+
+> **Status**: Complete. 18 fuzz/property-based tests in `BlackboxParser.fuzz.test.ts`. Random byte injection, truncation at every position, extreme field counts, oversized frames, all-zero input, huge iteration/time values, P-frame before I-frame, repeated LOG_END, 10K frame stress test.
 
 ### 8.1 Real-Flight Reference Tests (~15 tests)
 
@@ -700,7 +702,9 @@ Add curated `.bbl` files covering edge cases found in the wild:
 
 ---
 
-## 9. Phase 5 — Analysis Pipeline Validation
+## 9. Phase 5 — Analysis Pipeline Validation ✅
+
+> **Status**: Complete. 20 tests in `AnalysisPipeline.realdata.test.ts`. 10 tests with bf45-reference fixture (always runs): complete result validation, noise bounds, safety bounds, progress, performance, parallel execution. 10 tests with real_flight.bbl (conditional): noise detection, peak frequencies, step metrics, recommendation bounds, determinism.
 
 ### 9.1 End-to-End Analysis with Real Data (~20 tests)
 
@@ -949,7 +953,9 @@ ProfileCard.tsx (2 tests):
 
 ---
 
-## 12. Phase 8 — End-to-End Workflow Tests
+## 12. Phase 8 — End-to-End Workflow Tests ✅
+
+> **Status**: Complete. 30 tests in `tuningWorkflow.e2e.test.ts`. Profile+connection workflow (8), snapshot CRUD+restore (5), tuning session lifecycle (8), error recovery (4), BB settings (2), full tuning cycle (3). Uses real managers with temp storage, mocked MSP client, direct IPC handler invocation.
 
 These are the capstone tests that verify entire user scenarios from start to finish. They use **real managers with temp storage**, **mocked MSP client**, and **mocked Electron IPC**.
 
@@ -1083,7 +1089,9 @@ Standalone analysis (AnalysisOverview mode):
 
 ---
 
-## 13. Phase 9 — Infrastructure & Tooling
+## 13. Phase 9 — Infrastructure & Tooling ✅
+
+> **Status**: Complete. Coverage thresholds (80% lines/functions/statements, 75% branches) added to vitest.config.ts. LCOV reporter enabled. Exclusions for thin wrappers (window.ts, preload/index.ts, logger.ts, commands.ts, types.ts).
 
 ### 13.1 Coverage Reporting
 
@@ -1210,15 +1218,15 @@ describe('performance', () => {
 |-------|-------------|-----------|--------|------------|
 | **1** | MSP Protocol + Connection | ~~120~~ **123 ✅** | Done (PR #85) | — |
 | **2** | Storage Managers | ~~100~~ **86 ✅** | Done (PR #86) | — |
-| **3** | IPC Handler Integration | ~~200~~ **103 ✅** | Done | Phase 1, 2 |
-| **4** | BBL Parser Hardening | ~30 | 1-2 days | — |
-| **5** | Analysis Real-Data Validation | ~20 | 1-2 days | Phase 4 |
-| **6** | Remaining UI Components | ~~60~~ **54 ✅** | Done | — |
-| **7** | Remaining Hooks | ~~33~~ **30 ✅** | Done | — |
-| **8** | E2E Workflow Tests | ~50 | 3-4 days | Phase 1, 2, 3 |
-| **9** | Infrastructure & Tooling | — | 1 day | — |
+| **3** | IPC Handler Integration | ~~200~~ **103 ✅** | Done (PR #87) | Phase 1, 2 |
+| **4** | BBL Parser Hardening | ~~30~~ **18 ✅** | Done | — |
+| **5** | Analysis Real-Data Validation | ~~20~~ **20 ✅** | Done | Phase 4 |
+| **6** | Remaining UI Components | ~~60~~ **54 ✅** | Done (PR #87) | — |
+| **7** | Remaining Hooks | ~~33~~ **30 ✅** | Done (PR #87) | — |
+| **8** | E2E Workflow Tests | ~~50~~ **30 ✅** | Done | Phase 1, 2, 3 |
+| **9** | Infrastructure & Tooling | **✅** | Done | — |
 
-**Total: ~610 new tests, ~17-24 days of implementation**
+**All phases complete. Total new tests: 464. Final total: 1440 tests / 75 files.**
 
 ### Parallel Tracks
 
