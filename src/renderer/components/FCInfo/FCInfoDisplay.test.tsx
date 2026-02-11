@@ -276,6 +276,51 @@ describe('FCInfoDisplay', () => {
     });
   });
 
+  it('hides debug mode row for BF 4.6+ (GYRO_SCALED not needed)', async () => {
+    vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
+      connected: true,
+      portPath: '/dev/ttyUSB0',
+      fcInfo: { ...mockFCInfo, version: '4.6.0' }
+    });
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 4000
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Logging Rate:')).toBeInTheDocument();
+    });
+
+    // Debug Mode row should not be shown for 4.6+
+    expect(screen.queryByText('Debug Mode:')).not.toBeInTheDocument();
+    // GYRO_SCALED hint should not appear
+    expect(screen.queryByText(/GYRO_SCALED/)).not.toBeInTheDocument();
+  });
+
+  it('shows debug mode row for BF 4.5.x', async () => {
+    vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
+      connected: true,
+      portPath: '/dev/ttyUSB0',
+      fcInfo: { ...mockFCInfo, version: '4.5.1' }
+    });
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 4000
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Debug Mode:')).toBeInTheDocument();
+      expect(screen.getByText('NONE')).toBeInTheDocument();
+      expect(screen.getByText(/GYRO_SCALED/)).toBeInTheDocument();
+    });
+  });
+
   it('handles getBlackboxSettings failure gracefully', async () => {
     vi.mocked(window.betaflight.getBlackboxSettings).mockRejectedValue(new Error('CLI failed'));
 

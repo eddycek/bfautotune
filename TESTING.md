@@ -153,14 +153,14 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 853 tests across 47 files** (last verified: February 11, 2026)
+**Total: 858 tests across 47 files** (last verified: February 11, 2026)
 
 ### UI Components
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 12 | Connection flow, port scanning, cooldown |
-| `FCInfo/FCInfoDisplay.test.tsx` | 19 | FC information display, CLI export, diagnostics |
+| `FCInfo/FCInfoDisplay.test.tsx` | 21 | FC information display, CLI export, diagnostics, version-aware debug mode |
 | `BlackboxStatus/BlackboxStatus.test.tsx` | 14 | Blackbox status, download trigger, readonly mode |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 15 | Profile editing, validation, form handling |
@@ -172,7 +172,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
 | `TuningStatusBanner/TuningStatusBanner.test.tsx` | 22 | Workflow banner, step indicator, actions, downloading, applied phases |
 | `TuningWizard/TuningWizard.test.tsx` | 42 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete |
-| `TuningWizard/FlightGuideContent.test.tsx` | 6 | Flight guide content rendering |
+| `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
 | `AnalysisOverview/AnalysisOverview.test.tsx` | 15 | Diagnostic-only analysis view, auto-parse, session picker |

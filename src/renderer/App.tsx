@@ -195,7 +195,10 @@ function AppContent() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Betaflight PID AutoTune</h1>
+        <div className="app-header-left">
+          <h1>Betaflight PID AutoTune</h1>
+          <span className="app-bf-compat">BF 4.3+</span>
+        </div>
         <div className="app-header-right">
           <span className="version">v0.1.0</span>
           <button
