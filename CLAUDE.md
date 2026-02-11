@@ -100,6 +100,19 @@ npm run rebuild
 - Board name may be empty/invalid → fallback to target name
 - Connection requires 500ms stabilization delay after port open
 - Retry logic: 2 attempts with reset between failures
+- **Version gate**: `validateFirmwareVersion()` checks API version on connect — rejects BF < 4.3 (API 1.44) with `UnsupportedVersionError`, auto-disconnects
+
+### Betaflight Version Compatibility
+
+**Minimum**: BF 4.3 (API 1.44) — **Recommended**: BF 4.5+ (API 1.46) — **Actively tested**: BF 4.5.x, 2025.12.x
+
+- Version gate in `MSPClient.ts` auto-disconnects unsupported firmware on connect
+- Constants in `src/shared/constants.ts`: `BETAFLIGHT.MIN_VERSION`, `BETAFLIGHT.MIN_API_VERSION`
+- `UnsupportedVersionError` in `src/main/utils/errors.ts`
+- **DEBUG_GYRO_SCALED**: Removed in BF 2025.12 (4.6+). Header validation and FCInfoDisplay skip debug mode check for 4.6+
+- **CLI naming**: All `feedforward_*` (4.3+ naming only). No `ff_*` (4.2) support needed
+- **MSP_FILTER_CONFIG**: 47-byte layout stable from 4.3 onward
+- Full policy: `docs/BF_VERSION_POLICY.md`
 
 ### IPC Architecture
 

@@ -30,6 +30,17 @@ export class TimeoutError extends BetaflightError {
   }
 }
 
+export class UnsupportedVersionError extends BetaflightError {
+  constructor(
+    message: string,
+    public detectedVersion?: string,
+    public detectedApi?: { major: number; minor: number }
+  ) {
+    super(message, 'UNSUPPORTED_VERSION');
+    this.name = 'UnsupportedVersionError';
+  }
+}
+
 export class SnapshotError extends BetaflightError {
   constructor(message: string, details?: any) {
     super(message, 'SNAPSHOT_ERROR', details);

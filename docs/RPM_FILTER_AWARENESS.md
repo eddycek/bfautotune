@@ -230,7 +230,21 @@ Also read dynamic notch count/Q for recommendation context (already in the MSP r
 
 ---
 
-## 7. References
+## 7. BF Version Compatibility
+
+The app's minimum supported version is **BF 4.3** (API 1.44). All RPM filter parameters
+(`rpm_filter_harmonics`, `rpm_filter_q`, `rpm_filter_min_hz`, `rpm_filter_fade_range_hz`)
+are available from BF 4.3 onward. `rpm_filter_weights` (per-harmonic weight strings) is
+a BF 4.5+ feature and should use optional fields with graceful fallback.
+
+MSP_FILTER_CONFIG bytes 43-44 (`rpm_notch_harmonics`, `rpm_notch_min_hz`) are stable across
+BF 4.3–2025.12 — no version-specific parsing needed.
+
+See `docs/BF_VERSION_POLICY.md` for the full version compatibility policy.
+
+---
+
+## 8. References
 
 - [Oscar Liang: How to Setup RPM Filters in Betaflight](https://oscarliang.com/rpm-filter/)
 - [Betaflight: DShot RPM Filtering](https://www.betaflight.com/docs/wiki/guides/current/DSHOT-RPM-Filtering)

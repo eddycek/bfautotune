@@ -11,7 +11,11 @@ export const MSP = {
 
 export const BETAFLIGHT = {
   VENDOR_IDS: ['0x0483', '0x2E8A'], // STM32, RP2040
-  VARIANT: 'BTFL'
+  VARIANT: 'BTFL',
+  /** Minimum supported BF version (API 1.44) */
+  MIN_VERSION: '4.3.0',
+  /** Minimum supported API version (major.minor) */
+  MIN_API_VERSION: { major: 1, minor: 44 },
 } as const;
 
 export const SNAPSHOT = {
