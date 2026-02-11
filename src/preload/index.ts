@@ -13,7 +13,7 @@ import type {
   ProfileCreationInput,
   ProfileUpdateInput
 } from '@shared/types/profile.types';
-import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress, BlackboxSettings } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress } from '@shared/types/ipc.types';
@@ -80,6 +80,14 @@ const betaflightAPI: BetaflightAPI = {
     const response = await ipcRenderer.invoke(IPCChannel.FC_GET_BLACKBOX_SETTINGS);
     if (!response.success) {
       throw new Error(response.error || 'Failed to get blackbox settings');
+    }
+    return response.data;
+  },
+
+  async getFeedforwardConfig(): Promise<FeedforwardConfiguration> {
+    const response = await ipcRenderer.invoke(IPCChannel.FC_GET_FEEDFORWARD_CONFIG);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get feedforward configuration');
     }
     return response.data;
   },

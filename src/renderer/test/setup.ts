@@ -33,6 +33,7 @@ global.window.betaflight = {
   getFCInfo: vi.fn(),
   exportCLI: vi.fn(),
   getBlackboxSettings: vi.fn(),
+  getFeedforwardConfig: vi.fn().mockRejectedValue(new Error('Not connected')),
 
   // Snapshots
   createSnapshot: vi.fn(),

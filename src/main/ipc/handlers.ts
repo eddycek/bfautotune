@@ -16,7 +16,7 @@ import type {
   ProfileCreationInput,
   ProfileUpdateInput
 } from '@shared/types/profile.types';
-import type { PIDConfiguration, PIDTerm } from '@shared/types/pid.types';
+import type { PIDConfiguration, PIDTerm, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxSettings } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
@@ -218,6 +218,19 @@ export function registerIPCHandlers(): void {
     } catch (error) {
       logger.error('Failed to get blackbox settings:', error);
       return createResponse<BlackboxSettings>(undefined, getErrorMessage(error));
+    }
+  });
+
+  ipcMain.handle(IPCChannel.FC_GET_FEEDFORWARD_CONFIG, async (): Promise<IPCResponse<FeedforwardConfiguration>> => {
+    try {
+      if (!mspClient) throw new Error('MSP client not initialized');
+      if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
+
+      const config = await mspClient.getFeedforwardConfiguration();
+      return createResponse<FeedforwardConfiguration>(config);
+    } catch (error) {
+      logger.error('Failed to get feedforward configuration:', error);
+      return createResponse<FeedforwardConfiguration>(undefined, getErrorMessage(error));
     }
   });
 

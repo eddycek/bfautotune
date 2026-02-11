@@ -12,7 +12,7 @@ import type {
   ProfileUpdateInput,
   PresetProfile
 } from './profile.types';
-import type { PIDConfiguration } from './pid.types';
+import type { PIDConfiguration, FeedforwardConfiguration } from './pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress, BlackboxSettings } from './blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings, FilterRecommendation, PIDRecommendation } from './analysis.types';
 import type { TuningSession, TuningPhase } from './tuning.types';
@@ -66,6 +66,7 @@ export enum IPCChannel {
   FC_GET_INFO = 'fc:get-info',
   FC_EXPORT_CLI = 'fc:export-cli',
   FC_GET_BLACKBOX_SETTINGS = 'fc:get-blackbox-settings',
+  FC_GET_FEEDFORWARD_CONFIG = 'fc:get-feedforward-config',
 
   // Snapshots
   SNAPSHOT_CREATE = 'snapshot:create',
@@ -148,6 +149,7 @@ export interface BetaflightAPI {
   getFCInfo(): Promise<FCInfo>;
   exportCLI(format: 'diff' | 'dump'): Promise<string>;
   getBlackboxSettings(): Promise<BlackboxSettings>;
+  getFeedforwardConfig(): Promise<FeedforwardConfiguration>;
 
   // Snapshots
   createSnapshot(label?: string): Promise<ConfigurationSnapshot>;

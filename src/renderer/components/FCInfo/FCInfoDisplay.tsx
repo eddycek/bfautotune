@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useConnection } from '../../hooks/useConnection';
 import { useFCInfo } from '../../hooks/useFCInfo';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
+import type { FeedforwardConfiguration } from '@shared/types/pid.types';
 import './FCInfoDisplay.css';
 
 const RECOMMENDED_DEBUG_MODE = 'GYRO_SCALED';
@@ -20,6 +21,7 @@ export function FCInfoDisplay() {
   const { fcInfo, loading, error, fetchFCInfo, exportCLI } = useFCInfo();
   const [bbSettings, setBbSettings] = useState<BlackboxSettings | null>(null);
   const [bbLoading, setBbLoading] = useState(false);
+  const [ffConfig, setFfConfig] = useState<FeedforwardConfiguration | null>(null);
 
   useEffect(() => {
     if (status.connected && status.fcInfo) {
@@ -36,8 +38,13 @@ export function FCInfoDisplay() {
         .then(settings => setBbSettings(settings))
         .catch(() => setBbSettings(null))
         .finally(() => setBbLoading(false));
+
+      window.betaflight.getFeedforwardConfig()
+        .then(config => setFfConfig(config))
+        .catch(() => setFfConfig(null));
     } else {
       setBbSettings(null);
+      setFfConfig(null);
     }
   }, [status.connected]);
 
@@ -128,6 +135,26 @@ export function FCInfoDisplay() {
               </div>
             )}
           </div>
+
+          {ffConfig && (
+            <div className="fc-ff-section">
+              <h3 className="fc-ff-title">Feedforward</h3>
+              <div className="fc-ff-grid">
+                <span className="fc-ff-label">Boost:</span>
+                <span className="fc-ff-value">{ffConfig.boost}</span>
+                <span className="fc-ff-label">Gains (R/P/Y):</span>
+                <span className="fc-ff-value">{ffConfig.rollGain} / {ffConfig.pitchGain} / {ffConfig.yawGain}</span>
+                <span className="fc-ff-label">Smoothing:</span>
+                <span className="fc-ff-value">{ffConfig.smoothFactor}</span>
+                <span className="fc-ff-label">Jitter Factor:</span>
+                <span className="fc-ff-value">{ffConfig.jitterFactor}</span>
+                <span className="fc-ff-label">Transition:</span>
+                <span className="fc-ff-value">{ffConfig.transition}</span>
+                <span className="fc-ff-label">Max Rate Limit:</span>
+                <span className="fc-ff-value">{ffConfig.maxRateLimit}</span>
+              </div>
+            </div>
+          )}
 
           <div className="fc-export-buttons">
             <button className="secondary" onClick={() => handleExport('diff')} disabled={loading}>

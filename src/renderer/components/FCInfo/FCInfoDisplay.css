@@ -83,3 +83,33 @@
   color: #999;
   font-size: 13px;
 }
+
+/* Feedforward configuration section */
+.fc-ff-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fc-ff-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e0e0e0;
+  margin: 0 0 8px 0;
+}
+
+.fc-ff-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+
+.fc-ff-label {
+  color: #999;
+}
+
+.fc-ff-value {
+  color: #e0e0e0;
+  font-weight: 500;
+}
