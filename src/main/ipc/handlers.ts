@@ -28,7 +28,7 @@ import { BlackboxParser } from '../blackbox/BlackboxParser';
 import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
 import { analyzePID } from '../analysis/PIDAnalyzer';
 import { extractFlightPIDs } from '../analysis/PIDRecommender';
-import { validateBBLHeader } from '../analysis/headerValidation';
+import { validateBBLHeader, enrichSettingsFromBBLHeaders } from '../analysis/headerValidation';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -851,6 +851,23 @@ export function registerIPCHandlers(): void {
         }
 
         const session = parseResult.sessions[idx];
+
+        // Enrich filter settings with RPM data from BBL headers as fallback
+        if (currentSettings && currentSettings.rpm_filter_harmonics === undefined) {
+          const enriched = enrichSettingsFromBBLHeaders(currentSettings, session.header.rawHeaders);
+          if (enriched) {
+            currentSettings = enriched;
+            logger.info('Enriched filter settings with RPM data from BBL headers');
+          }
+        } else if (!currentSettings) {
+          // No FC connected and no settings provided — try to build from BBL headers
+          const { DEFAULT_FILTER_SETTINGS } = await import('@shared/types/analysis.types');
+          const enriched = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, session.header.rawHeaders);
+          if (enriched) {
+            currentSettings = enriched;
+            logger.info('Built filter settings from BBL headers (no FC connected)');
+          }
+        }
 
         // Validate BBL header for data quality warnings
         const headerWarnings = validateBBLHeader(session.header);
