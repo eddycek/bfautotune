@@ -32,6 +32,7 @@ function AppContent() {
   const [showFlightGuideMode, setShowFlightGuideMode] = useState<TuningMode | null>(null);
   const [erasedForPhase, setErasedForPhase] = useState<string | null>(null);
   const [erasing, setErasing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const { createProfile, createProfileFromPreset, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const toast = useToast();
@@ -90,23 +91,44 @@ function AppContent() {
         }
         break;
       case 'download_log':
-        // Trigger download via BlackboxStatus (user can click Download from there)
-        toast.info('Use the Download button in Blackbox Storage below');
+        try {
+          setDownloading(true);
+          const metadata = await window.betaflight.downloadBlackboxLog();
+          toast.success(`Log downloaded: ${metadata.filename}`);
+
+          // Transition session to *_analysis phase and store the log ID
+          const phase = tuning.session?.phase;
+          if (phase === 'filter_log_ready') {
+            await tuning.updatePhase('filter_analysis', { filterLogId: metadata.id });
+          } else if (phase === 'pid_log_ready') {
+            await tuning.updatePhase('pid_analysis', { pidLogId: metadata.id });
+          }
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to download log');
+        } finally {
+          setDownloading(false);
+        }
         break;
-      case 'open_filter_wizard':
-        if (activeLogId) {
+      case 'open_filter_wizard': {
+        const filterLogId = tuning.session?.filterLogId;
+        if (filterLogId) {
           setWizardMode('filter');
+          setActiveLogId(filterLogId);
         } else {
-          toast.info('Download a Blackbox log first, then click Analyze');
+          toast.info('Download a Blackbox log first');
         }
         break;
-      case 'open_pid_wizard':
-        if (activeLogId) {
+      }
+      case 'open_pid_wizard': {
+        const pidLogId = tuning.session?.pidLogId;
+        if (pidLogId) {
           setWizardMode('pid');
+          setActiveLogId(pidLogId);
         } else {
-          toast.info('Download a Blackbox log first, then click Analyze');
+          toast.info('Download a Blackbox log first');
         }
         break;
+      }
       case 'start_new_cycle':
         try {
           setErasedForPhase(null);
@@ -176,6 +198,7 @@ function AppContent() {
                 session={tuning.session}
                 flashErased={erasedForPhase === tuning.session.phase}
                 erasing={erasing}
+                downloading={downloading}
                 onAction={handleTuningAction}
                 onViewGuide={(mode) => setShowFlightGuideMode(mode)}
                 onReset={async () => {
