@@ -3,9 +3,16 @@ import type {
   DroneProfile,
   DroneSize,
   BatteryType,
+  FlightStyle,
   ProfileUpdateInput
 } from '@shared/types/profile.types';
 import './ProfileWizard.css';
+
+const FLIGHT_STYLE_OPTIONS: { value: FlightStyle; label: string; description: string }[] = [
+  { value: 'smooth', label: 'Smooth', description: 'Cinematic, smooth transitions, minimal overshoot' },
+  { value: 'balanced', label: 'Balanced', description: 'General freestyle, good all-around response' },
+  { value: 'aggressive', label: 'Aggressive', description: 'Racing, maximum snap, fast tracking' },
+];
 
 interface ProfileEditModalProps {
   profile: DroneProfile;
@@ -21,6 +28,7 @@ export function ProfileEditModal({ profile, onSave, onCancel }: ProfileEditModal
   const [weight, setWeight] = useState(profile.weight || 0);
   const [motorKV, setMotorKV] = useState(profile.motorKV || 0);
   const [notes, setNotes] = useState(profile.notes || '');
+  const [flightStyle, setFlightStyle] = useState<FlightStyle>(profile.flightStyle ?? 'balanced');
   const [isSaving, setIsSaving] = useState(false);
 
   const sizes: DroneSize[] = ['1"', '2"', '2.5"', '3"', '4"', '5"', '6"', '7"', '10"'];
@@ -40,7 +48,8 @@ export function ProfileEditModal({ profile, onSave, onCancel }: ProfileEditModal
         battery,
         weight: weight || undefined,
         motorKV: motorKV || undefined,
-        notes: notes || undefined
+        notes: notes || undefined,
+        flightStyle,
       };
       await onSave(input);
     } finally {
@@ -127,6 +136,28 @@ export function ProfileEditModal({ profile, onSave, onCancel }: ProfileEditModal
             onChange={(e) => setMotorKV(parseInt(e.target.value) || 0)}
             placeholder="e.g., 2400"
           />
+        </div>
+
+        <div className="wizard-form-group">
+          <label>Flying Style</label>
+          <div className="flight-style-options">
+            {FLIGHT_STYLE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`flight-style-option${flightStyle === opt.value ? ' selected' : ''}`}
+                onClick={() => setFlightStyle(opt.value)}
+              >
+                <div className="flight-style-option-name">
+                  {opt.label}{opt.value === 'balanced' ? ' (default)' : ''}
+                </div>
+                <div className="flight-style-option-desc">{opt.description}</div>
+              </button>
+            ))}
+          </div>
+          <div className="flight-style-note">
+            This affects how PID tuning thresholds are calibrated for your flying preference.
+          </div>
         </div>
 
         <div className="wizard-form-group">
