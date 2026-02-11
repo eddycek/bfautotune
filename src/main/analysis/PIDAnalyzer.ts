@@ -13,7 +13,7 @@ import type {
   StepResponse,
 } from '@shared/types/analysis.types';
 import { detectSteps } from './StepDetector';
-import { computeStepResponse, aggregateAxisMetrics } from './StepMetrics';
+import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 
 /** Default PID configuration if none provided */
@@ -65,6 +65,19 @@ export async function analyzePID(
       step,
       flightData.sampleRateHz
     );
+
+    // Classify FF contribution at overshoot point when pidP/pidF available
+    if (flightData.pidP[step.axis] && flightData.pidF[step.axis]) {
+      const ffResult = classifyFFContribution(
+        response,
+        flightData.pidP[step.axis],
+        flightData.pidF[step.axis],
+        flightData.gyro[step.axis]
+      );
+      if (ffResult !== undefined) {
+        response.ffDominated = ffResult;
+      }
+    }
 
     if (step.axis === 0) rollResponses.push(response);
     else if (step.axis === 1) pitchResponses.push(response);

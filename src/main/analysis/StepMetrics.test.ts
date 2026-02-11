@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeStepResponse, aggregateAxisMetrics } from './StepMetrics';
+import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import type { TimeSeries } from '@shared/types/blackbox.types';
 import type { StepEvent, StepResponse } from '@shared/types/analysis.types';
 
@@ -386,6 +386,77 @@ describe('StepMetrics', () => {
       // No valid responses, so fall back to all
       expect(profile.meanOvershoot).toBeCloseTo(750, 0);
       expect(profile.meanRiseTimeMs).toBeCloseTo(0, 0);
+    });
+  });
+
+  describe('classifyFFContribution', () => {
+    it('should return true when pidF dominates at peak (FF-dominated overshoot)', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+      const peakAt = stepAt + 50; // peak 50 samples after step
+
+      // Gyro with overshoot
+      const gyro = makeSeries(i => {
+        if (i < stepAt) return 0;
+        if (i === peakAt) return stepMag * 1.3; // 30% overshoot peak
+        if (i >= stepAt) return stepMag;
+        return 0;
+      }, numSamples);
+
+      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+      const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      // pidF much larger than pidP at peak
+      const pidP = makeSeries(i => (i === peakAt ? 20 : 10), numSamples);
+      const pidF = makeSeries(i => (i === peakAt ? 80 : 5), numSamples);
+
+      const result = classifyFFContribution(response, pidP, pidF, gyro);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when pidP dominates at peak (P-dominated overshoot)', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+      const peakAt = stepAt + 50;
+
+      const gyro = makeSeries(i => {
+        if (i < stepAt) return 0;
+        if (i === peakAt) return stepMag * 1.3;
+        if (i >= stepAt) return stepMag;
+        return 0;
+      }, numSamples);
+
+      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+      const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      // pidP much larger than pidF at peak
+      const pidP = makeSeries(i => (i === peakAt ? 80 : 10), numSamples);
+      const pidF = makeSeries(i => (i === peakAt ? 10 : 5), numSamples);
+
+      const result = classifyFFContribution(response, pidP, pidF, gyro);
+      expect(result).toBe(false);
+    });
+
+    it('should return undefined when overshoot is below threshold', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+
+      // No overshoot — gyro matches setpoint exactly
+      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+      const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      const pidP = makeSeries(() => 10, numSamples);
+      const pidF = makeSeries(() => 5, numSamples);
+
+      const result = classifyFFContribution(response, pidP, pidF, gyro);
+      expect(result).toBeUndefined();
     });
   });
 });
