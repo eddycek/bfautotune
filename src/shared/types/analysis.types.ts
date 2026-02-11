@@ -117,6 +117,15 @@ export interface CurrentFilterSettings {
   dyn_notch_min_hz: number;
   /** Dynamic notch filter maximum Hz */
   dyn_notch_max_hz: number;
+
+  /** RPM filter harmonics count (0 = disabled, 1-3 = active). Undefined if not read. */
+  rpm_filter_harmonics?: number;
+  /** RPM filter minimum frequency in Hz */
+  rpm_filter_min_hz?: number;
+  /** Dynamic notch count (1-5) */
+  dyn_notch_count?: number;
+  /** Dynamic notch Q factor */
+  dyn_notch_q?: number;
 }
 
 /** Default filter settings (Betaflight 4.4+ defaults) */
