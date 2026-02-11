@@ -10,12 +10,15 @@ import { TuningWizard } from './components/TuningWizard/TuningWizard';
 import { AnalysisOverview } from './components/AnalysisOverview/AnalysisOverview';
 import { TuningWorkflowModal } from './components/TuningWorkflowModal/TuningWorkflowModal';
 import { TuningStatusBanner } from './components/TuningStatusBanner/TuningStatusBanner';
+import { TuningCompletionSummary } from './components/TuningHistory/TuningCompletionSummary';
+import { TuningHistoryPanel } from './components/TuningHistory/TuningHistoryPanel';
 import { FixSettingsConfirmModal } from './components/FCInfo/FixSettingsConfirmModal';
 import { computeBBSettingsStatus } from './utils/bbSettingsUtils';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { useProfiles } from './hooks/useProfiles';
 import { useTuningSession } from './hooks/useTuningSession';
+import { useTuningHistory } from './hooks/useTuningHistory';
 import { useToast } from './hooks/useToast';
 import { markIntentionalDisconnect } from './hooks/useConnection';
 import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
@@ -48,6 +51,7 @@ function AppContent() {
   const [analyzingVerification, setAnalyzingVerification] = useState(false);
   const { createProfile, createProfileFromPreset, updateProfile, currentProfile } = useProfiles();
   const tuning = useTuningSession();
+  const tuningHistory = useTuningHistory();
   const toast = useToast();
 
   const fetchBBSettings = (connStatus: ConnectionStatus) => {
@@ -322,7 +326,14 @@ function AppContent() {
               <ConnectionPanel />
               {isConnected && currentProfile && <ProfileSelector />}
             </div>
-            {isConnected && currentProfile && tuning.session && (
+            {isConnected && currentProfile && tuning.session && tuning.session.phase === 'completed' && (
+              <TuningCompletionSummary
+                session={tuning.session}
+                onDismiss={() => handleTuningAction('dismiss')}
+                onStartNew={() => handleTuningAction('start_new_cycle')}
+              />
+            )}
+            {isConnected && currentProfile && tuning.session && tuning.session.phase !== 'completed' && (
               <TuningStatusBanner
                 session={tuning.session}
                 flashErased={erasedForPhase === tuning.session.phase}
@@ -365,6 +376,9 @@ function AppContent() {
             {isConnected && <FCInfoDisplay />}
             {isConnected && <BlackboxStatus onAnalyze={handleAnalyze} readonly={!!tuning.session} />}
             {isConnected && currentProfile && <SnapshotManager />}
+            {currentProfile && (
+              <TuningHistoryPanel history={tuningHistory.history} loading={tuningHistory.loading} />
+            )}
           </div>
         )}
       </main>

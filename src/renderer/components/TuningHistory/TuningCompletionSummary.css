@@ -1,0 +1,171 @@
+.completion-summary {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 12px;
+}
+
+.completion-summary-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.completion-summary-title {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #51cf66;
+}
+
+.completion-summary-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #888;
+}
+
+.completion-meta-sep {
+  color: #555;
+}
+
+.completion-noise-numeric {
+  background: #222;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.completion-noise-numeric h4 {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.completion-noise-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.completion-changes-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.completion-changes-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.applied-changes-section {
+  background: #222;
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.applied-changes-title {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.applied-changes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.applied-changes-table td {
+  padding: 3px 0;
+}
+
+.applied-changes-setting {
+  color: #aaa;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.applied-changes-values {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.applied-changes-prev {
+  color: #888;
+}
+
+.applied-changes-arrow {
+  color: #555;
+  margin: 0 6px;
+}
+
+.applied-changes-next {
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.applied-changes-pct {
+  text-align: right;
+  font-family: monospace;
+  font-size: 11px;
+  color: #888;
+  padding-left: 8px;
+}
+
+.completion-pid-metrics {
+  background: #222;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.completion-pid-metrics h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.completion-pid-stats {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+.completion-pid-axes {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.completion-pid-axis {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #aaa;
+}
+
+.completion-pid-axis strong {
+  color: #ccc;
+  font-size: 12px;
+}
+
+.completion-hint {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+  margin: 8px 0 16px;
+}
+
+.completion-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}

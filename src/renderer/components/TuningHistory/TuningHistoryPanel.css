@@ -1,0 +1,81 @@
+.tuning-history-panel {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
+.tuning-history-title {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.tuning-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tuning-history-card {
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tuning-history-card.expanded {
+  border-color: #444;
+}
+
+.tuning-history-card-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-size: inherit;
+}
+
+.tuning-history-card-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tuning-history-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tuning-history-card-date {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ccc;
+}
+
+.tuning-history-card-summary {
+  font-size: 12px;
+  color: #888;
+}
+
+.tuning-history-card-chevron {
+  font-size: 14px;
+  color: #666;
+  transition: transform 0.15s ease;
+}
+
+.tuning-history-card-chevron.open {
+  transform: rotate(90deg);
+}
+
+.tuning-history-card-body {
+  padding: 4px 14px 14px;
+  border-top: 1px solid #333;
+}
