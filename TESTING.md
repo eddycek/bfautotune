@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1447 tests across 75 files** (last verified: February 11, 2026)
+**Total: 1520 tests across 82 files** (last verified: February 12, 2026)
 
 ### UI Components
 
@@ -171,8 +171,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
-| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 28 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning |
-| `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete, FF warning, RPM status, flight style display |
+| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 28 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow |
+| `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete with metrics, FF warning, RPM status, flight style display |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
@@ -184,6 +184,10 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/SessionSelectStep.test.tsx` | 8 | Session picker, auto-parse, parsing/error/empty states, reverse order |
 | `TuningWizard/TuningSummaryStep.test.tsx` | 14 | Recommendations table, mode-aware labels, apply/progress/success/error states |
 | `TuningWizard/charts/AxisTabs.test.tsx` | 6 | Tab rendering, selection, aria-selected, onChange callback |
+| `TuningHistory/AppliedChangesTable.test.tsx` | 7 | Setting changes table, percent formatting, empty state, zero value handling |
+| `TuningHistory/NoiseComparisonChart.test.tsx` | 7 | Before/after spectrum overlay, delta pill, axis tabs, empty state |
+| `TuningHistory/TuningCompletionSummary.test.tsx` | 10 | Completion summary with/without verification, noise chart, changes, PID metrics, actions |
+| `TuningHistory/TuningHistoryPanel.test.tsx` | 8 | History list, expand/collapse, detail view, empty/loading states |
 | `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |
 
 ### Charts
@@ -209,6 +213,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useSnapshots.test.ts` | 19 | Snapshot management, restore, event-driven updates |
 | `hooks/useTuningWizard.test.ts` | 22 | Wizard state, parse/analyze/apply lifecycle |
 | `hooks/useTuningSession.test.ts` | 8 | Tuning session lifecycle, IPC events |
+| `hooks/useTuningHistory.test.ts` | 5 | History loading, profile/session change reload, error handling |
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
 | `hooks/useFCInfo.test.ts` | 8 | FC info fetch, CLI export, loading/error states |
 | `hooks/useToast.test.tsx` | 5 | Toast helper methods, context requirement |
@@ -240,6 +245,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `storage/SnapshotManager.test.ts` | 16 | Snapshot creation via MSP, baseline management, server-side filtering, delete protection |
 | `storage/BlackboxManager.test.ts` | 18 | Log save/list/get/delete/export, profile filtering, soft delete, initialization |
 | `storage/TuningSessionManager.test.ts` | 15 | Session CRUD, phase transitions, per-profile persistence |
+| `storage/TuningHistoryManager.test.ts` | 14 | History archive, retrieval ordering, corrupted data handling, per-profile isolation, delete |
 
 ### Blackbox Parser
 
@@ -291,6 +297,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
+| `shared/utils/metricsExtract.test.ts` | 12 | Spectrum downsampling, filter/PID metrics extraction, boundary handling |
 | `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
 | `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |
 
