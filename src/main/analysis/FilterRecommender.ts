@@ -16,12 +16,23 @@ import {
   GYRO_LPF1_MAX_HZ,
   DTERM_LPF1_MIN_HZ,
   DTERM_LPF1_MAX_HZ,
+  GYRO_LPF1_MAX_HZ_RPM,
+  DTERM_LPF1_MAX_HZ_RPM,
+  DYN_NOTCH_COUNT_WITH_RPM,
+  DYN_NOTCH_Q_WITH_RPM,
+  DYN_NOTCH_COUNT_WITHOUT_RPM,
+  DYN_NOTCH_Q_WITHOUT_RPM,
   NOISE_FLOOR_VERY_NOISY_DB,
   NOISE_FLOOR_VERY_CLEAN_DB,
   NOISE_TARGET_DEADZONE_HZ,
   RESONANCE_ACTION_THRESHOLD_DB,
   RESONANCE_CUTOFF_MARGIN_HZ,
 } from './constants';
+
+/** Detect whether RPM filter is active from settings */
+export function isRpmFilterActive(settings: CurrentFilterSettings): boolean {
+  return (settings.rpm_filter_harmonics ?? 0) > 0;
+}
 
 /**
  * Generate filter recommendations based on noise analysis.
@@ -35,15 +46,26 @@ export function recommend(
   current: CurrentFilterSettings = DEFAULT_FILTER_SETTINGS
 ): FilterRecommendation[] {
   const recommendations: FilterRecommendation[] = [];
+  const rpmActive = isRpmFilterActive(current);
 
   // 1. Noise-floor-based lowpass adjustments
-  recommendNoiseFloorAdjustments(noise, current, recommendations);
+  recommendNoiseFloorAdjustments(noise, current, recommendations, rpmActive);
 
   // 2. Resonance-peak-based recommendations
-  recommendResonanceFixes(noise, current, recommendations);
+  recommendResonanceFixes(noise, current, recommendations, rpmActive);
 
   // 3. Dynamic notch validation
   recommendDynamicNotchAdjustments(noise, current, recommendations);
+
+  // 4. RPM-aware dynamic notch count/Q recommendations
+  if (rpmActive) {
+    recommendDynamicNotchForRPM(current, recommendations);
+  }
+
+  // 5. Motor harmonic diagnostic when RPM filter is active
+  if (rpmActive) {
+    recommendMotorHarmonicDiagnostic(noise, recommendations);
+  }
 
   // Deduplicate: if multiple rules recommend the same setting, keep the more aggressive one
   return deduplicateRecommendations(recommendations);
@@ -64,11 +86,13 @@ export function computeNoiseBasedTarget(worstNoiseFloorDb: number, minHz: number
 /**
  * Adjust lowpass filters based on overall noise level using absolute noise-based targets.
  * Targets depend only on the noise floor dB, NOT on current settings → convergent.
+ * When RPM filter is active, wider safety bounds are used.
  */
 function recommendNoiseFloorAdjustments(
   noise: NoiseProfile,
   current: CurrentFilterSettings,
-  out: FilterRecommendation[]
+  out: FilterRecommendation[],
+  rpmActive: boolean
 ): void {
   const { overallLevel } = noise;
 
@@ -78,12 +102,20 @@ function recommendNoiseFloorAdjustments(
   // Skip gyro LPF noise-floor adjustment when gyro_lpf1 is disabled (0 = common in BF 4.4+ with RPM filter)
   const gyroLpfDisabled = current.gyro_lpf1_static_hz === 0;
 
+  // Select bounds based on RPM filter state
+  const gyroMaxHz = rpmActive ? GYRO_LPF1_MAX_HZ_RPM : GYRO_LPF1_MAX_HZ;
+  const dtermMaxHz = rpmActive ? DTERM_LPF1_MAX_HZ_RPM : DTERM_LPF1_MAX_HZ;
+
   // Compute worst noise floor across roll and pitch (the critical axes)
   const worstFloor = Math.max(noise.roll.noiseFloorDb, noise.pitch.noiseFloorDb);
 
   // Compute absolute targets from noise data (independent of current settings)
-  const targetGyroLpf1 = computeNoiseBasedTarget(worstFloor, GYRO_LPF1_MIN_HZ, GYRO_LPF1_MAX_HZ);
-  const targetDtermLpf1 = computeNoiseBasedTarget(worstFloor, DTERM_LPF1_MIN_HZ, DTERM_LPF1_MAX_HZ);
+  const targetGyroLpf1 = computeNoiseBasedTarget(worstFloor, GYRO_LPF1_MIN_HZ, gyroMaxHz);
+  const targetDtermLpf1 = computeNoiseBasedTarget(worstFloor, DTERM_LPF1_MIN_HZ, dtermMaxHz);
+
+  const rpmNote = rpmActive
+    ? ' With RPM filter active, motor noise is already handled, allowing higher filter cutoffs for better response.'
+    : '';
 
   if (overallLevel === 'high') {
     // High noise → recommend noise-based targets (typically lower cutoffs)
@@ -94,7 +126,7 @@ function recommendNoiseFloorAdjustments(
         recommendedValue: targetGyroLpf1,
         reason:
           'Your gyro data has a lot of noise. Adjusting the gyro lowpass filter will clean up the signal, ' +
-          'which helps your flight controller respond to real movement instead of vibrations.',
+          'which helps your flight controller respond to real movement instead of vibrations.' + rpmNote,
         impact: 'both',
         confidence: 'high',
       });
@@ -107,7 +139,7 @@ function recommendNoiseFloorAdjustments(
         recommendedValue: targetDtermLpf1,
         reason:
           'High noise is reaching the D-term (derivative) calculation. Adjusting this filter reduces motor ' +
-          'heating and oscillation caused by noisy D-term output.',
+          'heating and oscillation caused by noisy D-term output.' + rpmNote,
         impact: 'both',
         confidence: 'high',
       });
@@ -121,7 +153,7 @@ function recommendNoiseFloorAdjustments(
         recommendedValue: targetGyroLpf1,
         reason:
           'Your quad is very clean with minimal vibrations. Adjusting the gyro filter cutoff will give you ' +
-          'faster response and sharper control with almost no downside.',
+          'faster response and sharper control with almost no downside.' + rpmNote,
         impact: 'latency',
         confidence: 'medium',
       });
@@ -134,7 +166,7 @@ function recommendNoiseFloorAdjustments(
         recommendedValue: targetDtermLpf1,
         reason:
           'Low noise means the D-term filter can be relaxed for sharper stick response. ' +
-          'This makes your quad feel more locked-in during fast moves.',
+          'This makes your quad feel more locked-in during fast moves.' + rpmNote,
         impact: 'latency',
         confidence: 'medium',
       });
@@ -148,7 +180,8 @@ function recommendNoiseFloorAdjustments(
 function recommendResonanceFixes(
   noise: NoiseProfile,
   current: CurrentFilterSettings,
-  out: FilterRecommendation[]
+  out: FilterRecommendation[],
+  rpmActive: boolean
 ): void {
   // Collect significant peaks from roll and pitch
   const significantPeaks: NoisePeak[] = [];
@@ -162,6 +195,10 @@ function recommendResonanceFixes(
 
   if (significantPeaks.length === 0) return;
 
+  // Select bounds based on RPM filter state
+  const gyroMaxHz = rpmActive ? GYRO_LPF1_MAX_HZ_RPM : GYRO_LPF1_MAX_HZ;
+  const dtermMaxHz = rpmActive ? DTERM_LPF1_MAX_HZ_RPM : DTERM_LPF1_MAX_HZ;
+
   // Find the lowest significant peak frequency
   const lowestPeakFreq = Math.min(...significantPeaks.map((p) => p.frequency));
 
@@ -171,7 +208,7 @@ function recommendResonanceFixes(
     const targetCutoff = clamp(
       lowestPeakFreq - RESONANCE_CUTOFF_MARGIN_HZ,
       GYRO_LPF1_MIN_HZ,
-      GYRO_LPF1_MAX_HZ
+      gyroMaxHz
     );
 
     // When disabled, always recommend enabling; otherwise check it's lower than current
@@ -204,7 +241,7 @@ function recommendResonanceFixes(
     const targetCutoff = clamp(
       lowestPeakFreq - RESONANCE_CUTOFF_MARGIN_HZ,
       DTERM_LPF1_MIN_HZ,
-      DTERM_LPF1_MAX_HZ
+      dtermMaxHz
     );
 
     if (targetCutoff < current.dterm_lpf1_static_hz) {
@@ -284,6 +321,81 @@ function recommendDynamicNotchAdjustments(
 }
 
 /**
+ * Recommend dynamic notch count and Q adjustments when RPM filter is active.
+ * With RPM filter handling motor harmonics, the dynamic notch only needs to catch
+ * frame resonances — fewer notches with narrower Q.
+ */
+function recommendDynamicNotchForRPM(
+  current: CurrentFilterSettings,
+  out: FilterRecommendation[]
+): void {
+  const currentCount = current.dyn_notch_count;
+  const currentQ = current.dyn_notch_q;
+
+  // Only recommend if we have the data and it differs from RPM-optimal values
+  if (currentCount !== undefined && currentCount > DYN_NOTCH_COUNT_WITH_RPM) {
+    out.push({
+      setting: 'dyn_notch_count',
+      currentValue: currentCount,
+      recommendedValue: DYN_NOTCH_COUNT_WITH_RPM,
+      reason:
+        'With RPM filter active, motor harmonics are already removed. The dynamic notch filter only needs to ' +
+        'catch frame resonances, so fewer notches are needed. This reduces CPU load and filter delay.',
+      impact: 'latency',
+      confidence: 'high',
+    });
+  }
+
+  if (currentQ !== undefined && currentQ < DYN_NOTCH_Q_WITH_RPM) {
+    out.push({
+      setting: 'dyn_notch_q',
+      currentValue: currentQ,
+      recommendedValue: DYN_NOTCH_Q_WITH_RPM,
+      reason:
+        'With RPM filter handling motor noise, the dynamic notch can use a higher Q (narrower bandwidth). ' +
+        'This means less signal distortion while still catching frame resonances.',
+      impact: 'latency',
+      confidence: 'high',
+    });
+  }
+}
+
+/**
+ * When RPM filter is active but motor harmonic peaks are still detected,
+ * add a diagnostic warning — likely indicates motor_poles misconfiguration
+ * or ESC telemetry issues.
+ */
+function recommendMotorHarmonicDiagnostic(
+  noise: NoiseProfile,
+  out: FilterRecommendation[]
+): void {
+  const allPeaks = [
+    ...noise.roll.peaks,
+    ...noise.pitch.peaks,
+    ...noise.yaw.peaks,
+  ];
+
+  const motorHarmonics = allPeaks.filter(
+    (p) => p.type === 'motor_harmonic' && p.amplitude >= RESONANCE_ACTION_THRESHOLD_DB
+  );
+
+  if (motorHarmonics.length > 0) {
+    const freq = Math.round(motorHarmonics[0].frequency);
+    out.push({
+      setting: 'rpm_filter_diagnostic',
+      currentValue: 0,
+      recommendedValue: 0,
+      reason:
+        `Motor harmonic noise detected at ${freq} Hz despite RPM filter being active. ` +
+        'This may indicate incorrect motor_poles setting or ESC telemetry issues. ' +
+        'Check that motor_poles matches your motors (typically 14 for 5" props) and that bidirectional DShot is working correctly.',
+      impact: 'noise',
+      confidence: 'medium',
+    });
+  }
+}
+
+/**
  * Deduplicate recommendations for the same setting.
  * When multiple rules target the same setting, keep the more aggressive change.
  */
@@ -325,7 +437,8 @@ function deduplicateRecommendations(recs: FilterRecommendation[]): FilterRecomme
  */
 export function generateSummary(
   noise: NoiseProfile,
-  recommendations: FilterRecommendation[]
+  recommendations: FilterRecommendation[],
+  rpmActive: boolean = false
 ): string {
   const { overallLevel } = noise;
   const parts: string[] = [];
@@ -336,6 +449,10 @@ export function generateSummary(
     parts.push('Your quad is running very clean!');
   } else {
     parts.push('Your noise levels are moderate.');
+  }
+
+  if (rpmActive) {
+    parts.push('RPM filter is active — motor noise is handled dynamically.');
   }
 
   // Mention resonance if detected

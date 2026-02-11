@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { recommend, generateSummary, computeNoiseBasedTarget } from './FilterRecommender';
+import { recommend, generateSummary, computeNoiseBasedTarget, isRpmFilterActive } from './FilterRecommender';
 import type {
   NoiseProfile,
   AxisNoiseProfile,
@@ -10,11 +10,15 @@ import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
 import {
   GYRO_LPF1_MIN_HZ,
   GYRO_LPF1_MAX_HZ,
+  GYRO_LPF1_MAX_HZ_RPM,
   DTERM_LPF1_MIN_HZ,
   DTERM_LPF1_MAX_HZ,
+  DTERM_LPF1_MAX_HZ_RPM,
   NOISE_FLOOR_VERY_NOISY_DB,
   NOISE_FLOOR_VERY_CLEAN_DB,
   NOISE_TARGET_DEADZONE_HZ,
+  DYN_NOTCH_COUNT_WITH_RPM,
+  DYN_NOTCH_Q_WITH_RPM,
 } from './constants';
 
 function makeAxisProfile(
@@ -414,5 +418,165 @@ describe('generateSummary', () => {
     const recs = recommend(noise, DEFAULT_FILTER_SETTINGS);
     const summary = generateSummary(noise, recs);
     expect(summary).toMatch(/\d+ filter change/);
+  });
+
+  it('should mention RPM filter in summary when active', () => {
+    const noise = makeNoiseProfile({ level: 'low' });
+    const summary = generateSummary(noise, [], true);
+    expect(summary).toContain('RPM filter is active');
+  });
+});
+
+describe('isRpmFilterActive', () => {
+  it('returns true when rpm_filter_harmonics > 0', () => {
+    expect(isRpmFilterActive({ ...DEFAULT_FILTER_SETTINGS, rpm_filter_harmonics: 3 })).toBe(true);
+  });
+
+  it('returns false when rpm_filter_harmonics is 0', () => {
+    expect(isRpmFilterActive({ ...DEFAULT_FILTER_SETTINGS, rpm_filter_harmonics: 0 })).toBe(false);
+  });
+
+  it('returns false when rpm_filter_harmonics is undefined', () => {
+    expect(isRpmFilterActive(DEFAULT_FILTER_SETTINGS)).toBe(false);
+  });
+});
+
+describe('RPM-aware recommendations', () => {
+  it('should use wider bounds (RPM max) for low noise with RPM active', () => {
+    const noise = makeNoiseProfile({ level: 'low', rollFloor: -75, pitchFloor: -75 });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      gyro_lpf1_static_hz: GYRO_LPF1_MAX_HZ, // At non-RPM max (300)
+      dterm_lpf1_static_hz: DTERM_LPF1_MAX_HZ, // At non-RPM max (200)
+      rpm_filter_harmonics: 3,
+    };
+
+    const recs = recommend(noise, current);
+    // With RPM, max is 500/300, so clean signal should recommend higher cutoffs
+    const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
+    const dtermRec = recs.find((r) => r.setting === 'dterm_lpf1_static_hz');
+    expect(gyroRec).toBeDefined();
+    expect(gyroRec!.recommendedValue).toBeGreaterThan(GYRO_LPF1_MAX_HZ);
+    expect(gyroRec!.recommendedValue).toBeLessThanOrEqual(GYRO_LPF1_MAX_HZ_RPM);
+    expect(dtermRec).toBeDefined();
+    expect(dtermRec!.recommendedValue).toBeGreaterThan(DTERM_LPF1_MAX_HZ);
+    expect(dtermRec!.recommendedValue).toBeLessThanOrEqual(DTERM_LPF1_MAX_HZ_RPM);
+  });
+
+  it('should recommend dyn_notch_count reduction when RPM active', () => {
+    const noise = makeNoiseProfile({ level: 'medium' });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      dyn_notch_count: 3, // Non-RPM default
+      dyn_notch_q: 300,   // Non-RPM default
+    };
+
+    const recs = recommend(noise, current);
+    const countRec = recs.find((r) => r.setting === 'dyn_notch_count');
+    expect(countRec).toBeDefined();
+    expect(countRec!.recommendedValue).toBe(DYN_NOTCH_COUNT_WITH_RPM);
+  });
+
+  it('should recommend dyn_notch_q increase when RPM active', () => {
+    const noise = makeNoiseProfile({ level: 'medium' });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      dyn_notch_count: 3,
+      dyn_notch_q: 300,
+    };
+
+    const recs = recommend(noise, current);
+    const qRec = recs.find((r) => r.setting === 'dyn_notch_q');
+    expect(qRec).toBeDefined();
+    expect(qRec!.recommendedValue).toBe(DYN_NOTCH_Q_WITH_RPM);
+  });
+
+  it('should NOT recommend dyn_notch changes when RPM is inactive', () => {
+    const noise = makeNoiseProfile({ level: 'medium' });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 0,
+      dyn_notch_count: 3,
+      dyn_notch_q: 300,
+    };
+
+    const recs = recommend(noise, current);
+    expect(recs.find((r) => r.setting === 'dyn_notch_count')).toBeUndefined();
+    expect(recs.find((r) => r.setting === 'dyn_notch_q')).toBeUndefined();
+  });
+
+  it('should NOT recommend dyn_notch changes when RPM data is undefined', () => {
+    const noise = makeNoiseProfile({ level: 'medium' });
+    const recs = recommend(noise, DEFAULT_FILTER_SETTINGS);
+    expect(recs.find((r) => r.setting === 'dyn_notch_count')).toBeUndefined();
+    expect(recs.find((r) => r.setting === 'dyn_notch_q')).toBeUndefined();
+  });
+
+  it('should produce unchanged behavior (regression) when RPM state is unknown', () => {
+    // Without RPM fields, should behave exactly as before
+    const noise = makeNoiseProfile({ level: 'high', rollFloor: -25, pitchFloor: -20 });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      gyro_lpf1_static_hz: 250,
+      dterm_lpf1_static_hz: 150,
+    };
+
+    const recs = recommend(noise, current);
+    const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
+    expect(gyroRec).toBeDefined();
+    // Without RPM, max is 300 — should NOT exceed it
+    expect(gyroRec!.recommendedValue).toBeLessThanOrEqual(GYRO_LPF1_MAX_HZ);
+  });
+
+  it('should add motor harmonic diagnostic when RPM active and motor peaks present', () => {
+    const noise = makeNoiseProfile({
+      level: 'medium',
+      rollPeaks: [
+        { frequency: 200, amplitude: 15, type: 'motor_harmonic' },
+      ],
+    });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+    };
+
+    const recs = recommend(noise, current);
+    const diagnostic = recs.find((r) => r.setting === 'rpm_filter_diagnostic');
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.reason).toContain('motor_poles');
+    expect(diagnostic!.reason).toContain('ESC telemetry');
+  });
+
+  it('should NOT add motor harmonic diagnostic when RPM is inactive', () => {
+    const noise = makeNoiseProfile({
+      level: 'medium',
+      rollPeaks: [
+        { frequency: 200, amplitude: 15, type: 'motor_harmonic' },
+      ],
+    });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 0,
+    };
+
+    const recs = recommend(noise, current);
+    expect(recs.find((r) => r.setting === 'rpm_filter_diagnostic')).toBeUndefined();
+  });
+
+  it('should include RPM note in reason strings when RPM active', () => {
+    const noise = makeNoiseProfile({ level: 'low', rollFloor: -65, pitchFloor: -60 });
+    const current: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      gyro_lpf1_static_hz: 150,
+      dterm_lpf1_static_hz: 100,
+      rpm_filter_harmonics: 3,
+    };
+
+    const recs = recommend(noise, current);
+    const gyroRec = recs.find((r) => r.setting === 'gyro_lpf1_static_hz');
+    expect(gyroRec).toBeDefined();
+    expect(gyroRec!.reason).toContain('RPM filter active');
   });
 });
