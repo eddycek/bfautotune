@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1185 tests across 61 files** (last verified: February 11, 2026)
+**Total: 1372 tests across 72 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -178,6 +178,12 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
 | `AnalysisOverview/AnalysisOverview.test.tsx` | 22 | Diagnostic-only analysis view, auto-parse, session picker, FF warning, RPM status, flight style display |
 | `TuningWizard/PIDAnalysisStep.test.tsx` | 5 | PID results display, flight style pill, step count pluralization |
+| `TuningWizard/RecommendationCard.test.tsx` | 9 | Setting label lookup, value display, change percentage, confidence |
+| `TuningWizard/ApplyConfirmationModal.test.tsx` | 9 | Change counts, snapshot checkbox, confirm/cancel, reboot warning |
+| `TuningWizard/WizardProgress.test.tsx` | 8 | Step indicator, mode-aware filtering, current/done/upcoming states |
+| `TuningWizard/SessionSelectStep.test.tsx` | 8 | Session picker, auto-parse, parsing/error/empty states, reverse order |
+| `TuningWizard/TuningSummaryStep.test.tsx` | 14 | Recommendations table, mode-aware labels, apply/progress/success/error states |
+| `TuningWizard/charts/AxisTabs.test.tsx` | 6 | Tab rendering, selection, aria-selected, onChange callback |
 | `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |
 
 ### Charts
@@ -204,7 +210,17 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useTuningWizard.test.ts` | 22 | Wizard state, parse/analyze/apply lifecycle |
 | `hooks/useTuningSession.test.ts` | 8 | Tuning session lifecycle, IPC events |
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
+| `hooks/useFCInfo.test.ts` | 8 | FC info fetch, CLI export, loading/error states |
+| `hooks/useToast.test.tsx` | 5 | Toast helper methods, context requirement |
+| `hooks/useBlackboxInfo.test.ts` | 8 | Auto-load, refresh, concurrent request prevention |
+| `hooks/useBlackboxLogs.test.ts` | 9 | Log list, profile change subscription, delete, openFolder |
 | `utils/bbSettingsUtils.test.ts` | 18 | BB settings status computation, version-aware debug mode, fix/reset commands |
+
+### IPC Handlers
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `ipc/handlers.test.ts` | 103 | All 43 IPC handler channels: connection, FC info, profiles, snapshots, blackbox, PID config, analysis, tuning apply, snapshot restore, tuning session, BB settings fix, handler registration |
 
 ### MSP Protocol & Client
 

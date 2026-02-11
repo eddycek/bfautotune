@@ -456,7 +456,9 @@ Edge cases:
 
 ---
 
-## 7. Phase 3 — IPC Handler Integration Tests
+## 7. Phase 3 — IPC Handler Integration Tests ✅
+
+> **Status**: Complete. 103 new tests in `handlers.test.ts`. All 43 IPC channels tested: connection, FC info, profiles (cascading delete), snapshots (server-side filtering), blackbox (concurrent download guard), PID config (validation), analysis (auto-read settings, header warnings), tuning apply (4-stage ordering), snapshot restore (command filtering), tuning session, BB settings fix (pendingSettingsSnapshot). Total: 1372 tests / 72 files.
 
 This is the **highest-impact** gap. Every user action flows through IPC handlers.
 
@@ -748,7 +750,9 @@ it('regression: filter recommender does not produce NaN for flat noise', () => {
 
 ---
 
-## 10. Phase 6 — Remaining UI Components
+## 10. Phase 6 — Remaining UI Components ✅
+
+> **Status**: Complete. 54 new tests: RecommendationCard (9), ApplyConfirmationModal (9), WizardProgress (8), SessionSelectStep (8), TuningSummaryStep (14), AxisTabs (6).
 
 ### 10.1 WizardProgress Tests (~10 tests)
 
@@ -878,7 +882,9 @@ ProfileCard.tsx (2 tests):
 
 ---
 
-## 11. Phase 7 — Remaining Hooks
+## 11. Phase 7 — Remaining Hooks ✅
+
+> **Status**: Complete. 30 new tests: useFCInfo (8), useToast (5), useBlackboxInfo (8), useBlackboxLogs (9).
 
 ### 11.1 useBlackboxInfo Tests (~10 tests)
 
@@ -1204,11 +1210,11 @@ describe('performance', () => {
 |-------|-------------|-----------|--------|------------|
 | **1** | MSP Protocol + Connection | ~~120~~ **123 ✅** | Done (PR #85) | — |
 | **2** | Storage Managers | ~~100~~ **86 ✅** | Done (PR #86) | — |
-| **3** | IPC Handler Integration | ~200 | 4-5 days | Phase 1, 2 |
+| **3** | IPC Handler Integration | ~~200~~ **103 ✅** | Done | Phase 1, 2 |
 | **4** | BBL Parser Hardening | ~30 | 1-2 days | — |
 | **5** | Analysis Real-Data Validation | ~20 | 1-2 days | Phase 4 |
-| **6** | Remaining UI Components | ~60 | 2-3 days | — |
-| **7** | Remaining Hooks | ~33 | 1 day | — |
+| **6** | Remaining UI Components | ~~60~~ **54 ✅** | Done | — |
+| **7** | Remaining Hooks | ~~33~~ **30 ✅** | Done | — |
 | **8** | E2E Workflow Tests | ~50 | 3-4 days | Phase 1, 2, 3 |
 | **9** | Infrastructure & Tooling | — | 1 day | — |
 
