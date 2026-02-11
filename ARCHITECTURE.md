@@ -151,7 +151,7 @@ Jumbo: auto-upgraded when payload > 255 bytes (for flash reads)
 | `MSP_DATAFLASH_SUMMARY` | 70 | Flash capacity/usage |
 | `MSP_DATAFLASH_READ` | 71 | Download Blackbox data |
 | `MSP_DATAFLASH_ERASE` | 72 | Erase flash |
-| `MSP_FILTER_CONFIG` | 92 | Read current filter settings (47 bytes, BF 4.4+) |
+| `MSP_FILTER_CONFIG` | 92 | Read current filter settings (47+ bytes, BF 4.3+) — includes RPM filter (bytes 43-44) and dynamic notch (bytes 39, 47) |
 | `MSP_PID_ADVANCED` | 94 | Read feedforward configuration (45 bytes: boost, per-axis gains, smoothing, jitter, transition, max rate limit) |
 | `MSP_PID` | 112 | Read PID configuration (9 bytes: 3 axes × 3 terms) |
 | `MSP_UID` | 160 | FC unique ID (96-bit, for profile matching) |
@@ -319,13 +319,17 @@ Target cutoff = linear interpolation:
   noiseFloorDb = -10 dB → min cutoff (very noisy)
   noiseFloorDb = -70 dB → max cutoff (very clean)
 
-Safety bounds:
-  Gyro LPF1:  75–300 Hz
-  D-term LPF1: 70–200 Hz
+Safety bounds (RPM-aware):
+  Gyro LPF1:  75–300 Hz (75–500 Hz with RPM filter)
+  D-term LPF1: 70–200 Hz (70–300 Hz with RPM filter)
 
 Dead zone: 5 Hz minimum change to recommend
 Resonance: if prominent peak (>12 dB) is below current cutoff → lower cutoff to peak - 20 Hz
+RPM active: recommend dyn_notch_count=1, dyn_notch_q=500 (frame resonance only)
+RPM diagnostic: motor harmonics with RPM active → warn about motor_poles/ESC issues
 ```
+
+RPM filter state is detected from `MSP_FILTER_CONFIG` (bytes 43-44) or BBL raw headers as fallback. The `rpmFilterActive` flag propagates through to `FilterAnalysisResult` and the UI.
 
 Recommendations are **convergent** (idempotent): re-analyzing the same log after applying produces no further changes.
 
@@ -764,17 +768,17 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**881 tests across 47 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**911 tests across 47 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 8 | 227 |
-| FFT Analysis | 5 | 111 |
+| FFT Analysis | 5 | 130 |
 | Step Response | 4 | 84 |
-| Header Validation | 1 | 14 |
-| UI Components | 17 | 284 |
+| Header Validation | 1 | 20 |
+| UI Components | 17 | 293 |
 | React Hooks | 6 | 90 |
 | Charts | 3 | 35 |
-| Storage/MSP/Other | 3 | 36 |
+| Storage/MSP/Other | 3 | 38 |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.

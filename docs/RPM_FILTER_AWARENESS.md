@@ -1,6 +1,6 @@
 # RPM Filter Awareness: Detection and Filter Recommendation Adjustments
 
-> **Status**: Proposed
+> **Status**: Complete (all 8 tasks implemented, PRs #63–#69)
 > **Date**: 2026-02-11
 > **Scope**: Filter Analysis Pipeline, MSP Client, Types, UI Display
 
@@ -181,15 +181,17 @@ Also read dynamic notch count/Q for recommendation context (already in the MSP r
 - **Changes**: When `CurrentFilterSettings` doesn't include RPM data (e.g., FC not connected), fall back to reading `dshot_bidir` and `rpm_filter_harmonics` from BBL `rawHeaders`
 - **Tests**: Unit test for BBL header fallback path
 
-### Task 7: Display RPM filter status in analysis UI
+### Task 7: Display RPM filter status in analysis UI ✅
 - **File**: `src/renderer/components/TuningWizard/FilterAnalysisStep.tsx`, `src/renderer/components/AnalysisOverview/AnalysisOverview.tsx`
-- **Changes**: Show RPM filter status badge (e.g., "RPM Filter: Active (3 harmonics)" or "RPM Filter: Not detected"). When RPM is active, add info note explaining that filter recommendations are optimized for lower latency.
-- **Tests**: Component tests for both RPM active/inactive states
+- **Changes**: RPM status pill in analysis meta ("Active"/"Not detected"), info banner when RPM active, CSS styles
+- **Tests**: 6 new component tests (3 per component: active/inactive/undefined)
+- **PR**: #69 (merged)
 
-### Task 8: Add diagnostic for motor harmonics with RPM active
+### Task 8: Add diagnostic for motor harmonics with RPM active ✅
 - **File**: `src/main/analysis/FilterRecommender.ts`
-- **Changes**: When RPM filter is active and motor harmonic peaks are still detected, add a warning: _"Motor harmonic noise detected despite RPM filter being active. Check motor_poles setting and ESC telemetry."_
-- **Tests**: Unit test: RPM active + motor harmonics → diagnostic warning
+- **Changes**: `recommendMotorHarmonicDiagnostic()` already implemented in Task 4 — warns about `motor_poles` and ESC telemetry when motor harmonics detected with RPM active
+- **Tests**: 2 tests in FilterRecommender.test.ts (diagnostic present/absent based on RPM state)
+- **PR**: #66 (merged as part of Task 4)
 
 ---
 

@@ -52,6 +52,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 ### Automated Tuning
 - **Filter tuning**: FFT noise analysis (Welch's method, Hanning window, peak detection)
 - **PID tuning**: Step response analysis (rise time, overshoot, settling, ringing)
+- **RPM filter awareness**: Detects RPM filter state via MSP or BBL headers, widens safety bounds when active (gyro LPF1 up to 500 Hz), recommends dynamic notch optimization (count/Q), diagnoses motor harmonic anomalies
 - **Feedforward awareness**: Detects FF state from BBL headers, classifies FF-dominated overshoot, adjusts P/D recommendations accordingly
 - Convergent recommendations (idempotent - rerunning produces same result)
 - Safety bounds prevent extreme values, plain-English explanations
@@ -418,10 +419,12 @@ The filter tuning pipeline analyzes gyro noise to determine optimal lowpass filt
 
 | Filter | Min Cutoff | Max Cutoff | Noise-Based Targeting |
 |--------|-----------|-----------|----------------------|
-| Gyro LPF1 | 75 Hz | 300 Hz | -10 dB → 75 Hz, -70 dB → 300 Hz |
-| D-term LPF1 | 70 Hz | 200 Hz | -10 dB → 70 Hz, -70 dB → 200 Hz |
+| Gyro LPF1 | 75 Hz | 300 Hz (500 Hz with RPM) | -10 dB → 75 Hz, -70 dB → max |
+| D-term LPF1 | 70 Hz | 200 Hz (300 Hz with RPM) | -10 dB → 70 Hz, -70 dB → max |
 
 Changes are only recommended when the difference from the current setting exceeds a 5 Hz dead zone, preventing unnecessary micro-adjustments.
+
+**RPM filter awareness:** When the RPM filter is active (detected via MSP or BBL headers), the recommender widens safety bounds because motor noise is already handled by the 36 narrow notch filters tracking motor frequencies. It also recommends dynamic notch optimization (count 3→1, Q 300→500) since only frame resonances remain. If motor harmonics are still detected with RPM active, a diagnostic warns about possible `motor_poles` misconfiguration or ESC telemetry issues.
 
 ### PID Tuning (Step Response Analysis)
 
