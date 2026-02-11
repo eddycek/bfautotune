@@ -209,14 +209,23 @@ bfautotune/
 │   │   ├── App.tsx              # Main layout, session routing
 │   │   ├── components/
 │   │   │   ├── ConnectionPanel/       # Port selection, connect/disconnect
-│   │   │   ├── FCInfo/                # FC details + BB diagnostics
+│   │   │   ├── FCInfo/                # FC details + BB diagnostics + FixSettingsConfirmModal
 │   │   │   ├── BlackboxStatus/        # Flash storage, download, erase
 │   │   │   ├── SnapshotManager/       # Snapshot CRUD, diff view, restore
-│   │   │   ├── TuningWizard/          # Multi-step guided wizard + charts
-│   │   │   │   └── charts/            # SpectrumChart, StepResponseChart, AxisTabs
+│   │   │   ├── TuningWizard/          # Multi-step guided wizard
+│   │   │   │   ├── charts/            # SpectrumChart, StepResponseChart, AxisTabs
+│   │   │   │   ├── FilterAnalysisStep, PIDAnalysisStep  # Analysis result views
+│   │   │   │   ├── SessionSelectStep, TestFlightGuideStep # Pre-analysis steps
+│   │   │   │   ├── TuningSummaryStep, WizardProgress     # Summary + progress
+│   │   │   │   ├── RecommendationCard, ApplyConfirmationModal
+│   │   │   │   └── FlightGuideContent # Flight phase instructions
 │   │   │   ├── TuningStatusBanner/    # Workflow progress banner
 │   │   │   ├── AnalysisOverview/      # Read-only analysis view
-│   │   │   ├── TuningHistory/         # History panel, completion summary, noise chart
+│   │   │   ├── TuningHistory/         # History panel + completion summary
+│   │   │   │   ├── TuningHistoryPanel, TuningSessionDetail
+│   │   │   │   ├── TuningCompletionSummary  # Replaces banner on completion
+│   │   │   │   ├── NoiseComparisonChart     # Before/after spectrum overlay
+│   │   │   │   └── AppliedChangesTable      # Setting changes with % diff
 │   │   │   ├── TuningWorkflowModal/   # Two-flight workflow help
 │   │   │   ├── Toast/                 # Toast notification system
 │   │   │   ├── ProfileWizard.tsx      # New FC profile creation wizard
@@ -224,7 +233,7 @@ bfautotune/
 │   │   │   ├── ProfileCard.tsx        # Individual profile display
 │   │   │   ├── ProfileEditModal.tsx   # Profile editing dialog
 │   │   │   └── ProfileDeleteModal.tsx # Profile deletion confirmation
-│   │   ├── hooks/               # React hooks
+│   │   ├── hooks/               # React hooks (11)
 │   │   │   ├── useConnection.ts       # Connection state management
 │   │   │   ├── useProfiles.ts         # Profile CRUD operations
 │   │   │   ├── useSnapshots.ts        # Snapshot management
@@ -236,6 +245,8 @@ bfautotune/
 │   │   │   ├── useBlackboxLogs.ts     # BB log list
 │   │   │   ├── useFCInfo.ts           # FC info polling
 │   │   │   └── useToast.ts            # Toast context consumer
+│   │   ├── utils/               # Renderer utilities
+│   │   │   └── bbSettingsUtils.ts     # BB settings status computation
 │   │   ├── contexts/            # React contexts
 │   │   │   └── ToastContext.tsx
 │   │   └── test/                # Test setup

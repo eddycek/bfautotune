@@ -10,27 +10,21 @@ Implemented: FCInfoDisplay shows "Fix Settings" button when blackbox settings ar
 
 After downloading a log, quickly check if it matches the expected flight type: hover segments for filter phase, step inputs for PID phase. Warn before running analysis if data doesn't match. Saves time and avoids misleading recommendations.
 
-## 3. Before/After Comparison on Completion :arrow_right: [Design Doc](./TUNING_HISTORY_AND_COMPARISON.md)
+## ~~3. Before/After Comparison on Completion~~ :white_check_mark: Done
 
-When session reaches `completed`, show a diff of pre-tuning vs post-tuning snapshots: what changed and why (from recommendation reasons). Gives the user a sense of closure and a clear summary of the tuning outcome.
-
-**Planned**: TuningCompletionSummary component showing applied changes table + analysis metrics. See design doc for details.
+Implemented: TuningCompletionSummary replaces the status banner when session phase is `completed`. Shows NoiseComparisonChart (before/after spectrum overlay with dB delta) when verification data available, falls back to numeric noise stats without verification. Applied filter and PID changes displayed in AppliedChangesTable with old → new values and % change. PID step response metrics shown per axis. PRs #96–#99.
 
 ## 4. Cherry-Pick Recommendations Before Apply
 
 Allow users to select individual recommendations instead of all-or-nothing apply. Checkboxes on `RecommendationCard` items in `TuningSummaryStep`. Useful for experienced users who want fine-grained control.
 
-## 5. Verification Flight Guidance :arrow_right: [Design Doc](./TUNING_HISTORY_AND_COMPARISON.md)
+## ~~5. Verification Flight Guidance~~ :white_check_mark: Done
 
-The `verification_pending` phase exists but has no guidance. Offer "Fly a verification flight" flow: download log, run filter analysis, show before/after noise comparison.
+Implemented: TuningStatusBanner offers optional verification hover after PID apply. User can fly a 30s gentle hover, download the log, and the app runs filter analysis to produce an "after" noise spectrum. NoiseComparisonChart overlays before/after spectra with per-axis dB delta indicators. User can skip verification to go straight to completion. PRs #96–#99.
 
-**Planned**: Verification hover flight provides "after" noise spectrum for overlay chart comparison with the original filter flight ("before"). Optional — user can skip. See design doc section 2.9 for details.
+## ~~6. Tuning Session History~~ :white_check_mark: Done
 
-## 6. Tuning Session History :arrow_right: [Design Doc](./TUNING_HISTORY_AND_COMPARISON.md)
-
-Currently one session per profile, overwritten each time. Keep a history of past sessions: date, changes applied, before/after metrics. Useful for tracking tuning evolution and sharing results.
-
-**Planned**: TuningHistoryManager archives completed sessions. TuningHistoryPanel shows timeline on dashboard. See design doc for details.
+Implemented: TuningHistoryManager archives completed sessions to `{userData}/data/tuning-history/{profileId}.json` with self-contained metrics (CompactSpectrum, FilterMetricsSummary, PIDMetricsSummary). TuningHistoryPanel on dashboard shows expandable cards with date, change count, and noise level. Expanding a card shows TuningSessionDetail with NoiseComparisonChart and AppliedChangesTable. Auto-reloads on profile change and session dismissal. PRs #96–#99.
 
 ## 7. Recovery After Interrupted Apply
 

@@ -8,14 +8,14 @@ Overview of all design documents in this directory. Each document starts as a de
 |----------|--------|-----|-------------|
 | [BBL_PARSER_VALIDATION](./BBL_PARSER_VALIDATION.md) | **Complete** | #2–#10 | Byte-exact validation of BBL parser against BF Explorer reference implementations |
 | [BF_VERSION_POLICY](./BF_VERSION_POLICY.md) | **Complete** | #79 | Betaflight version compatibility policy (min 4.3, recommended 4.5+) |
-| [COMPREHENSIVE_TESTING_PLAN](./COMPREHENSIVE_TESTING_PLAN.md) | **Complete** | #84–#88 | 9-phase testing plan: 1440 tests / 75 files |
+| [COMPREHENSIVE_TESTING_PLAN](./COMPREHENSIVE_TESTING_PLAN.md) | **Complete** | #84–#88 | 9-phase testing plan: 1520 tests / 82 files |
 | [FEEDFORWARD_AWARENESS](./FEEDFORWARD_AWARENESS.md) | **Complete** | #55–#62 | FF detection from BBL headers, FF-dominated overshoot classification, FF-aware PID recommendations, MSP read, FC info display |
 | [FLIGHT_STYLE_PROFILES](./FLIGHT_STYLE_PROFILES.md) | **Complete** | #71–#78 | Smooth/Balanced/Aggressive flight style selector, style-based PID thresholds, preset defaults |
 | [RPM_FILTER_AWARENESS](./RPM_FILTER_AWARENESS.md) | **Complete** | #63–#69 | RPM filter detection via MSP/BBL, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics |
 | [TUNING_WORKFLOW_REVISION](./TUNING_WORKFLOW_REVISION.md) | **Complete** | #31–#50 | Stateful two-flight tuning workflow design (10-phase state machine) |
 | [TUNING_WORKFLOW_FIXES](./TUNING_WORKFLOW_FIXES.md) | **Complete** | #42–#43 | Fix for download/analyze being blocked during tuning session + phase transition after apply |
 | [TUNING_HISTORY_AND_COMPARISON](./TUNING_HISTORY_AND_COMPARISON.md) | **Complete** | #96–#99 | Tuning session history + before/after comparison on completion (UX #3 + #6) |
-| [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (1/7 done, rest are future work) |
+| [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (4/7 done, rest are future work) |
 
 ## Status Legend
 
