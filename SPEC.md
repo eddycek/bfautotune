@@ -4,7 +4,7 @@
 
 **Source:** `fpv-betaflight-autotune-spec.pdf`
 **Generated:** 2026-01-29
-**Last Updated:** February 10, 2026
+**Last Updated:** February 11, 2026
 
 > This file is the authoritative project specification and the single source of truth for project status. Each requirement is annotated with its implementation status. Previous tracking files (`COMPLETION_REPORT.md`, `IMPLEMENTATION_SUMMARY.md`, `TODO.md`) have been consolidated here.
 
@@ -59,7 +59,7 @@ High-level user journey:
 | 2 | Configure Blackbox logging for analysis (high logging rate, correct debug mode); ensure prerequisite settings | :construction: Blackbox info read + diagnostics (debug_mode, logging rate warnings). Auto-configure not yet implemented. |
 | 3 | Filter tuning: guided throttle-sweep test flight; retrieve log; run noise analysis; propose safe filter adjustments; apply | :white_check_mark: Full pipeline with guided two-flight workflow, post-erase guidance, FFT analysis, interactive spectrum charts, auto-apply via CLI. |
 | 4 | PID tuning: guided stick snap test flight; retrieve log; analyze step responses; apply P/D recommendations | :white_check_mark: Step response analysis, interactive step response charts, auto-apply via MSP. D sweep multi-log comparison deferred. |
-| 5 | Restore other parameters (FeedForward, I, dynamic damping if used); store tuned snapshot; test-fly; rollback if needed | :construction: Snapshot restore/rollback :white_check_mark:. FF/I/secondary parameter tuning :x:. |
+| 5 | Restore other parameters (FeedForward, I, dynamic damping if used); store tuned snapshot; test-fly; rollback if needed | :construction: Snapshot restore/rollback :white_check_mark:. FF detection + FF-aware PID analysis + MSP read :white_check_mark:. FF/I write-back tuning :x:. |
 
 ---
 
@@ -107,7 +107,7 @@ High-level user journey:
 | P/D balance: run guided stick snap flights; compute step responses; recommend P/D adjustments | :white_check_mark: | Step detection + metrics + scoring + recommendations + interactive step response chart |
 | D sweep multi-log comparison (vary D, compare response quality) | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
 | Master gain step: scale P/D together; detect onset of oscillation | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
-| Restore and tune secondary parameters (FF, I, anti-gravity, etc.) | :fast_forward: | Deferred — requires additional MSP parameter support. |
+| Restore and tune secondary parameters (FF, I, anti-gravity, etc.) | :construction: | FF detection from BBL headers, FF-aware PID recommendations (skip P/D when FF-dominated), MSP_PID_ADVANCED read, FF config display in FC Info. FF/I write-back not yet implemented. |
 | Write final PIDs to FC; save; snapshot + diff vs previous | :white_check_mark: | Auto-apply PIDs via MSP + filters via CLI. Pre-tuning safety snapshot. Save & reboot. |
 
 ---
@@ -148,8 +148,8 @@ High-level user journey:
 | `msp-client` | connect, read/write settings, reboot, log download | :white_check_mark: | `src/main/msp/` — MSPProtocol, MSPConnection, MSPClient |
 | `config-vcs` | snapshots, diffs, rollback, export/import | :white_check_mark: | `src/main/storage/SnapshotManager.ts` + ProfileManager + snapshot restore + diff view |
 | `blackbox-parser` | decode logs | :white_check_mark: | `src/main/blackbox/` — 6 modules, 205 tests |
-| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 98 tests (convergent noise-based targets) |
-| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 69 tests (flight PID anchoring, convergent) |
+| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 111 tests (convergent noise-based targets) |
+| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 84 tests (flight PID anchoring, convergent, FF-aware) |
 | `tuning-orchestrator` | state machine + safety constraints | :white_check_mark: | TuningSessionManager (10-phase state machine) + apply handlers + restore handler |
 | `ui-wizard` | screens + explanations + charts | :white_check_mark: | TuningWizard (mode-aware) + AnalysisOverview + TuningStatusBanner + interactive charts |
 
@@ -166,7 +166,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Package analysis engine as a stateless service (container) | :fast_forward: | Architecture supports this — analysis modules are pure functions |
-| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 167 tests (98 filter + 69 PID) |
+| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 195 tests (111 filter + 84 PID) |
 | Cloud optional; local remains primary | :white_check_mark: | Fully offline, no network calls |
 
 ---
@@ -251,7 +251,7 @@ High-level user journey:
 - TuningWorkflowModal (two-flight workflow preparation)
 
 ### Phase 4: Stateful Two-Flight Tuning Workflow :white_check_mark:
-**Status:** Complete | **PRs:** #31–#37 | **Tests:** 841 across 47 files
+**Status:** Complete | **PRs:** #31–#62 | **Tests:** 881 across 47 files
 
 - TuningSessionManager (10-phase state machine, per-profile persistence)
 - TuningStatusBanner (dashboard banner with step indicator, action buttons)
@@ -261,6 +261,9 @@ High-level user journey:
 - FC diagnostics (GYRO_SCALED check, logging rate verification)
 - CLI disconnect/reconnect fix (exit reboot handling)
 - Dashboard layout (side-by-side Connection + Profile panels)
+- Feedforward awareness: FF detection from BBL headers, FF-dominated overshoot classification, FF-aware PID recommendations (PRs #55–#60)
+- MSP_PID_ADVANCED read: feedforward configuration via MSP command 94 (PR #61)
+- Feedforward display in FC Info panel: boost, per-axis gains, smoothing, jitter, transition, max rate limit (PR #62)
 
 ### Phase 5: Complete Manual Testing & UX Polish :x:
 **Status:** Not started
@@ -317,7 +320,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 10, 2026 | **Tests:** 841 across 47 files | **PRs Merged:** #1–#37
+**Last Updated:** February 11, 2026 | **Tests:** 881 across 47 files | **PRs Merged:** #1–#62
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -336,7 +339,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 |------|---------|-------|
 | D sweep multi-log comparison | 8 | Requires multi-flight iterative workflow |
 | Master gain step (P/D scaling) | 8 | Requires multi-flight iterative workflow |
-| FF/I/secondary parameter tuning | 8 | Requires additional MSP parameter support |
+| FF/I/secondary parameter tuning | 8 | FF detection + FF-aware PID recommendations + MSP read done. FF/I write-back (applying FF changes to FC) remaining. |
 | RPM filtering validation | 7 | Low priority — most pilots use RPM filter by default |
 | UI tooltips for technical terms | 9 | Nice-to-have UX enhancement |
 | Auto-configure BB logging settings | 4 | Would streamline pre-flight setup |

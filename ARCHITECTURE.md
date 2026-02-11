@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 10, 2026 | **Phase 4 Complete** | **841 tests, 47 files**
+**Last Updated:** February 11, 2026 | **Phase 4 Complete** | **881 tests, 47 files**
 
 ---
 
@@ -58,7 +58,7 @@
 │  │  │MSPConnection │  │ BlackboxParser  │  │ Analysis Engine │      │  │
 │  │  │ + CLI Mode   │  │ (6 modules,     │  │ FFT + Step Resp │      │  │
 │  │  │ + fcEntered  │  │  227 tests)     │  │ (10 modules,    │      │  │
-│  │  │   CLI flag   │  │                 │  │  188 tests)     │      │  │
+│  │  │   CLI flag   │  │                 │  │  209 tests)     │      │  │
 │  │  └───┬──────────┘  └─────────────────┘  └──────────────────┘      │  │
 │  │      │                                                             │  │
 │  │  ┌───┴──────────┐                                                  │  │
@@ -152,6 +152,7 @@ Jumbo: auto-upgraded when payload > 255 bytes (for flash reads)
 | `MSP_DATAFLASH_READ` | 71 | Download Blackbox data |
 | `MSP_DATAFLASH_ERASE` | 72 | Erase flash |
 | `MSP_FILTER_CONFIG` | 92 | Read current filter settings (47 bytes, BF 4.4+) |
+| `MSP_PID_ADVANCED` | 94 | Read feedforward configuration (45 bytes: boost, per-axis gains, smoothing, jitter, transition, max rate limit) |
 | `MSP_PID` | 112 | Read PID configuration (9 bytes: 3 axes × 3 terms) |
 | `MSP_UID` | 160 | FC unique ID (96-bit, for profile matching) |
 | `MSP_SET_PID` | 202 | Write PID configuration |
@@ -282,10 +283,10 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `FilterRecommender.ts` | 330 | 28 | Noise-based filter targets |
 | `FilterAnalyzer.ts` | 206 | 9 | Filter analysis orchestrator |
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
-| `StepMetrics.ts` | 302 | 19 | Rise time, overshoot, settling, trace |
-| `PIDRecommender.ts` | 307 | 25 | Flight-PID-anchored P/D recommendations |
-| `PIDAnalyzer.ts` | 159 | 10 | PID analysis orchestrator |
-| `headerValidation.ts` | 94 | 9 | BB header diagnostics |
+| `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
+| `PIDRecommender.ts` | 380 | 32 | Flight-PID-anchored P/D recommendations, FF-aware rules, extractFeedforwardContext |
+| `PIDAnalyzer.ts` | 185 | 14 | PID analysis orchestrator (FF context wiring) |
+| `headerValidation.ts` | 94 | 14 | BB header diagnostics |
 | `constants.ts` | 177 | — | All tunable thresholds |
 
 #### Filter Analysis Pipeline
@@ -334,7 +335,13 @@ Recommendations are **convergent** (idempotent): re-analyzing the same log after
 BlackboxFlightData → StepDetector → StepMetrics → PIDRecommender
                          ↓              ↓              ↓
                     StepDetection[]  StepResponse[] PIDRecommendation[]
-                    (per axis)       (with traces)  (flight-PID-anchored)
+                    (per axis)       (with traces,  (flight-PID-anchored,
+                                      ffDominated)   FF-aware)
+
+BBL rawHeaders → extractFeedforwardContext() → FeedforwardContext
+                                                  ↓
+                                            classifyFFContribution()
+                                            (|pidF| vs |pidP| at peak)
 ```
 
 **StepDetector** finds sharp stick inputs:
@@ -352,9 +359,9 @@ BlackboxFlightData → StepDetector → StepMetrics → PIDRecommender
 | Latency | Time to 5% movement from baseline (ms) |
 | Ringing | Post-step oscillation count (zero-crossings) |
 
-Each step also stores a `StepResponseTrace { timeMs, setpoint, gyro }` (Float64Array) for chart visualization.
+Each step also stores a `StepResponseTrace { timeMs, setpoint, gyro }` (Float64Array) for chart visualization. Steps can be classified as `ffDominated: boolean` via `classifyFFContribution()`.
 
-**PIDRecommender** — flight-PID-anchored convergent recommendations:
+**PIDRecommender** — flight-PID-anchored convergent recommendations (FF-aware):
 
 ```
 extractFlightPIDs(rawHeaders) → PIDConfiguration from BBL header
@@ -369,9 +376,15 @@ Decision rules:
   Yaw: relaxed thresholds (1.5× overshoot, 120ms sluggish)
 
 Safety bounds: P 20–120, D 15–80, I 30–120
+
+FF-aware override:
+  extractFeedforwardContext(rawHeaders) → { active, boost?, maxRateLimit? }
+  When majority of steps are ffDominated (|pidF| > |pidP| at peak):
+    → Skip P/D overshoot rules
+    → Recommend feedforward_boost reduction instead
 ```
 
-Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**.
+Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**. FF-aware classification prevents misattributing feedforward-caused overshoot to P/D imbalance.
 
 #### Header Validation (`headerValidation.ts`)
 
@@ -459,7 +472,7 @@ TuningSession {
 | Domain | Channels | Key Operations |
 |--------|----------|---------------|
 | Connection (4) | `list_ports`, `connect`, `disconnect`, `get_status` | Port scanning, connect/disconnect |
-| FC Info (3) | `get_info`, `export_cli`, `get_blackbox_settings` | FC data, CLI export |
+| FC Info (4) | `get_info`, `export_cli`, `get_blackbox_settings`, `get_feedforward_config` | FC data, CLI export, FF config |
 | Profiles (10) | `create`, `create_from_preset`, `update`, `delete`, `list`, `get`, `get_current`, `set_current`, `export`, `get_fc_serial` | Full profile CRUD |
 | Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
 | Blackbox (8) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log` | Flash ops + parsing |
@@ -577,7 +590,7 @@ App (ToastProvider wrapper)
 │   │   ├── "Start Tuning Session" banner (if no session, connected)
 │   │   │
 │   │   ├── FCInfoDisplay (if connected)
-│   │   │   └── FC info grid + BB diagnostics + export buttons
+│   │   │   └── FC info grid + BB diagnostics + FF config + export buttons
 │   │   │
 │   │   ├── BlackboxStatus (if connected)
 │   │   │   └── Flash info + logs + Download/Erase/Analyze (readonly if session)
@@ -740,9 +753,9 @@ Hardware error (FC timeout, USB disconnect)
 |------|-----------|
 | `common.types.ts` | `FCInfo`, `ConnectionStatus`, `PortInfo`, `ConfigurationSnapshot`, `SnapshotMetadata` |
 | `profile.types.ts` | `DroneProfile`, `DroneProfileMetadata`, `ProfileCreationInput`, `DroneSize`, `BatteryType` |
-| `pid.types.ts` | `PIDTerm { P, I, D }`, `PIDConfiguration { roll, pitch, yaw }` |
+| `pid.types.ts` | `PIDTerm { P, I, D }`, `PIDFTerm extends PIDTerm { F }`, `PIDConfiguration`, `FeedforwardConfiguration` |
 | `blackbox.types.ts` | `BlackboxInfo`, `BlackboxParseResult`, `BlackboxFlightData`, `BBLLogHeader`, `BBLEncoding`, `BBLPredictor` |
-| `analysis.types.ts` | `PowerSpectrum`, `NoiseProfile`, `FilterRecommendation`, `StepResponse`, `StepResponseTrace`, `PIDRecommendation`, `AxisStepMetrics`, `CurrentFilterSettings` |
+| `analysis.types.ts` | `PowerSpectrum`, `NoiseProfile`, `FilterRecommendation`, `StepResponse` (with `ffDominated`), `StepResponseTrace`, `PIDRecommendation`, `AxisStepMetrics`, `CurrentFilterSettings`, `FeedforwardContext` |
 | `tuning.types.ts` | `TuningPhase` (10 values), `TuningSession`, `TuningMode`, `AppliedChange` |
 | `ipc.types.ts` | `ApplyRecommendationsInput/Progress/Result`, `SnapshotRestoreProgress/Result`, `BetaflightAPI` (complete API interface) |
 | `toast.types.ts` | `ToastType`, `Toast` |
@@ -751,16 +764,17 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**841 tests across 47 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**881 tests across 47 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 8 | 227 |
-| FFT Analysis | 5 | 109 |
-| Step Response | 4 | 70 |
-| UI Components | 17 | 268 |
+| FFT Analysis | 5 | 111 |
+| Step Response | 4 | 84 |
+| Header Validation | 1 | 14 |
+| UI Components | 17 | 284 |
 | React Hooks | 6 | 90 |
 | Charts | 3 | 35 |
-| Storage/MSP/Other | 4 | 42 |
+| Storage/MSP/Other | 3 | 36 |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.

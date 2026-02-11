@@ -47,11 +47,12 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Blackbox log download from FC flash storage (adaptive chunking)
 - Binary BBL log parser (validated against BF Explorer, 205 tests)
 - Multi-session support (multiple flights per file)
-- FC diagnostics: debug_mode and logging rate verification with warnings
+- FC diagnostics: debug_mode, logging rate, and feedforward configuration display with warnings
 
 ### Automated Tuning
 - **Filter tuning**: FFT noise analysis (Welch's method, Hanning window, peak detection)
 - **PID tuning**: Step response analysis (rise time, overshoot, settling, ringing)
+- **Feedforward awareness**: Detects FF state from BBL headers, classifies FF-dominated overshoot, adjusts P/D recommendations accordingly
 - Convergent recommendations (idempotent - rerunning produces same result)
 - Safety bounds prevent extreme values, plain-English explanations
 - One-click apply with automatic safety snapshot
@@ -164,16 +165,16 @@ bfautotune/
 │   │   │   ├── commands.ts      # MSP command definitions
 │   │   │   └── types.ts         # MSP type definitions
 │   │   ├── blackbox/            # BBL binary log parser (6 modules, 227 tests)
-│   │   ├── analysis/            # FFT noise + step response analysis (10 modules)
+│   │   ├── analysis/            # FFT noise + step response analysis (10 modules, FF-aware)
 │   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
 │   │   │   ├── SegmentSelector.ts   # Hover segment detection
 │   │   │   ├── NoiseAnalyzer.ts     # Peak detection, noise classification
 │   │   │   ├── FilterRecommender.ts # Noise-based filter targets
 │   │   │   ├── FilterAnalyzer.ts    # Filter analysis orchestrator
 │   │   │   ├── StepDetector.ts      # Step input detection in setpoint
-│   │   │   ├── StepMetrics.ts       # Rise time, overshoot, settling
-│   │   │   ├── PIDRecommender.ts    # Flight-PID-anchored P/D recommendations
-│   │   │   ├── PIDAnalyzer.ts       # PID analysis orchestrator
+│   │   │   ├── StepMetrics.ts       # Rise time, overshoot, settling, FF classification
+│   │   │   ├── PIDRecommender.ts    # Flight-PID-anchored P/D recommendations, FF-aware
+│   │   │   ├── PIDAnalyzer.ts       # PID analysis orchestrator (FF context wiring)
 │   │   │   ├── headerValidation.ts  # BB header diagnostics
 │   │   │   └── constants.ts         # Tunable thresholds
 │   │   ├── storage/             # Data managers
@@ -230,8 +231,9 @@ bfautotune/
 │       └── constants/           # MSP codes, presets, flight guides
 │
 └── docs/                        # Design docs
-    ├── BBL_PARSER_VALIDATION.md   # Parser validation against BF Explorer
-    └── TUNING_WORKFLOW_REVISION.md # Phase 4 design doc
+    ├── BBL_PARSER_VALIDATION.md       # Parser validation against BF Explorer
+    ├── FEEDFORWARD_AWARENESS.md       # FF detection, warnings, recommendations design
+    └── TUNING_WORKFLOW_REVISION.md    # Phase 4 design doc
 ```
 
 ## Usage
@@ -255,6 +257,7 @@ Before flying, check the **Flight Controller Information** panel:
 
 - **Debug Mode** should be `GYRO_SCALED` for noise analysis — **BF 4.3–4.5 only** (not needed on BF 2025.12+, hidden automatically)
 - **Logging Rate** should be at least 2 kHz (shown with green checkmark or amber warning)
+- **Feedforward** section shows current FF configuration read from FC (boost, per-axis gains, smoothing, jitter factor, transition, max rate limit)
 
 To change these settings (BF 4.3–4.5), use Betaflight Configurator:
 ```
@@ -375,6 +378,7 @@ The app uses the MultiWii Serial Protocol (MSP) v1 to communicate with Betafligh
 - **MSP_UID** - Unique FC serial number (for profile matching)
 - **MSP_PID** / **MSP_SET_PID** - Read/write PID configuration
 - **MSP_FILTER_CONFIG** - Read current filter settings
+- **MSP_PID_ADVANCED** - Read feedforward configuration (boost, gains, smoothing, jitter, transition)
 - **MSP_DATAFLASH_SUMMARY** - Flash storage information
 - **MSP_DATAFLASH_READ** - Download Blackbox data
 - **MSP_DATAFLASH_ERASE** - Erase flash storage
@@ -481,6 +485,7 @@ The recommendation engine applies rule-based tuning logic anchored to the PID va
 - **D-first strategy for overshoot** — Increasing D (dampening) is prioritized over decreasing P (reducing authority). This is safer for beginners because lowering P too aggressively can make the drone feel unresponsive and harder to control.
 - **Step size of ±5** — Consistent with FPVSIM tuning guidance ("lower P incrementally by ~5 units"). Small incremental changes allow iterative refinement across multiple flights.
 - **Flight-PID anchoring** — Recommendations target values relative to the PIDs recorded in the Blackbox header, not the FC's current values. This prevents recommendation drift when PIDs are changed between flights and log analysis.
+- **Feedforward awareness** — The recommender detects whether feedforward is active from BBL headers (`feedforward_boost > 0`). At each step's overshoot peak, it compares `|pidF|` vs `|pidP|` magnitude. When overshoot is FF-dominated (FF contributes more than P), the engine skips P/D changes and instead recommends reducing `feedforward_boost`. This prevents misattributing FF-caused overshoot to P/D imbalance.
 
 ### Interactive Analysis Charts
 
@@ -518,6 +523,7 @@ The autotuning rules and thresholds are based on established FPV community pract
 - Blackbox analysis requires onboard flash storage (SD card logging not yet supported)
 - Requires test flights in a safe environment
 - Huffman-compressed Blackbox data not yet supported (rare, BF 4.1+ feature)
+- Feedforward: detection and FF-aware PID recommendations implemented; direct FF parameter tuning (writing `feedforward_boost` via MSP) not yet supported
 
 ## Development Roadmap
 
