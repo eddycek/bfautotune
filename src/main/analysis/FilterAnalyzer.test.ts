@@ -259,4 +259,48 @@ describe('analyze', () => {
       cleanResult.noise.roll.noiseFloorDb
     );
   });
+
+  it('should propagate rpmFilterActive=true when RPM filter settings present', async () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      durationS: 2,
+      backgroundNoise: 0.5,
+    });
+
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      rpm_filter_min_hz: 100,
+    };
+
+    const result = await analyze(data, 0, settings);
+    expect(result.rpmFilterActive).toBe(true);
+  });
+
+  it('should propagate rpmFilterActive=false when RPM filter is disabled', async () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      durationS: 2,
+      backgroundNoise: 0.5,
+    });
+
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 0,
+    };
+
+    const result = await analyze(data, 0, settings);
+    expect(result.rpmFilterActive).toBe(false);
+  });
+
+  it('should propagate rpmFilterActive=false when RPM data is undefined', async () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      durationS: 2,
+      backgroundNoise: 0.5,
+    });
+
+    const result = await analyze(data, 0, DEFAULT_FILTER_SETTINGS);
+    expect(result.rpmFilterActive).toBe(false);
+  });
 });
