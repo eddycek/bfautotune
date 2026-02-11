@@ -11,9 +11,9 @@ describe('FCInfoDisplay', () => {
     target: 'MATEKF405',
     boardName: 'MATEKF405',
     apiVersion: {
-      protocol: 1,
-      major: 12,
-      minor: 0
+      protocol: 0,
+      major: 1,
+      minor: 45
     }
   };
 
@@ -75,7 +75,7 @@ describe('FCInfoDisplay', () => {
       expect(screen.getByText('Target:')).toBeInTheDocument();
       expect(screen.getByText('MATEKF405')).toBeInTheDocument();
       expect(screen.getByText('API Version:')).toBeInTheDocument();
-      expect(screen.getByText('1.12.0')).toBeInTheDocument();
+      expect(screen.getByText('1.45')).toBeInTheDocument();
     });
   });
 

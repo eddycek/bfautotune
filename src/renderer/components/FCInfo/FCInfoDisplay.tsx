@@ -96,7 +96,7 @@ export function FCInfoDisplay() {
 
               <span className="info-label">API Version:</span>
               <span className="info-value">
-                {info.apiVersion.protocol}.{info.apiVersion.major}.{info.apiVersion.minor}
+                {info.apiVersion.major}.{info.apiVersion.minor}
               </span>
             </div>
 
