@@ -168,3 +168,67 @@ describe('MSPClient.getFilterConfiguration', () => {
     });
   });
 });
+
+describe('MSPClient.getFeedforwardConfiguration', () => {
+  let client: MSPClient;
+  let mockSendCommand: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new MSPClient();
+    mockSendCommand = vi.fn();
+    (client as any).connection = {
+      sendCommand: mockSendCommand,
+      isOpen: vi.fn().mockReturnValue(true),
+      on: vi.fn(),
+    };
+  });
+
+  it('parses valid MSP_PID_ADVANCED response into FeedforwardConfiguration', async () => {
+    // Build a 45-byte response buffer matching BF 4.3+ layout
+    const buf = Buffer.alloc(45, 0);
+    buf.writeUInt8(50, 8);         // feedforwardTransition
+    buf.writeUInt16LE(120, 24);    // feedforwardRoll
+    buf.writeUInt16LE(120, 26);    // feedforwardPitch
+    buf.writeUInt16LE(80, 28);     // feedforwardYaw
+    buf.writeUInt8(37, 41);        // feedforwardSmoothFactor
+    buf.writeUInt8(15, 42);        // feedforwardBoost
+    buf.writeUInt8(100, 43);       // feedforwardMaxRateLimit
+    buf.writeUInt8(7, 44);         // feedforwardJitterFactor
+
+    mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_PID_ADVANCED, data: buf });
+
+    const result = await client.getFeedforwardConfiguration();
+
+    expect(mockSendCommand).toHaveBeenCalledWith(MSPCommand.MSP_PID_ADVANCED);
+    expect(result).toEqual({
+      transition: 50,
+      rollGain: 120,
+      pitchGain: 120,
+      yawGain: 80,
+      boost: 15,
+      smoothFactor: 37,
+      jitterFactor: 7,
+      maxRateLimit: 100,
+    });
+  });
+
+  it('throws on response shorter than 45 bytes', async () => {
+    const buf = Buffer.alloc(30, 0);
+    mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_PID_ADVANCED, data: buf });
+
+    await expect(client.getFeedforwardConfiguration()).rejects.toThrow(
+      'Invalid MSP_PID_ADVANCED response - expected at least 45 bytes, got 30'
+    );
+  });
+
+  it('handles zero values (FF disabled)', async () => {
+    const buf = Buffer.alloc(45, 0);
+    mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_PID_ADVANCED, data: buf });
+
+    const result = await client.getFeedforwardConfiguration();
+
+    expect(result.boost).toBe(0);
+    expect(result.rollGain).toBe(0);
+    expect(result.transition).toBe(0);
+  });
+});
