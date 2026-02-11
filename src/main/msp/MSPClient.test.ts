@@ -275,3 +275,49 @@ describe('MSPClient.getFeedforwardConfiguration', () => {
     expect(result.transition).toBe(0);
   });
 });
+
+describe('getPidProcessDenom', () => {
+  let client: any;
+  let mockSendCommand: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockSendCommand = vi.fn();
+    client = Object.create(MSPClient.prototype);
+    client.connection = {
+      sendCommand: mockSendCommand,
+      isOpen: vi.fn().mockReturnValue(true),
+      on: vi.fn(),
+    };
+  });
+
+  it('reads pid_process_denom from byte 1 of MSP_ADVANCED_CONFIG', async () => {
+    const buf = Buffer.alloc(8, 0);
+    buf.writeUInt8(1, 0);  // gyro_sync_denom
+    buf.writeUInt8(2, 1);  // pid_process_denom
+    mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_ADVANCED_CONFIG, data: buf });
+
+    const result = await client.getPidProcessDenom();
+
+    expect(mockSendCommand).toHaveBeenCalledWith(MSPCommand.MSP_ADVANCED_CONFIG);
+    expect(result).toBe(2);
+  });
+
+  it('returns 1 for default pid_process_denom', async () => {
+    const buf = Buffer.alloc(8, 0);
+    buf.writeUInt8(1, 0);  // gyro_sync_denom
+    buf.writeUInt8(1, 1);  // pid_process_denom = 1 (8kHz PID)
+    mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_ADVANCED_CONFIG, data: buf });
+
+    const result = await client.getPidProcessDenom();
+    expect(result).toBe(1);
+  });
+
+  it('throws on response shorter than 2 bytes', async () => {
+    const buf = Buffer.alloc(1, 0);
+    mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_ADVANCED_CONFIG, data: buf });
+
+    await expect(client.getPidProcessDenom()).rejects.toThrow(
+      'Invalid MSP_ADVANCED_CONFIG response - expected at least 2 bytes, got 1'
+    );
+  });
+});

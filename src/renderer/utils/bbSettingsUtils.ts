@@ -9,6 +9,8 @@ export interface BBSettingsStatus {
   loggingRateOk: boolean;
   gyroScaledNotNeeded: boolean;
   fixCommands: string[];
+  /** Commands to reset debug_mode back to NONE (available when GYRO_SCALED is set on BF < 4.6) */
+  resetCommands: string[];
 }
 
 /** BF 2025.12+ (4.6+) logs unfiltered gyro by default — DEBUG_GYRO_SCALED was removed */
@@ -26,7 +28,7 @@ export function computeBBSettingsStatus(
   const gyroScaledNotNeeded = isGyroScaledNotNeeded(fcVersion);
 
   if (!bbSettings) {
-    return { allOk: true, debugModeOk: true, loggingRateOk: true, gyroScaledNotNeeded, fixCommands: [] };
+    return { allOk: true, debugModeOk: true, loggingRateOk: true, gyroScaledNotNeeded, fixCommands: [], resetCommands: [] };
   }
 
   const debugModeOk = gyroScaledNotNeeded || bbSettings.debugMode === RECOMMENDED_DEBUG_MODE;
@@ -40,11 +42,18 @@ export function computeBBSettingsStatus(
     fixCommands.push('set blackbox_sample_rate = 1');
   }
 
+  // Offer reset when GYRO_SCALED is active on BF < 4.6 (user may want to disable after tuning)
+  const resetCommands: string[] = [];
+  if (!gyroScaledNotNeeded && bbSettings.debugMode === RECOMMENDED_DEBUG_MODE) {
+    resetCommands.push('set debug_mode = NONE');
+  }
+
   return {
     allOk: debugModeOk && loggingRateOk,
     debugModeOk,
     loggingRateOk,
     gyroScaledNotNeeded,
     fixCommands,
+    resetCommands,
   };
 }

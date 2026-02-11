@@ -510,4 +510,59 @@ describe('FCInfoDisplay', () => {
       });
     });
   });
+
+  // Reset GYRO_SCALED tests
+
+  it('shows Reset button when GYRO_SCALED is active on BF < 4.6', async () => {
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Reset')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show Reset button when debug_mode is NONE', async () => {
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 4000,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('NONE')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Reset')).not.toBeInTheDocument();
+  });
+
+  it('opens confirm modal and sends reset command on confirm', async () => {
+    const user = userEvent.setup();
+    vi.mocked(window.betaflight.fixBlackboxSettings).mockResolvedValue({
+      success: true,
+      appliedCommands: 1,
+      rebooted: true,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Reset')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Reset'));
+
+    await waitFor(() => {
+      expect(screen.getByText('set debug_mode = NONE')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Fix & Reboot'));
+
+    await waitFor(() => {
+      expect(window.betaflight.fixBlackboxSettings).toHaveBeenCalledWith({
+        commands: ['set debug_mode = NONE'],
+      });
+    });
+  });
 });
