@@ -10,9 +10,11 @@ Implemented: FCInfoDisplay shows "Fix Settings" button when blackbox settings ar
 
 After downloading a log, quickly check if it matches the expected flight type: hover segments for filter phase, step inputs for PID phase. Warn before running analysis if data doesn't match. Saves time and avoids misleading recommendations.
 
-## 3. Before/After Comparison on Completion
+## 3. Before/After Comparison on Completion :arrow_right: [Design Doc](./TUNING_HISTORY_AND_COMPARISON.md)
 
 When session reaches `completed`, show a diff of pre-tuning vs post-tuning snapshots: what changed and why (from recommendation reasons). Gives the user a sense of closure and a clear summary of the tuning outcome.
+
+**Planned**: TuningCompletionSummary component showing applied changes table + analysis metrics. See design doc for details.
 
 ## 4. Cherry-Pick Recommendations Before Apply
 
@@ -22,9 +24,11 @@ Allow users to select individual recommendations instead of all-or-nothing apply
 
 The `verification_pending` phase exists but has no guidance. Offer "Fly a verification flight" flow: download log, open `AnalysisOverview` (diagnostic dashboard), compare metrics with pre-tuning baseline to confirm improvements.
 
-## 6. Tuning Session History
+## 6. Tuning Session History :arrow_right: [Design Doc](./TUNING_HISTORY_AND_COMPARISON.md)
 
 Currently one session per profile, overwritten each time. Keep a history of past sessions: date, changes applied, before/after metrics. Useful for tracking tuning evolution and sharing results.
+
+**Planned**: TuningHistoryManager archives completed sessions. TuningHistoryPanel shows timeline on dashboard. See design doc for details.
 
 ## 7. Recovery After Interrupted Apply
 
