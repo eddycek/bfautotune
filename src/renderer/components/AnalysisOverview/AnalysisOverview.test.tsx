@@ -250,7 +250,6 @@ describe('AnalysisOverview', () => {
     });
 
     expect(screen.getByText(/3 segments analyzed/)).toBeInTheDocument();
-    expect(screen.getByText('Gyro Lowpass 1')).toBeInTheDocument();
   });
 
   it('shows PID results section with metrics', async () => {
@@ -266,7 +265,6 @@ describe('AnalysisOverview', () => {
 
     expect(screen.getByText('Current PID Values')).toBeInTheDocument();
     expect(screen.getByText('Step Response Metrics')).toBeInTheDocument();
-    expect(screen.getByText('Roll P-Gain')).toBeInTheDocument();
   });
 
   it('does not render any Apply button', async () => {
@@ -284,7 +282,7 @@ describe('AnalysisOverview', () => {
     expect(screen.queryByText(/Continue to/)).not.toBeInTheDocument();
   });
 
-  it('shows Observations label for recommendations', async () => {
+  it('does not show recommendations or observations (diagnostic view only)', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
@@ -292,9 +290,11 @@ describe('AnalysisOverview', () => {
     render(<AnalysisOverview logId="log-1" onExit={onExit} />);
 
     await waitFor(() => {
-      const labels = screen.getAllByText('Observations');
-      expect(labels).toHaveLength(2); // One for filter, one for PID
+      expect(screen.getByText('low')).toBeInTheDocument();
     });
+
+    expect(screen.queryByText('Observations')).not.toBeInTheDocument();
+    expect(screen.queryByText(/No changes recommended/)).not.toBeInTheDocument();
   });
 
   it('shows parse error with retry button', async () => {
@@ -399,26 +399,4 @@ describe('AnalysisOverview', () => {
     expect(screen.getAllByText('yaw').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows no-changes message when recommendations empty', async () => {
-    const noRecsFilter: FilterAnalysisResult = {
-      ...mockFilterResult,
-      recommendations: [],
-    };
-    const noRecsPID: PIDAnalysisResult = {
-      ...mockPIDResult,
-      recommendations: [],
-    };
-
-    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
-    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(noRecsFilter);
-    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(noRecsPID);
-
-    render(<AnalysisOverview logId="log-1" onExit={onExit} />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/filter settings look good/i)).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/PID settings look good/i)).toBeInTheDocument();
-  });
 });

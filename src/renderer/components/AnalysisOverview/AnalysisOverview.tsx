@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAnalysisOverview } from '../../hooks/useAnalysisOverview';
-import { RecommendationCard } from '../TuningWizard/RecommendationCard';
 import { SpectrumChart } from '../TuningWizard/charts/SpectrumChart';
 import { StepResponseChart } from '../TuningWizard/charts/StepResponseChart';
 import './AnalysisOverview.css';
@@ -238,30 +237,6 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             </div>
           )}
 
-          {overview.filterResult.recommendations.length > 0 ? (
-            <>
-              <span className="analysis-overview-label">Observations</span>
-              <div className="recommendation-list">
-                {overview.filterResult.recommendations.map((rec) => (
-                  <RecommendationCard
-                    key={rec.setting}
-                    setting={rec.setting}
-                    currentValue={rec.currentValue}
-                    recommendedValue={rec.recommendedValue}
-                    reason={rec.reason}
-                    impact={rec.impact}
-                    confidence={rec.confidence}
-                    unit="Hz"
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="analysis-empty">
-              <span className="analysis-empty-icon">&#9989;</span>
-              <span>Your filter settings look good! No changes recommended.</span>
-            </div>
-          )}
         </div>
       )}
 
@@ -391,29 +366,6 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             </>
           )}
 
-          {overview.pidResult.recommendations.length > 0 ? (
-            <>
-              <span className="analysis-overview-label">Observations</span>
-              <div className="recommendation-list">
-                {overview.pidResult.recommendations.map((rec) => (
-                  <RecommendationCard
-                    key={rec.setting}
-                    setting={rec.setting}
-                    currentValue={rec.currentValue}
-                    recommendedValue={rec.recommendedValue}
-                    reason={rec.reason}
-                    impact={rec.impact}
-                    confidence={rec.confidence}
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="analysis-empty">
-              <span className="analysis-empty-icon">&#9989;</span>
-              <span>Your PID settings look good! No changes recommended.</span>
-            </div>
-          )}
         </div>
       )}
     </div>
