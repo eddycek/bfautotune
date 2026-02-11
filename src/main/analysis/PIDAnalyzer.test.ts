@@ -205,6 +205,55 @@ describe('PIDAnalyzer', () => {
       expect(result.pitch).toBeDefined();
     });
 
+    it('should attach feedforward context when rawHeaders provided', async () => {
+      const data = createFlightData({
+        rollSetpointFn: i => i >= 1000 ? 300 : 0,
+        rollGyroFn: i => i >= 1000 ? 300 : 0,
+      });
+      const headers = new Map<string, string>();
+      headers.set('feedforward_boost', '15');
+
+      const result = await analyzePID(data, 0, PIDS, undefined, undefined, headers);
+
+      expect(result.feedforwardContext).toBeDefined();
+      expect(result.feedforwardContext!.active).toBe(true);
+      expect(result.feedforwardContext!.boost).toBe(15);
+    });
+
+    it('should emit feedforward_active warning when FF is active', async () => {
+      const data = createFlightData({});
+      const headers = new Map<string, string>();
+      headers.set('feedforward_boost', '15');
+
+      const result = await analyzePID(data, 0, PIDS, undefined, undefined, headers);
+
+      expect(result.warnings).toBeDefined();
+      const ffWarning = result.warnings!.find(w => w.code === 'feedforward_active');
+      expect(ffWarning).toBeDefined();
+      expect(ffWarning!.severity).toBe('info');
+      expect(ffWarning!.message).toContain('Feedforward');
+    });
+
+    it('should not emit feedforward warning when FF is inactive', async () => {
+      const data = createFlightData({});
+      const headers = new Map<string, string>();
+      headers.set('feedforward_boost', '0');
+
+      const result = await analyzePID(data, 0, PIDS, undefined, undefined, headers);
+
+      expect(result.feedforwardContext).toBeDefined();
+      expect(result.feedforwardContext!.active).toBe(false);
+      expect(result.warnings).toBeUndefined();
+    });
+
+    it('should not set feedforwardContext when rawHeaders not provided', async () => {
+      const data = createFlightData({});
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      expect(result.feedforwardContext).toBeUndefined();
+    });
+
     it('should include stepsDetected count', async () => {
       const data = createFlightData({
         rollSetpointFn: i => i >= 1000 ? 300 : 0,
