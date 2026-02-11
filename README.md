@@ -15,7 +15,8 @@ BFAutoTune connects to your Betaflight flight controller over USB, guides you th
 - **Phase 2.5:** ✅ Complete - Profile simplification, interactive analysis charts
 - **Phase 3:** ✅ Complete - Mode-aware wizard, read-only analysis, flight guides
 - **Phase 4:** ✅ Complete - Stateful two-flight tuning workflow
-- **Tests:** 841 across 47 files
+
+See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 
 ## Features
 
@@ -143,39 +144,84 @@ Output will be in the `release/` directory.
 ```
 bfautotune/
 ├── src/
-│   ├── main/                 # Main process (Node.js)
-│   │   ├── index.ts          # Entry point, event wiring
-│   │   ├── window.ts         # Window management
-│   │   ├── msp/              # MSP communication
-│   │   │   ├── MSPClient.ts  # High-level MSP client
-│   │   │   ├── MSPConnection.ts # Serial connection + CLI mode
-│   │   │   └── MSPProtocol.ts # Protocol encoding/decoding
-│   │   ├── blackbox/         # Blackbox BBL log parser
-│   │   ├── analysis/         # FFT + step response analysis
-│   │   ├── storage/          # Profile, snapshot, blackbox, tuning managers
-│   │   └── ipc/              # IPC request handlers
+│   ├── main/                    # Main process (Node.js)
+│   │   ├── index.ts             # Entry point, event wiring
+│   │   ├── window.ts            # Window management
+│   │   ├── msp/                 # MSP communication
+│   │   │   ├── MSPClient.ts     # High-level MSP API (connect, read/write, download)
+│   │   │   ├── MSPConnection.ts # Serial port + CLI mode + reboot handling
+│   │   │   ├── MSPProtocol.ts   # Protocol encoding/decoding (MSP v1)
+│   │   │   ├── commands.ts      # MSP command definitions
+│   │   │   └── types.ts         # MSP type definitions
+│   │   ├── blackbox/            # BBL binary log parser (6 modules, 227 tests)
+│   │   ├── analysis/            # FFT noise + step response analysis (10 modules)
+│   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
+│   │   │   ├── SegmentSelector.ts   # Hover segment detection
+│   │   │   ├── NoiseAnalyzer.ts     # Peak detection, noise classification
+│   │   │   ├── FilterRecommender.ts # Noise-based filter targets
+│   │   │   ├── FilterAnalyzer.ts    # Filter analysis orchestrator
+│   │   │   ├── StepDetector.ts      # Step input detection in setpoint
+│   │   │   ├── StepMetrics.ts       # Rise time, overshoot, settling
+│   │   │   ├── PIDRecommender.ts    # Flight-PID-anchored P/D recommendations
+│   │   │   ├── PIDAnalyzer.ts       # PID analysis orchestrator
+│   │   │   ├── headerValidation.ts  # BB header diagnostics
+│   │   │   └── constants.ts         # Tunable thresholds
+│   │   ├── storage/             # Data managers
+│   │   │   ├── ProfileManager.ts        # Multi-drone profile CRUD
+│   │   │   ├── ProfileStorage.ts        # File-based profile storage
+│   │   │   ├── SnapshotManager.ts       # Configuration snapshots
+│   │   │   ├── BlackboxManager.ts       # BB log file management
+│   │   │   ├── TuningSessionManager.ts  # Tuning session state machine
+│   │   │   └── FileStorage.ts           # Generic file storage utilities
+│   │   ├── ipc/                 # IPC handlers
+│   │   │   ├── handlers.ts     # All IPC request handlers
+│   │   │   └── channels.ts     # Channel definitions
+│   │   └── utils/               # Logger, error types
 │   │
-│   ├── preload/              # Preload script
-│   │   └── index.ts          # window.betaflight API bridge
+│   ├── preload/                 # Preload script
+│   │   └── index.ts             # window.betaflight API bridge
 │   │
-│   ├── renderer/             # Renderer process (React)
-│   │   ├── App.tsx           # Main layout, routing
+│   ├── renderer/                # Renderer process (React)
+│   │   ├── App.tsx              # Main layout, session routing
 │   │   ├── components/
-│   │   │   ├── ConnectionPanel/      # Port selection, connect/disconnect
-│   │   │   ├── FCInfo/               # FC details + BB diagnostics
-│   │   │   ├── BlackboxStatus/       # Flash storage, download, erase
-│   │   │   ├── SnapshotManager/      # Snapshot CRUD, diff view
-│   │   │   ├── TuningWizard/         # Multi-step guided wizard
-│   │   │   ├── TuningStatusBanner/   # Workflow progress banner
-│   │   │   ├── AnalysisOverview/     # Read-only analysis view
-│   │   │   └── TuningWorkflowModal/  # Two-flight workflow help
-│   │   └── hooks/            # useConnection, useProfiles, useTuningSession, etc.
+│   │   │   ├── ConnectionPanel/       # Port selection, connect/disconnect
+│   │   │   ├── FCInfo/                # FC details + BB diagnostics
+│   │   │   ├── BlackboxStatus/        # Flash storage, download, erase
+│   │   │   ├── SnapshotManager/       # Snapshot CRUD, diff view, restore
+│   │   │   ├── TuningWizard/          # Multi-step guided wizard + charts
+│   │   │   │   └── charts/            # SpectrumChart, StepResponseChart, AxisTabs
+│   │   │   ├── TuningStatusBanner/    # Workflow progress banner
+│   │   │   ├── AnalysisOverview/      # Read-only analysis view
+│   │   │   ├── TuningWorkflowModal/   # Two-flight workflow help
+│   │   │   ├── Toast/                 # Toast notification system
+│   │   │   ├── ProfileWizard.tsx      # New FC profile creation wizard
+│   │   │   ├── ProfileSelector.tsx    # Profile switching dropdown
+│   │   │   ├── ProfileCard.tsx        # Individual profile display
+│   │   │   ├── ProfileEditModal.tsx   # Profile editing dialog
+│   │   │   └── ProfileDeleteModal.tsx # Profile deletion confirmation
+│   │   ├── hooks/               # React hooks
+│   │   │   ├── useConnection.ts       # Connection state management
+│   │   │   ├── useProfiles.ts         # Profile CRUD operations
+│   │   │   ├── useSnapshots.ts        # Snapshot management
+│   │   │   ├── useTuningSession.ts    # Tuning session lifecycle
+│   │   │   ├── useTuningWizard.ts     # Wizard state (parse/analyze/apply)
+│   │   │   ├── useAnalysisOverview.ts # Read-only analysis state
+│   │   │   ├── useBlackboxInfo.ts     # BB flash info
+│   │   │   ├── useBlackboxLogs.ts     # BB log list
+│   │   │   ├── useFCInfo.ts           # FC info polling
+│   │   │   └── useToast.ts            # Toast context consumer
+│   │   ├── contexts/            # React contexts
+│   │   │   └── ToastContext.tsx
+│   │   └── test/                # Test setup
+│   │       └── setup.ts         # window.betaflight mock
 │   │
-│   └── shared/               # Shared types & constants
-│       ├── types/            # TypeScript interfaces
-│       └── constants/        # MSP codes, presets, flight guides
+│   └── shared/                  # Shared types & constants
+│       ├── types/               # TypeScript interfaces (8 type files)
+│       └── constants/           # MSP codes, presets, flight guides
 │
-└── docs/                     # Design docs, validation reports
+└── docs/                        # Design docs
+    ├── BBL_PARSER_VALIDATION.md   # Parser validation against BF Explorer
+    └── TUNING_WORKFLOW_REVISION.md # Phase 4 design doc
 ```
 
 ## Usage
