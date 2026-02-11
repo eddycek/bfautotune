@@ -13,6 +13,14 @@ import type { FCInfo } from './common.types';
 export type DroneSize = '1"' | '2"' | '2.5"' | '3"' | '4"' | '5"' | '6"' | '7"' | '10"';
 export type BatteryType = '1S' | '2S' | '3S' | '4S' | '6S';
 
+/**
+ * Flying style preference — affects PID tuning thresholds.
+ * - smooth: cinematic, long-range (minimize overshoot, maximize smoothness)
+ * - balanced: freestyle, general flying (default)
+ * - aggressive: racing, acro (maximize response, tolerate overshoot)
+ */
+export type FlightStyle = 'smooth' | 'balanced' | 'aggressive';
+
 // ============================================================================
 // Profile Interfaces
 // ============================================================================
@@ -34,6 +42,7 @@ export interface DroneProfileOptional {
   weight?: number;        // AUW in grams
   motorKV?: number;
   notes?: string;
+  flightStyle?: FlightStyle;
 }
 
 /**
