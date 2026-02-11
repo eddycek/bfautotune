@@ -79,6 +79,8 @@ export interface FilterAnalysisResult {
   sessionIndex: number;
   /** How many steady flight segments were used */
   segmentsUsed: number;
+  /** Whether RPM filter is active (detected from FC settings or BBL headers) */
+  rpmFilterActive?: boolean;
   /** Data quality warnings */
   warnings?: AnalysisWarning[];
 }

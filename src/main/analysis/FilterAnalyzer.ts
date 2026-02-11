@@ -16,7 +16,7 @@ import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
 import { findSteadySegments, findThrottleSweepSegments } from './SegmentSelector';
 import { computePowerSpectrum, trimSpectrum } from './FFTCompute';
 import { analyzeAxisNoise, buildNoiseProfile } from './NoiseAnalyzer';
-import { recommend, generateSummary } from './FilterRecommender';
+import { recommend, generateSummary, isRpmFilterActive } from './FilterRecommender';
 import { FFT_WINDOW_SIZE, FREQUENCY_MIN_HZ, FREQUENCY_MAX_HZ } from './constants';
 
 /** Maximum number of segments to use (more = slower but more accurate) */
@@ -100,8 +100,9 @@ export async function analyze(
 
   // Step 4: Generate recommendations
   onProgress?.({ step: 'recommending', percent: 85 });
+  const rpmActive = isRpmFilterActive(currentSettings);
   const recommendations = recommend(noiseProfile, currentSettings);
-  const summary = generateSummary(noiseProfile, recommendations);
+  const summary = generateSummary(noiseProfile, recommendations, rpmActive);
 
   onProgress?.({ step: 'recommending', percent: 100 });
 
@@ -112,6 +113,7 @@ export async function analyze(
     analysisTimeMs: Math.round(performance.now() - startTime),
     sessionIndex,
     segmentsUsed: usedSegments.length,
+    rpmFilterActive: rpmActive,
   };
 }
 
@@ -147,8 +149,9 @@ async function analyzeEntireFlight(
   const noiseProfile = buildNoiseProfile(rollNoise, pitchNoise, yawNoise);
 
   onProgress?.({ step: 'recommending', percent: 85 });
+  const rpmActive = isRpmFilterActive(currentSettings);
   const recommendations = recommend(noiseProfile, currentSettings);
-  const summary = generateSummary(noiseProfile, recommendations);
+  const summary = generateSummary(noiseProfile, recommendations, rpmActive);
 
   onProgress?.({ step: 'recommending', percent: 100 });
 
@@ -159,6 +162,7 @@ async function analyzeEntireFlight(
     analysisTimeMs: Math.round(performance.now() - startTime),
     sessionIndex,
     segmentsUsed: 0,
+    rpmFilterActive: rpmActive,
     warnings,
   };
 }
