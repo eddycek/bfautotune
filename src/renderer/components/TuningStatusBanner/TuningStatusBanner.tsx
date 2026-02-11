@@ -14,6 +14,7 @@ interface TuningStatusBannerProps {
   session: TuningSession;
   flashErased?: boolean;
   erasing?: boolean;
+  downloading?: boolean;
   onAction: (action: TuningAction) => void;
   onViewGuide: (mode: TuningMode) => void;
   onReset: () => void;
@@ -95,7 +96,7 @@ const PHASE_UI: Record<TuningPhase, PhaseUI> = {
   },
 };
 
-export function TuningStatusBanner({ session, flashErased, erasing, onAction, onViewGuide, onReset }: TuningStatusBannerProps) {
+export function TuningStatusBanner({ session, flashErased, erasing, downloading, onAction, onViewGuide, onReset }: TuningStatusBannerProps) {
   const ui = PHASE_UI[session.phase];
   const isFlightPending = session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending';
   const showErasedState = flashErased && isFlightPending;
@@ -143,16 +144,21 @@ export function TuningStatusBanner({ session, flashErased, erasing, onAction, on
               <button
                 className="wizard-btn wizard-btn-primary"
                 onClick={() => onAction(ui.action)}
-                disabled={erasing}
+                disabled={erasing || downloading}
               >
                 {erasing ? (
                   <>
                     <span className="spinner" />
                     Erasing...
                   </>
+                ) : downloading ? (
+                  <>
+                    <span className="spinner" />
+                    Downloading...
+                  </>
                 ) : ui.buttonLabel}
               </button>
-              {ui.guideTip && !erasing && (
+              {ui.guideTip && !erasing && !downloading && (
                 <button
                   className="wizard-btn wizard-btn-secondary"
                   onClick={() => onViewGuide(ui.guideTip!)}

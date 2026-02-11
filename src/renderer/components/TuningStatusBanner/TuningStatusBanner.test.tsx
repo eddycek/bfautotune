@@ -178,4 +178,33 @@ describe('TuningStatusBanner', () => {
     expect(screen.queryByText(/Flash erased!/)).not.toBeInTheDocument();
     expect(screen.getByText('Open Filter Wizard')).toBeInTheDocument();
   });
+
+  it('shows downloading state when downloading prop is true', () => {
+    render(
+      <TuningStatusBanner
+        session={{ ...baseSession, phase: 'filter_log_ready' }}
+        onAction={onAction}
+        onViewGuide={onViewGuide}
+        onReset={onReset}
+        downloading
+      />
+    );
+
+    expect(screen.getByText('Downloading...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Downloading/ })).toBeDisabled();
+  });
+
+  it('disables primary button when downloading', () => {
+    render(
+      <TuningStatusBanner
+        session={{ ...baseSession, phase: 'pid_log_ready' }}
+        onAction={onAction}
+        onViewGuide={onViewGuide}
+        onReset={onReset}
+        downloading
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /Downloading/ })).toBeDisabled();
+  });
 });
