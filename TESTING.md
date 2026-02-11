@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 849 tests across 47 files** (last verified: February 11, 2026)
+**Total: 848 tests across 47 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -175,7 +175,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/FlightGuideContent.test.tsx` | 6 | Flight guide content rendering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
-| `AnalysisOverview/AnalysisOverview.test.tsx` | 16 | Read-only analysis view, auto-parse, session picker |
+| `AnalysisOverview/AnalysisOverview.test.tsx` | 15 | Diagnostic-only analysis view, auto-parse, session picker |
 
 ### Charts
 
