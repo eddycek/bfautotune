@@ -174,7 +174,19 @@ export function AnalysisOverview({ logId, onExit }: AnalysisOverviewProps) {
             <span className="analysis-meta-pill">
               {overview.filterResult.segmentsUsed} segment{overview.filterResult.segmentsUsed !== 1 ? 's' : ''} analyzed
             </span>
+            {overview.filterResult.rpmFilterActive !== undefined && (
+              <span className={`analysis-meta-pill ${overview.filterResult.rpmFilterActive ? 'rpm-active' : 'rpm-inactive'}`}>
+                RPM Filter: {overview.filterResult.rpmFilterActive ? 'Active' : 'Not detected'}
+              </span>
+            )}
           </div>
+
+          {overview.filterResult.rpmFilterActive && (
+            <div className="analysis-warning analysis-warning--info">
+              <span className="analysis-warning-icon">{'\u2139\uFE0F'}</span>
+              <span>RPM filter is active — filter recommendations are optimized for lower latency.</span>
+            </div>
+          )}
 
           {overview.filterResult.warnings && overview.filterResult.warnings.length > 0 && (
             <div className="analysis-warnings">

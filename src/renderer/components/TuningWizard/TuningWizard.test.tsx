@@ -1017,6 +1017,54 @@ describe('TuningWizard', () => {
     });
   });
 
+  // ---- RPM filter status display ----
+
+  it('FilterAnalysisStep shows RPM Filter: Active pill when rpmFilterActive is true', async () => {
+    const rpmResult: FilterAnalysisResult = {
+      ...mockFilterResult,
+      rpmFilterActive: true,
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(rpmResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    expect(screen.getByText('RPM Filter: Active')).toBeInTheDocument();
+    expect(screen.getByText(/RPM filter is active/)).toBeInTheDocument();
+  });
+
+  it('FilterAnalysisStep shows RPM Filter: Not detected pill when rpmFilterActive is false', async () => {
+    const rpmResult: FilterAnalysisResult = {
+      ...mockFilterResult,
+      rpmFilterActive: false,
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(rpmResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    expect(screen.getByText('RPM Filter: Not detected')).toBeInTheDocument();
+    expect(screen.queryByText(/RPM filter is active/)).not.toBeInTheDocument();
+  });
+
+  it('FilterAnalysisStep hides RPM pill when rpmFilterActive is undefined', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await navigateToFilterResults(user);
+
+    expect(screen.queryByText(/RPM Filter:/)).not.toBeInTheDocument();
+  });
+
   it('mode=filter summary hides PID recommendation section', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
