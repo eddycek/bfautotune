@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 881 tests across 47 files** (last verified: February 11, 2026)
+**Total: 911 tests across 47 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -171,11 +171,11 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
 | `TuningStatusBanner/TuningStatusBanner.test.tsx` | 22 | Workflow banner, step indicator, actions, downloading, applied phases |
-| `TuningWizard/TuningWizard.test.tsx` | 43 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete, FF warning |
+| `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete, FF warning, RPM status |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
-| `AnalysisOverview/AnalysisOverview.test.tsx` | 17 | Diagnostic-only analysis view, auto-parse, session picker, FF warning |
+| `AnalysisOverview/AnalysisOverview.test.tsx` | 20 | Diagnostic-only analysis view, auto-parse, session picker, FF warning, RPM status |
 
 ### Charts
 
@@ -206,7 +206,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `msp/MSPClient.test.ts` | 11 | Filter config parsing, flash payload extraction, feedforward config |
+| `msp/MSPClient.test.ts` | 13 | Filter config parsing, flash payload extraction, feedforward config, RPM filter bytes |
 
 ### Storage
 
@@ -234,8 +234,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/FFTCompute.test.ts` | 20 | Hanning window, Welch's method, sine detection |
 | `analysis/SegmentSelector.test.ts` | 27 | Hover detection, throttle normalization |
 | `analysis/NoiseAnalyzer.test.ts` | 25 | Peak detection, classification, noise floor |
-| `analysis/FilterRecommender.test.ts` | 28 | Noise-based targets, convergence, safety bounds |
-| `analysis/FilterAnalyzer.test.ts` | 11 | End-to-end pipeline, progress reporting, segment fallback warnings |
+| `analysis/FilterRecommender.test.ts` | 41 | Noise-based targets, convergence, safety bounds, RPM-aware bounds, dynamic notch, motor diagnostic |
+| `analysis/FilterAnalyzer.test.ts` | 14 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation |
 
 ### Step Response Analysis
 
@@ -250,4 +250,4 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `analysis/headerValidation.test.ts` | 14 | GYRO_SCALED check, logging rate validation, BF version-aware debug mode |
+| `analysis/headerValidation.test.ts` | 20 | GYRO_SCALED check, logging rate validation, BF version-aware debug mode, BBL header RPM enrichment |

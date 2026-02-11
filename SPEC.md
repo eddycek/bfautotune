@@ -93,7 +93,7 @@ High-level user journey:
 |-------------|--------|-------|
 | Compute gyro noise spectrum (FFT) over steady segments (exclude takeoff/landing) | :white_check_mark: | SegmentSelector + FFTCompute (Welch's method, Hanning window) |
 | Detect peaks (frame resonance, motor harmonics) and overall noise floor | :white_check_mark: | NoiseAnalyzer: prominence-based peaks, 3 classification types, quartile noise floor |
-| Decide adjustments: dynamic notch, RPM filtering validation, gyro/D-term lowpass cutoff changes, safety bounds | :construction: | Dynamic notch range + gyro/D-term LPF done. RPM filtering validation deferred. |
+| Decide adjustments: dynamic notch, RPM filtering validation, gyro/D-term lowpass cutoff changes, safety bounds | :white_check_mark: | Gyro/D-term LPF, RPM-aware bounds (widened when RPM active), dynamic notch optimization (count/Q), motor harmonic diagnostic |
 | Prefer minimal filtering compatible with safe noise levels to minimize latency | :white_check_mark: | Low noise → raise cutoffs for less latency; safety bounds enforced |
 | Provide plain-English explanation per change + interactive graph view | :white_check_mark: | Plain-English explanations + interactive FFT spectrum chart (Recharts) |
 | Apply changes to FC and save; auto-snapshot new config | :white_check_mark: | Auto-apply via CLI `set` commands, pre-tuning safety snapshot, save & reboot |
@@ -340,7 +340,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 | D sweep multi-log comparison | 8 | Requires multi-flight iterative workflow |
 | Master gain step (P/D scaling) | 8 | Requires multi-flight iterative workflow |
 | FF/I/secondary parameter tuning | 8 | FF detection + FF-aware PID recommendations + MSP read done. FF/I write-back (applying FF changes to FC) remaining. |
-| RPM filtering validation | 7 | Low priority — most pilots use RPM filter by default |
+| ~~RPM filtering validation~~ | ~~7~~ | ✅ Done — RPM-aware bounds, dynamic notch optimization, motor harmonic diagnostic (PRs #63-#69) |
 | UI tooltips for technical terms | 9 | Nice-to-have UX enhancement |
 | Auto-configure BB logging settings | 4 | Would streamline pre-flight setup |
 | AI-powered tuning (optional) | 2 | Post-MVP, user-supplied API key |
