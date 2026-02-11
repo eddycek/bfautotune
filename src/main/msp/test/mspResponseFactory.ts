@@ -1,0 +1,277 @@
+/**
+ * MSP Response Factory — builds valid MSP binary response buffers for testing.
+ *
+ * Follows Betaflight Configurator's pattern of constructing raw DataView buffers
+ * with push8/push16/push32 helpers for byte-exact MSP response simulation.
+ */
+
+import type { PIDConfiguration } from '@shared/types/pid.types';
+import type { CurrentFilterSettings } from '@shared/types/analysis.types';
+import type { BlackboxInfo } from '@shared/types/blackbox.types';
+import { MSP_PROTOCOL } from '../types';
+
+// ─── Binary buffer helpers ───────────────────────────────────────────
+
+export function push8(arr: number[], value: number): void {
+  arr.push(value & 0xff);
+}
+
+export function push16LE(arr: number[], value: number): void {
+  arr.push(value & 0xff, (value >> 8) & 0xff);
+}
+
+export function push32LE(arr: number[], value: number): void {
+  arr.push(value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, (value >> 24) & 0xff);
+}
+
+export function pushString(arr: number[], str: string, prefixLength = false): void {
+  if (prefixLength) {
+    push8(arr, str.length);
+  }
+  for (let i = 0; i < str.length; i++) {
+    arr.push(str.charCodeAt(i));
+  }
+}
+
+export function toBuffer(arr: number[]): Buffer {
+  return Buffer.from(arr);
+}
+
+// ─── MSP frame builders ─────────────────────────────────────────────
+
+/**
+ * Build a complete MSP v1 response frame (direction: FC → host)
+ */
+export function buildMSPv1Response(command: number, data: Buffer | number[]): Buffer {
+  const payload = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  const size = payload.length;
+
+  const frame = Buffer.alloc(6 + size);
+  frame[0] = MSP_PROTOCOL.PREAMBLE1; // '$'
+  frame[1] = MSP_PROTOCOL.PREAMBLE2; // 'M'
+  frame[2] = MSP_PROTOCOL.DIRECTION_FROM_FC; // '>'
+  frame[3] = size;
+  frame[4] = command;
+
+  if (size > 0) {
+    payload.copy(frame, 5);
+  }
+
+  let checksum = size ^ command;
+  for (let i = 0; i < size; i++) {
+    checksum ^= payload[i];
+  }
+  frame[5 + size] = checksum;
+
+  return frame;
+}
+
+/**
+ * Build a complete MSP v1 error response frame (direction: '!')
+ */
+export function buildMSPv1ErrorResponse(command: number): Buffer {
+  const frame = Buffer.alloc(6);
+  frame[0] = MSP_PROTOCOL.PREAMBLE1;
+  frame[1] = MSP_PROTOCOL.PREAMBLE2;
+  frame[2] = MSP_PROTOCOL.ERROR; // '!'
+  frame[3] = 0; // no data
+  frame[4] = command;
+  frame[5] = 0 ^ command; // checksum
+  return frame;
+}
+
+/**
+ * Build a complete MSP jumbo frame response
+ */
+export function buildMSPJumboResponse(command: number, data: Buffer | number[]): Buffer {
+  const payload = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  const size = payload.length;
+
+  const frame = Buffer.alloc(8 + size);
+  frame[0] = MSP_PROTOCOL.PREAMBLE1;
+  frame[1] = MSP_PROTOCOL.PREAMBLE2;
+  frame[2] = MSP_PROTOCOL.DIRECTION_FROM_FC;
+  frame[3] = 0xff; // jumbo flag
+  frame.writeUInt16LE(size, 4);
+  frame[6] = command;
+
+  if (size > 0) {
+    payload.copy(frame, 7);
+  }
+
+  let checksum = (size & 0xff) ^ (size >> 8) ^ command;
+  for (let i = 0; i < size; i++) {
+    checksum ^= payload[i];
+  }
+  frame[7 + size] = checksum;
+
+  return frame;
+}
+
+// ─── MSP response data builders (payload only, no frame wrapper) ────
+
+/** MSP_API_VERSION (1) — 3 bytes: protocol, major, minor */
+export function buildAPIVersionData(major: number, minor: number, protocol = 0): Buffer {
+  return toBuffer([protocol, major, minor]);
+}
+
+/** MSP_FC_VARIANT (2) — 4 bytes: variant string */
+export function buildFCVariantData(variant = 'BTFL'): Buffer {
+  return Buffer.from(variant.slice(0, 4).padEnd(4, '\0'));
+}
+
+/** MSP_FC_VERSION (3) — 3 bytes: major, minor, patch */
+export function buildFCVersionData(major: number, minor: number, patch: number): Buffer {
+  return toBuffer([major, minor, patch]);
+}
+
+/** MSP_BOARD_INFO (4) — variable length board info */
+export function buildBoardInfoData(opts: {
+  boardId?: string;
+  hwRevision?: number;
+  boardType?: number;
+  targetName?: string;
+  boardName?: string;
+  manufacturerId?: string;
+} = {}): Buffer {
+  const {
+    boardId = 'S405',
+    hwRevision = 0,
+    boardType = 0,
+    targetName = 'STM32F405',
+    boardName = '',
+    manufacturerId = '',
+  } = opts;
+
+  const arr: number[] = [];
+  pushString(arr, boardId.slice(0, 4).padEnd(4, '\0'));
+  push16LE(arr, hwRevision);
+  push8(arr, boardType);
+  push8(arr, targetName.length);
+  pushString(arr, targetName);
+  push8(arr, boardName.length);
+  if (boardName.length > 0) pushString(arr, boardName);
+  push8(arr, manufacturerId.length);
+  if (manufacturerId.length > 0) pushString(arr, manufacturerId);
+  push8(arr, 0); // signature length
+  push8(arr, 0); // mcuTypeId
+  push8(arr, 0); // configurationState
+
+  return toBuffer(arr);
+}
+
+/** MSP_UID (160) — 12 bytes: 3× uint32 LE */
+export function buildUIDData(uid: [number, number, number]): Buffer {
+  const buf = Buffer.alloc(12);
+  buf.writeUInt32LE(uid[0], 0);
+  buf.writeUInt32LE(uid[1], 4);
+  buf.writeUInt32LE(uid[2], 8);
+  return buf;
+}
+
+/** MSP_PID (112) — 30 bytes (first 9 are R/P/Y P/I/D) */
+export function buildPIDData(config: PIDConfiguration): Buffer {
+  const buf = Buffer.alloc(30, 0);
+  buf[0] = config.roll.P;
+  buf[1] = config.roll.I;
+  buf[2] = config.roll.D;
+  buf[3] = config.pitch.P;
+  buf[4] = config.pitch.I;
+  buf[5] = config.pitch.D;
+  buf[6] = config.yaw.P;
+  buf[7] = config.yaw.I;
+  buf[8] = config.yaw.D;
+  return buf;
+}
+
+/** MSP_FILTER_CONFIG (92) — 47+ bytes */
+export function buildFilterConfigData(settings: Partial<CurrentFilterSettings> = {}): Buffer {
+  const buf = Buffer.alloc(48, 0);
+  if (settings.dterm_lpf1_static_hz !== undefined) buf.writeUInt16LE(settings.dterm_lpf1_static_hz, 1);
+  if (settings.gyro_lpf1_static_hz !== undefined) buf.writeUInt16LE(settings.gyro_lpf1_static_hz, 20);
+  if (settings.gyro_lpf2_static_hz !== undefined) buf.writeUInt16LE(settings.gyro_lpf2_static_hz, 22);
+  if (settings.dterm_lpf2_static_hz !== undefined) buf.writeUInt16LE(settings.dterm_lpf2_static_hz, 26);
+  if (settings.dyn_notch_q !== undefined) buf.writeUInt16LE(settings.dyn_notch_q, 39);
+  if (settings.dyn_notch_min_hz !== undefined) buf.writeUInt16LE(settings.dyn_notch_min_hz, 41);
+  if (settings.rpm_filter_harmonics !== undefined) buf.writeUInt8(settings.rpm_filter_harmonics, 43);
+  if (settings.rpm_filter_min_hz !== undefined) buf.writeUInt8(settings.rpm_filter_min_hz, 44);
+  if (settings.dyn_notch_max_hz !== undefined) buf.writeUInt16LE(settings.dyn_notch_max_hz, 45);
+  if (settings.dyn_notch_count !== undefined) buf.writeUInt8(settings.dyn_notch_count, 47);
+  return buf;
+}
+
+/** MSP_DATAFLASH_SUMMARY (70) — 13 bytes */
+export function buildDataflashSummaryData(info: Partial<BlackboxInfo> & { ready?: number; flags?: number } = {}): Buffer {
+  const buf = Buffer.alloc(13, 0);
+  const ready = info.ready ?? (info.supported !== false ? 0x03 : 0x01);
+  buf.writeUInt8(ready, 0);
+  buf.writeUInt32LE(info.flags ?? 0, 1);
+  buf.writeUInt32LE(info.totalSize ?? 0, 5);
+  buf.writeUInt32LE(info.usedSize ?? 0, 9);
+  return buf;
+}
+
+/** MSP_ADVANCED_CONFIG (90) — 8+ bytes (byte 1 = pid_process_denom) */
+export function buildAdvancedConfigData(pidProcessDenom: number, gyroSyncDenom = 1): Buffer {
+  const buf = Buffer.alloc(8, 0);
+  buf.writeUInt8(gyroSyncDenom, 0);
+  buf.writeUInt8(pidProcessDenom, 1);
+  return buf;
+}
+
+/** MSP_PID_ADVANCED (94) — 45 bytes (feedforward configuration) */
+export function buildPIDAdvancedData(opts: {
+  ffTransition?: number;
+  ffRoll?: number;
+  ffPitch?: number;
+  ffYaw?: number;
+  ffSmoothFactor?: number;
+  ffBoost?: number;
+  ffMaxRateLimit?: number;
+  ffJitterFactor?: number;
+} = {}): Buffer {
+  const buf = Buffer.alloc(45, 0);
+  if (opts.ffTransition !== undefined) buf.writeUInt8(opts.ffTransition, 8);
+  if (opts.ffRoll !== undefined) buf.writeUInt16LE(opts.ffRoll, 24);
+  if (opts.ffPitch !== undefined) buf.writeUInt16LE(opts.ffPitch, 26);
+  if (opts.ffYaw !== undefined) buf.writeUInt16LE(opts.ffYaw, 28);
+  if (opts.ffSmoothFactor !== undefined) buf.writeUInt8(opts.ffSmoothFactor, 41);
+  if (opts.ffBoost !== undefined) buf.writeUInt8(opts.ffBoost, 42);
+  if (opts.ffMaxRateLimit !== undefined) buf.writeUInt8(opts.ffMaxRateLimit, 43);
+  if (opts.ffJitterFactor !== undefined) buf.writeUInt8(opts.ffJitterFactor, 44);
+  return buf;
+}
+
+// ─── Preset FC states ───────────────────────────────────────────────
+
+export interface MockFCState {
+  variant: string;
+  version: { major: number; minor: number; patch: number };
+  api: { protocol: number; major: number; minor: number };
+  board: { boardId: string; targetName: string; boardName: string };
+  uid: [number, number, number];
+}
+
+export const FC_STATES: Record<string, MockFCState> = {
+  BF_4_3: {
+    variant: 'BTFL',
+    version: { major: 4, minor: 3, patch: 0 },
+    api: { protocol: 0, major: 1, minor: 44 },
+    board: { boardId: 'S405', targetName: 'STM32F405', boardName: 'MAMBAF405' },
+    uid: [0x00360024, 0x32385106, 0x31383730],
+  },
+  BF_4_5: {
+    variant: 'BTFL',
+    version: { major: 4, minor: 5, patch: 1 },
+    api: { protocol: 0, major: 1, minor: 46 },
+    board: { boardId: 'S7X2', targetName: 'STM32F7X2', boardName: 'SPEEDYBEEF7V3' },
+    uid: [0x00440032, 0x42385206, 0x41383830],
+  },
+  BF_2025_12: {
+    variant: 'BTFL',
+    version: { major: 4, minor: 6, patch: 0 },
+    api: { protocol: 0, major: 1, minor: 47 },
+    board: { boardId: 'SH74', targetName: 'STM32H743', boardName: 'SPEEDYBEEH7V2' },
+    uid: [0x00550043, 0x52385306, 0x51383930],
+  },
+};

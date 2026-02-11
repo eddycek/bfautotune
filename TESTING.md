@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 998 tests across 55 files** (last verified: February 11, 2026)
+**Total: 1105 tests across 57 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -206,11 +206,13 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
 | `utils/bbSettingsUtils.test.ts` | 18 | BB settings status computation, version-aware debug mode, fix/reset commands |
 
-### MSP Client
+### MSP Protocol & Client
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `msp/MSPClient.test.ts` | 16 | Filter config parsing, flash payload extraction, feedforward config, RPM filter bytes, pid_process_denom |
+| `msp/MSPProtocol.test.ts` | 30 | MSPv1 encode/decode, jumbo frames, round-trip, parseBuffer, checksum validation, garbage recovery |
+| `msp/MSPConnection.test.ts` | 39 | Connection lifecycle, sendCommand, timeouts, error/partial responses, CLI mode, event forwarding |
+| `msp/MSPClient.test.ts` | 54 | FC info queries, PID/filter/FF config, board info parsing, UID, blackbox info, set PID, CLI diff, save & reboot, connect/disconnect lifecycle, version gate, listPorts |
 
 ### Storage
 
