@@ -275,6 +275,63 @@ describe('ProfileEditModal', () => {
     expect(cancelButton).toBeDisabled();
   });
 
+  it('defaults flight style to balanced for profiles without it', () => {
+    render(
+      <ProfileEditModal
+        profile={mockProfile}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Balanced should be selected by default (mockProfile has no flightStyle)
+    const balancedBtn = screen.getByText('Balanced (default)').closest('.flight-style-option');
+    expect(balancedBtn?.classList.contains('selected')).toBe(true);
+  });
+
+  it('loads existing flight style from profile', () => {
+    const aggressiveProfile: DroneProfile = {
+      ...mockProfile,
+      flightStyle: 'aggressive',
+    };
+
+    render(
+      <ProfileEditModal
+        profile={aggressiveProfile}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const aggressiveBtn = screen.getByText('Aggressive').closest('.flight-style-option');
+    expect(aggressiveBtn?.classList.contains('selected')).toBe(true);
+  });
+
+  it('includes flightStyle in save output', async () => {
+    const user = userEvent.setup();
+    render(
+      <ProfileEditModal
+        profile={mockProfile}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Change to smooth
+    await user.click(screen.getByText('Smooth'));
+
+    // Save
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          flightStyle: 'smooth',
+        })
+      );
+    });
+  });
+
   it('renders correctly for profile without optional fields', () => {
     const minimalProfile: DroneProfile = {
       ...mockProfile,
