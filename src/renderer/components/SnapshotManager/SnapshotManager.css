@@ -60,6 +60,13 @@
   gap: 8px;
 }
 
+.snapshot-number {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+  color: #777777;
+  min-width: 24px;
+}
+
 .snapshot-meta {
   font-size: 12px;
   color: #999999;

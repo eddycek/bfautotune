@@ -48,17 +48,17 @@ describe('SnapshotDiffModal', () => {
     expect(screen.getByText('After tune')).toBeInTheDocument();
   });
 
-  it('displays legend badges', () => {
+  it('displays legend badges (Added and Changed only)', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
     expect(screen.getByText('Added')).toBeInTheDocument();
-    expect(screen.getByText('Removed')).toBeInTheDocument();
     expect(screen.getByText('Changed')).toBeInTheDocument();
+    expect(screen.queryByText('Removed')).not.toBeInTheDocument();
   });
 
   it('displays summary counts', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
-    // gyro_lpf1 changed, feature GPS removed, feature TELEMETRY added = 1 added, 1 removed, 1 changed
-    expect(screen.getByText('1 added, 1 removed, 1 changed')).toBeInTheDocument();
+    // gyro_lpf1 changed, feature GPS reverted to default (changed), feature TELEMETRY added = 1 added, 2 changed
+    expect(screen.getByText('1 added, 2 changed')).toBeInTheDocument();
   });
 
   it('renders added lines with + prefix', () => {
@@ -72,14 +72,14 @@ describe('SnapshotDiffModal', () => {
     expect(telemetryAdded).toBeTruthy();
   });
 
-  it('renders removed lines with - prefix', () => {
+  it('shows (default) value for settings reverted to factory default', () => {
     render(<SnapshotDiffModal snapshotA={snapshotA} snapshotB={snapshotB} onClose={vi.fn()} />);
-    const removedLines = document.querySelectorAll('.diff-line-removed');
-    expect(removedLines.length).toBeGreaterThan(0);
-    const gpsRemoved = Array.from(removedLines).find(
-      el => el.textContent?.includes('feature GPS')
+    // feature GPS was in snapshotA but not in snapshotB → shown as changed to (default)
+    const changedNewLines = document.querySelectorAll('.diff-line-changed-new');
+    const gpsDefault = Array.from(changedNewLines).find(
+      el => el.textContent?.includes('feature GPS') && el.textContent?.includes('(default)')
     );
-    expect(gpsRemoved).toBeTruthy();
+    expect(gpsDefault).toBeTruthy();
   });
 
   it('renders changed lines with old and new values', () => {
@@ -143,6 +143,6 @@ describe('SnapshotDiffModal', () => {
     const empty = makeSnapshot({ id: 'e', label: 'Empty', cliDiff: '' });
     render(<SnapshotDiffModal snapshotA={empty} snapshotB={snapshotB} onClose={vi.fn()} />);
     // All entries in B should be "added"
-    expect(screen.getByText(/3 added, 0 removed, 0 changed/)).toBeInTheDocument();
+    expect(screen.getByText(/3 added, 0 changed/)).toBeInTheDocument();
   });
 });

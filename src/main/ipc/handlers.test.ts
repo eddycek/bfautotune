@@ -1058,10 +1058,6 @@ describe('IPC Handlers', () => {
       const { event } = createMockEvent();
       const callOrder: string[] = [];
       mockMSP.setPIDConfiguration.mockImplementation(async () => { callOrder.push('setPID'); });
-      mockSnapshotMgr.createSnapshot.mockImplementation(async () => {
-        callOrder.push('snapshot');
-        return { id: 'snap-pre' };
-      });
       mockMSP.connection.enterCLI.mockImplementation(async () => { callOrder.push('enterCLI'); });
       mockMSP.connection.sendCLICommand.mockImplementation(async () => { callOrder.push('sendCLI'); return ''; });
       mockMSP.saveAndReboot.mockImplementation(async () => { callOrder.push('save'); });
@@ -1069,8 +1065,8 @@ describe('IPC Handlers', () => {
       const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
       expect(res.success).toBe(true);
 
-      // Order: PID via MSP → snapshot → CLI → save
-      expect(callOrder).toEqual(['setPID', 'snapshot', 'enterCLI', 'sendCLI', 'save']);
+      // Order: PID via MSP → CLI → save (no snapshot creation in Apply)
+      expect(callOrder).toEqual(['setPID', 'enterCLI', 'sendCLI', 'save']);
     });
 
     it('clamps PID values to 0-255', async () => {
@@ -1278,7 +1274,7 @@ describe('IPC Handlers', () => {
 
     it('creates pre-tuning backup snapshot', async () => {
       await invoke(IPCChannel.TUNING_START_SESSION);
-      expect(mockSnapshotMgr.createSnapshot).toHaveBeenCalledWith('Pre-tuning backup (auto)', 'auto');
+      expect(mockSnapshotMgr.createSnapshot).toHaveBeenCalledWith('Pre-tuning (auto)', 'auto');
     });
 
     it('returns error when no profile', async () => {

@@ -102,13 +102,13 @@ describe('computeDiff', () => {
     ]);
   });
 
-  it('detects removed entries', () => {
+  it('converts removed entries to changed with (default) value', () => {
     const before = new Map([['set gyro_lpf1_static_hz', '150']]);
     const after = new Map<string, string>();
     const diff = computeDiff(before, after);
 
     expect(diff).toEqual([
-      { key: 'set gyro_lpf1_static_hz', oldValue: '150', status: 'removed' },
+      { key: 'set gyro_lpf1_static_hz', oldValue: '150', newValue: '(default)', status: 'changed' },
     ]);
   });
 
@@ -134,7 +134,7 @@ describe('computeDiff', () => {
     expect(computeDiff(new Map(), new Map())).toEqual([]);
   });
 
-  it('handles mixed add/remove/change', () => {
+  it('handles mixed added, changed, and reverted-to-default entries', () => {
     const before = new Map([
       ['set dterm_lpf1_static_hz', '100'],
       ['set gyro_lpf1_static_hz', '150'],
@@ -150,7 +150,11 @@ describe('computeDiff', () => {
     expect(diff).toHaveLength(3);
     expect(diff.find(d => d.key === 'set dterm_lpf1_static_hz')?.status).toBe('changed');
     expect(diff.find(d => d.key === 'feature TELEMETRY')?.status).toBe('added');
-    expect(diff.find(d => d.key === 'feature GPS')?.status).toBe('removed');
+    // feature GPS disappeared from diff → reverted to default, shown as 'changed' with (default)
+    const gpsEntry = diff.find(d => d.key === 'feature GPS');
+    expect(gpsEntry?.status).toBe('changed');
+    expect(gpsEntry?.newValue).toBe('(default)');
+    expect(gpsEntry?.oldValue).toBe('(enabled)');
   });
 
   it('returns sorted entries by key', () => {
@@ -198,7 +202,7 @@ describe('groupDiffByCommand', () => {
   it('handles multiple command types', () => {
     const entries = [
       { key: 'aux 0', newValue: '0 0 1700 2100', status: 'added' as const },
-      { key: 'feature GPS', oldValue: '(enabled)', status: 'removed' as const },
+      { key: 'feature GPS', oldValue: '(enabled)', newValue: '(default)', status: 'changed' as const },
       { key: 'serial 0', oldValue: '64', newValue: '128', status: 'changed' as const },
       { key: 'set gyro_lpf1_static_hz', newValue: '150', status: 'added' as const },
     ];

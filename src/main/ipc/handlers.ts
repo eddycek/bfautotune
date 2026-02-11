@@ -1087,23 +1087,14 @@ export function registerIPCHandlers(): void {
 
         sendProgress({ stage: 'pid', message: `Applied ${appliedPIDs} PID changes`, percent: 20 });
 
-        // Stage 2: Create safety snapshot (enters CLI mode — no MSP after this)
-        let snapshotId: string | undefined;
-        if (input.createSnapshot) {
-          sendProgress({ stage: 'snapshot', message: 'Creating pre-tuning snapshot...', percent: 30 });
-          if (!snapshotManager) throw new Error('Snapshot manager not initialized');
-          const snapshot = await snapshotManager.createSnapshot('Pre-tuning (auto)');
-          snapshotId = snapshot.id;
-          logger.info(`Pre-tuning snapshot created: ${snapshotId}`);
-        }
+        // Stage 2: Enter CLI mode for filter changes (no MSP after this)
+        // Safety snapshot is NOT created here — Pre-tuning (auto) from Start Tuning covers rollback.
 
         // Stage 3: Apply filter recommendations via CLI
         let appliedFilters = 0;
         if (input.filterRecommendations.length > 0) {
           sendProgress({ stage: 'filter', message: 'Entering CLI mode...', percent: 50 });
 
-          // If snapshot was created, we may already be in CLI mode;
-          // enterCLI() is safe to call again (it just waits for the # prompt).
           await mspClient.connection.enterCLI();
 
           for (const rec of input.filterRecommendations) {
@@ -1131,7 +1122,6 @@ export function registerIPCHandlers(): void {
 
         const result: ApplyRecommendationsResult = {
           success: true,
-          snapshotId,
           appliedPIDs,
           appliedFilters,
           rebooted: true,
@@ -1273,7 +1263,7 @@ export function registerIPCHandlers(): void {
         let baselineSnapshotId: string | undefined;
         if (snapshotManager && mspClient?.isConnected()) {
           try {
-            const snapshot = await snapshotManager.createSnapshot('Pre-tuning backup (auto)', 'auto');
+            const snapshot = await snapshotManager.createSnapshot('Pre-tuning (auto)', 'auto');
             baselineSnapshotId = snapshot.id;
             logger.info(`Pre-tuning backup created: ${snapshot.id}`);
           } catch (e) {

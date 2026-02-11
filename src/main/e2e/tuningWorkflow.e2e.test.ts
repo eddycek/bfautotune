@@ -627,7 +627,7 @@ describe('E2E Tuning Workflow', () => {
 
       // One of the new snapshots should be the auto backup
       const labels = snapshotsAfter.data.map((s: any) => s.label);
-      expect(labels.some((l: string) => l.includes('Pre-tuning backup'))).toBe(true);
+      expect(labels.some((l: string) => l.includes('Pre-tuning (auto)'))).toBe(true);
     });
 
     it('erase flash during tuning session — phase unchanged', async () => {
@@ -688,19 +688,12 @@ describe('E2E Tuning Workflow', () => {
       expect(parseRes.data.sessions).toHaveLength(1);
     });
 
-    it('apply filter recommendations — 4-stage ordering: MSP PID -> snapshot -> CLI -> save', async () => {
+    it('apply recommendations — 3-stage ordering: MSP PID -> CLI -> save', async () => {
       await invoke(IPCChannel.TUNING_START_SESSION);
 
       const callOrder: string[] = [];
       mockMSP.setPIDConfiguration.mockImplementation(async () => {
         callOrder.push('setPID');
-      });
-      // Override snapshot manager's createSnapshot to track ordering
-      // (We use real managers, so we wrap the real method)
-      const originalCreate = snapshotManager.createSnapshot.bind(snapshotManager);
-      vi.spyOn(snapshotManager, 'createSnapshot').mockImplementation(async (...args) => {
-        callOrder.push('snapshot');
-        return originalCreate(...args);
       });
       mockMSP.connection.enterCLI.mockImplementation(async () => {
         callOrder.push('enterCLI');
@@ -748,8 +741,8 @@ describe('E2E Tuning Workflow', () => {
       expect(res.data.appliedFilters).toBe(1);
       expect(res.data.rebooted).toBe(true);
 
-      // Verify ordering: PID via MSP -> snapshot -> CLI -> save
-      expect(callOrder).toEqual(['setPID', 'snapshot', 'enterCLI', 'sendCLI', 'save']);
+      // Verify ordering: PID via MSP -> CLI -> save (no snapshot in Apply)
+      expect(callOrder).toEqual(['setPID', 'enterCLI', 'sendCLI', 'save']);
     });
 
     it('apply PID-only recommendations — MSP setPID called, no CLI for PID-only', async () => {

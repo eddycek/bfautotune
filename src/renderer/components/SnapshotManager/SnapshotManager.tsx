@@ -199,6 +199,7 @@ export function SnapshotManager() {
           <div key={snapshot.id} className="snapshot-item">
             <div className="snapshot-info">
               <div className="snapshot-label">
+                <span className="snapshot-number">#{snapshots.length - index}</span>
                 {snapshot.label}
                 {snapshot.type === 'baseline' && <span className="badge baseline">Baseline</span>}
               </div>

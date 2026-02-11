@@ -487,6 +487,42 @@ describe('SnapshotManager', () => {
     });
   });
 
+  // Numbering tests
+  it('displays dynamic numbering for snapshots', async () => {
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      // snapshots are displayed newest-first: snapshot-1 (index 0), snapshot-2 (index 1)
+      // #2 = newest (snapshots.length - 0), #1 = oldest (snapshots.length - 1)
+      const numbers = document.querySelectorAll('.snapshot-number');
+      expect(numbers).toHaveLength(2);
+      expect(numbers[0].textContent).toBe('#2');
+      expect(numbers[1].textContent).toBe('#1');
+    });
+  });
+
+  it('numbering adjusts after snapshot deletion', async () => {
+    // Start with 2 snapshots, then re-render with 1
+    const { unmount } = render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const numbers = document.querySelectorAll('.snapshot-number');
+      expect(numbers).toHaveLength(2);
+    });
+
+    unmount();
+
+    // Simulate one snapshot deleted
+    vi.mocked(window.betaflight.listSnapshots).mockResolvedValue([mockSnapshots[0]]);
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const numbers = document.querySelectorAll('.snapshot-number');
+      expect(numbers).toHaveLength(1);
+      expect(numbers[0].textContent).toBe('#1');
+    });
+  });
+
   // Compare tests
   it('displays compare button for each snapshot', async () => {
     render(<SnapshotManager />);
