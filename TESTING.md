@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1520 tests across 82 files** (last verified: February 12, 2026)
+**Total: 1522 tests across 82 files** (last verified: February 12, 2026)
 
 ### UI Components
 
@@ -212,7 +212,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useProfiles.test.ts` | 15 | Profile CRUD, event subscriptions |
 | `hooks/useSnapshots.test.ts` | 19 | Snapshot management, restore, event-driven updates |
 | `hooks/useTuningWizard.test.ts` | 22 | Wizard state, parse/analyze/apply lifecycle |
-| `hooks/useTuningSession.test.ts` | 8 | Tuning session lifecycle, IPC events |
+| `hooks/useTuningSession.test.ts` | 10 | Tuning session lifecycle, IPC events, reload on profile change |
 | `hooks/useTuningHistory.test.ts` | 5 | History loading, profile/session change reload, error handling |
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
 | `hooks/useFCInfo.test.ts` | 8 | FC info fetch, CLI export, loading/error states |

@@ -158,4 +158,63 @@ describe('useTuningSession', () => {
 
     expect(cleanup).toHaveBeenCalled();
   });
+
+  it('reloads session when profile changes', async () => {
+    // Start with session from profile A
+    vi.mocked(window.betaflight.getTuningSession).mockResolvedValue(mockSession);
+
+    let profileCallback: ((p: any) => void) | undefined;
+    vi.mocked(window.betaflight.onProfileChanged).mockImplementation((cb) => {
+      profileCallback = cb;
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useTuningSession());
+
+    await waitFor(() => {
+      expect(result.current.session).toEqual(mockSession);
+    });
+    expect(window.betaflight.getTuningSession).toHaveBeenCalledTimes(1);
+
+    // Profile changes to B (no session)
+    vi.mocked(window.betaflight.getTuningSession).mockResolvedValue(null);
+    profileCallback?.(null);
+
+    await waitFor(() => {
+      expect(result.current.session).toBeNull();
+    });
+    expect(window.betaflight.getTuningSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads session when switching to profile with active session', async () => {
+    // Start with no session
+    vi.mocked(window.betaflight.getTuningSession).mockResolvedValue(null);
+
+    let profileCallback: ((p: any) => void) | undefined;
+    vi.mocked(window.betaflight.onProfileChanged).mockImplementation((cb) => {
+      profileCallback = cb;
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useTuningSession());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.session).toBeNull();
+
+    // Profile changes to one with active session
+    const sessionB: TuningSession = {
+      profileId: 'profile-2',
+      phase: 'pid_flight_pending',
+      startedAt: '2026-02-11T10:00:00Z',
+      updatedAt: '2026-02-11T10:00:00Z',
+    };
+    vi.mocked(window.betaflight.getTuningSession).mockResolvedValue(sessionB);
+    profileCallback?.({ id: 'profile-2' });
+
+    await waitFor(() => {
+      expect(result.current.session).toEqual(sessionB);
+    });
+  });
 });

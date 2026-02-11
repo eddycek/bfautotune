@@ -13,24 +13,22 @@ export function useTuningSession(): UseTuningSessionReturn {
   const [session, setSession] = useState<TuningSession | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const reload = useCallback(async () => {
+    try {
+      const s = await window.betaflight.getTuningSession();
+      setSession(s);
+    } catch {
+      // No session or not connected — that's fine
+      setSession(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Load session on mount
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const s = await window.betaflight.getTuningSession();
-        if (!cancelled) setSession(s);
-      } catch {
-        // No session or not connected — that's fine
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, []);
+    reload();
+  }, [reload]);
 
   // Subscribe to session change events
   useEffect(() => {
@@ -38,6 +36,13 @@ export function useTuningSession(): UseTuningSessionReturn {
       setSession(updated);
     });
   }, []);
+
+  // Reload when profile changes (different FC connected)
+  useEffect(() => {
+    return window.betaflight.onProfileChanged(() => {
+      reload();
+    });
+  }, [reload]);
 
   const startSession = useCallback(async () => {
     const s = await window.betaflight.startTuningSession();
