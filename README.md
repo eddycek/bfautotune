@@ -470,6 +470,11 @@ The autotuning rules and thresholds are based on established FPV community pract
 - **Phase 2.5**: ✅ UX polish — profile simplification, interactive analysis charts
 - **Phase 3**: ✅ Mode-aware wizard, read-only analysis overview, flight guides
 - **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect
+- **Phase 5**: ⬜ Complete manual testing & UX polish (real hardware validation)
+- **Phase 6**: ⬜ CI/CD & cross-platform releases (macOS/Windows/Linux installers)
+- **Phase 7**: ⬜ E2E tests on real FC in CI pipeline
+
+See [SPEC.md](./SPEC.md) for detailed requirements and phase tracking.
 
 ## License
 

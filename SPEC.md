@@ -4,9 +4,9 @@
 
 **Source:** `fpv-betaflight-autotune-spec.pdf`
 **Generated:** 2026-01-29
-**Tracking added:** 2026-02-08
+**Last Updated:** February 10, 2026
 
-> This file is the authoritative project specification. Each requirement is annotated with its implementation status. Use this to validate that the project is progressing against the original design.
+> This file is the authoritative project specification and the single source of truth for project status. Each requirement is annotated with its implementation status. Previous tracking files (`COMPLETION_REPORT.md`, `IMPLEMENTATION_SUMMARY.md`, `TODO.md`) have been consolidated here.
 
 ### Status Legend
 
@@ -31,13 +31,13 @@ Primary focus: filter tuning (noise vs latency) and PID tuning (step response). 
 
 | # | Objective | Status |
 |---|-----------|--------|
-| 1 | Automated filter tuning from Blackbox (noise spectrum, resonance detection, safe reduction of filtering for lower latency) | :white_check_mark: Analysis engine (PR #5) + auto-apply to FC via CLI (PR #9). Convergent recommendations. |
-| 2 | Automated PID tuning from Blackbox (P/D balance and master gain using step response metrics) | :white_check_mark: Analysis engine (PR #6) + auto-apply to FC via MSP (PR #9). Convergent recommendations. Master gain step pending. |
-| 3 | Beginner-first UX: wizard flow + clear explanations + safety checks | :white_check_mark: Wizard UI (PR #8), results display with before/after cards, apply confirmation modal. Visual aids/charts pending. |
-| 4 | Full local workflow: USB connect, log download/import, analysis, apply settings | :white_check_mark: Complete end-to-end workflow: connect → download → parse → analyze → apply → rollback. |
-| 5 | Configuration versioning: snapshots, rollback, labeling, export/import | :white_check_mark: Phase 1 complete + snapshot restore/rollback (PR #10). |
-| 6 | Cross-platform: Windows/macOS/Linux | :construction: Code is cross-platform. Builds not yet tested on all platforms. |
-| 7 | Minimal cloud dependencies; optional AI via user-supplied API key | :white_check_mark: Fully offline. AI not yet integrated (future). |
+| 1 | Automated filter tuning from Blackbox (noise spectrum, resonance detection, safe reduction of filtering for lower latency) | :white_check_mark: Analysis engine + auto-apply to FC via CLI. Convergent recommendations. |
+| 2 | Automated PID tuning from Blackbox (P/D balance using step response metrics) | :white_check_mark: Analysis engine + auto-apply to FC via MSP. Convergent, flight-PID-anchored. Master gain step deferred. |
+| 3 | Beginner-first UX: wizard flow + clear explanations + safety checks | :white_check_mark: Wizard UI, results display with before/after cards, apply confirmation, interactive charts, flight guides. |
+| 4 | Full local workflow: USB connect, log download/import, analysis, apply settings | :white_check_mark: Complete end-to-end: connect → download → parse → analyze → apply → rollback. |
+| 5 | Configuration versioning: snapshots, rollback, labeling, export/import | :white_check_mark: Full snapshot system with diff view, restore/rollback, safety backups. |
+| 6 | Cross-platform: Windows/macOS/Linux | :construction: Code is cross-platform. Builds and installers not yet set up (Phase 6). |
+| 7 | Minimal cloud dependencies; optional AI via user-supplied API key | :white_check_mark: Fully offline. AI integration deferred. |
 
 ---
 
@@ -47,8 +47,6 @@ Primary focus: filter tuning (noise vs latency) and PID tuning (step response). 
 
 **Secondary users:** Experienced tuners who want a fast, repeatable workflow, quick comparisons, and safe rollback.
 
-> **Implementation note:** Beginner-friendly explanations are built into FilterRecommender `reason` strings. Wizard UI (Task #19) will surface these.
-
 ---
 
 ## 4. Workflow Overview
@@ -57,11 +55,11 @@ High-level user journey:
 
 | Step | Description | Status |
 |------|-------------|--------|
-| 1 | Connect drone over USB; read Betaflight version/target; create baseline backup snapshot | :white_check_mark: MSP connect + FC info + auto-baseline snapshot |
-| 2 | Configure Blackbox logging for analysis (high logging rate, correct debug mode); ensure prerequisite settings | :construction: Blackbox info read works. Auto-configure logging rate not yet implemented. |
-| 3 | Filter tuning: guided throttle-sweep test flight; retrieve log; run noise analysis; propose safe filter adjustments; apply | :white_check_mark: Full pipeline: retrieve log → parse → FFT analysis → recommendations → auto-apply via CLI → rollback. Flight guide with 6 phases + tips. |
-| 4 | PID tuning: guided short test flights for P/D balance (vary D slider) and overall gain (master multiplier); retrieve logs; analyze; apply | :construction: Step response analysis :white_check_mark:, auto-apply via MSP :white_check_mark:. D sweep multi-log comparison :x:, master gain step :x:. |
-| 5 | Restore other parameters (FeedForward, I, dynamic damping if used); store tuned snapshot; test-fly; rollback if needed | :construction: Snapshot restore/rollback :white_check_mark: (PR #10). FF/I/secondary parameter tuning :x:. |
+| 1 | Connect drone over USB; read Betaflight version/target; create baseline backup snapshot | :white_check_mark: MSP connect + FC info + auto-baseline snapshot + smart reconnect detection |
+| 2 | Configure Blackbox logging for analysis (high logging rate, correct debug mode); ensure prerequisite settings | :construction: Blackbox info read + diagnostics (debug_mode, logging rate warnings). Auto-configure not yet implemented. |
+| 3 | Filter tuning: guided throttle-sweep test flight; retrieve log; run noise analysis; propose safe filter adjustments; apply | :white_check_mark: Full pipeline with guided two-flight workflow, post-erase guidance, FFT analysis, interactive spectrum charts, auto-apply via CLI. |
+| 4 | PID tuning: guided stick snap test flight; retrieve log; analyze step responses; apply P/D recommendations | :white_check_mark: Step response analysis, interactive step response charts, auto-apply via MSP. D sweep multi-log comparison deferred. |
+| 5 | Restore other parameters (FeedForward, I, dynamic damping if used); store tuned snapshot; test-fly; rollback if needed | :construction: Snapshot restore/rollback :white_check_mark:. FF/I/secondary parameter tuning :x:. |
 
 ---
 
@@ -71,8 +69,9 @@ High-level user journey:
 |-------------|--------|-------|
 | Detect Betaflight FC via USB serial | :white_check_mark: | MSPConnection with vendor ID filtering + fallback |
 | Communicate via MSP to read/write settings and retrieve logs | :white_check_mark: | MSPClient with retry logic, MSPProtocol encoder/decoder |
-| Handle reconnects and FC reboots after save | :white_check_mark: | 3s cooldown, 1s backend delay, auto port rescan |
-| Support exporting config as CLI diff/dump and importing for restore | :white_check_mark: | `exportCLI('diff'\|'dump')` via MSP CLI mode |
+| Handle reconnects and FC reboots after save | :white_check_mark: | 3s cooldown, 1s backend delay, auto port rescan, CLI exit reboot handling |
+| Support exporting config as CLI diff/dump and importing for restore | :white_check_mark: | `exportCLI('diff'|'dump')` via MSP CLI mode |
+| Smart reconnect detection (auto-advance tuning phase on reconnect with flight data) | :white_check_mark: | Checks flash data on reconnect, auto-transitions flight_pending → log_ready |
 
 ---
 
@@ -81,9 +80,10 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Import .bbl/.bfl files and/or download logs from onboard flash via MSP | :white_check_mark: | MSP_DATAFLASH_READ download + BlackboxManager storage |
-| Parse raw gyro and relevant channels (setpoint/gyro tracking) for analysis | :white_check_mark: | BlackboxParser: gyro, setpoint, PID, motor, debug as Float64Array (171 tests) |
-| Load multiple logs for comparative analysis (e.g., D sweep flights) | :construction: | Single-log analysis works. Multi-log comparison UI not built yet. |
-| Ensure performance: large logs, FFT, and metric computation must not freeze UI | :white_check_mark: | Async parsing with progress events, FFT with event loop yielding, Welch averaging <200ms |
+| Parse raw gyro and relevant channels (setpoint/gyro tracking) for analysis | :white_check_mark: | BlackboxParser: gyro, setpoint, PID, motor, debug as Float64Array (205 tests) |
+| Load multiple logs for comparative analysis (e.g., D sweep flights) | :fast_forward: | Single-log analysis works. Multi-log comparison deferred to future iteration. |
+| Ensure performance: large logs, FFT, and metric computation must not freeze UI | :white_check_mark: | Async parsing with progress events, FFT with event loop yielding |
+| FC diagnostics: validate debug_mode and logging rate from Blackbox header | :white_check_mark: | GYRO_SCALED check, logging rate warnings in FC info panel |
 
 ---
 
@@ -93,10 +93,10 @@ High-level user journey:
 |-------------|--------|-------|
 | Compute gyro noise spectrum (FFT) over steady segments (exclude takeoff/landing) | :white_check_mark: | SegmentSelector + FFTCompute (Welch's method, Hanning window) |
 | Detect peaks (frame resonance, motor harmonics) and overall noise floor | :white_check_mark: | NoiseAnalyzer: prominence-based peaks, 3 classification types, quartile noise floor |
-| Decide adjustments: dynamic notch, RPM filtering validation, gyro/D-term lowpass cutoff changes, safety bounds | :construction: | Dynamic notch range + gyro/D-term LPF done. RPM filtering validation not yet implemented. |
-| Prefer minimal filtering compatible with safe noise levels to minimize latency | :white_check_mark: | Low noise -> raise cutoffs for less latency; safety bounds enforced |
-| Provide plain-English explanation per change + optional advanced graph view | :construction: | Plain-English explanations :white_check_mark: (FilterRecommender `reason`). Graph view :x: (needs chart library). |
-| Apply changes to FC and save; auto-snapshot new config | :white_check_mark: | Auto-apply via CLI `set` commands (PR #9). Pre-tuning safety snapshot. Save & reboot. |
+| Decide adjustments: dynamic notch, RPM filtering validation, gyro/D-term lowpass cutoff changes, safety bounds | :construction: | Dynamic notch range + gyro/D-term LPF done. RPM filtering validation deferred. |
+| Prefer minimal filtering compatible with safe noise levels to minimize latency | :white_check_mark: | Low noise → raise cutoffs for less latency; safety bounds enforced |
+| Provide plain-English explanation per change + interactive graph view | :white_check_mark: | Plain-English explanations + interactive FFT spectrum chart (Recharts) |
+| Apply changes to FC and save; auto-snapshot new config | :white_check_mark: | Auto-apply via CLI `set` commands, pre-tuning safety snapshot, save & reboot |
 
 ---
 
@@ -104,10 +104,11 @@ High-level user journey:
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
-| P/D balance step: temporarily set FF=0, dynamic damping=0, reduce I; run guided D sweep flights; compute step responses; select best D setting via overshoot/latency/ringing scoring | :construction: | Step detection + metrics + scoring done (PR #6). D sweep multi-log comparison not yet built. |
-| Master gain step: scale P/D together; detect onset of oscillation or instability; select highest stable multiplier with margin | :x: | Future enhancement — requires multi-flight iterative workflow. |
-| Restore and tune secondary parameters (FF, I, anti-gravity, etc.) using safe defaults and simple metrics | :x: | Future enhancement — requires additional MSP parameter support. |
-| Write final PIDs to FC; save; snapshot + diff vs previous | :white_check_mark: | Auto-apply PIDs via MSP + filters via CLI (PR #9). Pre-tuning safety snapshot. Save & reboot. |
+| P/D balance: run guided stick snap flights; compute step responses; recommend P/D adjustments | :white_check_mark: | Step detection + metrics + scoring + recommendations + interactive step response chart |
+| D sweep multi-log comparison (vary D, compare response quality) | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
+| Master gain step: scale P/D together; detect onset of oscillation | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
+| Restore and tune secondary parameters (FF, I, anti-gravity, etc.) | :fast_forward: | Deferred — requires additional MSP parameter support. |
+| Write final PIDs to FC; save; snapshot + diff vs previous | :white_check_mark: | Auto-apply PIDs via MSP + filters via CLI. Pre-tuning safety snapshot. Save & reboot. |
 
 ---
 
@@ -115,11 +116,13 @@ High-level user journey:
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
-| Wizard flow with progress (Setup -> Filter -> PID -> Results) | :white_check_mark: | 5-step wizard (Guide → Session → Filter → PID → Summary) with results display + apply confirmation (PR #8). |
-| Beginner language; tooltips for terms; advanced details toggle | :construction: | Recommendation reasons are beginner-friendly. Flight guide with phases and tips done. UI tooltips not yet built. |
-| Clear flight instructions with checklists and visual hints | :construction: | FlightGuideContent with 6 phases + 5 tips. TuningWorkflowModal for preparation. Visual diagrams pending. |
-| Robust error handling: inconclusive logs, missing data, parsing errors | :white_check_mark: | Parser corruption recovery, analysis fallback to full flight, IPC error responses |
-| Profiles/History screen: list snapshots, compare, restore, export/import | :construction: | Snapshot list + delete + export + restore/rollback :white_check_mark: (PR #10). Snapshot diff view :x:. |
+| Wizard flow with progress | :white_check_mark: | Mode-aware wizard (filter/pid) with progress indicator + two-flight status banner (10 phases) |
+| Beginner language; tooltips for terms; advanced details toggle | :construction: | Recommendation reasons are beginner-friendly. Flight guides done. UI tooltips not yet built. |
+| Clear flight instructions with checklists and visual hints | :white_check_mark: | FlightGuideContent with 6 phases + 5 tips. TuningWorkflowModal for preparation. Post-erase guidance. |
+| Robust error handling: inconclusive logs, missing data, parsing errors | :white_check_mark: | Parser corruption recovery, analysis fallback to full flight, IPC error responses, toast notifications |
+| Profiles/History screen: list snapshots, compare, restore, export/import | :white_check_mark: | Snapshot list + delete + export + restore/rollback + GitHub-style diff comparison view |
+| Interactive analysis charts | :white_check_mark: | FFT spectrum chart + step response chart + axis tabs (Recharts) |
+| Read-only analysis overview (no tuning session) | :white_check_mark: | Single-page analysis view with both filter and PID results |
 
 ---
 
@@ -130,7 +133,7 @@ High-level user journey:
 | Cross-platform desktop app for reliable USB serial, offline operation, and local file handling | :white_check_mark: | Electron (Node.js + Chromium) chosen |
 | Electron (Node.js + Chromium): fastest ecosystem, mature JS tooling | :white_check_mark: | Electron 28 + Vite + TypeScript + React |
 | Tauri (Rust backend + WebView): smaller binaries and lower RAM | :fast_forward: | Not chosen for MVP. May revisit post-v1. |
-| Keep analysis engine modular so it can later run as a Kubernetes service | :white_check_mark: | Analysis modules are pure functions (input -> output), no Electron dependencies |
+| Keep analysis engine modular so it can later run as a Kubernetes service | :white_check_mark: | Analysis modules are pure functions (input → output), no Electron dependencies |
 
 ---
 
@@ -140,21 +143,21 @@ High-level user journey:
 
 | Module | Spec Name | Status | Implementation |
 |--------|-----------|--------|----------------|
-| UI | React + chart library | :construction: | React :white_check_mark:. Chart library not yet added (needed for spectrum graphs). |
+| UI | React + chart library | :white_check_mark: | React + Recharts (interactive SVG charts) |
 | Backend | Electron Node process with serial/MSP + analysis workers | :white_check_mark: | Main process with MSPClient, managers, IPC handlers |
 | `msp-client` | connect, read/write settings, reboot, log download | :white_check_mark: | `src/main/msp/` — MSPProtocol, MSPConnection, MSPClient |
-| `config-vcs` | snapshots, diffs, rollback, export/import | :white_check_mark: | `src/main/storage/SnapshotManager.ts` + ProfileManager + snapshot restore (PR #10) |
-| `blackbox-parser` | decode logs | :white_check_mark: | `src/main/blackbox/` — 6 modules, 171 tests |
+| `config-vcs` | snapshots, diffs, rollback, export/import | :white_check_mark: | `src/main/storage/SnapshotManager.ts` + ProfileManager + snapshot restore + diff view |
+| `blackbox-parser` | decode logs | :white_check_mark: | `src/main/blackbox/` — 6 modules, 205 tests |
 | `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 98 tests (convergent noise-based targets) |
-| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 65 tests (flight PID anchoring, convergent) |
-| `tuning-orchestrator` | state machine + safety constraints | :white_check_mark: | `TUNING_APPLY_RECOMMENDATIONS` IPC handler (PR #9): MSP PIDs → snapshot → CLI filters → save. `SNAPSHOT_RESTORE` handler (PR #10). |
-| `ui-wizard` | screens + explanations + charts | :construction: | `src/renderer/components/TuningWizard/` — 5-step wizard, results display, apply confirmation. Charts pending. |
+| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 69 tests (flight PID anchoring, convergent) |
+| `tuning-orchestrator` | state machine + safety constraints | :white_check_mark: | TuningSessionManager (10-phase state machine) + apply handlers + restore handler |
+| `ui-wizard` | screens + explanations + charts | :white_check_mark: | TuningWizard (mode-aware) + AnalysisOverview + TuningStatusBanner + interactive charts |
 
 ### Persistence
 
 | Requirement | Status | Implementation |
 |-------------|--------|----------------|
-| Local folder or SQLite; store snapshots as JSON + CLI diff | :white_check_mark: | File-based JSON in `{userData}/data/` — profiles, snapshots, blackbox-logs |
+| Local folder; store snapshots as JSON + CLI diff | :white_check_mark: | File-based JSON in `{userData}/data/` — profiles, snapshots, blackbox-logs, tuning sessions |
 
 ---
 
@@ -162,8 +165,8 @@ High-level user journey:
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
-| Package analysis engine as a stateless service (container) that accepts logs + baseline config and returns recommended diffs | :fast_forward: | Architecture supports this — analysis modules are pure functions |
-| Keep core algorithms pure and testable (input -> output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 163 tests (98 filter + 65 PID) |
+| Package analysis engine as a stateless service (container) | :fast_forward: | Architecture supports this — analysis modules are pure functions |
+| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 167 tests (98 filter + 69 PID) |
 | Cloud optional; local remains primary | :white_check_mark: | Fully offline, no network calls |
 
 ---
@@ -172,9 +175,9 @@ High-level user journey:
 
 | Consideration | Status | Notes |
 |---------------|--------|-------|
-| Market pain is real: many pilots struggle with tuning and understanding Blackbox graphs | N/A | Validated by spec |
-| Differentiator: end-to-end guided workflow + automated recommendations + rollback + beginner explanations | :white_check_mark: | Full end-to-end pipeline: wizard → analysis → apply → rollback. Beginner explanations throughout. |
-| Monetization paths (later): open-core or freemium (AI assistant, cloud analysis, sync), or B2B licensing | :fast_forward: | Post-MVP |
+| Market pain is real: many pilots struggle with tuning | N/A | Validated by spec |
+| Differentiator: end-to-end guided workflow + automated recommendations + rollback + beginner explanations | :white_check_mark: | Full end-to-end pipeline with two-flight guided workflow |
+| Monetization paths (later): open-core or freemium | :fast_forward: | Post-MVP |
 | MVP should be fully usable offline without accounts | :white_check_mark: | No accounts, no network, fully local |
 
 ---
@@ -183,20 +186,18 @@ High-level user journey:
 
 | Deliverable | Status | Notes |
 |-------------|--------|-------|
-| Cross-platform desktop app (Win/macOS/Linux) | :construction: | Electron app runs. Cross-platform builds not tested. |
-| USB connect + read/write Betaflight settings via MSP | :white_check_mark: | Phase 1 complete |
-| Snapshot/versioning with rollback | :white_check_mark: | Phase 1 complete + snapshot restore/rollback (PR #10) |
-| Blackbox log import/download + parsing | :white_check_mark: | PR #2-4 complete |
-| Filter analysis + apply changes | :white_check_mark: | Analysis (PR #5) + auto-apply via CLI (PR #9). Convergent recommendations. |
-| PID analysis (P/D + master gain) + apply changes | :construction: | P/D analysis + auto-apply :white_check_mark: (PR #6, #9). Master gain step :x:. |
-| Guided tutorial screens for required test flights | :construction: | Wizard UI with flight guide + results display :white_check_mark: (PR #8). Visual aids/charts :x:. |
-| Export session report (PDF/HTML) summarizing changes | :fast_forward: | Optional in MVP, recommended for v1.1 |
+| Cross-platform desktop app (Win/macOS/Linux) | :construction: | Electron app runs. Cross-platform builds planned for Phase 6. |
+| USB connect + read/write Betaflight settings via MSP | :white_check_mark: | Complete |
+| Snapshot/versioning with rollback | :white_check_mark: | Complete with diff view |
+| Blackbox log import/download + parsing | :white_check_mark: | Complete (205 parser tests) |
+| Filter analysis + apply changes | :white_check_mark: | Complete with interactive charts |
+| PID analysis (P/D balance) + apply changes | :white_check_mark: | Complete with interactive charts. Master gain deferred. |
+| Guided tutorial screens for required test flights | :white_check_mark: | Two-flight guided workflow with status banner, flight guides, post-erase guidance |
+| Export session report (PDF/HTML) | :fast_forward: | Deferred to future iteration |
 
 ---
 
 ## 15. References
-
-Reference sources to consult during implementation (non-exhaustive):
 
 - Betaflight documentation: Blackbox, MSP protocol, Configurator
 - Betaflight Blackbox Log Viewer source code (parsing and plotting)
@@ -204,20 +205,141 @@ Reference sources to consult during implementation (non-exhaustive):
 - Oscar Liang: Blackbox tuning guides and throttle sweep methodology
 - Open-source parsers: orangebox (Python), bbl_parser (Rust)
 - @betaflight/api (JS) or equivalent MSP libraries
-- Tauri performance/size comparisons vs Electron
+
+---
+
+## Phase Tracking
+
+### Phase 1: Core Infrastructure :white_check_mark:
+**Status:** Complete | **PRs:** #1
+
+- Electron + Vite + TypeScript + React project setup
+- MSP Protocol implementation (connect, read/write, CLI mode)
+- FC information display
+- Configuration export (CLI diff/dump)
+- Snapshot versioning system (create, delete, export, baseline)
+- Multi-drone profile system (auto-detect by FC serial, 10 presets)
+- Profile management UI (wizard, editing, deletion, locking)
+- IPC architecture (preload bridge, event broadcasting)
+
+### Phase 2: Blackbox Analysis & Automated Tuning :white_check_mark:
+**Status:** Complete | **PRs:** #2–#10
+
+- Blackbox MSP commands (download, erase, info)
+- Blackbox binary log parser (205 tests, validated against BF Explorer)
+- FFT analysis engine (98 tests, Welch's method, peak detection)
+- Step response analyzer (69 tests, flight-PID anchoring)
+- Guided wizard UI (5-step flow)
+- Auto-apply recommendations (MSP PIDs → snapshot → CLI filters → save)
+- Convergent recommendations (idempotent)
+- Snapshot restore/rollback with safety backup
+
+### Phase 2.5: UX Polish :white_check_mark:
+**Status:** Complete | **PRs:** #11–#16
+
+- Profile simplification (removed unused fields)
+- Interactive analysis charts (FFT spectrum, step response) via Recharts
+- Snapshot diff/comparison view (GitHub-style)
+- Toast notification system
+
+### Phase 3: Mode-Aware Analysis :white_check_mark:
+**Status:** Complete | **PRs:** #17–#30
+
+- Mode-aware wizard (filter-only / pid-only step routing)
+- Read-only AnalysisOverview (single-page view without tuning session)
+- Flight guide content (6 phases + 5 tips per flight type)
+- TuningWorkflowModal (two-flight workflow preparation)
+
+### Phase 4: Stateful Two-Flight Tuning Workflow :white_check_mark:
+**Status:** Complete | **PRs:** #31–#37 | **Tests:** 841 across 47 files
+
+- TuningSessionManager (10-phase state machine, per-profile persistence)
+- TuningStatusBanner (dashboard banner with step indicator, action buttons)
+- Smart reconnect detection (auto-advance when flight data detected)
+- Post-erase guidance (flash erased notification with flight guide link)
+- BlackboxStatus readonly mode during active tuning sessions
+- FC diagnostics (GYRO_SCALED check, logging rate verification)
+- CLI disconnect/reconnect fix (exit reboot handling)
+- Dashboard layout (side-by-side Connection + Profile panels)
+
+### Phase 5: Complete Manual Testing & UX Polish :x:
+**Status:** Not started
+
+End-to-end manual testing with real hardware to validate the entire tuning workflow.
+
+**Goals:**
+- Complete real-world tuning cycle (connect → filters → PIDs → verify)
+- Validate log parsing accuracy against known-good logs from multiple FC types
+- Verify recommendation quality (are filter/PID suggestions actually improving flight?)
+- UX polish: fix any workflow friction, confusing labels, missing feedback
+- Test edge cases: different FC boards, firmware versions, flash sizes
+- Re-test log parsing with various Betaflight versions (4.3, 4.4, 4.5)
+- Validate recommendation convergence on real flight data
+- Cross-platform smoke test (macOS primary, Windows/Linux basic)
+
+### Phase 6: CI/CD & Cross-Platform Releases :x:
+**Status:** Not started
+
+Set up automated build pipeline that produces installable applications for all platforms.
+
+**Goals:**
+- GitHub Actions CI pipeline (lint, test, build on every PR)
+- Automated cross-platform builds:
+  - **macOS**: `.dmg` installer (Apple Silicon + Intel)
+  - **Windows**: `.exe` / `.msi` installer (NSIS or WiX)
+  - **Linux**: `.AppImage` / `.deb` / `.rpm`
+- Electron Builder or Electron Forge for packaging
+- Code signing (macOS notarization, Windows Authenticode)
+- Automated GitHub Releases with changelogs
+- Version bumping and tagging strategy
+- Auto-update mechanism (electron-updater)
+
+### Phase 7: E2E Tests on Real Flight Controller :x:
+**Status:** Not started
+
+Automated end-to-end tests running in CI pipeline against a real FC connected to a dedicated machine.
+
+**Goals:**
+- Dedicated test runner machine with FC physically connected via USB
+- Self-hosted GitHub Actions runner or remote test agent
+- E2E test suite covering:
+  - Serial port detection and connection
+  - MSP command round-trip (read FC info, read/write PIDs, read/write filters)
+  - CLI mode entry/exit, CLI diff export
+  - Blackbox flash operations (erase, write test data, read back)
+  - Snapshot create/restore cycle
+  - Full tuning apply flow (apply recommendations → verify settings changed)
+- Test isolation: reset FC to known state before each test
+- Reporting: test results in CI with FC firmware version metadata
+- Support multiple FC boards/firmware versions (test matrix)
 
 ---
 
 ## Progress Summary
 
-**Last Updated:** February 8, 2026 | **Tests:** 569 across 32 files | **PRs Merged:** #1–#10
+**Last Updated:** February 10, 2026 | **Tests:** 841 across 47 files | **PRs Merged:** #1–#37
 
-| Area | Completion | Notes |
-|------|------------|-------|
-| Drone Connection (Section 5) | **100%** | Fully complete |
-| Blackbox Logs (Section 6) | **90%** | Multi-log comparison missing |
-| Filter Tuning (Section 7) | **90%** | Analysis + apply done. RPM validation + graph UI missing. |
-| PID Tuning (Section 8) | **75%** | P/D analysis + apply done. D sweep multi-log + master gain missing. |
-| UX / Wizard (Section 9) | **75%** | Wizard + results + apply + rollback done. Visual aids + tooltips missing. |
-| Architecture (Section 11) | **95%** | All 8 core modules built. Chart library pending. |
-| MVP Deliverables (Section 14) | **~85%** | 5/8 fully done, 2 partial, 1 deferred. |
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1: Core Infrastructure | **100%** :white_check_mark: | MSP, profiles, snapshots |
+| Phase 2: Blackbox Analysis & Tuning | **100%** :white_check_mark: | Parser, FFT, step response, auto-apply, rollback |
+| Phase 2.5: UX Polish | **100%** :white_check_mark: | Charts, diff view, toast |
+| Phase 3: Mode-Aware Analysis | **100%** :white_check_mark: | Wizard modes, read-only analysis, flight guides |
+| Phase 4: Two-Flight Workflow | **100%** :white_check_mark: | Session state machine, smart reconnect, status banner |
+| Phase 5: Manual Testing & UX Polish | **0%** :x: | Next up |
+| Phase 6: CI/CD & Releases | **0%** :x: | After Phase 5 |
+| Phase 7: E2E on Real FC | **0%** :x: | After Phase 6 |
+
+### Remaining Spec Items (deferred to future iterations)
+
+| Item | Section | Notes |
+|------|---------|-------|
+| D sweep multi-log comparison | 8 | Requires multi-flight iterative workflow |
+| Master gain step (P/D scaling) | 8 | Requires multi-flight iterative workflow |
+| FF/I/secondary parameter tuning | 8 | Requires additional MSP parameter support |
+| RPM filtering validation | 7 | Low priority — most pilots use RPM filter by default |
+| UI tooltips for technical terms | 9 | Nice-to-have UX enhancement |
+| Auto-configure BB logging settings | 4 | Would streamline pre-flight setup |
+| AI-powered tuning (optional) | 2 | Post-MVP, user-supplied API key |
+| Export session report (PDF/HTML) | 14 | Nice-to-have for sharing |
+| Kubernetes analysis service | 12 | Post-v1, architecture already supports it |
