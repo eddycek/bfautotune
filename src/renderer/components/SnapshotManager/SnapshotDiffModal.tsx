@@ -19,6 +19,11 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
   const changedCount = diff.filter(d => d.status === 'changed').length;
   const removedCount = diff.filter(d => d.status === 'removed').length;
 
+  const summaryParts: string[] = [];
+  if (addedCount > 0) summaryParts.push(`${addedCount} added`);
+  if (changedCount > 0) summaryParts.push(`${changedCount} changed`);
+  if (removedCount > 0) summaryParts.push(`${removedCount} reset to default`);
+
   return (
     <div className="snapshot-diff-overlay" onClick={onClose}>
       <div className="snapshot-diff-modal" onClick={(e) => e.stopPropagation()}>
@@ -32,13 +37,13 @@ export function SnapshotDiffModal({ snapshotA, snapshotB, onClose }: SnapshotDif
         </div>
 
         <div className="snapshot-diff-legend">
-          <span className="diff-badge diff-badge-added">Added</span>
-          <span className="diff-badge diff-badge-changed">Changed</span>
-          <span className="diff-badge diff-badge-removed">Reset to default</span>
+          {addedCount > 0 && <span className="diff-badge diff-badge-added">Added</span>}
+          {changedCount > 0 && <span className="diff-badge diff-badge-changed">Changed</span>}
+          {removedCount > 0 && <span className="diff-badge diff-badge-removed">Reset to default</span>}
         </div>
 
         <div className="snapshot-diff-summary">
-          {addedCount} added, {changedCount} changed, {removedCount} reset to default
+          {summaryParts.join(', ') || 'No changes'}
         </div>
 
         <div className="snapshot-diff-content">
