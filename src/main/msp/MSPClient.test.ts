@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MSPClient } from './MSPClient';
 import { MSPCommand } from './types';
+import {
+  buildAPIVersionData,
+  buildFCVariantData,
+  buildFCVersionData,
+  buildBoardInfoData,
+  buildUIDData,
+  buildPIDData,
+  buildDataflashSummaryData,
+} from './test/mspResponseFactory';
 
 // Mock dependencies
 vi.mock('serialport', () => ({
@@ -17,13 +26,29 @@ vi.mock('../utils/logger', () => ({
 }));
 
 vi.mock('../utils/errors', () => ({
-  ConnectionError: class extends Error { constructor(m: string) { super(m); } },
-  MSPError: class extends Error { constructor(m: string) { super(m); } },
+  ConnectionError: class extends Error {
+    constructor(m: string, public details?: any) { super(m); this.name = 'ConnectionError'; }
+  },
+  MSPError: class extends Error {
+    constructor(m: string) { super(m); this.name = 'MSPError'; }
+  },
+  TimeoutError: class extends Error {
+    constructor(m = 'Operation timed out') { super(m); this.name = 'TimeoutError'; }
+  },
+  UnsupportedVersionError: class extends Error {
+    constructor(m: string, public detectedVersion?: string, public detectedApi?: any) {
+      super(m); this.name = 'UnsupportedVersionError';
+    }
+  },
 }));
 
 vi.mock('@shared/constants', () => ({
   MSP: { DEFAULT_BAUD_RATE: 115200 },
-  BETAFLIGHT: { VENDOR_IDS: [] },
+  BETAFLIGHT: {
+    VENDOR_IDS: ['0x0483', '0x2E8A'],
+    MIN_VERSION: '4.3.0',
+    MIN_API_VERSION: { major: 1, minor: 44 },
+  },
 }));
 
 describe('MSPClient.extractFlashPayload', () => {
@@ -319,5 +344,607 @@ describe('getPidProcessDenom', () => {
     await expect(client.getPidProcessDenom()).rejects.toThrow(
       'Invalid MSP_ADVANCED_CONFIG response - expected at least 2 bytes, got 1'
     );
+  });
+});
+
+// ─── Helper: create MSPClient with stubbed connection ────────────────
+
+function createClientWithStub() {
+  const client = new MSPClient();
+  const sendCommand = vi.fn();
+  const mockConn = {
+    sendCommand,
+    isOpen: vi.fn().mockReturnValue(true),
+    on: vi.fn(),
+    open: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
+    enterCLI: vi.fn().mockResolvedValue(undefined),
+    exitCLI: vi.fn().mockResolvedValue(undefined),
+    forceExitCLI: vi.fn().mockResolvedValue(undefined),
+    isInCLI: vi.fn().mockReturnValue(false),
+    sendCLICommand: vi.fn().mockResolvedValue(''),
+    writeCLIRaw: vi.fn().mockResolvedValue(undefined),
+    clearFCRebootedFromCLI: vi.fn(),
+  };
+  (client as any).connection = mockConn;
+  return { client, sendCommand, mockConn };
+}
+
+// ─── getApiVersion ───────────────────────────────────────────────────
+
+describe('MSPClient.getApiVersion', () => {
+  it('parses 3-byte API version response', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_API_VERSION,
+      data: buildAPIVersionData(1, 46),
+    });
+
+    const result = await client.getApiVersion();
+    expect(result).toEqual({ protocol: 0, major: 1, minor: 46 });
+  });
+
+  it('throws on response shorter than 3 bytes', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_API_VERSION,
+      data: Buffer.from([0, 1]),
+    });
+
+    await expect(client.getApiVersion()).rejects.toThrow('Invalid API_VERSION response');
+  });
+});
+
+// ─── getFCVariant ────────────────────────────────────────────────────
+
+describe('MSPClient.getFCVariant', () => {
+  it('parses 4-byte BTFL variant string', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_FC_VARIANT,
+      data: buildFCVariantData('BTFL'),
+    });
+
+    expect(await client.getFCVariant()).toBe('BTFL');
+  });
+
+  it('handles non-BTFL variant', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_FC_VARIANT,
+      data: buildFCVariantData('INAV'),
+    });
+
+    expect(await client.getFCVariant()).toBe('INAV');
+  });
+});
+
+// ─── getFCVersion ────────────────────────────────────────────────────
+
+describe('MSPClient.getFCVersion', () => {
+  it('parses version as "major.minor.patch" string', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_FC_VERSION,
+      data: buildFCVersionData(4, 5, 1),
+    });
+
+    expect(await client.getFCVersion()).toBe('4.5.1');
+  });
+
+  it('throws on response shorter than 3 bytes', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_FC_VERSION,
+      data: Buffer.from([4, 5]),
+    });
+
+    await expect(client.getFCVersion()).rejects.toThrow('Invalid FC_VERSION response');
+  });
+});
+
+// ─── getBoardInfo ────────────────────────────────────────────────────
+
+describe('MSPClient.getBoardInfo', () => {
+  it('parses full board info with all fields', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_BOARD_INFO,
+      data: buildBoardInfoData({
+        boardId: 'S7X2',
+        targetName: 'STM32F7X2',
+        boardName: 'SPEEDYBEEF7V3',
+        manufacturerId: 'SPBE',
+      }),
+    });
+
+    const result = await client.getBoardInfo();
+    expect(result.boardIdentifier).toBe('S7X2');
+    expect(result.targetName).toBe('STM32F7X2');
+    expect(result.boardName).toBe('SPEEDYBEEF7V3');
+    expect(result.manufacturerId).toBe('SPBE');
+  });
+
+  it('falls back to targetName when boardName is empty', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_BOARD_INFO,
+      data: buildBoardInfoData({
+        boardId: 'S405',
+        targetName: 'STM32F405',
+        boardName: '',
+      }),
+    });
+
+    const result = await client.getBoardInfo();
+    expect(result.boardName).toBe('STM32F405');
+  });
+
+  it('throws on response shorter than 9 bytes', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_BOARD_INFO,
+      data: Buffer.alloc(5),
+    });
+
+    await expect(client.getBoardInfo()).rejects.toThrow('Invalid BOARD_INFO response');
+  });
+});
+
+// ─── getUID ──────────────────────────────────────────────────────────
+
+describe('MSPClient.getUID', () => {
+  it('parses 12-byte UID to uppercase hex string', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_UID,
+      data: buildUIDData([0x00360024, 0x32385106, 0x31383730]),
+    });
+
+    const uid = await client.getUID();
+    // UID bytes in LE: 0x00360024 → [24,00,36,00], 0x32385106 → [06,51,38,32], 0x31383730 → [30,37,38,31]
+    expect(uid).toBe('240036000651383230373831');
+  });
+
+  it('throws on response shorter than 12 bytes', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_UID,
+      data: Buffer.alloc(8),
+    });
+
+    await expect(client.getUID()).rejects.toThrow('Invalid UID response');
+  });
+});
+
+// ─── getFCInfo ───────────────────────────────────────────────────────
+
+describe('MSPClient.getFCInfo', () => {
+  it('combines API version, variant, version, and board info', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockImplementation(async (cmd: number) => {
+      switch (cmd) {
+        case MSPCommand.MSP_API_VERSION:
+          return { command: cmd, data: buildAPIVersionData(1, 46) };
+        case MSPCommand.MSP_FC_VARIANT:
+          return { command: cmd, data: buildFCVariantData('BTFL') };
+        case MSPCommand.MSP_FC_VERSION:
+          return { command: cmd, data: buildFCVersionData(4, 5, 1) };
+        case MSPCommand.MSP_BOARD_INFO:
+          return { command: cmd, data: buildBoardInfoData({ targetName: 'STM32F7X2', boardName: 'SPEEDYBEEF7V3' }) };
+        default:
+          throw new Error(`Unexpected command: ${cmd}`);
+      }
+    });
+
+    const info = await client.getFCInfo();
+    expect(info.variant).toBe('BTFL');
+    expect(info.version).toBe('4.5.1');
+    expect(info.target).toBe('STM32F7X2');
+    expect(info.boardName).toBe('SPEEDYBEEF7V3');
+    expect(info.apiVersion).toEqual({ protocol: 0, major: 1, minor: 46 });
+  });
+});
+
+// ─── getPIDConfiguration ─────────────────────────────────────────────
+
+describe('MSPClient.getPIDConfiguration', () => {
+  it('parses roll/pitch/yaw P/I/D from first 9 bytes', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    const pidConfig = {
+      roll: { P: 45, I: 67, D: 23 },
+      pitch: { P: 50, I: 72, D: 25 },
+      yaw: { P: 35, I: 90, D: 0 },
+    };
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_PID,
+      data: buildPIDData(pidConfig),
+    });
+
+    const result = await client.getPIDConfiguration();
+    expect(result).toEqual(pidConfig);
+  });
+
+  it('throws on response shorter than 9 bytes', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_PID,
+      data: Buffer.alloc(6),
+    });
+
+    await expect(client.getPIDConfiguration()).rejects.toThrow('Invalid MSP_PID response');
+  });
+});
+
+// ─── setPIDConfiguration ─────────────────────────────────────────────
+
+describe('MSPClient.setPIDConfiguration', () => {
+  it('sends correct 30-byte buffer with P/I/D values', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({ command: MSPCommand.MSP_SET_PID, data: Buffer.alloc(0), error: false });
+
+    await client.setPIDConfiguration({
+      roll: { P: 45, I: 67, D: 23 },
+      pitch: { P: 50, I: 72, D: 25 },
+      yaw: { P: 35, I: 90, D: 0 },
+    });
+
+    expect(sendCommand).toHaveBeenCalledWith(MSPCommand.MSP_SET_PID, expect.any(Buffer));
+    const sentBuf: Buffer = sendCommand.mock.calls[0][1];
+    expect(sentBuf.length).toBe(30);
+    expect(sentBuf[0]).toBe(45); // roll P
+    expect(sentBuf[1]).toBe(67); // roll I
+    expect(sentBuf[2]).toBe(23); // roll D
+    expect(sentBuf[3]).toBe(50); // pitch P
+    expect(sentBuf[6]).toBe(35); // yaw P
+    expect(sentBuf[7]).toBe(90); // yaw I
+    expect(sentBuf[8]).toBe(0);  // yaw D
+  });
+
+  it('throws on error response from FC', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({ command: MSPCommand.MSP_SET_PID, data: Buffer.alloc(0), error: true });
+
+    await expect(client.setPIDConfiguration({
+      roll: { P: 45, I: 67, D: 23 },
+      pitch: { P: 50, I: 72, D: 25 },
+      yaw: { P: 35, I: 90, D: 0 },
+    })).rejects.toThrow('Failed to set PID configuration');
+  });
+});
+
+// ─── getBlackboxInfo ─────────────────────────────────────────────────
+
+describe('MSPClient.getBlackboxInfo', () => {
+  it('parses valid dataflash summary (supported, with data)', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+      data: buildDataflashSummaryData({
+        ready: 0x03, // supported + ready
+        totalSize: 2 * 1024 * 1024, // 2 MB
+        usedSize: 512 * 1024, // 512 KB
+      }),
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(true);
+    expect(info.totalSize).toBe(2 * 1024 * 1024);
+    expect(info.usedSize).toBe(512 * 1024);
+    expect(info.hasLogs).toBe(true);
+    expect(info.freeSize).toBe(2 * 1024 * 1024 - 512 * 1024);
+    expect(info.usagePercent).toBe(25);
+  });
+
+  it('returns unsupported for error response', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+      data: Buffer.alloc(0),
+      error: true,
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(false);
+  });
+
+  it('returns unsupported for response shorter than 13 bytes', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+      data: Buffer.alloc(8),
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(false);
+  });
+
+  it('handles invalid size 0x80000000 with supported flag', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    const buf = Buffer.alloc(13, 0);
+    buf.writeUInt8(0x03, 0); // supported + ready
+    buf.writeUInt32LE(0x80000000, 5); // invalid totalSize
+    buf.writeUInt32LE(0x80000000, 9); // invalid usedSize
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+      data: buf,
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(true);
+    expect(info.totalSize).toBe(0);
+    expect(info.hasLogs).toBe(false);
+  });
+
+  it('returns unsupported when flags bit 1 not set', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+      data: buildDataflashSummaryData({
+        ready: 0x01, // ready but NOT supported (bit 1 = 0)
+        totalSize: 1024,
+        usedSize: 0,
+      }),
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(false);
+  });
+
+  it('handles supported but empty flash (totalSize = 0)', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+      data: buildDataflashSummaryData({
+        ready: 0x03,
+        totalSize: 0,
+        usedSize: 0,
+      }),
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(true);
+    expect(info.totalSize).toBe(0);
+    expect(info.hasLogs).toBe(false);
+  });
+
+  it('catches sendCommand exceptions and returns unsupported', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockRejectedValue(new Error('Timeout'));
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(false);
+  });
+
+  it('throws when not connected', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.isOpen.mockReturnValue(false);
+
+    // isConnected() check is BEFORE the try/catch → throws directly
+    await expect(client.getBlackboxInfo()).rejects.toThrow('Flight controller not connected');
+  });
+});
+
+// ─── exportCLIDiff ───────────────────────────────────────────────────
+
+describe('MSPClient.exportCLIDiff', () => {
+  it('enters CLI, sends diff, and returns cleaned output', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.sendCLICommand.mockResolvedValue(
+      '# diff all\nset gyro_lpf1_static_hz = 250\nset dterm_lpf1_static_hz = 150\n#'
+    );
+
+    const result = await client.exportCLIDiff();
+    expect(mockConn.enterCLI).toHaveBeenCalled();
+    expect(mockConn.sendCLICommand).toHaveBeenCalledWith('diff all', 10000);
+    // cleanCLIOutput removes lines starting with # and empty lines
+    expect(result).toBe('set gyro_lpf1_static_hz = 250\nset dterm_lpf1_static_hz = 150');
+  });
+
+  it('skips enterCLI if already in CLI mode', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.isInCLI.mockReturnValue(true);
+    mockConn.sendCLICommand.mockResolvedValue('set motor_pwm_rate = 480\n#');
+
+    await client.exportCLIDiff();
+    expect(mockConn.enterCLI).not.toHaveBeenCalled();
+  });
+});
+
+// ─── saveAndReboot ───────────────────────────────────────────────────
+
+describe('MSPClient.saveAndReboot', () => {
+  it('enters CLI, writes save, clears CLI flag, emits disconnected', async () => {
+    const { client, mockConn } = createClientWithStub();
+    const emitSpy = vi.spyOn(client, 'emit');
+
+    await client.saveAndReboot();
+
+    expect(mockConn.enterCLI).toHaveBeenCalled();
+    expect(mockConn.writeCLIRaw).toHaveBeenCalledWith('save');
+    expect(mockConn.clearFCRebootedFromCLI).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+  });
+});
+
+// ─── disconnect ──────────────────────────────────────────────────────
+
+describe('MSPClient.disconnect', () => {
+  it('closes connection and emits connection-changed', async () => {
+    const { client, mockConn } = createClientWithStub();
+    const emitSpy = vi.spyOn(client, 'emit');
+
+    await client.disconnect();
+
+    expect(mockConn.close).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+  });
+
+  it('handles already-closed port gracefully', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.isOpen.mockReturnValue(false);
+    const emitSpy = vi.spyOn(client, 'emit');
+
+    await client.disconnect();
+
+    expect(mockConn.close).not.toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+  });
+
+  it('emits disconnected even if close() throws', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.close.mockRejectedValue(new Error('Close failed'));
+    const emitSpy = vi.spyOn(client, 'emit');
+
+    await expect(client.disconnect()).rejects.toThrow('Close failed');
+    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+  });
+});
+
+// ─── listPorts ───────────────────────────────────────────────────────
+
+describe('MSPClient.listPorts', () => {
+  it('filters ports by Betaflight vendor IDs', async () => {
+    const { SerialPort } = await import('serialport');
+    (SerialPort.list as any).mockResolvedValue([
+      { path: '/dev/ttyUSB0', vendorId: '0483', manufacturer: 'STM' },
+      { path: '/dev/ttyUSB1', vendorId: '1234', manufacturer: 'Other' },
+    ]);
+
+    const { client } = createClientWithStub();
+    const ports = await client.listPorts();
+
+    expect(ports.length).toBe(1);
+    expect(ports[0].path).toBe('/dev/ttyUSB0');
+  });
+
+  it('falls back to all ports with vendorId when no BF match', async () => {
+    const { SerialPort } = await import('serialport');
+    (SerialPort.list as any).mockResolvedValue([
+      { path: '/dev/ttyUSB0', vendorId: '9999', manufacturer: 'Unknown' },
+      { path: '/dev/ttyUSB1' }, // no vendorId
+    ]);
+
+    const { client } = createClientWithStub();
+    const ports = await client.listPorts();
+
+    // No BF vendor match → fallback to all ports with vendorId
+    expect(ports.length).toBe(1);
+    expect(ports[0].path).toBe('/dev/ttyUSB0');
+  });
+});
+
+// ─── validateFirmwareVersion ─────────────────────────────────────────
+
+describe('MSPClient.validateFirmwareVersion', () => {
+  it('passes for BF 4.5 (API 1.46)', () => {
+    const { client } = createClientWithStub();
+    const fcInfo = {
+      variant: 'BTFL',
+      version: '4.5.1',
+      target: 'STM32F7X2',
+      boardName: 'SPEEDYBEEF7V3',
+      apiVersion: { protocol: 0, major: 1, minor: 46 },
+    };
+
+    // Should not throw
+    expect(() => (client as any).validateFirmwareVersion(fcInfo)).not.toThrow();
+  });
+
+  it('passes for BF 4.3 (API 1.44) — minimum supported', () => {
+    const { client } = createClientWithStub();
+    const fcInfo = {
+      variant: 'BTFL',
+      version: '4.3.0',
+      target: 'STM32F405',
+      boardName: 'MAMBAF405',
+      apiVersion: { protocol: 0, major: 1, minor: 44 },
+    };
+
+    expect(() => (client as any).validateFirmwareVersion(fcInfo)).not.toThrow();
+  });
+
+  it('throws UnsupportedVersionError for BF 4.2 (API 1.43)', () => {
+    const { client } = createClientWithStub();
+    const fcInfo = {
+      variant: 'BTFL',
+      version: '4.2.11',
+      target: 'STM32F405',
+      boardName: 'MAMBAF405',
+      apiVersion: { protocol: 0, major: 1, minor: 43 },
+    };
+
+    expect(() => (client as any).validateFirmwareVersion(fcInfo)).toThrow(/not supported/);
+  });
+});
+
+// ─── connect lifecycle ───────────────────────────────────────────────
+
+describe('MSPClient.connect', () => {
+  function mockFCResponses(sendCommand: ReturnType<typeof vi.fn>) {
+    sendCommand.mockImplementation(async (cmd: number) => {
+      switch (cmd) {
+        case MSPCommand.MSP_API_VERSION:
+          return { command: cmd, data: buildAPIVersionData(1, 46) };
+        case MSPCommand.MSP_FC_VARIANT:
+          return { command: cmd, data: buildFCVariantData('BTFL') };
+        case MSPCommand.MSP_FC_VERSION:
+          return { command: cmd, data: buildFCVersionData(4, 5, 1) };
+        case MSPCommand.MSP_BOARD_INFO:
+          return { command: cmd, data: buildBoardInfoData({ targetName: 'STM32F7X2', boardName: 'SPEEDYBEEF7V3' }) };
+        default:
+          return { command: cmd, data: Buffer.alloc(0) };
+      }
+    });
+  }
+
+  it('opens port, reads FC info, and emits connection-changed', async () => {
+    const { client, sendCommand, mockConn } = createClientWithStub();
+    mockConn.isOpen.mockReturnValue(false); // Not yet connected
+    mockFCResponses(sendCommand);
+    const emitSpy = vi.spyOn(client, 'emit');
+    // Bypass delays
+    (client as any).delay = vi.fn().mockResolvedValue(undefined);
+
+    await client.connect('/dev/ttyUSB0');
+
+    expect(mockConn.open).toHaveBeenCalledWith('/dev/ttyUSB0', 115200);
+    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({
+      connected: true,
+      portPath: '/dev/ttyUSB0',
+    }));
+  });
+
+  it('throws when already connected', async () => {
+    const { client, mockConn } = createClientWithStub();
+    // isOpen returns true → already connected
+    mockConn.isOpen.mockReturnValue(true);
+
+    await expect(client.connect('/dev/ttyUSB0')).rejects.toThrow('Already connected');
+  });
+
+  it('rejects old firmware and closes port', async () => {
+    const { client, sendCommand, mockConn } = createClientWithStub();
+    mockConn.isOpen.mockReturnValue(false);
+    (client as any).delay = vi.fn().mockResolvedValue(undefined);
+
+    // Simulate BF 4.2 (API 1.43) — below minimum
+    sendCommand.mockImplementation(async (cmd: number) => {
+      switch (cmd) {
+        case MSPCommand.MSP_API_VERSION:
+          return { command: cmd, data: buildAPIVersionData(1, 43) };
+        case MSPCommand.MSP_FC_VARIANT:
+          return { command: cmd, data: buildFCVariantData('BTFL') };
+        case MSPCommand.MSP_FC_VERSION:
+          return { command: cmd, data: buildFCVersionData(4, 2, 11) };
+        case MSPCommand.MSP_BOARD_INFO:
+          return { command: cmd, data: buildBoardInfoData({}) };
+        default:
+          return { command: cmd, data: Buffer.alloc(0) };
+      }
+    });
+
+    await expect(client.connect('/dev/ttyUSB0')).rejects.toThrow(/not supported/);
+    expect(mockConn.close).toHaveBeenCalled();
   });
 });
