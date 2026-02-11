@@ -1,6 +1,6 @@
 # Feedforward Awareness: Detection, Warnings, and Future Recommendations
 
-> **Status**: Proposed
+> **Status**: Complete (PRs #55–#62)
 > **Date**: 2026-02-11
 > **Scope**: PID Analysis Pipeline, BBL Header Parsing, Types, UI Warnings
 

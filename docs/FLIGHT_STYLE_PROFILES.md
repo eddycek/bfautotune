@@ -1,6 +1,6 @@
 # Flight Style in Profiles: Subjective PID Tuning Preferences
 
-> **Status**: Proposed
+> **Status**: Complete (PRs #71–#78)
 > **Date**: 2026-02-11
 > **Scope**: Profile Types, Profile UI, PID Recommender, Constants
 

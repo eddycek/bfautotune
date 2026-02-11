@@ -9,21 +9,21 @@
 ## Table of Contents
 
 1. [Executive Summary](#1-executive-summary)
-2. [Current Coverage Audit](#2-current-coverage-audit)
+2. [Final Coverage Summary](#2-final-coverage-summary)
 3. [Testing Pyramid Strategy](#3-testing-pyramid-strategy)
 4. [Lessons from Betaflight Configurator](#4-lessons-from-betaflight-configurator)
-5. [Phase 1 — MSP Protocol & Connection Layer](#5-phase-1--msp-protocol--connection-layer)
-6. [Phase 2 — Storage Layer (Managers)](#6-phase-2--storage-layer-managers)
-7. [Phase 3 — IPC Handler Integration Tests](#7-phase-3--ipc-handler-integration-tests)
-8. [Phase 4 — BBL Parser Hardening](#8-phase-4--bbl-parser-hardening)
-9. [Phase 5 — Analysis Pipeline Validation](#9-phase-5--analysis-pipeline-validation)
-10. [Phase 6 — Remaining UI Components](#10-phase-6--remaining-ui-components)
-11. [Phase 7 — Remaining Hooks](#11-phase-7--remaining-hooks)
-12. [Phase 8 — End-to-End Workflow Tests](#12-phase-8--end-to-end-workflow-tests)
-13. [Phase 9 — Infrastructure & Tooling](#13-phase-9--infrastructure--tooling)
+5. [Phase 1 — MSP Protocol & Connection Layer](#5-phase-1--msp-protocol--connection-layer-)
+6. [Phase 2 — Storage Layer (Managers)](#6-phase-2--storage-layer-managers-)
+7. [Phase 3 — IPC Handler Integration Tests](#7-phase-3--ipc-handler-integration-tests-)
+8. [Phase 4 — BBL Parser Hardening](#8-phase-4--bbl-parser-hardening-)
+9. [Phase 5 — Analysis Pipeline Validation](#9-phase-5--analysis-pipeline-validation-)
+10. [Phase 6 — Remaining UI Components](#10-phase-6--remaining-ui-components-)
+11. [Phase 7 — Remaining Hooks](#11-phase-7--remaining-hooks-)
+12. [Phase 8 — End-to-End Workflow Tests](#12-phase-8--end-to-end-workflow-tests-)
+13. [Phase 9 — Infrastructure & Tooling](#13-phase-9--infrastructure--tooling-)
 14. [Implementation Roadmap](#14-implementation-roadmap)
 15. [Test Infrastructure Requirements](#15-test-infrastructure-requirements)
-16. [Appendix — File-Level Gap Analysis](#16-appendix--file-level-gap-analysis)
+16. [Appendix — File-Level Gap Analysis (Resolved)](#16-appendix--file-level-gap-analysis-resolved)
 
 ---
 
@@ -1330,16 +1330,16 @@ All priority gaps have been resolved. Below is the final status of each original
 
 ## Summary
 
-Plán byl kompletně implementován (všech 9 fází). Výsledek:
+All 9 phases have been fully implemented. Results:
 
-- **1440 testů / 75 souborů** (z původních 976 / 47 souborů) — nárůst o 464 testů / 28 souborů
-- **100% funkčního pokrytí** — každá user-facing funkce testována
-- **Plně mockovaný MSP layer** — MSPProtocol (30), MSPConnection (39), MSPClient (54) testů
-- **103 IPC handler testů** — všech 43 kanálů pokryto
-- **E2E workflow testy** — 30 testů pokrývajících celý tuning cyklus od připojení po aplikaci
-- **Reálné BBL logy v testech** — validace parseru (fuzz) a analýzy na skutečných datech
-- **Coverage thresholds** — 80% lines/functions/statements, 75% branches vynucováno v CI
-- **Autonomní vývoj odblokován** — každá IPC akce testovatelná bez připojení k reálnému FC
+- **1440 tests / 75 files** (up from 976 / 47 files) — 464 new tests / 28 new test files
+- **100% functional coverage** — every user-facing feature is tested
+- **Fully mocked MSP layer** — MSPProtocol (30), MSPConnection (39), MSPClient (54) tests
+- **103 IPC handler tests** — all 43 channels covered
+- **E2E workflow tests** — 30 tests covering the full tuning cycle from connection to apply
+- **Real BBL log validation** — parser fuzz tests and analysis pipeline validation with real flight data
+- **Coverage thresholds** — 80% lines/functions/statements, 75% branches enforced in vitest.config.ts
+- **Autonomous development unblocked** — every IPC action testable without connecting to a real FC
 
 ### PRs
 
