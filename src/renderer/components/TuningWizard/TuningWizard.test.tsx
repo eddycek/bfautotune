@@ -976,10 +976,14 @@ describe('TuningWizard', () => {
     await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
 
     await waitFor(() => {
-      expect(onApplyComplete).toHaveBeenCalledWith({
+      expect(onApplyComplete).toHaveBeenCalledWith(expect.objectContaining({
         filterChanges: [{ setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 300 }],
         pidChanges: undefined,
-      });
+      }));
+      // Also verify filter metrics are included
+      const call = onApplyComplete.mock.calls[0][0];
+      expect(call.filterMetrics).toBeDefined();
+      expect(call.filterMetrics.noiseLevel).toBe('low');
     });
   });
 
@@ -1010,10 +1014,14 @@ describe('TuningWizard', () => {
     await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
 
     await waitFor(() => {
-      expect(onApplyComplete).toHaveBeenCalledWith({
+      expect(onApplyComplete).toHaveBeenCalledWith(expect.objectContaining({
         filterChanges: undefined,
         pidChanges: [{ setting: 'pid_roll_p', previousValue: 45, newValue: 50 }],
-      });
+      }));
+      // Also verify PID metrics are included
+      const call = onApplyComplete.mock.calls[0][0];
+      expect(call.pidMetrics).toBeDefined();
+      expect(call.pidMetrics.stepsDetected).toBe(12);
     });
   });
 

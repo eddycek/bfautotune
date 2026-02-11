@@ -18,6 +18,7 @@ import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxPa
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress, FixBlackboxSettingsInput, FixBlackboxSettingsResult } from '@shared/types/ipc.types';
 import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
+import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -511,6 +512,15 @@ const betaflightAPI: BetaflightAPI = {
     return () => {
       ipcRenderer.removeListener(IPCChannel.EVENT_TUNING_SESSION_CHANGED, listener);
     };
+  },
+
+  // Tuning History
+  async getTuningHistory(): Promise<CompletedTuningRecord[]> {
+    const response = await ipcRenderer.invoke(IPCChannel.TUNING_GET_HISTORY);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get tuning history');
+    }
+    return response.data;
   },
 };
 

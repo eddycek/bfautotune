@@ -93,6 +93,9 @@ global.window.betaflight = {
   resetTuningSession: vi.fn(),
   onTuningSessionChanged: vi.fn(() => () => {}),
 
+  // Tuning History
+  getTuningHistory: vi.fn().mockResolvedValue([]),
+
   // Events
   onError: vi.fn(() => () => {}),
   onLog: vi.fn(() => () => {})

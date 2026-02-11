@@ -22,6 +22,8 @@ import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
 import type { TuningMode, AppliedChange } from '@shared/types/tuning.types';
+import type { FilterMetricsSummary, PIDMetricsSummary } from '@shared/types/tuning-history.types';
+import { extractFilterMetrics } from '@shared/utils/metricsExtract';
 import type { TuningAction } from './components/TuningStatusBanner/TuningStatusBanner';
 import './App.css';
 
@@ -43,6 +45,7 @@ function AppContent() {
   const [fixingSettings, setFixingSettings] = useState(false);
   const [showBannerFixConfirm, setShowBannerFixConfirm] = useState(false);
   const [fcVersion, setFcVersion] = useState('');
+  const [analyzingVerification, setAnalyzingVerification] = useState(false);
   const { createProfile, createProfileFromPreset, updateProfile, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const toast = useToast();
@@ -138,6 +141,9 @@ function AppContent() {
             await tuning.updatePhase('filter_analysis', { filterLogId: metadata.id });
           } else if (phase === 'pid_log_ready') {
             await tuning.updatePhase('pid_analysis', { pidLogId: metadata.id });
+          } else if (phase === 'verification_pending') {
+            // Save verification log ID without changing phase
+            await tuning.updatePhase('verification_pending', { verificationLogId: metadata.id });
           }
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to download log');
@@ -181,6 +187,45 @@ function AppContent() {
           toast.error(err instanceof Error ? err.message : 'Failed to complete session');
         }
         break;
+      case 'prepare_verification':
+        try {
+          setErasing(true);
+          await tuning.updatePhase('verification_pending');
+          await window.betaflight.eraseBlackboxFlash();
+          toast.success('Flash erased! Disconnect and fly a 30-60s hover.');
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to prepare verification');
+        } finally {
+          setErasing(false);
+        }
+        break;
+      case 'skip_verification':
+        try {
+          setErasedForPhase(null);
+          await tuning.updatePhase('completed');
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to complete session');
+        }
+        break;
+      case 'analyze_verification': {
+        const verLogId = tuning.session?.verificationLogId;
+        if (!verLogId) {
+          toast.info('Download a verification log first');
+          break;
+        }
+        try {
+          setAnalyzingVerification(true);
+          const filterResult = await window.betaflight.analyzeFilters(verLogId);
+          const verificationMetrics = extractFilterMetrics(filterResult);
+          await tuning.updatePhase('completed', { verificationMetrics });
+          setErasedForPhase(null);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to analyze verification');
+        } finally {
+          setAnalyzingVerification(false);
+        }
+        break;
+      }
       case 'dismiss':
         try {
           setErasedForPhase(null);
@@ -192,12 +237,23 @@ function AppContent() {
     }
   };
 
-  const handleApplyComplete = async (changes: { filterChanges?: AppliedChange[]; pidChanges?: AppliedChange[] }) => {
+  const handleApplyComplete = async (changes: {
+    filterChanges?: AppliedChange[];
+    pidChanges?: AppliedChange[];
+    filterMetrics?: FilterMetricsSummary;
+    pidMetrics?: PIDMetricsSummary;
+  }) => {
     const phase = tuning.session?.phase;
     if (phase === 'filter_analysis') {
-      await tuning.updatePhase('filter_applied', { appliedFilterChanges: changes.filterChanges });
+      await tuning.updatePhase('filter_applied', {
+        appliedFilterChanges: changes.filterChanges,
+        filterMetrics: changes.filterMetrics,
+      });
     } else if (phase === 'pid_analysis') {
-      await tuning.updatePhase('pid_applied', { appliedPIDChanges: changes.pidChanges });
+      await tuning.updatePhase('pid_applied', {
+        appliedPIDChanges: changes.pidChanges,
+        pidMetrics: changes.pidMetrics,
+      });
     }
   };
 
@@ -272,6 +328,7 @@ function AppContent() {
                 flashErased={erasedForPhase === tuning.session.phase}
                 erasing={erasing}
                 downloading={downloading}
+                analyzingVerification={analyzingVerification}
                 bbSettingsOk={bbStatus.allOk}
                 fixingSettings={fixingSettings}
                 onFixSettings={() => setShowBannerFixConfirm(true)}

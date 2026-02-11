@@ -20,6 +20,7 @@ import type { PIDConfiguration, PIDTerm, FeedforwardConfiguration } from '@share
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxSettings } from '@shared/types/blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
+import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errors';
 import { PRESET_PROFILES } from '@shared/constants';
@@ -35,6 +36,7 @@ let snapshotManager: any = null; // Will be set from main
 let profileManager: any = null; // Will be set from main
 let blackboxManager: any = null; // Will be set from main
 let tuningSessionManager: any = null; // Will be set from main
+let tuningHistoryManager: any = null; // Will be set from main
 let isDownloadingBlackbox = false; // Guard against concurrent downloads
 let pendingSettingsSnapshot = false; // Set after fix/reset — triggers clean snapshot on reconnect
 
@@ -56,6 +58,10 @@ export function setBlackboxManager(manager: any): void {
 
 export function setTuningSessionManager(manager: any): void {
   tuningSessionManager = manager;
+}
+
+export function setTuningHistoryManager(manager: any): void {
+  tuningHistoryManager = manager;
 }
 
 /** Returns true if a settings fix/reset was applied and a clean snapshot is needed on reconnect. */
@@ -488,6 +494,16 @@ export function registerIPCHandlers(): void {
       } catch (err) {
         logger.error(`Failed to delete Blackbox logs for profile ${id}:`, err);
         // Continue with profile deletion even if log deletion fails
+      }
+
+      // Delete tuning history for this profile
+      if (tuningHistoryManager) {
+        try {
+          await tuningHistoryManager.deleteHistory(id);
+          logger.info(`Deleted tuning history for profile ${id}`);
+        } catch (err) {
+          logger.error(`Failed to delete tuning history for profile ${id}:`, err);
+        }
       }
 
       // Delete the profile
@@ -1298,12 +1314,48 @@ export function registerIPCHandlers(): void {
           return createResponse<TuningSession>(undefined, 'No active profile');
         }
 
+        // Archive session to history before completing
+        if (phase === 'completed' && tuningHistoryManager) {
+          try {
+            // First update the phase to 'completed' so the session has the final data
+            const completedSession = await tuningSessionManager.updatePhase(profileId, phase, data);
+            await tuningHistoryManager.archiveSession(completedSession);
+            logger.info(`Tuning session archived to history for profile ${profileId}`);
+            sendTuningSessionChanged(completedSession);
+            return createResponse<TuningSession>(completedSession);
+          } catch (archiveError) {
+            logger.warn('Failed to archive tuning session (non-fatal):', archiveError);
+            // Fall through to normal update if archive fails
+          }
+        }
+
         const updated = await tuningSessionManager.updatePhase(profileId, phase, data);
         sendTuningSessionChanged(updated);
         return createResponse<TuningSession>(updated);
       } catch (error) {
         logger.error('Failed to update tuning phase:', error);
         return createResponse<TuningSession>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
+  // Tuning History handler
+  ipcMain.handle(
+    IPCChannel.TUNING_GET_HISTORY,
+    async (): Promise<IPCResponse<CompletedTuningRecord[]>> => {
+      try {
+        if (!tuningHistoryManager || !profileManager) {
+          return createResponse<CompletedTuningRecord[]>([]);
+        }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<CompletedTuningRecord[]>([]);
+        }
+        const history = await tuningHistoryManager.getHistory(profileId);
+        return createResponse<CompletedTuningRecord[]>(history);
+      } catch (error) {
+        logger.error('Failed to get tuning history:', error);
+        return createResponse<CompletedTuningRecord[]>(undefined, getErrorMessage(error));
       }
     }
   );

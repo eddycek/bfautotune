@@ -16,6 +16,7 @@ import type { PIDConfiguration, FeedforwardConfiguration } from './pid.types';
 import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress, BlackboxSettings } from './blackbox.types';
 import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings, FilterRecommendation, PIDRecommendation } from './analysis.types';
 import type { TuningSession, TuningPhase } from './tuning.types';
+import type { CompletedTuningRecord } from './tuning-history.types';
 
 /** Progress during snapshot restore */
 export interface SnapshotRestoreProgress {
@@ -128,6 +129,7 @@ export enum IPCChannel {
   TUNING_START_SESSION = 'tuning:start-session',
   TUNING_UPDATE_PHASE = 'tuning:update-phase',
   TUNING_RESET_SESSION = 'tuning:reset-session',
+  TUNING_GET_HISTORY = 'tuning:get-history',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -218,6 +220,9 @@ export interface BetaflightAPI {
   updateTuningPhase(phase: TuningPhase, data?: Partial<TuningSession>): Promise<TuningSession>;
   resetTuningSession(): Promise<void>;
   onTuningSessionChanged(callback: (session: TuningSession | null) => void): () => void;
+
+  // Tuning History
+  getTuningHistory(): Promise<CompletedTuningRecord[]>;
 
   // Events
   onError(callback: (error: string) => void): () => void;
