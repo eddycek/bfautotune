@@ -148,7 +148,7 @@ describe('SnapshotManager', () => {
     await user.click(createButton);
 
     expect(screen.getByRole('heading', { name: 'Create Snapshot' })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/label.*optional/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/name.*optional/i)).toBeInTheDocument();
   });
 
   it('allows entering snapshot label in create dialog', async () => {
@@ -158,7 +158,7 @@ describe('SnapshotManager', () => {
     const createButton = screen.getByRole('button', { name: /create snapshot/i });
     await user.click(createButton);
 
-    const labelInput = screen.getByPlaceholderText(/label.*optional/i);
+    const labelInput = screen.getByPlaceholderText(/name.*optional/i);
     await user.type(labelInput, 'My custom label');
 
     expect(screen.getByDisplayValue('My custom label')).toBeInTheDocument();
@@ -175,7 +175,7 @@ describe('SnapshotManager', () => {
     const createButton = screen.getByRole('button', { name: /create snapshot/i });
     await user.click(createButton);
 
-    const labelInput = screen.getByPlaceholderText(/label.*optional/i);
+    const labelInput = screen.getByPlaceholderText(/name.*optional/i);
     await user.type(labelInput, 'My snapshot');
 
     const confirmButton = screen.getByRole('button', { name: /^create$/i });
