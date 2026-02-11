@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1105 tests across 57 files** (last verified: February 11, 2026)
+**Total: 1185 tests across 61 files** (last verified: February 11, 2026)
 
 ### UI Components
 
@@ -218,6 +218,11 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
+| `storage/FileStorage.test.ts` | 14 | Snapshot JSON save/load/delete/list/export, ensureDirectory, snapshotExists |
+| `storage/ProfileStorage.test.ts` | 15 | Profile persistence, loadProfiles, findBySerial, export, ensureDirectory idempotent |
+| `storage/ProfileManager.test.ts` | 23 | Profile CRUD, preset creation, current profile, link/unlink snapshots, export |
+| `storage/SnapshotManager.test.ts` | 16 | Snapshot creation via MSP, baseline management, server-side filtering, delete protection |
+| `storage/BlackboxManager.test.ts` | 18 | Log save/list/get/delete/export, profile filtering, soft delete, initialization |
 | `storage/TuningSessionManager.test.ts` | 15 | Session CRUD, phase transitions, per-profile persistence |
 
 ### Blackbox Parser

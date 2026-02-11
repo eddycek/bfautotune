@@ -2,7 +2,7 @@
 
 > **Goal**: 100% functional coverage. Every feature testable without manual intervention. Claude can work on tasks independently without human QA.
 
-> **Date**: 2026-02-11 | **Current state**: 998 tests / 55 files | **Target**: ~1800+ tests / ~85 files
+> **Date**: 2026-02-11 | **Current state**: 1105 tests / 57 files | **Target**: ~1800+ tests / ~85 files
 
 ---
 
@@ -169,7 +169,10 @@
 
 ---
 
-## 5. Phase 1 — MSP Protocol & Connection Layer
+## 5. Phase 1 — MSP Protocol & Connection Layer ✅
+
+> **Status**: Complete (PR #85, merged). 123 new tests: MSPProtocol (30), MSPConnection (39), MSPClient extended (54 total, +38 new).
+> Test infrastructure: `mspResponseFactory.ts`, `MockSerialPort.ts`. Total: 1105 tests / 57 files.
 
 ### 5.1 MSPProtocol Tests (~30 tests)
 
@@ -321,7 +324,10 @@ export function pushString(buffer: number[], str: string, prefixLength?: boolean
 
 ---
 
-## 6. Phase 2 — Storage Layer (Managers)
+## 6. Phase 2 — Storage Layer (Managers) ✅
+
+> **Status**: Complete (PR #86, merged). 86 new tests: FileStorage (14), ProfileStorage (15), ProfileManager (23), SnapshotManager (16), BlackboxManager (18).
+> Real temp directories for FS tests, mocked MSPClient for SnapshotManager, mocked electron.app for BlackboxManager. Total: 1185 tests / 61 files.
 
 ### 6.1 FileStorage Tests (~15 tests)
 
@@ -1196,8 +1202,8 @@ describe('performance', () => {
 
 | Phase | Description | New Tests | Effort | Depends On |
 |-------|-------------|-----------|--------|------------|
-| **1** | MSP Protocol + Connection | ~120 | 3-4 days | — |
-| **2** | Storage Managers | ~100 | 2-3 days | — |
+| **1** | MSP Protocol + Connection | ~~120~~ **123 ✅** | Done (PR #85) | — |
+| **2** | Storage Managers | ~~100~~ **86 ✅** | Done (PR #86) | — |
 | **3** | IPC Handler Integration | ~200 | 4-5 days | Phase 1, 2 |
 | **4** | BBL Parser Hardening | ~30 | 1-2 days | — |
 | **5** | Analysis Real-Data Validation | ~20 | 1-2 days | Phase 4 |
