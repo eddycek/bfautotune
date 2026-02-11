@@ -6,17 +6,13 @@
  */
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { AxisStepProfile, FeedforwardContext, PIDRecommendation } from '@shared/types/analysis.types';
+import type { FlightStyle } from '@shared/types/profile.types';
 import {
-  OVERSHOOT_IDEAL_PERCENT,
-  OVERSHOOT_MAX_PERCENT,
-  RINGING_MAX_COUNT,
-  SETTLING_MAX_MS,
+  PID_STYLE_THRESHOLDS,
   P_GAIN_MIN,
   P_GAIN_MAX,
   D_GAIN_MIN,
   D_GAIN_MAX,
-  I_GAIN_MIN,
-  I_GAIN_MAX,
 } from './constants';
 
 const AXIS_NAMES = ['roll', 'pitch', 'yaw'] as const;
@@ -38,10 +34,12 @@ export function recommendPID(
   yaw: AxisStepProfile,
   currentPIDs: PIDConfiguration,
   flightPIDs?: PIDConfiguration,
-  feedforwardContext?: FeedforwardContext
+  feedforwardContext?: FeedforwardContext,
+  flightStyle: FlightStyle = 'balanced'
 ): PIDRecommendation[] {
   const recommendations: PIDRecommendation[] = [];
   const profiles = [roll, pitch, yaw] as const;
+  const thresholds = PID_STYLE_THRESHOLDS[flightStyle];
 
   for (let axis = 0; axis < 3; axis++) {
     const profile = profiles[axis];
@@ -60,9 +58,9 @@ export function recommendPID(
 
     // Yaw is analyzed with relaxed thresholds
     const isYaw = axis === 2;
-    const overshootThreshold = isYaw ? OVERSHOOT_MAX_PERCENT * 1.5 : OVERSHOOT_MAX_PERCENT;
-    const moderateOvershoot = isYaw ? OVERSHOOT_MAX_PERCENT : 15;
-    const sluggishRiseMs = isYaw ? 120 : 80;
+    const overshootThreshold = isYaw ? thresholds.overshootMax * 1.5 : thresholds.overshootMax;
+    const moderateOvershoot = isYaw ? thresholds.overshootMax : thresholds.moderateOvershoot;
+    const sluggishRiseMs = isYaw ? thresholds.sluggishRise * 1.5 : thresholds.sluggishRise;
 
     // FF-dominated overshoot: skip P/D rules, recommend FF adjustment instead
     if (axisFFDominated && profile.meanOvershoot > moderateOvershoot) {
@@ -126,7 +124,7 @@ export function recommendPID(
     }
 
     // Rule 2: Sluggish response (low overshoot + slow rise) → increase P by 5 (FPVSIM guidance)
-    if (profile.meanOvershoot < OVERSHOOT_IDEAL_PERCENT && profile.meanRiseTimeMs > sluggishRiseMs) {
+    if (profile.meanOvershoot < thresholds.overshootIdeal && profile.meanRiseTimeMs > sluggishRiseMs) {
       const targetP = clamp(base.P + 5, P_GAIN_MIN, P_GAIN_MAX);
       if (targetP !== pids.P) {
         recommendations.push({
@@ -142,7 +140,7 @@ export function recommendPID(
 
     // Rule 3: Excessive ringing → increase D (BF: any visible bounce-back should be addressed)
     const maxRinging = Math.max(...profile.responses.map(r => r.ringingCount));
-    if (maxRinging > RINGING_MAX_COUNT) {
+    if (maxRinging > thresholds.ringingMax) {
       const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
       if (targetD !== pids.D) {
         // Don't duplicate if we already recommended D increase for overshoot
@@ -161,7 +159,7 @@ export function recommendPID(
     }
 
     // Rule 4: Slow settling → might need more D or less I
-    if (profile.meanSettlingTimeMs > SETTLING_MAX_MS && profile.meanOvershoot < moderateOvershoot) {
+    if (profile.meanSettlingTimeMs > thresholds.settlingMax && profile.meanOvershoot < moderateOvershoot) {
       // Only if overshoot isn't the problem (settling from other causes)
       const existingDRec = recommendations.find(r => r.setting === `pid_${axisName}_d`);
       if (!existingDRec) {
@@ -186,20 +184,29 @@ export function recommendPID(
 /**
  * Generate a beginner-friendly summary of the PID analysis.
  */
+const STYLE_CONTEXT: Record<FlightStyle, string> = {
+  smooth: 'for smooth flying preferences',
+  balanced: '',
+  aggressive: 'optimized for racing response',
+};
+
 export function generatePIDSummary(
   roll: AxisStepProfile,
   pitch: AxisStepProfile,
   yaw: AxisStepProfile,
-  recommendations: PIDRecommendation[]
+  recommendations: PIDRecommendation[],
+  flightStyle: FlightStyle = 'balanced'
 ): string {
   const totalSteps = roll.responses.length + pitch.responses.length + yaw.responses.length;
+  const styleContext = STYLE_CONTEXT[flightStyle];
+  const styleNote = styleContext ? ` ${styleContext}` : '';
 
   if (totalSteps === 0) {
     return 'No step inputs detected in this flight. Try flying with quick, decisive stick movements for better PID analysis.';
   }
 
   if (recommendations.length === 0) {
-    return `Analyzed ${totalSteps} stick inputs. Your PID tune looks good — response is quick with minimal overshoot. No changes recommended.`;
+    return `Analyzed ${totalSteps} stick inputs${styleNote}. Your PID tune looks good — response is quick with minimal overshoot. No changes recommended.`;
   }
 
   const hasOvershoot = recommendations.some(r => r.reason.includes('overshoot') || r.reason.includes('Overshoot'));
@@ -215,7 +222,7 @@ export function generatePIDSummary(
     ? issues.join(' and ')
     : 'room for improvement';
 
-  return `Analyzed ${totalSteps} stick inputs and found ${issueText}. ${recommendations.length} adjustment${recommendations.length === 1 ? '' : 's'} recommended — apply them for a tighter, more locked-in feel.`;
+  return `Analyzed ${totalSteps} stick inputs${styleNote} and found ${issueText}. ${recommendations.length} adjustment${recommendations.length === 1 ? '' : 's'} recommended — apply them for a tighter, more locked-in feel.`;
 }
 
 /**

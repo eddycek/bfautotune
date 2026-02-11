@@ -339,6 +339,61 @@ describe('PIDRecommender', () => {
       expect(dRec).toBeDefined();
     });
 
+    // --- FlightStyle-aware tests ---
+
+    it('balanced style: identical behavior to default (regression test)', () => {
+      const profile = makeProfile({ meanOvershoot: 20 });
+
+      const recsDefault = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+      const recsBalanced = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'balanced');
+
+      expect(recsBalanced).toEqual(recsDefault);
+    });
+
+    it('smooth style + 10% overshoot: recommends reducing (too high for smooth)', () => {
+      // smooth moderateOvershoot = 8, so 10% > 8 → should trigger D increase
+      const profile = makeProfile({ meanOvershoot: 10 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'smooth');
+
+      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+      expect(dRec!.reason).toContain('overshoot');
+    });
+
+    it('aggressive style + 20% overshoot: no overshoot recommendation (acceptable)', () => {
+      // aggressive moderateOvershoot = 25, overshootMax = 35
+      // 20% < 25 → no moderate overshoot rule, and < 35 → no severe rule
+      const profile = makeProfile({ meanOvershoot: 20 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'aggressive');
+
+      const overshootRecs = recs.filter(r => r.reason.includes('overshoot'));
+      expect(overshootRecs.length).toBe(0);
+    });
+
+    it('smooth style + 100ms rise time: no sluggish warning (acceptable for smooth)', () => {
+      // smooth sluggishRise = 120, overshootIdeal = 3
+      // 100ms < 120 → not sluggish for smooth
+      const profile = makeProfile({ meanOvershoot: 2, meanRiseTimeMs: 100 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'smooth');
+
+      const sluggishRecs = recs.filter(r => r.reason.includes('sluggish'));
+      expect(sluggishRecs.length).toBe(0);
+    });
+
+    it('aggressive style + 70ms rise time: sluggish warning (too slow for aggressive)', () => {
+      // aggressive sluggishRise = 50, overshootIdeal = 18
+      // 70ms > 50 and meanOvershoot < 18 → sluggish
+      const profile = makeProfile({ meanOvershoot: 5, meanRiseTimeMs: 70 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'aggressive');
+
+      const sluggishRecs = recs.filter(r => r.reason.includes('sluggish'));
+      expect(sluggishRecs.length).toBeGreaterThan(0);
+    });
+
     it('should emit feedforward_boost recommendation only once across axes', () => {
       const ffResponse = makeResponse({ overshootPercent: 30, ffDominated: true });
       const rollProfile = makeProfile({ responses: [ffResponse], meanOvershoot: 30 });
@@ -460,6 +515,25 @@ describe('PIDRecommender', () => {
       const summary = generatePIDSummary(profile, profile, emptyProfile(), []);
 
       expect(summary).toContain('2'); // 2 total steps (1 roll + 1 pitch)
+    });
+
+    it('should include style context for smooth', () => {
+      const good = makeProfile({ meanOvershoot: 2, meanRiseTimeMs: 30 });
+      const summary = generatePIDSummary(good, good, emptyProfile(), [], 'smooth');
+      expect(summary).toContain('smooth flying');
+    });
+
+    it('should include style context for aggressive', () => {
+      const good = makeProfile({ meanOvershoot: 15, meanRiseTimeMs: 20 });
+      const summary = generatePIDSummary(good, good, emptyProfile(), [], 'aggressive');
+      expect(summary).toContain('racing');
+    });
+
+    it('should not include style context for balanced (default)', () => {
+      const good = makeProfile({ meanOvershoot: 5, meanRiseTimeMs: 30 });
+      const summary = generatePIDSummary(good, good, emptyProfile(), [], 'balanced');
+      expect(summary).not.toContain('smooth');
+      expect(summary).not.toContain('racing');
     });
   });
 });
