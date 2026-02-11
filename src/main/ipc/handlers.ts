@@ -36,6 +36,7 @@ let profileManager: any = null; // Will be set from main
 let blackboxManager: any = null; // Will be set from main
 let tuningSessionManager: any = null; // Will be set from main
 let isDownloadingBlackbox = false; // Guard against concurrent downloads
+let pendingSettingsSnapshot = false; // Set after fix/reset — triggers clean snapshot on reconnect
 
 export function setMSPClient(client: any): void {
   mspClient = client;
@@ -55,6 +56,15 @@ export function setBlackboxManager(manager: any): void {
 
 export function setTuningSessionManager(manager: any): void {
   tuningSessionManager = manager;
+}
+
+/** Returns true if a settings fix/reset was applied and a clean snapshot is needed on reconnect. */
+export function consumePendingSettingsSnapshot(): boolean {
+  if (pendingSettingsSnapshot) {
+    pendingSettingsSnapshot = false;
+    return true;
+  }
+  return false;
 }
 
 function createResponse<T>(data: T | undefined, error?: string): IPCResponse<T> {
@@ -249,14 +259,10 @@ export function registerIPCHandlers(): void {
         await mspClient.connection.sendCLICommand(cmd);
       }
 
-      // Capture a snapshot with the fixed settings before reboot.
-      // Settings are in RAM after CLI set commands — diff all will reflect them.
-      try {
-        await snapshotManager.createSnapshot('Post-fix settings (auto)', 'auto');
-        logger.info('Post-fix snapshot created');
-      } catch (snapErr) {
-        logger.warn('Failed to create post-fix snapshot (non-fatal):', snapErr);
-      }
+      // Flag for clean snapshot creation on reconnect (after FC reboots).
+      // Creating a snapshot mid-CLI is unreliable (MSP/CLI mode conflicts),
+      // so we defer it to the next 'connected' event.
+      pendingSettingsSnapshot = true;
 
       await mspClient.saveAndReboot();
 
