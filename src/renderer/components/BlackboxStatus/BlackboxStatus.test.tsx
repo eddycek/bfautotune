@@ -6,6 +6,7 @@ import type { BlackboxInfo } from '@shared/types/blackbox.types';
 describe('BlackboxStatus', () => {
   const mockBlackboxInfoSupported: BlackboxInfo = {
     supported: true,
+    storageType: 'flash',
     totalSize: 16 * 1024 * 1024, // 16 MB
     usedSize: 8 * 1024 * 1024, // 8 MB
     hasLogs: true,
@@ -15,6 +16,7 @@ describe('BlackboxStatus', () => {
 
   const mockBlackboxInfoEmpty: BlackboxInfo = {
     supported: true,
+    storageType: 'flash',
     totalSize: 16 * 1024 * 1024,
     usedSize: 0,
     hasLogs: false,
@@ -24,6 +26,27 @@ describe('BlackboxStatus', () => {
 
   const mockBlackboxInfoNotSupported: BlackboxInfo = {
     supported: false,
+    storageType: 'none',
+    totalSize: 0,
+    usedSize: 0,
+    hasLogs: false,
+    freeSize: 0,
+    usagePercent: 0
+  };
+
+  const mockSDCardInfo: BlackboxInfo = {
+    supported: true,
+    storageType: 'sdcard',
+    totalSize: 32 * 1024 * 1024 * 1024, // 32 GB
+    usedSize: 28 * 1024 * 1024 * 1024, // 28 GB
+    hasLogs: true,
+    freeSize: 4 * 1024 * 1024 * 1024, // 4 GB
+    usagePercent: 87
+  };
+
+  const mockSDCardNotReady: BlackboxInfo = {
+    supported: true,
+    storageType: 'sdcard',
     totalSize: 0,
     usedSize: 0,
     hasLogs: false,
@@ -100,6 +123,7 @@ describe('BlackboxStatus', () => {
   it('formats bytes correctly', async () => {
     const largeStorageInfo: BlackboxInfo = {
       supported: true,
+      storageType: 'flash',
       totalSize: 128 * 1024 * 1024, // 128 MB
       usedSize: 64 * 1024 * 1024, // 64 MB
       hasLogs: true,
@@ -161,6 +185,73 @@ describe('BlackboxStatus', () => {
 
     await waitFor(() => {
       expect(window.betaflight.getBlackboxInfo).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('SD card storage', () => {
+    it('shows SD Card label in header when storageType is sdcard', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockSDCardInfo);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/SD Card/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows storage stats for SD card', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockSDCardInfo);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('32.00 GB')).toBeInTheDocument(); // Total
+        expect(screen.getByText('87%')).toBeInTheDocument(); // Usage
+      });
+    });
+
+    it('shows SD card not ready message when state is not ready', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockSDCardNotReady);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('SD card not ready')).toBeInTheDocument();
+      });
+    });
+
+    it('shows Erase Logs instead of Erase Flash for SD card', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockSDCardInfo);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Erase Logs')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Erase Flash')).not.toBeInTheDocument();
+    });
+
+    it('hides Test Read button for SD card', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockSDCardInfo);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Download Logs')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Test Read (Debug)')).not.toBeInTheDocument();
+    });
+
+    it('shows Download Logs button for SD card', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockSDCardInfo);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Download Logs')).toBeInTheDocument();
+      });
     });
   });
 

@@ -1,14 +1,43 @@
 /**
- * Blackbox data flash storage information
+ * Storage type for blackbox logging
+ */
+export type BlackboxStorageType = 'flash' | 'sdcard' | 'none';
+
+/**
+ * SD card state as reported by MSP_SDCARD_SUMMARY
+ */
+export enum SDCardState {
+  NOT_PRESENT = 0,
+  FATAL = 1,
+  CARD_INIT = 2,
+  FS_INIT = 3,
+  READY = 4
+}
+
+/**
+ * SD card info from MSP_SDCARD_SUMMARY
+ */
+export interface SDCardInfo {
+  supported: boolean;
+  state: SDCardState;
+  lastError: number;
+  freeSizeKB: number;
+  totalSizeKB: number;
+}
+
+/**
+ * Blackbox storage information (flash or SD card)
  */
 export interface BlackboxInfo {
   /** Whether Blackbox is supported on this FC */
   supported: boolean;
-  /** Total flash storage size in bytes (0 if no flash) */
+  /** Storage type: 'flash' for onboard SPI flash, 'sdcard' for onboard SD card, 'none' if unsupported */
+  storageType: BlackboxStorageType;
+  /** Total storage size in bytes (0 if no storage) */
   totalSize: number;
-  /** Used flash storage size in bytes */
+  /** Used storage size in bytes */
   usedSize: number;
-  /** Whether flash has any logs */
+  /** Whether storage has any logs */
   hasLogs: boolean;
   /** Free space in bytes */
   freeSize: number;
