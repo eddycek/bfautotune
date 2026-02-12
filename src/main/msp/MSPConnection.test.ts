@@ -334,6 +334,38 @@ describe('MSPConnection', () => {
       const written = port.getAllWrittenBytes().toString();
       expect(written).toContain('#');
     });
+
+    it('accumulates data into cliBuffer across chunks', async () => {
+      await conn.open('/dev/ttyUSB0');
+      const port = getPort();
+
+      const enterPromise = conn.enterCLI();
+      await new Promise(r => setTimeout(r, 20));
+      // Data arrives in two chunks — prompt split across them
+      port.injectData('Entering CLI Mode\r\n');
+      await new Promise(r => setTimeout(r, 10));
+      port.injectData('# ');
+      await enterPromise;
+
+      expect(conn.isInCLI()).toBe(true);
+    });
+
+    it('does NOT resolve on bare # without trailing space', async () => {
+      await conn.open('/dev/ttyUSB0');
+      const port = getPort();
+
+      const enterPromise = conn.enterCLI();
+      await new Promise(r => setTimeout(r, 20));
+      // Inject hash without trailing space — should NOT resolve
+      port.injectData('Entering CLI\r\n#');
+      await new Promise(r => setTimeout(r, 50));
+
+      // Should still be pending — verify by injecting proper prompt
+      port.injectData(' ');
+      await enterPromise;
+
+      expect(conn.isInCLI()).toBe(true);
+    });
   });
 
   // ─── sendCLICommand() ───────────────────────────────────────
@@ -352,13 +384,15 @@ describe('MSPConnection', () => {
       return port;
     }
 
-    it('sends command and waits for \\n# prompt', async () => {
+    it('sends command and waits for \\n# prompt with debounce', async () => {
       const port = await enterCLIMode();
 
       const cmdPromise = conn.sendCLICommand('set debug_mode = GYRO_SCALED');
 
       await new Promise(r => setTimeout(r, 20));
-      port.injectData('set debug_mode = GYRO_SCALED\r\n#');
+      port.injectData('set debug_mode = GYRO_SCALED\r\n# ');
+      // Wait for 100ms debounce to fire
+      await new Promise(r => setTimeout(r, 150));
 
       const result = await cmdPromise;
       expect(result).toContain('debug_mode');
@@ -367,7 +401,7 @@ describe('MSPConnection', () => {
     it('does NOT false-match # in diff output comment lines', async () => {
       const port = await enterCLIMode();
 
-      const cmdPromise = conn.sendCLICommand('diff all', 500);
+      const cmdPromise = conn.sendCLICommand('diff all', 2000);
 
       await new Promise(r => setTimeout(r, 20));
       // Comment lines with # that should NOT trigger prompt detection
@@ -375,8 +409,10 @@ describe('MSPConnection', () => {
       await new Promise(r => setTimeout(r, 20));
       port.injectData('# profile 0\r\nset p_roll = 45\r\n');
       await new Promise(r => setTimeout(r, 20));
-      // Actual CLI prompt — buffer ends with \n#
-      port.injectData('\n#');
+      // Actual CLI prompt — buffer ends with \n# (with space)
+      port.injectData('\n# ');
+      // Wait for debounce
+      await new Promise(r => setTimeout(r, 150));
 
       const result = await cmdPromise;
       expect(result).toContain('debug_mode');
@@ -386,19 +422,79 @@ describe('MSPConnection', () => {
     it('accumulates multi-line response', async () => {
       const port = await enterCLIMode();
 
-      const cmdPromise = conn.sendCLICommand('diff all', 500);
+      const cmdPromise = conn.sendCLICommand('diff all', 2000);
 
       await new Promise(r => setTimeout(r, 20));
       port.injectData('set a = 1\r\n');
       await new Promise(r => setTimeout(r, 10));
       port.injectData('set b = 2\r\n');
       await new Promise(r => setTimeout(r, 10));
-      port.injectData('set c = 3\r\n#');
+      port.injectData('set c = 3\r\n# ');
+      // Wait for debounce
+      await new Promise(r => setTimeout(r, 150));
 
       const result = await cmdPromise;
       expect(result).toContain('set a = 1');
       expect(result).toContain('set b = 2');
       expect(result).toContain('set c = 3');
+    });
+
+    it('does NOT resolve early when chunk boundary splits "# master" header', async () => {
+      const port = await enterCLIMode();
+
+      const cmdPromise = conn.sendCLICommand('diff all', 2000);
+
+      await new Promise(r => setTimeout(r, 20));
+      port.injectData('set gyro_lpf1 = 200\r\n');
+      await new Promise(r => setTimeout(r, 10));
+      // Chunk boundary: "# " arrives alone (looks like prompt)
+      port.injectData('# ');
+      await new Promise(r => setTimeout(r, 30));
+      // But before debounce fires (100ms), rest of header arrives
+      port.injectData('master\r\nset dterm_lpf1 = 150\r\n');
+      await new Promise(r => setTimeout(r, 10));
+      // More data
+      port.injectData('# profile 0\r\nset p_roll = 45\r\n');
+      await new Promise(r => setTimeout(r, 10));
+      // Real prompt
+      port.injectData('\n# ');
+      // Wait for debounce
+      await new Promise(r => setTimeout(r, 150));
+
+      const result = await cmdPromise;
+      // Must contain ALL data — not truncated at "# master"
+      expect(result).toContain('gyro_lpf1');
+      expect(result).toContain('dterm_lpf1');
+      expect(result).toContain('p_roll');
+    });
+
+    it('debounce resets when more data arrives before 100ms', async () => {
+      const port = await enterCLIMode();
+
+      let resolved = false;
+      const cmdPromise = conn.sendCLICommand('diff all', 2000).then(result => {
+        resolved = true;
+        return result;
+      });
+
+      await new Promise(r => setTimeout(r, 20));
+      // First "# " — starts debounce timer
+      port.injectData('set a = 1\r\n# ');
+      await new Promise(r => setTimeout(r, 50));
+      // Not yet resolved (debounce is 100ms)
+      expect(resolved).toBe(false);
+      // More data arrives — cancels debounce, no longer matches prompt
+      port.injectData('profile 0\r\nset b = 2\r\n');
+      await new Promise(r => setTimeout(r, 150));
+      // Still not resolved — buffer no longer ends with "# "
+      expect(resolved).toBe(false);
+      // Real prompt
+      port.injectData('\n# ');
+      await new Promise(r => setTimeout(r, 150));
+
+      const result = await cmdPromise;
+      expect(result).toContain('set a = 1');
+      expect(result).toContain('set b = 2');
     });
 
     it('throws ConnectionError if not in CLI mode', async () => {
@@ -411,6 +507,21 @@ describe('MSPConnection', () => {
       await expect(
         conn.sendCLICommand('set something = 1', 50)
       ).rejects.toThrow('CLI command timed out');
+    }, 1000);
+
+    it('cleans up debounce timer on timeout', async () => {
+      const port = await enterCLIMode();
+
+      // Start a command that will time out with a pending debounce
+      const cmdPromise = conn.sendCLICommand('diff all', 200);
+      await new Promise(r => setTimeout(r, 20));
+      // Inject potential prompt to start debounce
+      port.injectData('partial\r\n# ');
+      // Inject more data before debounce fires to cancel it
+      await new Promise(r => setTimeout(r, 30));
+      port.injectData('master\r\n');
+      // Let it time out — no real prompt ever arrives
+      await expect(cmdPromise).rejects.toThrow('CLI command timed out');
     }, 1000);
   });
 

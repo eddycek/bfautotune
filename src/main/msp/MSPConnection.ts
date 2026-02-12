@@ -180,7 +180,10 @@ export class MSPConnection extends EventEmitter {
       }, MSP.COMMAND_TIMEOUT);
 
       const listener = (data: string) => {
-        if (data.includes('#')) {
+        this.cliBuffer += data;
+        // Check accumulated buffer for CLI prompt "# " (hash + space).
+        // No debounce needed — no diff output during CLI entry.
+        if (this.cliBuffer.endsWith('\n# ') || this.cliBuffer === '# ') {
           clearTimeout(timeoutId);
           this.removeListener('cli-data', listener);
           resolve();
@@ -236,23 +239,34 @@ export class MSPConnection extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       this.cliBuffer = '';
+      let promptTimer: ReturnType<typeof setTimeout> | null = null;
 
       const timeoutId = setTimeout(() => {
+        if (promptTimer) clearTimeout(promptTimer);
         this.removeListener('cli-data', listener);
         reject(new TimeoutError(`CLI command timed out: ${command}`));
       }, timeout);
 
       const listener = (data: string) => {
         this.cliBuffer += data;
-        // Wait for CLI prompt at end of accumulated buffer.
-        // The prompt is "# " after a newline. We must check the accumulated
-        // buffer (not individual chunks) to avoid false-matching comment
-        // lines like "# master" or "# profile 0" in diff/dump output.
-        const trimmed = this.cliBuffer.trimEnd();
-        if (trimmed.endsWith('\n#') || trimmed === '#') {
-          clearTimeout(timeoutId);
-          this.removeListener('cli-data', listener);
-          resolve(this.cliBuffer);
+
+        // Cancel any pending prompt detection — more data arrived
+        if (promptTimer) {
+          clearTimeout(promptTimer);
+          promptTimer = null;
+        }
+
+        // The real BF CLI prompt is "# " (hash + space) on its own line.
+        // We check for the trailing space to distinguish from section headers
+        // like "# master" which also start with "# " but continue with text.
+        // A 100ms debounce ensures we don't resolve on a chunk boundary where
+        // "# " arrives but the rest of "# master\r\n" hasn't yet.
+        if (this.cliBuffer.endsWith('\n# ') || this.cliBuffer === '# ') {
+          promptTimer = setTimeout(() => {
+            clearTimeout(timeoutId);
+            this.removeListener('cli-data', listener);
+            resolve(this.cliBuffer);
+          }, 100);
         }
       };
 
