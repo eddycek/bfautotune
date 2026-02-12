@@ -53,11 +53,11 @@ export class MSCManager {
     this.cancelled = false;
 
     // Step 1: Snapshot current volumes before MSC reboot
-    onProgress?.({ stage: 'entering_msc', message: 'Preparing mass storage mode...', percent: 5 });
+    onProgress?.({ stage: 'entering_msc', message: 'Preparing mass storage mode...', percent: 1 });
     const volumesBefore = await snapshotVolumes();
 
     // Step 2: Send MSC reboot command
-    onProgress?.({ stage: 'entering_msc', message: 'Rebooting FC into mass storage mode...', percent: 10 });
+    onProgress?.({ stage: 'entering_msc', message: 'Rebooting FC into mass storage mode...', percent: 2 });
     const accepted = await this.mspClient.rebootToMSC();
     if (!accepted) {
       throw new Error('FC rejected mass storage mode — SD card may not be ready');
@@ -66,7 +66,7 @@ export class MSCManager {
     this.checkCancelled();
 
     // Step 3: Wait for SD card to mount as USB drive
-    onProgress?.({ stage: 'waiting_mount', message: 'Waiting for SD card to mount...', percent: 20 });
+    onProgress?.({ stage: 'waiting_mount', message: 'Waiting for SD card to mount...', percent: 3 });
     let drive: DetectedDrive;
     try {
       drive = await detectNewDrive(volumesBefore, 30000, 1000);
@@ -80,14 +80,15 @@ export class MSCManager {
     this.checkCancelled();
 
     // Step 4: Find and copy log files
-    onProgress?.({ stage: 'copying', message: 'Scanning for log files...', percent: 30 });
+    // Progress: 5%–90% reserved for copying (bulk of the work)
+    onProgress?.({ stage: 'copying', message: 'Scanning for log files...', percent: 5 });
     const logFiles = await findLogFiles(drive.mountPath);
 
     if (logFiles.length === 0) {
       // No log files — still need to eject
-      onProgress?.({ stage: 'ejecting', message: 'No log files found. Ejecting SD card...', percent: 80 });
+      onProgress?.({ stage: 'ejecting', message: 'No log files found. Ejecting SD card...', percent: 93 });
       await this.safeEject(drive.mountPath);
-      onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 90 });
+      onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 95 });
       return [];
     }
 
@@ -101,7 +102,7 @@ export class MSCManager {
       const filename = basename(srcPath);
       const destPath = join(destDir, filename);
 
-      const progressPercent = 30 + Math.round(((i + 1) / logFiles.length) * 45);
+      const progressPercent = 5 + Math.round(((i + 1) / logFiles.length) * 85);
       onProgress?.({
         stage: 'copying',
         message: `Copying ${filename} (${i + 1}/${logFiles.length})...`,
@@ -123,11 +124,11 @@ export class MSCManager {
     this.checkCancelled();
 
     // Step 5: Eject drive
-    onProgress?.({ stage: 'ejecting', message: 'Ejecting SD card...', percent: 80 });
+    onProgress?.({ stage: 'ejecting', message: 'Ejecting SD card...', percent: 93 });
     await this.safeEject(drive.mountPath);
 
     // Step 6: Signal waiting for reconnect (actual reconnect handled by caller)
-    onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 90 });
+    onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 95 });
 
     logger.info(`MSC download complete: ${copiedFiles.length} files copied`);
     return copiedFiles;
@@ -142,11 +143,11 @@ export class MSCManager {
     this.cancelled = false;
 
     // Step 1: Snapshot volumes
-    onProgress?.({ stage: 'entering_msc', message: 'Preparing mass storage mode...', percent: 5 });
+    onProgress?.({ stage: 'entering_msc', message: 'Preparing mass storage mode...', percent: 1 });
     const volumesBefore = await snapshotVolumes();
 
     // Step 2: MSC reboot
-    onProgress?.({ stage: 'entering_msc', message: 'Rebooting FC into mass storage mode...', percent: 10 });
+    onProgress?.({ stage: 'entering_msc', message: 'Rebooting FC into mass storage mode...', percent: 2 });
     const accepted = await this.mspClient.rebootToMSC();
     if (!accepted) {
       throw new Error('FC rejected mass storage mode — SD card may not be ready');
@@ -155,7 +156,7 @@ export class MSCManager {
     this.checkCancelled();
 
     // Step 3: Wait for mount
-    onProgress?.({ stage: 'waiting_mount', message: 'Waiting for SD card to mount...', percent: 20 });
+    onProgress?.({ stage: 'waiting_mount', message: 'Waiting for SD card to mount...', percent: 3 });
     let drive: DetectedDrive;
     try {
       drive = await detectNewDrive(volumesBefore, 30000, 1000);
@@ -169,7 +170,7 @@ export class MSCManager {
     this.checkCancelled();
 
     // Step 4: Find and delete log files
-    onProgress?.({ stage: 'erasing', message: 'Scanning for log files...', percent: 40 });
+    onProgress?.({ stage: 'erasing', message: 'Scanning for log files...', percent: 5 });
     const logFiles = await findLogFiles(drive.mountPath);
 
     let deleted = 0;
@@ -187,11 +188,11 @@ export class MSCManager {
     logger.info(`Deleted ${deleted}/${logFiles.length} log files`);
 
     // Step 5: Eject
-    onProgress?.({ stage: 'ejecting', message: 'Ejecting SD card...', percent: 80 });
+    onProgress?.({ stage: 'ejecting', message: 'Ejecting SD card...', percent: 93 });
     await this.safeEject(drive.mountPath);
 
     // Step 6: Wait for reconnect
-    onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 90 });
+    onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 95 });
   }
 
   /**
