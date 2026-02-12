@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1571 tests across 84 files** (last verified: February 12, 2026)
+**Total: 1584 tests across 84 files** (last verified: February 12, 2026)
 
 ### UI Components
 
@@ -162,11 +162,11 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 13 | Connection flow, port scanning, cooldown, auto-cooldown on unexpected disconnect |
 | `FCInfo/FCInfoDisplay.test.tsx` | 33 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix/reset settings |
 | `FCInfo/FixSettingsConfirmModal.test.tsx` | 4 | Fix settings confirmation modal, reboot warning, confirm/cancel |
-| `BlackboxStatus/BlackboxStatus.test.tsx` | 21 | Blackbox status, download trigger, readonly mode, onAnalyze, SD card storage type, erase labels |
+| `BlackboxStatus/BlackboxStatus.test.tsx` | 28 | Blackbox status, download trigger, readonly mode, onAnalyze, SD card storage type, erase labels, log numbering, pagination |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 18 | Profile editing, validation, form handling, flight style selector |
 | `ProfileDeleteModal.test.tsx` | 12 | Deletion confirmation, warnings |
-| `SnapshotManager/SnapshotManager.test.tsx` | 36 | Snapshot CRUD, export, restore, baseline handling, dynamic numbering |
+| `SnapshotManager/SnapshotManager.test.tsx` | 42 | Snapshot CRUD, export, restore, baseline handling, dynamic numbering, pagination |
 | `SnapshotManager/SnapshotDiffModal.test.tsx` | 13 | Snapshot diff view, change display |
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |

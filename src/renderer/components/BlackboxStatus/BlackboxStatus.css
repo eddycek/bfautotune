@@ -446,6 +446,51 @@
   transform: scale(1.05);
 }
 
+.log-number {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary, #777);
+  margin-right: 6px;
+}
+
+/* Pagination Controls */
+.blackbox-status .pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+
+.blackbox-status .pagination-button {
+  padding: 4px 12px;
+  background: var(--bg-tertiary, #333);
+  color: var(--text-primary, #fff);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.blackbox-status .pagination-button:hover:not(:disabled) {
+  background: var(--bg-hover, #3a3a3a);
+  border-color: var(--primary-color, #4dabf7);
+}
+
+.blackbox-status .pagination-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.blackbox-status .pagination-info {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  white-space: nowrap;
+}
+
 /* Modal Overlay */
 .modal-overlay {
   position: fixed;

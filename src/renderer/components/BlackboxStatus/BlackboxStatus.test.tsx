@@ -1,7 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { BlackboxStatus } from './BlackboxStatus';
+import userEvent from '@testing-library/user-event';
+import { BlackboxStatus, _resetPersistedLogsPage } from './BlackboxStatus';
 import type { BlackboxInfo } from '@shared/types/blackbox.types';
+
+function makeMockLog(index: number) {
+  const ts = new Date(2026, 1, 9, 12, 0, 0);
+  ts.setMinutes(index); // Each log 1 min apart for stable sort order
+  return {
+    id: `log-${index}`,
+    filename: `blackbox_${index}.bbl`,
+    filepath: `/tmp/blackbox_${index}.bbl`,
+    timestamp: ts.toISOString(),
+    size: 1024 * 1024,
+    fcInfo: { variant: 'BTFL', version: '4.5.0' },
+  };
+}
 
 describe('BlackboxStatus', () => {
   const mockBlackboxInfoSupported: BlackboxInfo = {
@@ -56,6 +70,7 @@ describe('BlackboxStatus', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetPersistedLogsPage();
   });
 
   it('renders loading state initially', () => {
@@ -336,7 +351,6 @@ describe('BlackboxStatus', () => {
       vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
       vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue([mockLog]);
       const onAnalyze = vi.fn();
-      const { default: userEvent } = await import('@testing-library/user-event');
       const user = userEvent.setup();
 
       render(<BlackboxStatus onAnalyze={onAnalyze} />);
@@ -348,6 +362,169 @@ describe('BlackboxStatus', () => {
       await user.click(screen.getByText('Analyze'));
 
       expect(onAnalyze).toHaveBeenCalledWith('log-1', 'blackbox_2026-02-09.bbl');
+    });
+  });
+
+  describe('log numbering and pagination', () => {
+    it('displays #N numbering for logs (newest = highest)', async () => {
+      const logs = [makeMockLog(1), makeMockLog(2), makeMockLog(3)];
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(logs);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        const numbers = document.querySelectorAll('.log-number');
+        expect(numbers).toHaveLength(3);
+        // Sorted newest-first: log-3 (#3), log-2 (#2), log-1 (#1)
+        expect(numbers[0].textContent).toBe('#3');
+        expect(numbers[1].textContent).toBe('#2');
+        expect(numbers[2].textContent).toBe('#1');
+      });
+    });
+
+    it('does not show pagination controls for fewer than 20 logs', async () => {
+      const logs = Array.from({ length: 5 }, (_, i) => makeMockLog(i + 1));
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(logs);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(document.querySelectorAll('.log-number')).toHaveLength(5);
+      });
+
+      expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+    });
+
+    it('shows pagination controls and 20 items per page for > 20 logs', async () => {
+      const logs = Array.from({ length: 25 }, (_, i) => makeMockLog(i + 1));
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(logs);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(document.querySelectorAll('.log-number')).toHaveLength(20);
+      });
+
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    });
+
+    it('navigates to page 2 with correct numbering', async () => {
+      const logs = Array.from({ length: 25 }, (_, i) => makeMockLog(i + 1));
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(logs);
+      const user = userEvent.setup();
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+
+      // Page 2: items 21-25 sorted newest-first → #5, #4, #3, #2, #1
+      const numbers = document.querySelectorAll('.log-number');
+      expect(numbers).toHaveLength(5);
+      expect(numbers[0].textContent).toBe('#5');
+      expect(numbers[1].textContent).toBe('#4');
+      expect(numbers[2].textContent).toBe('#3');
+      expect(numbers[3].textContent).toBe('#2');
+      expect(numbers[4].textContent).toBe('#1');
+    });
+
+    it('disables Prev on first page and Next on last page', async () => {
+      const logs = Array.from({ length: 25 }, (_, i) => makeMockLog(i + 1));
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(logs);
+      const user = userEvent.setup();
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole('button', { name: 'Prev' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Next' })).not.toBeDisabled();
+
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole('button', { name: 'Prev' })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    });
+
+    it('persists page across unmount/remount via module-level variable', async () => {
+      const logs = Array.from({ length: 25 }, (_, i) => makeMockLog(i + 1));
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(logs);
+      const user = userEvent.setup();
+
+      const { unmount } = render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+
+      unmount();
+
+      // Re-render — should start on page 2
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+    });
+
+    it('clamps page when log count decreases', async () => {
+      const logs = Array.from({ length: 25 }, (_, i) => makeMockLog(i + 1));
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(logs);
+      const user = userEvent.setup();
+
+      const { unmount } = render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+
+      unmount();
+
+      // Now fewer logs — page 2 no longer exists
+      const fewerLogs = Array.from({ length: 10 }, (_, i) => makeMockLog(i + 1));
+      vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(fewerLogs);
+
+      render(<BlackboxStatus />);
+
+      // Should clamp to page 1 (only 10 logs = 1 page)
+      await waitFor(() => {
+        const numbers = document.querySelectorAll('.log-number');
+        expect(numbers).toHaveLength(10);
+      });
+
+      expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
     });
   });
 });
