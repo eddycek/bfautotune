@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1569 tests across 84 files** (last verified: February 12, 2026)
+**Total: 1571 tests across 84 files** (last verified: February 12, 2026)
 
 ### UI Components
 
@@ -239,7 +239,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `msc/driveDetector.test.ts` | 18 | Cross-platform volume snapshot (macOS/Windows/Linux), BF log file matching, new drive detection with polling, drive eject |
+| `msc/driveDetector.test.ts` | 20 | Cross-platform volume snapshot (macOS/Windows/Linux), BF log file matching (root + subdirs), new drive detection with polling, drive eject |
 | `msc/MSCManager.test.ts` | 12 | Download/erase lifecycle, MSC rejection, mount timeout, cancel, multi-file copy, eject error handling |
 
 ### Storage

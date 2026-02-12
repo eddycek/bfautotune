@@ -128,14 +128,18 @@ describe('driveDetector', () => {
   });
 
   describe('findLogFiles', () => {
-    it('finds BBL files matching BF patterns', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue([
-        'BTFL_001.BBL',
-        'BTFL_002.BBL',
-        'LOG00001.TXT',
-        'README.txt',
-        'config.txt',
-      ] as any);
+    /** Mock readdir: return files for a specific path, ENOENT for others */
+    function mockReaddirForPath(pathFiles: Record<string, string[]>) {
+      vi.mocked(fs.readdir).mockImplementation(async (path: any) => {
+        if (pathFiles[path]) return pathFiles[path] as any;
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+    }
+
+    it('finds BBL files matching BF patterns in root', async () => {
+      mockReaddirForPath({
+        '/Volumes/BLACKBOX': ['BTFL_001.BBL', 'BTFL_002.BBL', 'LOG00001.TXT', 'README.txt', 'config.txt'],
+      });
 
       const result = await findLogFiles('/Volumes/BLACKBOX');
 
@@ -146,8 +150,24 @@ describe('driveDetector', () => {
       ]);
     });
 
-    it('returns empty array when no log files found', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue(['config.txt', 'notes.md'] as any);
+    it('finds BBL files in LOGS subdirectory', async () => {
+      mockReaddirForPath({
+        '/Volumes/BLACKBOX': ['config.txt'],
+        '/Volumes/BLACKBOX/LOGS': ['BTFL_001.BBL', 'BTFL_002.BBL'],
+      });
+
+      const result = await findLogFiles('/Volumes/BLACKBOX');
+
+      expect(result).toEqual([
+        '/Volumes/BLACKBOX/LOGS/BTFL_001.BBL',
+        '/Volumes/BLACKBOX/LOGS/BTFL_002.BBL',
+      ]);
+    });
+
+    it('returns empty array when no log files found anywhere', async () => {
+      mockReaddirForPath({
+        '/Volumes/BLACKBOX': ['config.txt', 'notes.md'],
+      });
 
       const result = await findLogFiles('/Volumes/BLACKBOX');
 
@@ -155,32 +175,33 @@ describe('driveDetector', () => {
     });
 
     it('matches .BFL files', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue(['flight.BFL'] as any);
+      mockReaddirForPath({
+        '/Volumes/BLACKBOX': ['flight.BFL'],
+      });
 
       const result = await findLogFiles('/Volumes/BLACKBOX');
 
       expect(result).toEqual(['/Volumes/BLACKBOX/flight.BFL']);
     });
 
-    it('returns sorted results', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue([
-        'BTFL_003.BBL',
-        'BTFL_001.BBL',
-        'BTFL_002.BBL',
-      ] as any);
+    it('returns sorted results from multiple directories', async () => {
+      mockReaddirForPath({
+        '/Volumes/BLACKBOX': ['BTFL_003.BBL'],
+        '/Volumes/BLACKBOX/LOGS': ['BTFL_001.BBL', 'BTFL_002.BBL'],
+      });
 
       const result = await findLogFiles('/Volumes/BLACKBOX');
 
       expect(result).toEqual([
-        '/Volumes/BLACKBOX/BTFL_001.BBL',
-        '/Volumes/BLACKBOX/BTFL_002.BBL',
         '/Volumes/BLACKBOX/BTFL_003.BBL',
+        '/Volumes/BLACKBOX/LOGS/BTFL_001.BBL',
+        '/Volumes/BLACKBOX/LOGS/BTFL_002.BBL',
       ]);
     });
   });
 
   describe('detectNewDrive', () => {
-    it('detects new volume with BF log files', async () => {
+    it('detects new volume with BF log files in root', async () => {
       setPlatform('darwin');
 
       const before = new Set(['/Volumes/Macintosh HD']);
@@ -193,11 +214,36 @@ describe('driveDetector', () => {
           if (pollCount === 1) return ['Macintosh HD'] as any;
           return ['Macintosh HD', 'BLACKBOX'] as any;
         }
-        // hasBFLogFiles check
+        // hasBFLogFiles check — root has log files
         if (path === '/Volumes/BLACKBOX') {
           return ['BTFL_001.BBL'] as any;
         }
-        return [] as any;
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = await detectNewDrive(before, 5000, 50);
+
+      expect(result.mountPath).toBe('/Volumes/BLACKBOX');
+      expect(result.label).toBe('BLACKBOX');
+    });
+
+    it('detects new volume with BF log files in LOGS subdir', async () => {
+      setPlatform('darwin');
+
+      const before = new Set(['/Volumes/Macintosh HD']);
+
+      vi.mocked(fs.readdir).mockImplementation(async (path: any) => {
+        if (path === '/Volumes') {
+          return ['Macintosh HD', 'BLACKBOX'] as any;
+        }
+        // Root has no logs, but LOGS subdir does
+        if (path === '/Volumes/BLACKBOX') {
+          return ['config.txt'] as any;
+        }
+        if (path === '/Volumes/BLACKBOX/LOGS') {
+          return ['BTFL_001.BBL'] as any;
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
 
       const result = await detectNewDrive(before, 5000, 50);
@@ -210,7 +256,10 @@ describe('driveDetector', () => {
       setPlatform('darwin');
 
       const before = new Set(['/Volumes/Macintosh HD']);
-      vi.mocked(fs.readdir).mockResolvedValue(['Macintosh HD'] as any);
+      vi.mocked(fs.readdir).mockImplementation(async (path: any) => {
+        if (path === '/Volumes') return ['Macintosh HD'] as any;
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
 
       await expect(detectNewDrive(before, 200, 50)).rejects.toThrow(/not detected within/);
     });
@@ -224,11 +273,11 @@ describe('driveDetector', () => {
         if (path === '/Volumes') {
           return ['Macintosh HD', 'THUMB_DRIVE'] as any;
         }
-        // THUMB_DRIVE has no BF logs
+        // THUMB_DRIVE has no BF logs anywhere
         if (path === '/Volumes/THUMB_DRIVE') {
           return ['photo.jpg', 'document.pdf'] as any;
         }
-        return [] as any;
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
 
       await expect(detectNewDrive(before, 300, 50)).rejects.toThrow(/not detected within/);

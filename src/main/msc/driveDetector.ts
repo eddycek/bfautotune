@@ -8,6 +8,9 @@ const execAsync = promisify(exec);
 /** File patterns that identify a Betaflight blackbox SD card */
 const BF_LOG_PATTERNS = [/^BTFL_\d+\.BBL$/i, /^LOG\d+\.TXT$/i, /\.BBL$/i, /\.BFL$/i];
 
+/** Subdirectories where BF may store blackbox logs */
+const BF_LOG_SUBDIRS = ['', 'LOGS', 'logs', 'Logs', 'blackbox', 'BLACKBOX'];
+
 export interface DetectedDrive {
   /** Mount path (e.g. /Volumes/BLACKBOX) */
   mountPath: string;
@@ -86,15 +89,23 @@ export async function detectNewDrive(
 
 /**
  * Find all blackbox log files on a mounted drive.
+ * Searches root and common subdirectories (LOGS/, logs/, etc.).
  * Returns absolute paths sorted by name.
  */
 export async function findLogFiles(mountPath: string): Promise<string[]> {
-  const entries = await fs.readdir(mountPath);
   const logFiles: string[] = [];
 
-  for (const entry of entries) {
-    if (BF_LOG_PATTERNS.some(p => p.test(entry))) {
-      logFiles.push(`${mountPath}/${entry}`);
+  for (const subdir of BF_LOG_SUBDIRS) {
+    const searchPath = subdir ? `${mountPath}/${subdir}` : mountPath;
+    try {
+      const entries = await fs.readdir(searchPath);
+      for (const entry of entries) {
+        if (BF_LOG_PATTERNS.some(p => p.test(entry))) {
+          logFiles.push(`${searchPath}/${entry}`);
+        }
+      }
+    } catch {
+      // Subdirectory doesn't exist — skip
     }
   }
 
@@ -211,10 +222,16 @@ async function ejectLinux(mountPath: string): Promise<void> {
 // --- Helpers ---
 
 async function hasBFLogFiles(volumePath: string): Promise<boolean> {
-  try {
-    const entries = await fs.readdir(volumePath);
-    return entries.some(entry => BF_LOG_PATTERNS.some(p => p.test(entry)));
-  } catch {
-    return false;
+  for (const subdir of BF_LOG_SUBDIRS) {
+    const searchPath = subdir ? `${volumePath}/${subdir}` : volumePath;
+    try {
+      const entries = await fs.readdir(searchPath);
+      if (entries.some(entry => BF_LOG_PATTERNS.some(p => p.test(entry)))) {
+        return true;
+      }
+    } catch {
+      // Subdirectory doesn't exist — continue
+    }
   }
+  return false;
 }
