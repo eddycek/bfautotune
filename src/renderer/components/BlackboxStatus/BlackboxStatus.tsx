@@ -113,23 +113,27 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
         <h3>Blackbox Storage</h3>
         <div className="not-supported">
           <span className="icon">⚠️</span>
-          <span>Blackbox not supported or no flash storage detected</span>
+          <span>Blackbox not supported — no flash or SD card detected</span>
         </div>
       </div>
     );
   }
 
-  // Blackbox supported but size info not available (SD card or external storage)
+  // Blackbox supported but size info not available (SD card not ready, etc.)
   if (info.supported && info.totalSize === 0) {
+    const sdcardNotReady = info.storageType === 'sdcard';
     return (
       <div className="blackbox-status">
         <h3>Blackbox Storage</h3>
         <div className="storage-info">
           <div className="info-message">
-            <span className="icon">ℹ️</span>
+            <span className="icon">{sdcardNotReady ? '⚠️' : 'ℹ️'}</span>
             <div>
-              <strong>Blackbox is supported</strong>
-              <p>Storage size unavailable - your FC might use SD card logging instead of onboard flash.</p>
+              <strong>{sdcardNotReady ? 'SD card not ready' : 'Blackbox is supported'}</strong>
+              <p>{sdcardNotReady
+                ? 'SD card detected but not ready — check if the card is inserted correctly and reboot the FC.'
+                : 'Storage size unavailable — flash may not be configured.'
+              }</p>
             </div>
           </div>
         </div>
@@ -151,9 +155,12 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
     return 'high';
   };
 
+  const isSDCard = info.storageType === 'sdcard';
+  const eraseLabel = isSDCard ? 'Erase Logs' : 'Erase Flash';
+
   return (
     <div className="blackbox-status">
-      <h3>Blackbox Storage</h3>
+      <h3>Blackbox Storage {isSDCard ? '(SD Card)' : ''}</h3>
 
       <div className="storage-info">
         <div className="storage-bar">
@@ -191,15 +198,17 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
 
             {!readonly && (
               <>
-                {/* Debug button for testing MSP_DATAFLASH_READ */}
-                <button
-                  className="test-read-button"
-                  onClick={handleTestRead}
-                  title="Test if FC supports MSP_DATAFLASH_READ (reads 10 bytes)"
-                >
-                  <span className="icon">🔬</span>
-                  <span>Test Read (Debug)</span>
-                </button>
+                {/* Debug button for testing MSP_DATAFLASH_READ (flash only) */}
+                {!isSDCard && (
+                  <button
+                    className="test-read-button"
+                    onClick={handleTestRead}
+                    title="Test if FC supports MSP_DATAFLASH_READ (reads 10 bytes)"
+                  >
+                    <span className="icon">🔬</span>
+                    <span>Test Read (Debug)</span>
+                  </button>
+                )}
 
                 <div className="action-buttons">
                   <button
@@ -224,7 +233,7 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                     className="erase-flash-button"
                     onClick={() => setShowEraseConfirm(true)}
                     disabled={downloading || erasing}
-                    title="Permanently erase all logs from FC flash memory"
+                    title={isSDCard ? 'Delete all log files from SD card' : 'Permanently erase all logs from FC flash memory'}
                   >
                     {erasing ? (
                       <>
@@ -234,7 +243,7 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                     ) : (
                       <>
                         <span className="icon">🗑️</span>
-                        <span>Erase Flash</span>
+                        <span>{eraseLabel}</span>
                       </>
                     )}
                   </button>
@@ -318,9 +327,10 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
       {showEraseConfirm && (
         <div className="modal-overlay" onClick={() => !erasing && setShowEraseConfirm(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>⚠️ Erase Flash Memory?</h3>
+            <h3>⚠️ {isSDCard ? 'Delete Log Files?' : 'Erase Flash Memory?'}</h3>
             <p>
-              This will <strong>permanently delete ALL logs</strong> from the flight controller's flash memory.
+              This will <strong>permanently delete ALL logs</strong> from the flight controller's {isSDCard ? 'SD card' : 'flash memory'}.
+              {isSDCard && ' The FC will reboot into mass storage mode to access the SD card.'}
             </p>
             <p className="warning-text">
               ⚠️ This action cannot be undone! Make sure you've downloaded any logs you want to keep.
@@ -338,7 +348,7 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                 onClick={handleEraseFlash}
                 disabled={erasing}
               >
-                {erasing ? 'Erasing...' : 'Erase Flash'}
+                {erasing ? 'Erasing...' : eraseLabel}
               </button>
             </div>
           </div>

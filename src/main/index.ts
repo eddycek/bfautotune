@@ -112,6 +112,12 @@ async function initialize(): Promise<void> {
           }
         }
 
+        // Clear MSC mode flag if it was set (FC reconnected after MSC cycle)
+        if (mspClient.mscModeActive) {
+          logger.info('FC reconnected after MSC mode — clearing MSC flag');
+          mspClient.clearMSCMode();
+        }
+
         // Smart reconnect: check tuning session state
         try {
           const session = await tuningSessionManager.getSession(existingProfile.id);
@@ -119,11 +125,17 @@ async function initialize(): Promise<void> {
             // Auto-transition from *_flight_pending → *_log_ready if flash has data
             if (session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending') {
               const bbInfo = await mspClient.getBlackboxInfo();
-              if (bbInfo.hasLogs && bbInfo.usedSize > 0) {
+
+              // For flash: usedSize > 0 means logs exist
+              // For SD card: usedSize is always > 0 (filesystem overhead),
+              // so we skip auto-transition for SD card — user confirms via UI
+              if (bbInfo.storageType === 'flash' && bbInfo.hasLogs && bbInfo.usedSize > 0) {
                 const nextPhase = session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
                 logger.info(`Smart reconnect: flash has data, transitioning ${session.phase} → ${nextPhase}`);
                 const updated = await tuningSessionManager.updatePhase(existingProfile.id, nextPhase);
                 sendTuningSessionChanged(updated);
+              } else if (bbInfo.storageType === 'sdcard') {
+                logger.info('Smart reconnect: SD card detected — skipping auto-transition (user must confirm)');
               }
             }
 
@@ -168,6 +180,12 @@ async function initialize(): Promise<void> {
 
   // Handle unexpected disconnection (USB unplugged, etc.)
   mspClient.on('disconnected', () => {
+    // If FC is in MSC mode, this disconnect is expected — don't clear profile
+    if (mspClient.mscModeActive) {
+      logger.info('FC disconnected (MSC mode active — expected, keeping profile)');
+      return;
+    }
+
     logger.info('FC unexpectedly disconnected');
 
     // Clear current profile

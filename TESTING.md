@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1522 tests across 82 files** (last verified: February 12, 2026)
+**Total: 1530 tests across 82 files** (last verified: February 12, 2026)
 
 ### UI Components
 
@@ -162,7 +162,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 13 | Connection flow, port scanning, cooldown, auto-cooldown on unexpected disconnect |
 | `FCInfo/FCInfoDisplay.test.tsx` | 33 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix/reset settings |
 | `FCInfo/FixSettingsConfirmModal.test.tsx` | 4 | Fix settings confirmation modal, reboot warning, confirm/cancel |
-| `BlackboxStatus/BlackboxStatus.test.tsx` | 15 | Blackbox status, download trigger, readonly mode, onAnalyze with filename |
+| `BlackboxStatus/BlackboxStatus.test.tsx` | 21 | Blackbox status, download trigger, readonly mode, onAnalyze, SD card storage type, erase labels |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 18 | Profile editing, validation, form handling, flight style selector |
 | `ProfileDeleteModal.test.tsx` | 12 | Deletion confirmation, warnings |
@@ -233,7 +233,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 |------|-------|-------------|
 | `msp/MSPProtocol.test.ts` | 30 | MSPv1 encode/decode, jumbo frames, round-trip, parseBuffer, checksum validation, garbage recovery |
 | `msp/MSPConnection.test.ts` | 39 | Connection lifecycle, sendCommand, timeouts, error/partial responses, CLI mode, event forwarding |
-| `msp/MSPClient.test.ts` | 54 | FC info queries, PID/filter/FF config, board info parsing, UID, blackbox info, set PID, CLI diff, save & reboot, connect/disconnect lifecycle, version gate, listPorts |
+| `msp/MSPClient.test.ts` | 62 | FC info queries, PID/filter/FF config, board info, UID, blackbox info (flash+SD card), SD card summary, MSC reboot, set PID, CLI diff, save & reboot, connect/disconnect, version gate, listPorts |
 
 ### Storage
 

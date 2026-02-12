@@ -142,6 +142,49 @@ export class BlackboxManager {
   }
 
   /**
+   * Get the logs directory path (used by MSCManager to copy files directly)
+   */
+  getLogsDir(): string {
+    return this.logsDir;
+  }
+
+  /**
+   * Register an already-existing log file (e.g. copied from SD card via MSC).
+   * The file must already exist at destPath inside logsDir.
+   */
+  async saveLogFromFile(
+    destPath: string,
+    originalName: string,
+    size: number,
+    profileId: string,
+    fcSerial: string,
+    fcInfo: { variant: string; version: string; target: string }
+  ): Promise<BlackboxLogMetadata> {
+    const id = uuidv4();
+    const timestamp = new Date().toISOString();
+    const filename = path.basename(destPath);
+
+    const metadata: BlackboxLogMetadata = {
+      id,
+      profileId,
+      fcSerial,
+      timestamp,
+      filename,
+      filepath: destPath,
+      size,
+      fcInfo
+    };
+
+    const logs = await this.loadMetadata();
+    logs.push(metadata);
+    await this.saveMetadata(logs);
+
+    logger.info(`[BlackboxManager] Registered SD card log: ${originalName} → ${filename} (${size} bytes)`);
+
+    return metadata;
+  }
+
+  /**
    * Export a Blackbox log to a user-specified location
    */
   async exportLog(id: string, destinationPath: string): Promise<void> {

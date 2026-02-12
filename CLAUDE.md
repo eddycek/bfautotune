@@ -294,6 +294,17 @@ Completed tuning sessions are archived with self-contained metrics for compariso
 - Both 6-byte (no compression flag) and 7-byte (with compression flag) formats supported
 - Huffman compression not yet implemented (logs warning if detected)
 
+**SD Card Blackbox Support** (`MSP_SDCARD_SUMMARY`, command 79):
+- `BlackboxInfo.storageType`: `'flash' | 'sdcard' | 'none'` — detection is automatic (flash first, SD card fallback)
+- SD card logs cannot be read via MSP — download uses MSC (Mass Storage Class) mode
+- MSC workflow: `MSP_REBOOT(type=2)` → FC re-enumerates as USB drive → copy .bbl files → eject → FC reboots
+- `MSCManager` (`src/main/msc/`) orchestrates the full MSC download/erase cycle with progress reporting
+- `driveDetector` handles cross-platform drive mount detection (macOS/Windows/Linux)
+- MSC disconnect is expected — `mscModeActive` flag prevents profile clear on disconnect
+- Smart reconnect: for SD card, auto-transition from `*_flight_pending` is skipped (user confirms via UI)
+- UI: BlackboxStatus shows same interface for both storage types (transparent to user)
+- Design doc: `docs/SD_CARD_BLACKBOX_SUPPORT.md`
+
 **Important**: Stage ordering matters — MSP commands must execute before CLI mode, because FC only processes CLI input while in CLI mode (MSP timeouts).
 
 **Auto-Snapshot Strategy** (3 per tuning cycle):

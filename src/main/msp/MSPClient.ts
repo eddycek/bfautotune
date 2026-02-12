@@ -5,7 +5,8 @@ import { MSPCommand, CLI_COMMANDS } from './commands';
 import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
 import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
-import type { BlackboxInfo } from '@shared/types/blackbox.types';
+import type { BlackboxInfo, SDCardInfo } from '@shared/types/blackbox.types';
+import { SDCardState } from '@shared/types/blackbox.types';
 import { ConnectionError, MSPError, TimeoutError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP, BETAFLIGHT } from '@shared/constants';
@@ -15,6 +16,10 @@ export class MSPClient extends EventEmitter {
   private connection: MSPConnection;
   private connectionStatus: ConnectionStatus = { connected: false };
   private currentPort: string | null = null;
+  /** True when FC is in MSC mode — suppresses normal disconnect handling */
+  private _mscModeActive: boolean = false;
+  /** Cached storage type from last getBlackboxInfo() call */
+  private _lastStorageType: 'flash' | 'sdcard' | 'none' = 'none';
 
   constructor() {
     super();
@@ -33,6 +38,14 @@ export class MSPClient extends EventEmitter {
     this.connection.on('error', (error) => {
       this.emit('error', error);
     });
+  }
+
+  get mscModeActive(): boolean {
+    return this._mscModeActive;
+  }
+
+  get lastStorageType(): 'flash' | 'sdcard' | 'none' {
+    return this._lastStorageType;
   }
 
   async listPorts(): Promise<PortInfo[]> {
@@ -635,109 +648,111 @@ export class MSPClient extends EventEmitter {
   }
 
   /**
-   * Get Blackbox dataflash storage information
-   * Returns flash capacity, used space, and whether logs are available
+   * Get SD card storage information via MSP_SDCARD_SUMMARY.
+   * Returns null if SD card is not supported (command not recognized).
+   */
+  async getSDCardInfo(): Promise<SDCardInfo | null> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    try {
+      const response = await this.connection.sendCommand(MSPCommand.MSP_SDCARD_SUMMARY);
+
+      if (response.error) {
+        logger.debug('MSP_SDCARD_SUMMARY returned error (SD card not supported)');
+        return null;
+      }
+
+      if (response.data.length < 11) {
+        logger.warn(`SD card response too short: ${response.data.length} bytes (expected 11)`);
+        return null;
+      }
+
+      // Parse MSP_SDCARD_SUMMARY response (11 bytes)
+      // Byte 0: flags (bit 0 = supported)
+      // Byte 1: state (0=not-present, 1=fatal, 2=card-init, 3=fs-init, 4=ready)
+      // Byte 2: last error
+      // Bytes 3-6: free space in KB (uint32 LE)
+      // Bytes 7-10: total space in KB (uint32 LE)
+      const flags = response.data.readUInt8(0);
+      const state = response.data.readUInt8(1) as SDCardState;
+      const lastError = response.data.readUInt8(2);
+      const freeSizeKB = response.data.readUInt32LE(3);
+      const totalSizeKB = response.data.readUInt32LE(7);
+
+      const supported = (flags & 0x01) !== 0;
+
+      logger.debug('SD card parsed:', { flags, state, lastError, freeSizeKB, totalSizeKB, supported });
+
+      return { supported, state, lastError, freeSizeKB, totalSizeKB };
+    } catch (error) {
+      logger.debug('MSP_SDCARD_SUMMARY failed (likely not supported):', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get Blackbox storage information — checks both flash and SD card.
+   * Tries dataflash first; if not supported, falls back to SD card.
    */
   async getBlackboxInfo(): Promise<BlackboxInfo> {
     if (!this.isConnected()) {
       throw new ConnectionError('Flight controller not connected');
     }
 
+    const unsupported: BlackboxInfo = {
+      supported: false,
+      storageType: 'none',
+      totalSize: 0,
+      usedSize: 0,
+      hasLogs: false,
+      freeSize: 0,
+      usagePercent: 0
+    };
+
+    // --- Try dataflash first ---
     try {
-      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_SUMMARY);
-
-      logger.debug('Blackbox response:', {
-        error: response.error,
-        dataLength: response.data.length,
-        dataHex: response.data.toString('hex')
-      });
-
-      if (response.error) {
-        logger.warn('Blackbox MSP error response');
-        return {
-          supported: false,
-          totalSize: 0,
-          usedSize: 0,
-          hasLogs: false,
-          freeSize: 0,
-          usagePercent: 0
-        };
+      const flashInfo = await this.getDataflashInfo();
+      if (flashInfo.supported && flashInfo.totalSize > 0) {
+        this._lastStorageType = 'flash';
+        return flashInfo;
       }
+    } catch (error) {
+      logger.debug('Dataflash check failed, trying SD card:', error);
+    }
 
-      // Some FCs return shorter responses - handle gracefully
-      if (response.data.length < 13) {
-        logger.warn(`Blackbox response too short: ${response.data.length} bytes`);
-        return {
-          supported: false,
-          totalSize: 0,
-          usedSize: 0,
-          hasLogs: false,
-          freeSize: 0,
-          usagePercent: 0
-        };
-      }
+    // --- Fallback: try SD card ---
+    try {
+      const sdInfo = await this.getSDCardInfo();
+      if (sdInfo && sdInfo.supported) {
+        if (sdInfo.state === SDCardState.READY) {
+          const totalSize = sdInfo.totalSizeKB * 1024;
+          const freeSize = sdInfo.freeSizeKB * 1024;
+          const usedSize = totalSize - freeSize;
+          const usagePercent = totalSize > 0 ? Math.round((usedSize / totalSize) * 100) : 0;
 
-      // Parse dataflash summary response (13 bytes total)
-      // Byte 0: ready flag (bit 0 = flash ready, bit 1 = supported)
-      // Bytes 1-4: flags (uint32)
-      // Bytes 5-8: total size in bytes (uint32)
-      // Bytes 9-12: used size in bytes (uint32)
-      const ready = response.data.readUInt8(0);
-      const flags = response.data.readUInt32LE(1);
-      const totalSize = response.data.readUInt32LE(5);
-      const usedSize = response.data.readUInt32LE(9);
-
-      logger.debug('Blackbox parsed:', { ready, flags, totalSize, usedSize, readyHex: ready.toString(16), flagsHex: flags.toString(16) });
-
-      // Check if supported (ready bit 1 = 0x02)
-      const supported = (ready & 0x02) !== 0;
-
-      // Check for invalid values (0x80000000 = "not available" on some FCs)
-      const INVALID_SIZE = 0x80000000;
-      if (totalSize === INVALID_SIZE || usedSize === INVALID_SIZE) {
-        if (supported) {
-          // Blackbox is supported but size info not available (possibly SD card or external storage)
-          logger.warn('Blackbox supported but size info invalid (0x80000000) - might use SD card');
-          return {
+          const info: BlackboxInfo = {
             supported: true,
-            totalSize: 0,
-            usedSize: 0,
-            hasLogs: false,
-            freeSize: 0,
-            usagePercent: 0
+            storageType: 'sdcard',
+            totalSize,
+            usedSize,
+            hasLogs: usedSize > 0,
+            freeSize,
+            usagePercent
           };
-        } else {
-          // Not supported and invalid sizes
-          logger.warn('Blackbox not supported (invalid sizes and flag not set)');
-          return {
-            supported: false,
-            totalSize: 0,
-            usedSize: 0,
-            hasLogs: false,
-            freeSize: 0,
-            usagePercent: 0
-          };
+
+          this._lastStorageType = 'sdcard';
+          logger.info('Blackbox info (SD card):', info);
+          return info;
         }
-      }
 
-      // If not supported by flags, return false
-      if (!supported) {
-        logger.warn('Blackbox not supported (flags bit 1 not set)');
-        return {
-          supported: false,
-          totalSize: 0,
-          usedSize: 0,
-          hasLogs: false,
-          freeSize: 0,
-          usagePercent: 0
-        };
-      }
-
-      // Blackbox is supported by flags, but totalSize is 0
-      if (totalSize === 0) {
-        logger.warn('Blackbox supported but totalSize is 0 - flash not configured or empty');
+        // SD card supported but not ready
+        logger.warn(`SD card supported but not ready (state=${sdInfo.state}, error=${sdInfo.lastError})`);
+        this._lastStorageType = 'sdcard';
         return {
           supported: true,
+          storageType: 'sdcard',
           totalSize: 0,
           usedSize: 0,
           hasLogs: false,
@@ -745,35 +760,132 @@ export class MSPClient extends EventEmitter {
           usagePercent: 0
         };
       }
-
-      // Normal case with valid sizes
-      const hasLogs = usedSize > 0; // Logs exist if any space is used (even if 100% full)
-      const freeSize = totalSize - usedSize;
-      const usagePercent = totalSize > 0 ? Math.round((usedSize / totalSize) * 100) : 0;
-
-      const info: BlackboxInfo = {
-        supported,
-        totalSize,
-        usedSize,
-        hasLogs,
-        freeSize,
-        usagePercent
-      };
-
-      logger.info('Blackbox info:', info);
-      return info;
     } catch (error) {
-      logger.error('Failed to get Blackbox info:', error);
-      // Return unsupported state instead of throwing
-      return {
-        supported: false,
-        totalSize: 0,
-        usedSize: 0,
-        hasLogs: false,
-        freeSize: 0,
-        usagePercent: 0
-      };
+      logger.debug('SD card check failed:', error);
     }
+
+    this._lastStorageType = 'none';
+    return unsupported;
+  }
+
+  /**
+   * Get dataflash-specific storage info (internal helper).
+   * Returns BlackboxInfo with storageType='flash'.
+   */
+  private async getDataflashInfo(): Promise<BlackboxInfo> {
+    const unsupported: BlackboxInfo = {
+      supported: false,
+      storageType: 'flash',
+      totalSize: 0,
+      usedSize: 0,
+      hasLogs: false,
+      freeSize: 0,
+      usagePercent: 0
+    };
+
+    const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_SUMMARY);
+
+    logger.debug('Blackbox response:', {
+      error: response.error,
+      dataLength: response.data.length,
+      dataHex: response.data.toString('hex')
+    });
+
+    if (response.error || response.data.length < 13) {
+      return unsupported;
+    }
+
+    // Parse dataflash summary response (13 bytes total)
+    const ready = response.data.readUInt8(0);
+    const totalSize = response.data.readUInt32LE(5);
+    const usedSize = response.data.readUInt32LE(9);
+
+    logger.debug('Blackbox parsed:', { ready, totalSize, usedSize, readyHex: ready.toString(16) });
+
+    const supported = (ready & 0x02) !== 0;
+
+    // Check for invalid values (0x80000000 = "not available" on some FCs)
+    const INVALID_SIZE = 0x80000000;
+    if (totalSize === INVALID_SIZE || usedSize === INVALID_SIZE) {
+      if (supported) {
+        return { ...unsupported, supported: true };
+      }
+      return unsupported;
+    }
+
+    if (!supported) {
+      return unsupported;
+    }
+
+    if (totalSize === 0) {
+      return { ...unsupported, supported: true };
+    }
+
+    // Normal case with valid sizes
+    const hasLogs = usedSize > 0;
+    const freeSize = totalSize - usedSize;
+    const usagePercent = totalSize > 0 ? Math.round((usedSize / totalSize) * 100) : 0;
+
+    const info: BlackboxInfo = {
+      supported,
+      storageType: 'flash',
+      totalSize,
+      usedSize,
+      hasLogs,
+      freeSize,
+      usagePercent
+    };
+
+    logger.info('Blackbox info:', info);
+    return info;
+  }
+
+  /**
+   * Reboot FC into Mass Storage Class mode for SD card / flash access.
+   * After calling this, the serial connection will be lost as the FC
+   * re-enumerates as a USB mass storage device.
+   *
+   * @returns true if FC accepted MSC reboot, false if storage not ready
+   */
+  async rebootToMSC(): Promise<boolean> {
+    if (!this.isConnected()) {
+      throw new ConnectionError('Flight controller not connected');
+    }
+
+    // Use MSC_UTC (3) on Linux, MSC (2) on macOS/Windows
+    const rebootType = process.platform === 'linux' ? 3 : 2;
+    const payload = Buffer.alloc(1);
+    payload.writeUInt8(rebootType, 0);
+
+    logger.info(`Sending MSP_REBOOT with type=${rebootType} (MSC${rebootType === 3 ? '_UTC' : ''})`);
+
+    const response = await this.connection.sendCommand(MSPCommand.MSP_REBOOT, payload, 5000);
+
+    if (response.error) {
+      logger.error('MSP_REBOOT MSC rejected by FC');
+      return false;
+    }
+
+    // Response: byte 0 = echoed reboot type, byte 1 = ready flag (1=proceed, 0=abort)
+    if (response.data.length >= 2) {
+      const ready = response.data.readUInt8(1);
+      if (ready !== 1) {
+        logger.warn('FC storage not ready for MSC mode');
+        return false;
+      }
+    }
+
+    // FC will now reboot into MSC mode — serial connection will drop
+    this._mscModeActive = true;
+    logger.info('MSC reboot accepted — FC will disconnect and re-enumerate as USB drive');
+    return true;
+  }
+
+  /**
+   * Clear MSC mode flag after FC reconnects from MSC mode.
+   */
+  clearMSCMode(): void {
+    this._mscModeActive = false;
   }
 
   /**

@@ -615,20 +615,49 @@ describe('MSPClient.setPIDConfiguration', () => {
 
 // ─── getBlackboxInfo ─────────────────────────────────────────────────
 
+/** Build MSP_SDCARD_SUMMARY response (11 bytes) */
+function buildSDCardSummaryData(opts: {
+  supported?: boolean;
+  state?: number;
+  lastError?: number;
+  freeSizeKB?: number;
+  totalSizeKB?: number;
+} = {}): Buffer {
+  const buf = Buffer.alloc(11, 0);
+  buf.writeUInt8(opts.supported !== false ? 0x01 : 0x00, 0);
+  buf.writeUInt8(opts.state ?? 4, 1); // 4 = READY
+  buf.writeUInt8(opts.lastError ?? 0, 2);
+  buf.writeUInt32LE(opts.freeSizeKB ?? 0, 3);
+  buf.writeUInt32LE(opts.totalSizeKB ?? 0, 7);
+  return buf;
+}
+
+/** Mock sendCommand to return different responses per MSP command */
+function mockByCommand(sendCommand: ReturnType<typeof vi.fn>, responses: Record<number, any>) {
+  sendCommand.mockImplementation((cmd: number) => {
+    const response = responses[cmd];
+    if (response instanceof Error) return Promise.reject(response);
+    if (response) return Promise.resolve(response);
+    // Default: return error response for unknown commands
+    return Promise.resolve({ command: cmd, data: Buffer.alloc(0), error: true });
+  });
+}
+
 describe('MSPClient.getBlackboxInfo', () => {
   it('parses valid dataflash summary (supported, with data)', async () => {
     const { client, sendCommand } = createClientWithStub();
     sendCommand.mockResolvedValue({
       command: MSPCommand.MSP_DATAFLASH_SUMMARY,
       data: buildDataflashSummaryData({
-        ready: 0x03, // supported + ready
-        totalSize: 2 * 1024 * 1024, // 2 MB
-        usedSize: 512 * 1024, // 512 KB
+        ready: 0x03,
+        totalSize: 2 * 1024 * 1024,
+        usedSize: 512 * 1024,
       }),
     });
 
     const info = await client.getBlackboxInfo();
     expect(info.supported).toBe(true);
+    expect(info.storageType).toBe('flash');
     expect(info.totalSize).toBe(2 * 1024 * 1024);
     expect(info.usedSize).toBe(512 * 1024);
     expect(info.hasLogs).toBe(true);
@@ -636,76 +665,134 @@ describe('MSPClient.getBlackboxInfo', () => {
     expect(info.usagePercent).toBe(25);
   });
 
-  it('returns unsupported for error response', async () => {
+  it('falls back to SD card when flash not supported', async () => {
     const { client, sendCommand } = createClientWithStub();
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
-      data: Buffer.alloc(0),
-      error: true,
+    mockByCommand(sendCommand, {
+      [MSPCommand.MSP_DATAFLASH_SUMMARY]: {
+        command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+        data: buildDataflashSummaryData({ ready: 0x01 }), // not supported
+      },
+      [MSPCommand.MSP_SDCARD_SUMMARY]: {
+        command: MSPCommand.MSP_SDCARD_SUMMARY,
+        data: buildSDCardSummaryData({
+          supported: true,
+          state: 4, // READY
+          freeSizeKB: 2 * 1024 * 1024, // 2 GB free
+          totalSizeKB: 32 * 1024 * 1024, // 32 GB total
+        }),
+      },
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(true);
+    expect(info.storageType).toBe('sdcard');
+    expect(info.totalSize).toBe(32 * 1024 * 1024 * 1024);
+    expect(info.freeSize).toBe(2 * 1024 * 1024 * 1024);
+    expect(info.hasLogs).toBe(true);
+    expect(info.usagePercent).toBe(94);
+  });
+
+  it('returns SD card not ready when state is not READY', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    mockByCommand(sendCommand, {
+      [MSPCommand.MSP_DATAFLASH_SUMMARY]: {
+        command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+        data: buildDataflashSummaryData({ ready: 0x01 }), // not supported
+      },
+      [MSPCommand.MSP_SDCARD_SUMMARY]: {
+        command: MSPCommand.MSP_SDCARD_SUMMARY,
+        data: buildSDCardSummaryData({
+          supported: true,
+          state: 0, // NOT_PRESENT
+        }),
+      },
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(true);
+    expect(info.storageType).toBe('sdcard');
+    expect(info.totalSize).toBe(0);
+    expect(info.hasLogs).toBe(false);
+  });
+
+  it('returns unsupported when both flash and SD card not available', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    mockByCommand(sendCommand, {
+      [MSPCommand.MSP_DATAFLASH_SUMMARY]: {
+        command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+        data: buildDataflashSummaryData({ ready: 0x01 }),
+      },
+      [MSPCommand.MSP_SDCARD_SUMMARY]: {
+        command: MSPCommand.MSP_SDCARD_SUMMARY,
+        data: buildSDCardSummaryData({ supported: false }),
+      },
+    });
+
+    const info = await client.getBlackboxInfo();
+    expect(info.supported).toBe(false);
+    expect(info.storageType).toBe('none');
+  });
+
+  it('returns unsupported for dataflash error response (no SD card)', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    mockByCommand(sendCommand, {
+      [MSPCommand.MSP_DATAFLASH_SUMMARY]: {
+        command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+        data: Buffer.alloc(0),
+        error: true,
+      },
     });
 
     const info = await client.getBlackboxInfo();
     expect(info.supported).toBe(false);
   });
 
-  it('returns unsupported for response shorter than 13 bytes', async () => {
-    const { client, sendCommand } = createClientWithStub();
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
-      data: Buffer.alloc(8),
-    });
-
-    const info = await client.getBlackboxInfo();
-    expect(info.supported).toBe(false);
-  });
-
-  it('handles invalid size 0x80000000 with supported flag', async () => {
+  it('handles invalid size 0x80000000 — falls through to SD card', async () => {
     const { client, sendCommand } = createClientWithStub();
     const buf = Buffer.alloc(13, 0);
-    buf.writeUInt8(0x03, 0); // supported + ready
-    buf.writeUInt32LE(0x80000000, 5); // invalid totalSize
-    buf.writeUInt32LE(0x80000000, 9); // invalid usedSize
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
-      data: buf,
+    buf.writeUInt8(0x03, 0);
+    buf.writeUInt32LE(0x80000000, 5);
+    buf.writeUInt32LE(0x80000000, 9);
+    mockByCommand(sendCommand, {
+      [MSPCommand.MSP_DATAFLASH_SUMMARY]: {
+        command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+        data: buf,
+      },
+      [MSPCommand.MSP_SDCARD_SUMMARY]: {
+        command: MSPCommand.MSP_SDCARD_SUMMARY,
+        data: buildSDCardSummaryData({
+          supported: true,
+          state: 4,
+          freeSizeKB: 1024,
+          totalSizeKB: 4096,
+        }),
+      },
     });
 
     const info = await client.getBlackboxInfo();
+    // Flash returns supported:true but totalSize=0 → doesn't pass check
+    // Falls to SD card which is supported and ready
     expect(info.supported).toBe(true);
-    expect(info.totalSize).toBe(0);
-    expect(info.hasLogs).toBe(false);
+    expect(info.storageType).toBe('sdcard');
   });
 
-  it('returns unsupported when flags bit 1 not set', async () => {
+  it('handles supported but empty flash (totalSize = 0) — falls to SD card', async () => {
     const { client, sendCommand } = createClientWithStub();
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
-      data: buildDataflashSummaryData({
-        ready: 0x01, // ready but NOT supported (bit 1 = 0)
-        totalSize: 1024,
-        usedSize: 0,
-      }),
+    mockByCommand(sendCommand, {
+      [MSPCommand.MSP_DATAFLASH_SUMMARY]: {
+        command: MSPCommand.MSP_DATAFLASH_SUMMARY,
+        data: buildDataflashSummaryData({ ready: 0x03, totalSize: 0 }),
+      },
+      [MSPCommand.MSP_SDCARD_SUMMARY]: {
+        command: MSPCommand.MSP_SDCARD_SUMMARY,
+        data: buildSDCardSummaryData({ supported: false }),
+      },
     });
 
     const info = await client.getBlackboxInfo();
+    // Flash returns supported:true but totalSize=0 → doesn't pass totalSize>0 check
+    // Falls to SD card which is not supported → returns none
     expect(info.supported).toBe(false);
-  });
-
-  it('handles supported but empty flash (totalSize = 0)', async () => {
-    const { client, sendCommand } = createClientWithStub();
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_DATAFLASH_SUMMARY,
-      data: buildDataflashSummaryData({
-        ready: 0x03,
-        totalSize: 0,
-        usedSize: 0,
-      }),
-    });
-
-    const info = await client.getBlackboxInfo();
-    expect(info.supported).toBe(true);
-    expect(info.totalSize).toBe(0);
-    expect(info.hasLogs).toBe(false);
   });
 
   it('catches sendCommand exceptions and returns unsupported', async () => {
@@ -720,8 +807,117 @@ describe('MSPClient.getBlackboxInfo', () => {
     const { client, mockConn } = createClientWithStub();
     mockConn.isOpen.mockReturnValue(false);
 
-    // isConnected() check is BEFORE the try/catch → throws directly
     await expect(client.getBlackboxInfo()).rejects.toThrow('Flight controller not connected');
+  });
+});
+
+// ─── getSDCardInfo ──────────────────────────────────────────────────
+
+describe('MSPClient.getSDCardInfo', () => {
+  it('parses valid SD card summary (ready)', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_SDCARD_SUMMARY,
+      data: buildSDCardSummaryData({
+        supported: true,
+        state: 4,
+        freeSizeKB: 1024 * 1024, // 1 GB
+        totalSizeKB: 4 * 1024 * 1024, // 4 GB
+      }),
+    });
+
+    const info = await client.getSDCardInfo();
+    expect(info).not.toBeNull();
+    expect(info!.supported).toBe(true);
+    expect(info!.state).toBe(4);
+    expect(info!.freeSizeKB).toBe(1024 * 1024);
+    expect(info!.totalSizeKB).toBe(4 * 1024 * 1024);
+  });
+
+  it('returns null for error response', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_SDCARD_SUMMARY,
+      data: Buffer.alloc(0),
+      error: true,
+    });
+
+    const info = await client.getSDCardInfo();
+    expect(info).toBeNull();
+  });
+
+  it('returns null for short response', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_SDCARD_SUMMARY,
+      data: Buffer.alloc(5),
+    });
+
+    const info = await client.getSDCardInfo();
+    expect(info).toBeNull();
+  });
+});
+
+// ─── rebootToMSC ────────────────────────────────────────────────────
+
+describe('MSPClient.rebootToMSC', () => {
+  it('returns true when FC accepts MSC reboot', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    const response = Buffer.alloc(2);
+    response.writeUInt8(2, 0); // echoed reboot type
+    response.writeUInt8(1, 1); // ready = 1
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_REBOOT,
+      data: response,
+    });
+
+    const result = await client.rebootToMSC();
+    expect(result).toBe(true);
+    expect(client.mscModeActive).toBe(true);
+  });
+
+  it('returns false when FC storage not ready', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    const response = Buffer.alloc(2);
+    response.writeUInt8(2, 0);
+    response.writeUInt8(0, 1); // ready = 0
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_REBOOT,
+      data: response,
+    });
+
+    const result = await client.rebootToMSC();
+    expect(result).toBe(false);
+    expect(client.mscModeActive).toBe(false);
+  });
+
+  it('returns false on error response', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_REBOOT,
+      data: Buffer.alloc(0),
+      error: true,
+    });
+
+    const result = await client.rebootToMSC();
+    expect(result).toBe(false);
+  });
+
+  it('clearMSCMode resets the flag', async () => {
+    const { client, sendCommand } = createClientWithStub();
+    const response = Buffer.alloc(2);
+    response.writeUInt8(2, 0);
+    response.writeUInt8(1, 1);
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_REBOOT,
+      data: response,
+    });
+
+    await client.rebootToMSC();
+    expect(client.mscModeActive).toBe(true);
+
+    client.clearMSCMode();
+    expect(client.mscModeActive).toBe(false);
   });
 });
 

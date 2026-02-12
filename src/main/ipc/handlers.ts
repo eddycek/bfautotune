@@ -30,6 +30,7 @@ import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
 import { analyzePID } from '../analysis/PIDAnalyzer';
 import { extractFlightPIDs } from '../analysis/PIDRecommender';
 import { validateBBLHeader, enrichSettingsFromBBLHeaders } from '../analysis/headerValidation';
+import { MSCManager, MSCProgress } from '../msc/MSCManager';
 
 let mspClient: any = null; // Will be set from main
 let snapshotManager: any = null; // Will be set from main
@@ -37,11 +38,13 @@ let profileManager: any = null; // Will be set from main
 let blackboxManager: any = null; // Will be set from main
 let tuningSessionManager: any = null; // Will be set from main
 let tuningHistoryManager: any = null; // Will be set from main
+let mscManager: MSCManager | null = null; // Created when MSPClient is set
 let isDownloadingBlackbox = false; // Guard against concurrent downloads
 let pendingSettingsSnapshot = false; // Set after fix/reset — triggers clean snapshot on reconnect
 
 export function setMSPClient(client: any): void {
   mspClient = client;
+  mscManager = new MSCManager(client);
 }
 
 export function setSnapshotManager(manager: any): void {
@@ -684,7 +687,7 @@ export function registerIPCHandlers(): void {
     }
   });
 
-  ipcMain.handle(IPCChannel.BLACKBOX_DOWNLOAD_LOG, async (event): Promise<IPCResponse<BlackboxLogMetadata>> => {
+  ipcMain.handle(IPCChannel.BLACKBOX_DOWNLOAD_LOG, async (event): Promise<IPCResponse<BlackboxLogMetadata | BlackboxLogMetadata[]>> => {
     try {
       if (!mspClient) {
         logger.error('MSPClient not initialized');
@@ -705,44 +708,92 @@ export function registerIPCHandlers(): void {
         return createResponse<BlackboxLogMetadata>(undefined, 'No active profile selected');
       }
 
-      // Prevent concurrent downloads — two downloads competing for MSP
-      // cause response interleaving, timeouts, and corrupted data
+      // Prevent concurrent downloads
       if (isDownloadingBlackbox) {
         return createResponse<BlackboxLogMetadata>(undefined, 'Download already in progress');
       }
 
       isDownloadingBlackbox = true;
-      logger.info('Starting Blackbox log download...');
 
-      let logData: Buffer;
       try {
-        // Download log data from FC with progress updates
-        logData = await mspClient.downloadBlackboxLog((progress: number) => {
-          // Send progress update to renderer via IPC event
-          event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress);
-        });
+        // Branch on storage type
+        const storageType = mspClient.lastStorageType;
+
+        if (storageType === 'sdcard') {
+          // --- SD Card: MSC mode download ---
+          logger.info('Starting SD card download via MSC mode...');
+
+          if (!mscManager) {
+            return createResponse<BlackboxLogMetadata>(undefined, 'MSC manager not initialized');
+          }
+
+          // Get FC info before MSC reboot (FC won't be available during MSC)
+          const fcInfo = await mspClient.getFCInfo();
+
+          const copiedFiles = await mscManager.downloadLogs(
+            blackboxManager.getLogsDir(),
+            (progress: MSCProgress) => {
+              // Map MSC progress stages to percentage for renderer
+              event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress.percent);
+            }
+          );
+
+          if (copiedFiles.length === 0) {
+            return createResponse<BlackboxLogMetadata>(undefined, 'No log files found on SD card');
+          }
+
+          // Register each copied file in BlackboxManager
+          const allMetadata: BlackboxLogMetadata[] = [];
+          for (const file of copiedFiles) {
+            const metadata = await blackboxManager.saveLogFromFile(
+              file.destPath,
+              file.originalName,
+              file.size,
+              currentProfile.id,
+              currentProfile.fcSerial,
+              {
+                variant: fcInfo.variant,
+                version: fcInfo.firmwareVersion,
+                target: fcInfo.target
+              }
+            );
+            allMetadata.push(metadata);
+          }
+
+          logger.info(`SD card download complete: ${allMetadata.length} logs saved`);
+
+          // Return first log for backward compatibility (single-log callers),
+          // but include all metadata in the array form
+          return createResponse<BlackboxLogMetadata | BlackboxLogMetadata[]>(
+            allMetadata.length === 1 ? allMetadata[0] : allMetadata
+          );
+        } else {
+          // --- Flash: existing MSP_DATAFLASH_READ path ---
+          logger.info('Starting flash download via MSP...');
+
+          const logData = await mspClient.downloadBlackboxLog((progress: number) => {
+            event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress);
+          });
+
+          const fcInfo = await mspClient.getFCInfo();
+
+          const metadata = await blackboxManager.saveLog(
+            logData,
+            currentProfile.id,
+            currentProfile.fcSerial,
+            {
+              variant: fcInfo.variant,
+              version: fcInfo.firmwareVersion,
+              target: fcInfo.target
+            }
+          );
+
+          logger.info(`Blackbox log saved: ${metadata.filename} (${metadata.size} bytes)`);
+          return createResponse<BlackboxLogMetadata>(metadata);
+        }
       } finally {
         isDownloadingBlackbox = false;
       }
-
-      // Get FC info for metadata
-      const fcInfo = await mspClient.getFCInfo();
-
-      // Save log with metadata
-      const metadata = await blackboxManager.saveLog(
-        logData,
-        currentProfile.id,
-        currentProfile.fcSerial,
-        {
-          variant: fcInfo.variant,
-          version: fcInfo.firmwareVersion,
-          target: fcInfo.target
-        }
-      );
-
-      logger.info(`Blackbox log saved: ${metadata.filename} (${metadata.size} bytes)`);
-
-      return createResponse<BlackboxLogMetadata>(metadata);
     } catch (error) {
       logger.error('Failed to download Blackbox log:', error);
       return createResponse<BlackboxLogMetadata>(undefined, getErrorMessage(error));
@@ -820,19 +871,36 @@ export function registerIPCHandlers(): void {
     }
   });
 
-  ipcMain.handle(IPCChannel.BLACKBOX_ERASE_FLASH, async (): Promise<IPCResponse<void>> => {
+  ipcMain.handle(IPCChannel.BLACKBOX_ERASE_FLASH, async (event): Promise<IPCResponse<void>> => {
     try {
       if (!mspClient) {
         return createResponse<void>(undefined, 'MSP client not initialized');
       }
 
-      logger.warn('Erasing Blackbox flash memory...');
-      await mspClient.eraseBlackboxFlash();
-      logger.info('Blackbox flash erased successfully');
+      const storageType = mspClient.lastStorageType;
+
+      if (storageType === 'sdcard') {
+        // --- SD Card: erase via MSC mode ---
+        logger.warn('Erasing SD card logs via MSC mode...');
+        if (!mscManager) {
+          return createResponse<void>(undefined, 'MSC manager not initialized');
+        }
+
+        await mscManager.eraseLogs((progress: MSCProgress) => {
+          event.sender.send(IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, progress.percent);
+        });
+
+        logger.info('SD card logs erased successfully');
+      } else {
+        // --- Flash: existing erase path ---
+        logger.warn('Erasing Blackbox flash memory...');
+        await mspClient.eraseBlackboxFlash();
+        logger.info('Blackbox flash erased successfully');
+      }
 
       return createResponse<void>(undefined);
     } catch (error) {
-      logger.error('Failed to erase Blackbox flash:', error);
+      logger.error('Failed to erase Blackbox storage:', error);
       return createResponse<void>(undefined, getErrorMessage(error));
     }
   });
