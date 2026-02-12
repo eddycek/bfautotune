@@ -128,6 +128,34 @@ export class MSPConnection extends EventEmitter {
     });
   }
 
+  /** Send an MSP command without waiting for response. Used for commands that reboot the FC. */
+  async sendCommandNoResponse(command: number, data: Buffer = Buffer.alloc(0)): Promise<void> {
+    if (!this.isOpen()) {
+      throw new ConnectionError('Port not open');
+    }
+
+    if (this.cliMode) {
+      try {
+        await this.exitCLI();
+      } catch {
+        this.cliMode = false;
+        this.cliBuffer = '';
+      }
+    }
+
+    const message = this.protocol.encode(command, data);
+
+    return new Promise((resolve, reject) => {
+      this.port!.write(message, (error) => {
+        if (error) {
+          reject(new ConnectionError(`Failed to write: ${error.message}`, error));
+          return;
+        }
+        this.port!.drain(() => resolve());
+      });
+    });
+  }
+
   async sendCommand(command: number, data: Buffer = Buffer.alloc(0), timeout: number = MSP.COMMAND_TIMEOUT): Promise<MSPResponse> {
     if (!this.isOpen()) {
       throw new ConnectionError('Port not open');

@@ -354,6 +354,7 @@ function createClientWithStub() {
   const sendCommand = vi.fn();
   const mockConn = {
     sendCommand,
+    sendCommandNoResponse: vi.fn().mockResolvedValue(undefined),
     isOpen: vi.fn().mockReturnValue(true),
     on: vi.fn(),
     open: vi.fn().mockResolvedValue(undefined),
@@ -861,57 +862,46 @@ describe('MSPClient.getSDCardInfo', () => {
 // ─── rebootToMSC ────────────────────────────────────────────────────
 
 describe('MSPClient.rebootToMSC', () => {
-  it('returns true when FC accepts MSC reboot', async () => {
-    const { client, sendCommand } = createClientWithStub();
-    const response = Buffer.alloc(2);
-    response.writeUInt8(2, 0); // echoed reboot type
-    response.writeUInt8(1, 1); // ready = 1
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_REBOOT,
-      data: response,
-    });
+  it('sends MSP_REBOOT fire-and-forget and sets mscModeActive', async () => {
+    const { client, mockConn } = createClientWithStub();
 
     const result = await client.rebootToMSC();
+
+    expect(result).toBe(true);
+    expect(client.mscModeActive).toBe(true);
+    expect(mockConn.sendCommandNoResponse).toHaveBeenCalledWith(
+      MSPCommand.MSP_REBOOT,
+      expect.any(Buffer)
+    );
+    // Verify reboot type payload (2 on macOS/Windows)
+    const payload = mockConn.sendCommandNoResponse.mock.calls[0][1];
+    expect(payload.readUInt8(0)).toBe(2);
+  });
+
+  it('sets mscModeActive before sending command', async () => {
+    const { client, mockConn } = createClientWithStub();
+    let flagDuringSend = false;
+    mockConn.sendCommandNoResponse.mockImplementation(async () => {
+      flagDuringSend = client.mscModeActive;
+    });
+
+    await client.rebootToMSC();
+
+    expect(flagDuringSend).toBe(true);
+  });
+
+  it('returns true even if write fails (FC may have already rebooted)', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.sendCommandNoResponse.mockRejectedValue(new Error('Write failed'));
+
+    const result = await client.rebootToMSC();
+
     expect(result).toBe(true);
     expect(client.mscModeActive).toBe(true);
   });
 
-  it('returns false when FC storage not ready', async () => {
-    const { client, sendCommand } = createClientWithStub();
-    const response = Buffer.alloc(2);
-    response.writeUInt8(2, 0);
-    response.writeUInt8(0, 1); // ready = 0
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_REBOOT,
-      data: response,
-    });
-
-    const result = await client.rebootToMSC();
-    expect(result).toBe(false);
-    expect(client.mscModeActive).toBe(false);
-  });
-
-  it('returns false on error response', async () => {
-    const { client, sendCommand } = createClientWithStub();
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_REBOOT,
-      data: Buffer.alloc(0),
-      error: true,
-    });
-
-    const result = await client.rebootToMSC();
-    expect(result).toBe(false);
-  });
-
   it('clearMSCMode resets the flag', async () => {
-    const { client, sendCommand } = createClientWithStub();
-    const response = Buffer.alloc(2);
-    response.writeUInt8(2, 0);
-    response.writeUInt8(1, 1);
-    sendCommand.mockResolvedValue({
-      command: MSPCommand.MSP_REBOOT,
-      data: response,
-    });
+    const { client } = createClientWithStub();
 
     await client.rebootToMSC();
     expect(client.mscModeActive).toBe(true);

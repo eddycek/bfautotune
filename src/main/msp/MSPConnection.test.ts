@@ -302,6 +302,28 @@ describe('MSPConnection', () => {
     });
   });
 
+  // ─── sendCommandNoResponse() ───────────────────────────────
+
+  describe('sendCommandNoResponse', () => {
+    it('sends encoded MSP message without waiting for response', async () => {
+      await conn.open('/dev/ttyUSB0');
+      const port = getPort();
+      port.clearWritten();
+
+      await conn.sendCommandNoResponse(68, Buffer.from([2])); // MSP_REBOOT, type=MSC
+
+      const written = port.getAllWrittenBytes();
+      expect(written[0]).toBe(0x24); // '$'
+      expect(written[1]).toBe(0x4d); // 'M'
+      expect(written[2]).toBe(0x3c); // '<'
+      expect(written[4]).toBe(68);   // command
+    });
+
+    it('throws if port not open', async () => {
+      await expect(conn.sendCommandNoResponse(68)).rejects.toThrow('Port not open');
+    });
+  });
+
   // ─── enterCLI() ─────────────────────────────────────────────
 
   describe('enterCLI', () => {

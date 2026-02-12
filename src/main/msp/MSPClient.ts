@@ -859,25 +859,25 @@ export class MSPClient extends EventEmitter {
 
     logger.info(`Sending MSP_REBOOT with type=${rebootType} (MSC${rebootType === 3 ? '_UTC' : ''})`);
 
-    const response = await this.connection.sendCommand(MSPCommand.MSP_REBOOT, payload, 5000);
-
-    if (response.error) {
-      logger.error('MSP_REBOOT MSC rejected by FC');
-      return false;
-    }
-
-    // Response: byte 0 = echoed reboot type, byte 1 = ready flag (1=proceed, 0=abort)
-    if (response.data.length >= 2) {
-      const ready = response.data.readUInt8(1);
-      if (ready !== 1) {
-        logger.warn('FC storage not ready for MSC mode');
-        return false;
-      }
-    }
-
-    // FC will now reboot into MSC mode — serial connection will drop
+    // Set flag BEFORE sending — FC reboots immediately and may disconnect
+    // before we can process a response. The disconnect handler checks this
+    // flag to suppress normal profile clear behavior.
     this._mscModeActive = true;
-    logger.info('MSC reboot accepted — FC will disconnect and re-enumerate as USB drive');
+
+    // Fire-and-forget: FC reboots into MSC mode without sending an ACK.
+    // If the FC doesn't support MSC or SD card isn't ready, the drive
+    // detection in MSCManager will timeout and report the error.
+    try {
+      await this.connection.sendCommandNoResponse(MSPCommand.MSP_REBOOT, payload);
+    } catch (error) {
+      // Write may fail if FC already disconnected — that's fine
+      logger.info('MSP_REBOOT write error (FC may have rebooted already):', error);
+    }
+
+    // Brief delay for FC to process the command
+    await this.delay(200);
+
+    logger.info('MSC reboot sent — FC will disconnect and re-enumerate as USB drive');
     return true;
   }
 
