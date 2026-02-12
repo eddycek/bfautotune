@@ -326,7 +326,7 @@ Completed tuning sessions are archived with self-contained metrics for compariso
 
 **Restorable commands**: `set`, `feature`, `serial`, `aux`, `beacon`, `map`, `resource`, `timer`, `dma` — everything except identity (`board_name`, `mcu_id`), control (`diff`, `batch`, `defaults`, `save`), and profile selection commands.
 
-**CLI prompt detection fix** (`MSPConnection.sendCLICommand`): Previously used `data.includes('#')` which false-matched `# comment` lines in `diff all` output, truncating snapshots. Fixed to check accumulated buffer ending with `\n#` (actual CLI prompt).
+**CLI prompt detection** (`MSPConnection.sendCLICommand`): The real BF CLI prompt is `# ` (hash + space). Detection checks `cliBuffer.endsWith('\n# ')` (no `trimEnd()`!) with a **100ms debounce** — when the pattern matches, a timer starts. If more data arrives before it fires (e.g. `# master\r\n...`), the timer resets. Only when no data arrives for 100ms does it resolve as the real prompt. `enterCLI()` uses the same `endsWith('\n# ')` check but without debounce (no diff output during CLI entry).
 
 ## Testing Requirements
 
