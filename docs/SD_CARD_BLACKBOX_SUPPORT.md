@@ -1,6 +1,6 @@
 # SD Card Blackbox Storage Support
 
-> **Status**: Proposed
+> **Status**: Complete (PR #105)
 
 ## Problem
 
