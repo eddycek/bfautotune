@@ -182,8 +182,10 @@ export class MSPConnection extends EventEmitter {
       const listener = (data: string) => {
         this.cliBuffer += data;
         // Check accumulated buffer for CLI prompt "# " (hash + space).
+        // Strip trailing \r only (not spaces) — FC may send extra CR after prompt.
         // No debounce needed — no diff output during CLI entry.
-        if (this.cliBuffer.endsWith('\n# ') || this.cliBuffer === '# ') {
+        const buf = this.cliBuffer.replace(/\r+$/, '');
+        if (buf.endsWith('\n# ') || buf === '# ') {
           clearTimeout(timeoutId);
           this.removeListener('cli-data', listener);
           resolve();
@@ -257,11 +259,13 @@ export class MSPConnection extends EventEmitter {
         }
 
         // The real BF CLI prompt is "# " (hash + space) on its own line.
+        // Strip trailing \r only (not spaces) — FC may send extra CR after prompt.
         // We check for the trailing space to distinguish from section headers
         // like "# master" which also start with "# " but continue with text.
         // A 100ms debounce ensures we don't resolve on a chunk boundary where
         // "# " arrives but the rest of "# master\r\n" hasn't yet.
-        if (this.cliBuffer.endsWith('\n# ') || this.cliBuffer === '# ') {
+        const buf = this.cliBuffer.replace(/\r+$/, '');
+        if (buf.endsWith('\n# ') || buf === '# ') {
           promptTimer = setTimeout(() => {
             clearTimeout(timeoutId);
             this.removeListener('cli-data', listener);

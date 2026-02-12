@@ -366,6 +366,19 @@ describe('MSPConnection', () => {
 
       expect(conn.isInCLI()).toBe(true);
     });
+
+    it('handles trailing \\r after CLI prompt', async () => {
+      await conn.open('/dev/ttyUSB0');
+      const port = getPort();
+
+      const enterPromise = conn.enterCLI();
+      await new Promise(r => setTimeout(r, 20));
+      // FC sends prompt with trailing CR (some FC firmware behavior)
+      port.injectData('Entering CLI Mode\r\n# \r');
+      await enterPromise;
+
+      expect(conn.isInCLI()).toBe(true);
+    });
   });
 
   // ─── sendCLICommand() ───────────────────────────────────────
@@ -523,6 +536,21 @@ describe('MSPConnection', () => {
       // Let it time out — no real prompt ever arrives
       await expect(cmdPromise).rejects.toThrow('CLI command timed out');
     }, 1000);
+
+    it('handles trailing \\r after prompt in sendCLICommand', async () => {
+      const port = await enterCLIMode();
+
+      const cmdPromise = conn.sendCLICommand('set debug_mode = GYRO_SCALED');
+
+      await new Promise(r => setTimeout(r, 20));
+      // FC sends prompt with trailing CR
+      port.injectData('set debug_mode = GYRO_SCALED\r\n# \r');
+      // Wait for debounce
+      await new Promise(r => setTimeout(r, 150));
+
+      const result = await cmdPromise;
+      expect(result).toContain('debug_mode');
+    });
   });
 
   // ─── exitCLI() / forceExitCLI() ────────────────────────────
