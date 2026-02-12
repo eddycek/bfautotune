@@ -608,7 +608,7 @@ App (ToastProvider wrapper)
 │   │   │   └── FC info grid + BB diagnostics + FF config + export buttons
 │   │   │
 │   │   ├── BlackboxStatus (if connected)
-│   │   │   └── Flash info + logs + Download/Erase/Analyze (readonly if session)
+│   │   │   └── Storage info (flash/SD card) + logs + Download/Erase/Analyze (readonly if session)
 │   │   │
 │   │   ├── SnapshotManager (if connected + profile)
 │   │   │   └── Create + list + diff view + restore

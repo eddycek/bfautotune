@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1530 tests across 82 files** (last verified: February 12, 2026)
+**Total: 1560 tests across 84 files** (last verified: February 12, 2026)
 
 ### UI Components
 
@@ -234,6 +234,13 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `msp/MSPProtocol.test.ts` | 30 | MSPv1 encode/decode, jumbo frames, round-trip, parseBuffer, checksum validation, garbage recovery |
 | `msp/MSPConnection.test.ts` | 39 | Connection lifecycle, sendCommand, timeouts, error/partial responses, CLI mode, event forwarding |
 | `msp/MSPClient.test.ts` | 62 | FC info queries, PID/filter/FF config, board info, UID, blackbox info (flash+SD card), SD card summary, MSC reboot, set PID, CLI diff, save & reboot, connect/disconnect, version gate, listPorts |
+
+### MSC (Mass Storage Class)
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `msc/driveDetector.test.ts` | 18 | Cross-platform volume snapshot (macOS/Windows/Linux), BF log file matching, new drive detection with polling, drive eject |
+| `msc/MSCManager.test.ts` | 12 | Download/erase lifecycle, MSC rejection, mount timeout, cancel, multi-file copy, eject error handling |
 
 ### Storage
 
