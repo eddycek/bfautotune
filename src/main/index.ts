@@ -180,9 +180,15 @@ async function initialize(): Promise<void> {
 
   // Handle unexpected disconnection (USB unplugged, etc.)
   mspClient.on('disconnected', () => {
+    const window = getMainWindow();
+
     // If FC is in MSC mode, this disconnect is expected — don't clear profile
     if (mspClient.mscModeActive) {
       logger.info('FC disconnected (MSC mode active — expected, keeping profile)');
+      // Still notify renderer that FC is disconnected (UI needs to reflect this)
+      if (window) {
+        sendConnectionChanged(window, { connected: false });
+      }
       return;
     }
 
@@ -192,7 +198,6 @@ async function initialize(): Promise<void> {
     profileManager.clearCurrentProfile();
 
     // Notify renderer
-    const window = getMainWindow();
     if (window) {
       // Send disconnected status
       sendConnectionChanged(window, { connected: false });
