@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBlackboxInfo } from '../../hooks/useBlackboxInfo';
 import { useBlackboxLogs } from '../../hooks/useBlackboxLogs';
 import { useToast } from '../../hooks/useToast';
 import './BlackboxStatus.css';
+
+const PAGE_SIZE = 20;
+let persistedLogsPage = 1;
+
+// Exported for testing — reset module-level state between tests
+export function _resetPersistedLogsPage() { persistedLogsPage = 1; }
 
 interface BlackboxStatusProps {
   onAnalyze?: (logId: string, logName: string) => void;
@@ -17,6 +23,20 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [showEraseConfirm, setShowEraseConfirm] = useState(false);
   const [erasing, setErasing] = useState(false);
+  const [logsPage, setLogsPage] = useState(persistedLogsPage);
+
+  // Keep module-level var in sync for persistence across unmounts
+  useEffect(() => { persistedLogsPage = logsPage; }, [logsPage]);
+
+  // Reset page if current page exceeds available pages (e.g. profile switch)
+  const sortedLogs = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const totalLogsPages = Math.max(1, Math.ceil(sortedLogs.length / PAGE_SIZE));
+  useEffect(() => {
+    if (logs.length > 0 && logsPage > totalLogsPages) { setLogsPage(totalLogsPages); }
+  }, [logs.length, totalLogsPages]);
+
+  const logsPageStart = (logsPage - 1) * PAGE_SIZE;
+  const pageLogs = sortedLogs.slice(logsPageStart, logsPageStart + PAGE_SIZE);
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -274,47 +294,71 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
       <div className="downloaded-logs">
         <h4>Downloaded Logs ({logs.length})</h4>
         {logs.length > 0 ? (
-          <div className="logs-list">
-            {[...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log) => (
-              <div key={log.id} className="log-item">
-                <div className="log-info">
-                  <div className="log-filename">{log.filename}</div>
-                  <div className="log-meta">
-                    <span>{new Date(log.timestamp).toLocaleString()}</span>
-                    <span>•</span>
-                    <span>{formatSize(log.size)}</span>
-                    <span>•</span>
-                    <span>{log.fcInfo.variant} {log.fcInfo.version}</span>
+          <>
+            <div className="logs-list">
+              {pageLogs.map((log, index) => (
+                <div key={log.id} className="log-item">
+                  <div className="log-info">
+                    <div className="log-filename">
+                      <span className="log-number">#{sortedLogs.length - logsPageStart - index}</span>
+                      {log.filename}
+                    </div>
+                    <div className="log-meta">
+                      <span>{new Date(log.timestamp).toLocaleString()}</span>
+                      <span>•</span>
+                      <span>{formatSize(log.size)}</span>
+                      <span>•</span>
+                      <span>{log.fcInfo.variant} {log.fcInfo.version}</span>
+                    </div>
+                  </div>
+                  <div className="log-actions">
+                    {onAnalyze && !readonly && (
+                      <button
+                        className="log-analyze-button"
+                        onClick={() => onAnalyze(log.id, log.filename)}
+                        title="Analyze & Tune"
+                      >
+                        Analyze
+                      </button>
+                    )}
+                    <button
+                      className="log-action-button"
+                      onClick={() => openFolder(log.filepath)}
+                      title="Open folder"
+                    >
+                      📁
+                    </button>
+                    <button
+                      className="log-action-button delete"
+                      onClick={() => handleDeleteLog(log.id)}
+                      title="Delete log"
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
-                <div className="log-actions">
-                  {onAnalyze && !readonly && (
-                    <button
-                      className="log-analyze-button"
-                      onClick={() => onAnalyze(log.id, log.filename)}
-                      title="Analyze & Tune"
-                    >
-                      Analyze
-                    </button>
-                  )}
-                  <button
-                    className="log-action-button"
-                    onClick={() => openFolder(log.filepath)}
-                    title="Open folder"
-                  >
-                    📁
-                  </button>
-                  <button
-                    className="log-action-button delete"
-                    onClick={() => handleDeleteLog(log.id)}
-                    title="Delete log"
-                  >
-                    🗑️
-                  </button>
-                </div>
+              ))}
+            </div>
+            {totalLogsPages > 1 && (
+              <div className="pagination-controls">
+                <button
+                  className="pagination-button"
+                  onClick={() => setLogsPage(p => p - 1)}
+                  disabled={logsPage <= 1}
+                >
+                  Prev
+                </button>
+                <span className="pagination-info">Page {logsPage} of {totalLogsPages}</span>
+                <button
+                  className="pagination-button"
+                  onClick={() => setLogsPage(p => p + 1)}
+                  disabled={logsPage >= totalLogsPages}
+                >
+                  Next
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
           <div className="no-downloaded-logs">
             <span className="icon">📦</span>

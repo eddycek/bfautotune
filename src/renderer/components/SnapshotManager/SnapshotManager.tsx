@@ -7,6 +7,12 @@ import type { ConfigurationSnapshot } from '@shared/types/common.types';
 import type { SnapshotRestoreProgress } from '@shared/types/ipc.types';
 import './SnapshotManager.css';
 
+const PAGE_SIZE = 20;
+let persistedSnapshotsPage = 1;
+
+// Exported for testing — reset module-level state between tests
+export function _resetPersistedSnapshotsPage() { persistedSnapshotsPage = 1; }
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const kb = bytes / 1024;
@@ -28,6 +34,19 @@ export function SnapshotManager() {
   const [restoreProgress, setRestoreProgress] = useState<SnapshotRestoreProgress | null>(null);
   const [diffSnapshots, setDiffSnapshots] = useState<{ before: ConfigurationSnapshot; after: ConfigurationSnapshot } | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
+  const [snapshotsPage, setSnapshotsPage] = useState(persistedSnapshotsPage);
+
+  // Keep module-level var in sync for persistence across unmounts
+  useEffect(() => { persistedSnapshotsPage = snapshotsPage; }, [snapshotsPage]);
+
+  // Reset page if current page exceeds available pages (only when data is loaded)
+  const totalSnapshotsPages = Math.max(1, Math.ceil(snapshots.length / PAGE_SIZE));
+  useEffect(() => {
+    if (snapshots.length > 0 && snapshotsPage > totalSnapshotsPages) { setSnapshotsPage(totalSnapshotsPages); }
+  }, [snapshots.length, totalSnapshotsPages]);
+
+  const snapshotsPageStart = (snapshotsPage - 1) * PAGE_SIZE;
+  const pageSnapshots = snapshots.slice(snapshotsPageStart, snapshotsPageStart + PAGE_SIZE);
 
   useEffect(() => {
     if (!restoring) return;
@@ -200,49 +219,72 @@ export function SnapshotManager() {
           <div className="no-snapshots">No snapshots yet. Create one to save your configuration.</div>
         )}
 
-        {snapshots.map((snapshot, index) => (
-          <div key={snapshot.id} className="snapshot-item">
-            <div className="snapshot-info">
-              <div className="snapshot-label">
-                <span className="snapshot-number">#{snapshots.length - index}</span>
-                {snapshot.label}
-                {snapshot.type === 'baseline' && <span className="badge baseline">Baseline</span>}
+        {pageSnapshots.map((snapshot, index) => {
+          const globalIndex = snapshotsPageStart + index;
+          return (
+            <div key={snapshot.id} className="snapshot-item">
+              <div className="snapshot-info">
+                <div className="snapshot-label">
+                  <span className="snapshot-number">#{snapshots.length - globalIndex}</span>
+                  {snapshot.label}
+                  {snapshot.type === 'baseline' && <span className="badge baseline">Baseline</span>}
+                </div>
+                <div className="snapshot-meta">
+                  <span>{new Date(snapshot.timestamp).toLocaleString()}</span>
+                  <span>•</span>
+                  <span>{snapshot.fcInfo.variant} {snapshot.fcInfo.version}</span>
+                  <span>•</span>
+                  <span>{formatBytes(snapshot.sizeBytes)}</span>
+                </div>
               </div>
-              <div className="snapshot-meta">
-                <span>{new Date(snapshot.timestamp).toLocaleString()}</span>
-                <span>•</span>
-                <span>{snapshot.fcInfo.variant} {snapshot.fcInfo.version}</span>
-                <span>•</span>
-                <span>{formatBytes(snapshot.sizeBytes)}</span>
-              </div>
-            </div>
-            <div className="snapshot-actions-item">
-              <button
-                className="secondary"
-                onClick={() => handleCompare(snapshot.id, index)}
-                disabled={loadingDiff}
-              >
-                Compare
-              </button>
-              <button
-                className="secondary"
-                onClick={() => handleRestoreClick(snapshot.id)}
-                disabled={!status.connected || loading || restoring}
-              >
-                {restoring ? 'Restoring...' : 'Restore'}
-              </button>
-              <button className="secondary" onClick={() => handleViewSnapshot(snapshot.id)}>
-                Export
-              </button>
-              {snapshot.type !== 'baseline' && (
-                <button className="danger" onClick={() => handleDeleteSnapshot(snapshot.id)}>
-                  Delete
+              <div className="snapshot-actions-item">
+                <button
+                  className="secondary"
+                  onClick={() => handleCompare(snapshot.id, globalIndex)}
+                  disabled={loadingDiff}
+                >
+                  Compare
                 </button>
-              )}
+                <button
+                  className="secondary"
+                  onClick={() => handleRestoreClick(snapshot.id)}
+                  disabled={!status.connected || loading || restoring}
+                >
+                  {restoring ? 'Restoring...' : 'Restore'}
+                </button>
+                <button className="secondary" onClick={() => handleViewSnapshot(snapshot.id)}>
+                  Export
+                </button>
+                {snapshot.type !== 'baseline' && (
+                  <button className="danger" onClick={() => handleDeleteSnapshot(snapshot.id)}>
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {totalSnapshotsPages > 1 && (
+        <div className="pagination-controls">
+          <button
+            className="pagination-button"
+            onClick={() => setSnapshotsPage(p => p - 1)}
+            disabled={snapshotsPage <= 1}
+          >
+            Prev
+          </button>
+          <span className="pagination-info">Page {snapshotsPage} of {totalSnapshotsPages}</span>
+          <button
+            className="pagination-button"
+            onClick={() => setSnapshotsPage(p => p + 1)}
+            disabled={snapshotsPage >= totalSnapshotsPages}
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {diffSnapshots && (
         <SnapshotDiffModal

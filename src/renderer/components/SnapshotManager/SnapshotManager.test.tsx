@@ -1,9 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SnapshotManager } from './SnapshotManager';
+import { SnapshotManager, _resetPersistedSnapshotsPage } from './SnapshotManager';
 import type { SnapshotMetadata, ConfigurationSnapshot } from '@shared/types/common.types';
 import type { SnapshotRestoreResult } from '@shared/types/ipc.types';
+
+function makeMockSnapshot(index: number): SnapshotMetadata {
+  const ts = new Date(2024, 0, 1);
+  ts.setHours(index);
+  return {
+    id: `snapshot-gen-${index}`,
+    timestamp: ts.toISOString(),
+    label: `Snapshot ${index}`,
+    type: 'manual',
+    sizeBytes: 1024,
+    fcInfo: { variant: 'BTFL', version: '4.4.0', boardName: 'MATEKF405' },
+  };
+}
 
 describe('SnapshotManager', () => {
   const mockSnapshots: SnapshotMetadata[] = [
@@ -56,6 +69,7 @@ describe('SnapshotManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetPersistedSnapshotsPage();
 
     vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(mockSnapshots);
     vi.mocked(window.betaflight.createSnapshot).mockResolvedValue(mockFullSnapshot);
@@ -667,6 +681,132 @@ describe('SnapshotManager', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Snapshot Comparison')).not.toBeInTheDocument();
+    });
+  });
+
+  // Pagination tests
+  describe('pagination', () => {
+    it('does not show pagination controls for fewer than 20 snapshots', async () => {
+      // Default mockSnapshots has 2 items — no pagination
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(screen.getByText('After PID tune')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+    });
+
+    it('shows pagination controls and 20 items per page for > 20 snapshots', async () => {
+      const snapshots = Array.from({ length: 25 }, (_, i) => makeMockSnapshot(i + 1));
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshots);
+
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(document.querySelectorAll('.snapshot-number')).toHaveLength(20);
+      });
+
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    });
+
+    it('navigates to page 2 with correct numbering', async () => {
+      const snapshots = Array.from({ length: 25 }, (_, i) => makeMockSnapshot(i + 1));
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshots);
+      const user = userEvent.setup();
+
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+
+      // Page 2: items at global indices 20-24 → #5, #4, #3, #2, #1
+      const numbers = document.querySelectorAll('.snapshot-number');
+      expect(numbers).toHaveLength(5);
+      expect(numbers[0].textContent).toBe('#5');
+      expect(numbers[4].textContent).toBe('#1');
+    });
+
+    it('numbering accounts for pagination offset on page 1', async () => {
+      const snapshots = Array.from({ length: 25 }, (_, i) => makeMockSnapshot(i + 1));
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshots);
+
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        const numbers = document.querySelectorAll('.snapshot-number');
+        expect(numbers).toHaveLength(20);
+        // First item on page 1: global index 0 → #25
+        expect(numbers[0].textContent).toBe('#25');
+        // Last item on page 1: global index 19 → #6
+        expect(numbers[19].textContent).toBe('#6');
+      });
+    });
+
+    it('persists page across unmount/remount', async () => {
+      const snapshots = Array.from({ length: 25 }, (_, i) => makeMockSnapshot(i + 1));
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshots);
+      const user = userEvent.setup();
+
+      const { unmount } = render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+
+      unmount();
+
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+    });
+
+    it('clamps page when snapshot count decreases', async () => {
+      const snapshots = Array.from({ length: 25 }, (_, i) => makeMockSnapshot(i + 1));
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshots);
+      const user = userEvent.setup();
+
+      const { unmount } = render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      });
+
+      unmount();
+
+      // Fewer snapshots — only 1 page
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue([mockSnapshots[0]]);
+
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        const numbers = document.querySelectorAll('.snapshot-number');
+        expect(numbers).toHaveLength(1);
+        expect(numbers[0].textContent).toBe('#1');
+      });
+
+      expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
     });
   });
 });
