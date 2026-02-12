@@ -570,7 +570,7 @@ The autotuning rules and thresholds are based on established FPV community pract
 ## Known Limitations
 
 - MSP v1 only (v2 support planned)
-- Blackbox analysis requires onboard flash storage (SD card logging not yet supported)
+- Blackbox analysis supports both onboard flash and SD card storage (SD card uses MSC mode for download)
 - Requires test flights in a safe environment
 - Huffman-compressed Blackbox data not yet supported (rare, BF 4.1+ feature)
 - Feedforward: detection and FF-aware PID recommendations implemented; direct FF parameter tuning (writing `feedforward_boost` via MSP) not yet supported

@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs';
+import fs from 'fs/promises';
 import { basename, join } from 'path';
 import { logger } from '../utils/logger';
 import { snapshotVolumes, detectNewDrive, findLogFiles, ejectDrive, DetectedDrive } from './driveDetector';
