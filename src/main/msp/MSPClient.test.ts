@@ -873,9 +873,10 @@ describe('MSPClient.rebootToMSC', () => {
       MSPCommand.MSP_REBOOT,
       expect.any(Buffer)
     );
-    // Verify reboot type payload (2 on macOS/Windows)
+    // Verify reboot type payload (3 on Linux, 2 on macOS/Windows)
     const payload = mockConn.sendCommandNoResponse.mock.calls[0][1];
-    expect(payload.readUInt8(0)).toBe(2);
+    const expectedType = process.platform === 'linux' ? 3 : 2;
+    expect(payload.readUInt8(0)).toBe(expectedType);
   });
 
   it('sets mscModeActive before sending command', async () => {
