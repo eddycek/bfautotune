@@ -193,7 +193,7 @@ describe('analyze', () => {
 
     expect(elapsed).toBeLessThan(15000); // CI runners may be slower than local
     expect(result.analysisTimeMs).toBeGreaterThan(0);
-  }, 20000);
+  });
 
   it('should handle flight with no hover segments (all ground)', async () => {
     const data = createFlightData({
