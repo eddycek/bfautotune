@@ -24,11 +24,10 @@ describe('FlightStyle type', () => {
       fcSerialNumber: 'abc123',
       fcInfo: {
         variant: 'BTFL',
-        firmwareVersion: '4.5.0',
-        apiVersion: '1.46',
+        version: '4.5.0',
+        apiVersion: { protocol: 0, major: 1, minor: 46 },
         target: 'STM32F405',
         boardName: 'Test',
-        serialNumber: 'abc123',
       },
       name: 'Test',
       size: '5"',

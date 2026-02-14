@@ -5,8 +5,19 @@ import { TuningSummaryStep } from './TuningSummaryStep';
 import type { FilterAnalysisResult, PIDAnalysisResult } from '@shared/types/analysis.types';
 import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
 
+const mockAxisNoiseProfile = {
+  spectrum: { frequencies: new Float64Array(0), magnitudes: new Float64Array(0) },
+  noiseFloorDb: -40,
+  peaks: [],
+};
+
 const mockFilterResult: FilterAnalysisResult = {
-  noise: { overallLevel: 'medium' as const },
+  noise: {
+    roll: mockAxisNoiseProfile,
+    pitch: mockAxisNoiseProfile,
+    yaw: mockAxisNoiseProfile,
+    overallLevel: 'medium' as const,
+  },
   recommendations: [
     {
       setting: 'gyro_lpf1_static_hz',
@@ -67,14 +78,17 @@ const mockPidResult: PIDAnalysisResult = {
 };
 
 const mockApplyProgress: ApplyRecommendationsProgress = {
+  stage: 'filter',
   message: 'Applying settings...',
   percent: 50,
 };
 
 const mockApplyResult: ApplyRecommendationsResult = {
+  success: true,
   appliedFilters: 1,
   appliedPIDs: 1,
   snapshotId: 'snap-123',
+  rebooted: true,
 };
 
 describe('TuningSummaryStep', () => {

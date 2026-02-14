@@ -13,8 +13,7 @@ describe('ProfileSelector', () => {
       size: '5"',
       battery: '4S',
       connectionCount: 10,
-      lastConnected: new Date('2024-01-01').toISOString(),
-      createdAt: new Date('2024-01-01').toISOString()
+      lastConnected: new Date('2024-01-01').toISOString()
     },
     {
       id: 'profile-2',
@@ -23,8 +22,7 @@ describe('ProfileSelector', () => {
       size: '2"',
       battery: '1S',
       connectionCount: 5,
-      lastConnected: new Date('2024-01-02').toISOString(),
-      createdAt: new Date('2024-01-02').toISOString()
+      lastConnected: new Date('2024-01-02').toISOString()
     }
   ];
 
@@ -38,7 +36,9 @@ describe('ProfileSelector', () => {
       motorKV: 2400,
       propSize: '5.1"',
       snapshotIds: [],
-      fcInfo: { variant: 'BTFL', version: '4.4.0' }
+      createdAt: new Date('2024-01-01').toISOString(),
+      updatedAt: new Date('2024-01-01').toISOString(),
+      fcInfo: { variant: 'BTFL', version: '4.4.0', target: 'STM32F405', boardName: 'MATEKF405', apiVersion: { protocol: 0, major: 1, minor: 46 } }
     });
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({ connected: false });
     vi.mocked(window.betaflight.onProfileChanged).mockReturnValue(() => {});
@@ -94,7 +94,9 @@ describe('ProfileSelector', () => {
       motorKV: 8000,
       propSize: '40mm',
       snapshotIds: [],
-      fcInfo: { variant: 'BTFL', version: '4.4.0' }
+      createdAt: new Date('2024-01-02').toISOString(),
+      updatedAt: new Date('2024-01-02').toISOString(),
+      fcInfo: { variant: 'BTFL', version: '4.4.0', target: 'STM32F405', boardName: 'MATEKF405', apiVersion: { protocol: 0, major: 1, minor: 46 } }
     });
 
     render(<ProfileSelector />);

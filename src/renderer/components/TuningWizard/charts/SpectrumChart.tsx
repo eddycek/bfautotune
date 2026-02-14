@@ -153,7 +153,7 @@ export function SpectrumChart({ noise }: SpectrumChartProps) {
           <Tooltip
             contentStyle={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 4, fontSize: 12 }}
             labelFormatter={(val) => `${val} Hz`}
-            formatter={(value: number, name: string) => [`${value.toFixed(1)} dB`, name]}
+            formatter={((value: number | undefined, name: string) => [`${(value ?? 0).toFixed(1)} dB`, name]) as any}
           />
 
           {visibleAxes.map(axis => (

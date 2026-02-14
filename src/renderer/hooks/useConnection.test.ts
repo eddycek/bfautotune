@@ -162,8 +162,8 @@ describe('useConnection', () => {
   });
 
   it('clears error when successful connection happens', async () => {
-    let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
-    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+    let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
       connectionChangeCallback = callback;
       return () => {};
     });
@@ -180,7 +180,7 @@ describe('useConnection', () => {
     });
 
     // Trigger connection changed event with successful connection
-    connectionChangeCallback?.(mockConnectedStatus);
+    connectionChangeCallback(mockConnectedStatus);
 
     await waitFor(() => {
       expect(result.current.error).toBeNull();
@@ -188,9 +188,9 @@ describe('useConnection', () => {
   });
 
   it('updates status when connection changed event fires', async () => {
-    let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+    let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
       connectionChangeCallback = callback;
       return () => {};
     });
@@ -202,9 +202,7 @@ describe('useConnection', () => {
     });
 
     // Trigger connection change
-    if (connectionChangeCallback) {
-      connectionChangeCallback(mockConnectedStatus);
-    }
+    connectionChangeCallback(mockConnectedStatus);
 
     await waitFor(() => {
       expect(result.current.status).toEqual(mockConnectedStatus);
@@ -217,9 +215,9 @@ describe('useConnection', () => {
       error: 'Connection error from status'
     };
 
-    let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+    let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
       connectionChangeCallback = callback;
       return () => {};
     });
@@ -227,7 +225,7 @@ describe('useConnection', () => {
     const { result } = renderHook(() => useConnection());
 
     // Trigger error in connection status
-    connectionChangeCallback?.(errorStatus);
+    connectionChangeCallback(errorStatus);
 
     await waitFor(() => {
       expect(result.current.error).toBe('Connection error from status');
@@ -253,9 +251,9 @@ describe('useConnection', () => {
     });
 
     it.skip('shows success toast on successful connection', async () => {
-      let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+      let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
         connectionChangeCallback = callback;
         return () => {};
       });
@@ -263,7 +261,7 @@ describe('useConnection', () => {
       renderHook(() => useConnection());
 
       // Simulate successful connection
-      connectionChangeCallback?.(mockConnectedStatus);
+      connectionChangeCallback(mockConnectedStatus);
 
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalledWith('Connected to MATEKF405');
@@ -271,9 +269,9 @@ describe('useConnection', () => {
     });
 
     it.skip('shows warning toast on unexpected disconnection', async () => {
-      let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+      let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
         connectionChangeCallback = callback;
         return () => {};
       });
@@ -281,14 +279,14 @@ describe('useConnection', () => {
       renderHook(() => useConnection());
 
       // First connect
-      connectionChangeCallback?.(mockConnectedStatus);
+      connectionChangeCallback(mockConnectedStatus);
 
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalled();
       });
 
       // Then disconnect unexpectedly (USB unplugged)
-      connectionChangeCallback?.({ connected: false });
+      connectionChangeCallback({ connected: false });
 
       await waitFor(() => {
         expect(mockToastWarning).toHaveBeenCalledWith('Flight controller disconnected unexpectedly');
@@ -296,9 +294,9 @@ describe('useConnection', () => {
     });
 
     it.skip('shows info toast on intentional disconnect (button)', async () => {
-      let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+      let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
         connectionChangeCallback = callback;
         return () => {};
       });
@@ -306,7 +304,7 @@ describe('useConnection', () => {
       const { result } = renderHook(() => useConnection());
 
       // First connect
-      connectionChangeCallback?.(mockConnectedStatus);
+      connectionChangeCallback(mockConnectedStatus);
 
       await waitFor(() => {
         expect(result.current.status.connected).toBe(true);
@@ -323,9 +321,9 @@ describe('useConnection', () => {
     });
 
     it.skip('does not show duplicate warning toasts on repeated disconnect events', async () => {
-      let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+      let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
         connectionChangeCallback = callback;
         return () => {};
       });
@@ -333,18 +331,18 @@ describe('useConnection', () => {
       renderHook(() => useConnection());
 
       // First connect
-      connectionChangeCallback?.(mockConnectedStatus);
+      connectionChangeCallback(mockConnectedStatus);
 
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalled();
       });
 
       // Disconnect multiple times (simulating multiple events)
-      connectionChangeCallback?.({ connected: false });
-      connectionChangeCallback?.({ connected: false });
-      connectionChangeCallback?.({ connected: false });
-      connectionChangeCallback?.({ connected: false });
-      connectionChangeCallback?.({ connected: false });
+      connectionChangeCallback({ connected: false });
+      connectionChangeCallback({ connected: false });
+      connectionChangeCallback({ connected: false });
+      connectionChangeCallback({ connected: false });
+      connectionChangeCallback({ connected: false });
 
       await waitFor(() => {
         // Warning should only be called ONCE
@@ -353,9 +351,9 @@ describe('useConnection', () => {
     });
 
     it.skip('resets disconnect flag after reconnection', async () => {
-      let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+      let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
         connectionChangeCallback = callback;
         return () => {};
       });
@@ -363,23 +361,23 @@ describe('useConnection', () => {
       renderHook(() => useConnection());
 
       // First cycle: connect -> disconnect
-      connectionChangeCallback?.(mockConnectedStatus);
+      connectionChangeCallback(mockConnectedStatus);
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalledTimes(1);
       });
 
-      connectionChangeCallback?.({ connected: false });
+      connectionChangeCallback({ connected: false });
       await waitFor(() => {
         expect(mockToastWarning).toHaveBeenCalledTimes(1);
       });
 
       // Second cycle: connect -> disconnect (should show warning again)
-      connectionChangeCallback?.(mockConnectedStatus);
+      connectionChangeCallback(mockConnectedStatus);
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalledTimes(2);
       });
 
-      connectionChangeCallback?.({ connected: false });
+      connectionChangeCallback({ connected: false });
       await waitFor(() => {
         // Should show warning again (flag was reset)
         expect(mockToastWarning).toHaveBeenCalledTimes(2);
@@ -387,9 +385,9 @@ describe('useConnection', () => {
     });
 
     it.skip('shows error toast when connection status has error', async () => {
-      let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
+      let connectionChangeCallback: (status: ConnectionStatus) => void = () => {};
 
-      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+      vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback: (status: ConnectionStatus) => void) => {
         connectionChangeCallback = callback;
         return () => {};
       });
@@ -397,7 +395,7 @@ describe('useConnection', () => {
       renderHook(() => useConnection());
 
       // Simulate error in connection status
-      connectionChangeCallback?.({
+      connectionChangeCallback({
         connected: false,
         error: 'Failed to read from port'
       });

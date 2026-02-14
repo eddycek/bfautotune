@@ -5,10 +5,9 @@ import { SnapshotDiffModal } from './SnapshotDiffModal';
 import type { ConfigurationSnapshot } from '@shared/types/common.types';
 
 function makeSnapshot(overrides: Partial<ConfigurationSnapshot> & { id: string; label: string; cliDiff: string }): ConfigurationSnapshot {
+  const { cliDiff, ...rest } = overrides;
   return {
-    id: overrides.id,
     timestamp: new Date().toISOString(),
-    label: overrides.label,
     type: 'manual',
     fcInfo: {
       variant: 'BTFL',
@@ -17,11 +16,10 @@ function makeSnapshot(overrides: Partial<ConfigurationSnapshot> & { id: string; 
       boardName: 'MATEKF405',
       apiVersion: { protocol: 1, major: 12, minor: 0 },
     },
-    configuration: { cliDiff: overrides.cliDiff },
     metadata: { appVersion: '0.1.0', createdBy: 'user' },
-    ...overrides,
-    configuration: { cliDiff: overrides.cliDiff },
-  };
+    ...rest,
+    configuration: { cliDiff },
+  } as ConfigurationSnapshot;
 }
 
 describe('SnapshotDiffModal', () => {

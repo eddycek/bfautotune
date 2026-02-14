@@ -6,11 +6,10 @@ import type { FCInfo } from '@shared/types/common.types';
 
 const mockFCInfo: FCInfo = {
   variant: 'BTFL',
-  firmwareVersion: '4.5.0',
-  apiVersion: '1.46',
+  version: '4.5.0',
+  apiVersion: { protocol: 0, major: 1, minor: 46 },
   target: 'STM32F405',
   boardName: 'BETAFPV F405',
-  serialNumber: 'ABC123',
 };
 
 describe('ProfileWizard flight style', () => {

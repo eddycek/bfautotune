@@ -25,7 +25,7 @@ describe('PID_STYLE_THRESHOLDS', () => {
     for (const style of styles) {
       for (const key of requiredKeys) {
         expect(PID_STYLE_THRESHOLDS[style]).toHaveProperty(key);
-        expect(typeof (PID_STYLE_THRESHOLDS[style] as Record<string, number>)[key]).toBe('number');
+        expect(typeof (PID_STYLE_THRESHOLDS[style] as unknown as Record<string, number>)[key]).toBe('number');
       }
     }
   });

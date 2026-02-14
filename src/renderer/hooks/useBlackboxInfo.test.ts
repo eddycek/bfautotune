@@ -6,9 +6,12 @@ import type { BlackboxInfo } from '@shared/types/blackbox.types';
 describe('useBlackboxInfo', () => {
   const mockBlackboxInfo: BlackboxInfo = {
     supported: true,
+    storageType: 'flash',
     totalSize: 16777216,
     usedSize: 1048576,
-    hasLogs: true
+    hasLogs: true,
+    freeSize: 15728640,
+    usagePercent: 6.25,
   };
 
   beforeEach(() => {

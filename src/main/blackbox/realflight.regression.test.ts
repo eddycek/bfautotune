@@ -8,7 +8,7 @@
  * To run locally, place a real .bbl file at:
  *   src/main/blackbox/__fixtures__/real_flight.bbl
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { BlackboxParser } from './BlackboxParser';
