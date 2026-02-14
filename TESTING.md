@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1625 tests across 88 files** (last verified: February 14, 2026)
+**Total: 1630 tests across 88 files** (last verified: February 14, 2026)
 
 ### UI Components
 
@@ -178,7 +178,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
 | `AnalysisOverview/AnalysisOverview.test.tsx` | 25 | Diagnostic-only analysis view, auto-parse, session picker, breadcrumb navigation, session metadata, FF warning, RPM status |
 | `TuningWizard/PIDAnalysisStep.test.tsx` | 5 | PID results display, flight style pill, step count pluralization |
-| `TuningWizard/RecommendationCard.test.tsx` | 9 | Setting label lookup, value display, change percentage, confidence |
+| `TuningWizard/RecommendationCard.test.tsx` | 11 | Setting label lookup, value display, change percentage, confidence, feedforward labels |
 | `TuningWizard/ApplyConfirmationModal.test.tsx` | 9 | Change counts, snapshot checkbox, confirm/cancel, reboot warning |
 | `TuningWizard/WizardProgress.test.tsx` | 8 | Step indicator, mode-aware filtering, current/done/upcoming states |
 | `TuningWizard/SessionSelectStep.test.tsx` | 8 | Session picker, auto-parse, parsing/error/empty states, reverse order |
@@ -215,7 +215,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useConnection.test.ts` | 14 | Connection state, port management, error handling |
 | `hooks/useProfiles.test.ts` | 15 | Profile CRUD, event subscriptions |
 | `hooks/useSnapshots.test.ts` | 19 | Snapshot management, restore, event-driven updates |
-| `hooks/useTuningWizard.test.ts` | 22 | Wizard state, parse/analyze/apply lifecycle |
+| `hooks/useTuningWizard.test.ts` | 23 | Wizard state, parse/analyze/apply lifecycle, PID/FF split |
 | `hooks/useTuningSession.test.ts` | 10 | Tuning session lifecycle, IPC events, reload on profile change |
 | `hooks/useTuningHistory.test.ts` | 5 | History loading, profile/session change reload, error handling |
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
@@ -229,7 +229,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `ipc/handlers.test.ts` | 103 | All 43 IPC handler channels: connection, FC info, profiles, snapshots, blackbox, PID config, analysis, tuning apply, snapshot restore, tuning session, BB settings fix, handler registration |
+| `ipc/handlers.test.ts` | 105 | All 43 IPC handler channels: connection, FC info, profiles, snapshots, blackbox, PID config, analysis, tuning apply (PID+filter+FF), snapshot restore, tuning session, BB settings fix, handler registration |
 
 ### MSP Protocol & Client
 
