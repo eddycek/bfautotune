@@ -541,7 +541,7 @@ describe('useTuningWizard', () => {
           currentValue: 15,
           recommendedValue: 10,
           reason: 'Lower FF boost',
-          impact: 'overshoot',
+          impact: 'response',
           confidence: 'medium',
         },
       ],
