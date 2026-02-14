@@ -99,7 +99,11 @@ const mockSingleSessionResult: BlackboxParseResult = {
 const mockMultiSessionResult: BlackboxParseResult = {
   sessions: [
     mockSession,
-    { ...mockSession, index: 1, flightData: { ...mockSession.flightData, durationSeconds: 45, frameCount: 360000 } },
+    {
+      ...mockSession,
+      index: 1,
+      flightData: { ...mockSession.flightData, durationSeconds: 45, frameCount: 360000 },
+    },
   ],
   fileSize: 2 * 1024 * 1024,
   parseTimeMs: 400,
@@ -151,7 +155,13 @@ function makeMockTrace(len: number = 20) {
 
 function makeMockStepResponse(overshoot: number) {
   return {
-    step: { axis: 0 as const, startIndex: 100, endIndex: 200, magnitude: 300, direction: 'positive' as const },
+    step: {
+      axis: 0 as const,
+      startIndex: 100,
+      endIndex: 200,
+      magnitude: 300,
+      direction: 'positive' as const,
+    },
     riseTimeMs: 20,
     overshootPercent: overshoot,
     settlingTimeMs: 50,
@@ -164,9 +174,27 @@ function makeMockStepResponse(overshoot: number) {
 }
 
 const mockPIDResult: PIDAnalysisResult = {
-  roll: { responses: [makeMockStepResponse(5), makeMockStepResponse(8)], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
-  pitch: { responses: [makeMockStepResponse(8)], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
-  yaw: { responses: [makeMockStepResponse(3)], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
+  roll: {
+    responses: [makeMockStepResponse(5), makeMockStepResponse(8)],
+    meanOvershoot: 5,
+    meanRiseTimeMs: 20,
+    meanSettlingTimeMs: 50,
+    meanLatencyMs: 8,
+  },
+  pitch: {
+    responses: [makeMockStepResponse(8)],
+    meanOvershoot: 8,
+    meanRiseTimeMs: 22,
+    meanSettlingTimeMs: 55,
+    meanLatencyMs: 9,
+  },
+  yaw: {
+    responses: [makeMockStepResponse(3)],
+    meanOvershoot: 3,
+    meanRiseTimeMs: 30,
+    meanSettlingTimeMs: 60,
+    meanLatencyMs: 10,
+  },
   recommendations: [
     {
       setting: 'pid_roll_p',
@@ -256,9 +284,7 @@ describe('TuningWizard', () => {
   });
 
   it('advances to session step when guide is acknowledged', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(
-      () => new Promise(() => {})
-    );
+    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(() => new Promise(() => {}));
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
@@ -271,9 +297,7 @@ describe('TuningWizard', () => {
   });
 
   it('shows progress bar during parsing', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(
-      () => new Promise(() => {})
-    );
+    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(() => new Promise(() => {}));
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
@@ -677,6 +701,7 @@ describe('TuningWizard', () => {
       snapshotId: 'snap-1',
       appliedPIDs: 1,
       appliedFilters: 1,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -698,6 +723,7 @@ describe('TuningWizard', () => {
       expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
         filterRecommendations: mockFilterResult.recommendations,
         pidRecommendations: mockPIDResult.recommendations,
+        feedforwardRecommendations: [],
         createSnapshot: true,
       });
     });
@@ -712,6 +738,7 @@ describe('TuningWizard', () => {
       snapshotId: 'snap-1',
       appliedPIDs: 1,
       appliedFilters: 1,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -729,7 +756,9 @@ describe('TuningWizard', () => {
     await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
 
     await waitFor(() => {
-      expect(screen.getByText('Changes applied successfully!', { exact: false })).toBeInTheDocument();
+      expect(
+        screen.getByText('Changes applied successfully!', { exact: false })
+      ).toBeInTheDocument();
     });
   });
 
@@ -834,7 +863,7 @@ describe('TuningWizard', () => {
     render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
 
     const progressLabels = screen.getAllByText(/(Flight Guide|Session|Filters|PIDs|Summary)/);
-    const labels = progressLabels.map(el => el.textContent);
+    const labels = progressLabels.map((el) => el.textContent);
     expect(labels).toContain('Filters');
     expect(labels).not.toContain('PIDs');
   });
@@ -843,7 +872,7 @@ describe('TuningWizard', () => {
     render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} />);
 
     const progressLabels = screen.getAllByText(/(Flight Guide|Session|Filters|PIDs|Summary)/);
-    const labels = progressLabels.map(el => el.textContent);
+    const labels = progressLabels.map((el) => el.textContent);
     expect(labels).toContain('PIDs');
     expect(labels).not.toContain('Filters');
   });
@@ -880,6 +909,7 @@ describe('TuningWizard', () => {
       snapshotId: 'snap-1',
       appliedPIDs: 0,
       appliedFilters: 1,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -917,6 +947,7 @@ describe('TuningWizard', () => {
       success: true,
       appliedPIDs: 1,
       appliedFilters: 0,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -956,12 +987,20 @@ describe('TuningWizard', () => {
       snapshotId: 'snap-1',
       appliedPIDs: 0,
       appliedFilters: 1,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
     const onApplyComplete = vi.fn();
     const user = userEvent.setup();
-    render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} onApplyComplete={onApplyComplete} />);
+    render(
+      <TuningWizard
+        logId="test-log-1"
+        mode="filter"
+        onExit={onExit}
+        onApplyComplete={onApplyComplete}
+      />
+    );
 
     await passGuide(user);
     await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
@@ -976,10 +1015,12 @@ describe('TuningWizard', () => {
     await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
 
     await waitFor(() => {
-      expect(onApplyComplete).toHaveBeenCalledWith(expect.objectContaining({
-        filterChanges: [{ setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 300 }],
-        pidChanges: undefined,
-      }));
+      expect(onApplyComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filterChanges: [{ setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 300 }],
+          pidChanges: undefined,
+        })
+      );
       // Also verify filter metrics are included
       const call = onApplyComplete.mock.calls[0][0];
       expect(call.filterMetrics).toBeDefined();
@@ -994,12 +1035,20 @@ describe('TuningWizard', () => {
       success: true,
       appliedPIDs: 1,
       appliedFilters: 0,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
     const onApplyComplete = vi.fn();
     const user = userEvent.setup();
-    render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} onApplyComplete={onApplyComplete} />);
+    render(
+      <TuningWizard
+        logId="test-log-1"
+        mode="pid"
+        onExit={onExit}
+        onApplyComplete={onApplyComplete}
+      />
+    );
 
     await passGuide(user);
     await waitFor(() => expect(screen.getByText('Run PID Analysis')).toBeInTheDocument());
@@ -1014,10 +1063,12 @@ describe('TuningWizard', () => {
     await user.click(modalApplyBtns[modalApplyBtns.length - 1]);
 
     await waitFor(() => {
-      expect(onApplyComplete).toHaveBeenCalledWith(expect.objectContaining({
-        filterChanges: undefined,
-        pidChanges: [{ setting: 'pid_roll_p', previousValue: 45, newValue: 50 }],
-      }));
+      expect(onApplyComplete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filterChanges: undefined,
+          pidChanges: [{ setting: 'pid_roll_p', previousValue: 45, newValue: 50 }],
+        })
+      );
       // Also verify PID metrics are included
       const call = onApplyComplete.mock.calls[0][0];
       expect(call.pidMetrics).toBeDefined();

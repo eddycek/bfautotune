@@ -127,6 +127,30 @@ describe('RecommendationCard', () => {
     expect(screen.getByText('HIGH')).toBeInTheDocument();
   });
 
+  it('renders feedforward labels from SETTING_LABELS', () => {
+    expect(SETTING_LABELS['feedforward_boost']).toBe('Feedforward Boost');
+    expect(SETTING_LABELS['feedforward_smooth_factor']).toBe('FF Smoothing');
+    expect(SETTING_LABELS['feedforward_jitter_factor']).toBe('FF Jitter Factor');
+    expect(SETTING_LABELS['feedforward_transition']).toBe('FF Transition');
+    expect(SETTING_LABELS['feedforward_max_rate_limit']).toBe('FF Max Rate Limit');
+  });
+
+  it('renders feedforward_boost with correct label', () => {
+    render(
+      <RecommendationCard
+        setting="feedforward_boost"
+        currentValue={15}
+        recommendedValue={10}
+        reason="Reduce FF boost to lower overshoot"
+        impact="overshoot"
+        confidence="medium"
+      />
+    );
+
+    expect(screen.getByText('Feedforward Boost')).toBeInTheDocument();
+    expect(screen.getByText('feedforward_boost')).toBeInTheDocument();
+  });
+
   it('shows special text for increase from zero', () => {
     render(
       <RecommendationCard

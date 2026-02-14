@@ -16,7 +16,12 @@ vi.mock('recharts', async (importOriginal) => {
   };
 });
 
-const makeRecord = (id: string, date: string, filterCount = 2, pidCount = 1): CompletedTuningRecord => ({
+const makeRecord = (
+  id: string,
+  date: string,
+  filterCount = 2,
+  pidCount = 1
+): CompletedTuningRecord => ({
   id,
   profileId: 'profile-1',
   startedAt: '2026-01-01T00:00:00Z',
@@ -37,6 +42,7 @@ const makeRecord = (id: string, date: string, filterCount = 2, pidCount = 1): Co
     previousValue: 45,
     newValue: 50,
   })),
+  appliedFeedforwardChanges: [],
   filterMetrics: {
     noiseLevel: 'low',
     roll: { noiseFloorDb: -40, peakCount: 1 },

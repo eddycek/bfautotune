@@ -17,9 +17,17 @@ export const SETTING_LABELS: Record<string, string> = {
   pid_yaw_p: 'Yaw P-Gain',
   pid_yaw_i: 'Yaw I-Gain',
   pid_yaw_d: 'Yaw D-Gain',
+  feedforward_boost: 'Feedforward Boost',
+  feedforward_smooth_factor: 'FF Smoothing',
+  feedforward_jitter_factor: 'FF Jitter Factor',
+  feedforward_transition: 'FF Transition',
+  feedforward_max_rate_limit: 'FF Max Rate Limit',
 };
 
-function computeChange(current: number, recommended: number): { text: string; direction: 'increase' | 'decrease' | 'none' } {
+function computeChange(
+  current: number,
+  recommended: number
+): { text: string; direction: 'increase' | 'decrease' | 'none' } {
   if (current === recommended) return { text: '0%', direction: 'none' };
   if (current === 0) {
     return { text: `+${recommended}`, direction: 'increase' };
@@ -68,16 +76,16 @@ export function RecommendationCard({
       </div>
       <div className="recommendation-card-values">
         <span className="recommendation-card-current">
-          {currentValue}{unit ? ` ${unit}` : ''}
+          {currentValue}
+          {unit ? ` ${unit}` : ''}
         </span>
         <span className="recommendation-card-arrow">&rarr;</span>
         <span className="recommendation-card-recommended">
-          {recommendedValue}{unit ? ` ${unit}` : ''}
+          {recommendedValue}
+          {unit ? ` ${unit}` : ''}
         </span>
         {change.direction !== 'none' && (
-          <span className={`recommendation-card-change ${change.direction}`}>
-            {change.text}
-          </span>
+          <span className={`recommendation-card-change ${change.direction}`}>{change.text}</span>
         )}
       </div>
       <p className="recommendation-card-reason">{reason}</p>

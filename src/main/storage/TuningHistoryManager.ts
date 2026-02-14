@@ -48,6 +48,7 @@ export class TuningHistoryManager {
       verificationLogId: session.verificationLogId ?? null,
       appliedFilterChanges: session.appliedFilterChanges ?? [],
       appliedPIDChanges: session.appliedPIDChanges ?? [],
+      appliedFeedforwardChanges: session.appliedFeedforwardChanges ?? [],
       filterMetrics: session.filterMetrics ?? null,
       pidMetrics: session.pidMetrics ?? null,
       verificationMetrics: session.verificationMetrics ?? null,
@@ -99,7 +100,10 @@ export class TuningHistoryManager {
       if (error.code === 'ENOENT') {
         return [];
       }
-      logger.warn(`Failed to load tuning history for profile ${profileId}, treating as empty`, error);
+      logger.warn(
+        `Failed to load tuning history for profile ${profileId}, treating as empty`,
+        error
+      );
       return [];
     }
   }

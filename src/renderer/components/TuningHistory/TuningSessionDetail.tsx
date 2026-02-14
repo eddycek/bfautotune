@@ -33,6 +33,12 @@ export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
       <div className="completion-changes-row">
         <AppliedChangesTable title="Filter Changes" changes={record.appliedFilterChanges} />
         <AppliedChangesTable title="PID Changes" changes={record.appliedPIDChanges} />
+        {record.appliedFeedforwardChanges.length > 0 && (
+          <AppliedChangesTable
+            title="Feedforward Changes"
+            changes={record.appliedFeedforwardChanges}
+          />
+        )}
       </div>
 
       {record.pidMetrics && (
@@ -41,7 +47,7 @@ export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
             <span>{record.pidMetrics.stepsDetected} steps detected</span>
           </div>
           <div className="completion-pid-axes">
-            {(['roll', 'pitch', 'yaw'] as const).map(axis => {
+            {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
               const m = record.pidMetrics![axis];
               return (
                 <div key={axis} className="completion-pid-axis">

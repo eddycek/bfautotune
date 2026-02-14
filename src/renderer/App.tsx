@@ -253,6 +253,7 @@ function AppContent() {
   const handleApplyComplete = async (changes: {
     filterChanges?: AppliedChange[];
     pidChanges?: AppliedChange[];
+    feedforwardChanges?: AppliedChange[];
     filterMetrics?: FilterMetricsSummary;
     pidMetrics?: PIDMetricsSummary;
   }) => {
@@ -265,6 +266,7 @@ function AppContent() {
     } else if (phase === 'pid_analysis') {
       await tuning.updatePhase('pid_applied', {
         appliedPIDChanges: changes.pidChanges,
+        appliedFeedforwardChanges: changes.feedforwardChanges,
         pidMetrics: changes.pidMetrics,
       });
     }

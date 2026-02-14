@@ -3,18 +3,31 @@ import type {
   FCInfo,
   ConfigurationSnapshot,
   SnapshotMetadata,
-  ConnectionStatus
+  ConnectionStatus,
 } from './common.types';
 import type {
   DroneProfile,
   DroneProfileMetadata,
   ProfileCreationInput,
   ProfileUpdateInput,
-  PresetProfile
+  PresetProfile,
 } from './profile.types';
 import type { PIDConfiguration, FeedforwardConfiguration } from './pid.types';
-import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress, BlackboxSettings } from './blackbox.types';
-import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings, FilterRecommendation, PIDRecommendation } from './analysis.types';
+import type {
+  BlackboxInfo,
+  BlackboxLogMetadata,
+  BlackboxParseResult,
+  BlackboxParseProgress,
+  BlackboxSettings,
+} from './blackbox.types';
+import type {
+  FilterAnalysisResult,
+  PIDAnalysisResult,
+  AnalysisProgress,
+  CurrentFilterSettings,
+  FilterRecommendation,
+  PIDRecommendation,
+} from './analysis.types';
 import type { TuningSession, TuningPhase } from './tuning.types';
 import type { CompletedTuningRecord } from './tuning-history.types';
 
@@ -49,12 +62,13 @@ export interface FixBlackboxSettingsResult {
 export interface ApplyRecommendationsInput {
   filterRecommendations: FilterRecommendation[];
   pidRecommendations: PIDRecommendation[];
+  feedforwardRecommendations: PIDRecommendation[];
   createSnapshot: boolean;
 }
 
 /** Progress during recommendation application */
 export interface ApplyRecommendationsProgress {
-  stage: 'snapshot' | 'pid' | 'filter' | 'save';
+  stage: 'snapshot' | 'pid' | 'filter' | 'feedforward' | 'save';
   message: string;
   percent: number;
 }
@@ -65,6 +79,7 @@ export interface ApplyRecommendationsResult {
   snapshotId?: string;
   appliedPIDs: number;
   appliedFilters: number;
+  appliedFeedforward: number;
   rebooted: boolean;
 }
 
@@ -143,7 +158,7 @@ export enum IPCChannel {
   EVENT_SNAPSHOT_RESTORE_PROGRESS = 'event:snapshot-restore-progress',
   EVENT_TUNING_SESSION_CHANGED = 'event:tuning-session-changed',
   EVENT_ERROR = 'event:error',
-  EVENT_LOG = 'event:log'
+  EVENT_LOG = 'event:log',
 }
 
 export interface IPCResponse<T = any> {
@@ -199,12 +214,25 @@ export interface BetaflightAPI {
   eraseBlackboxFlash(): Promise<void>;
   openBlackboxFolder(filepath: string): Promise<void>;
   testBlackboxRead(): Promise<{ success: boolean; message: string; data?: string }>;
-  parseBlackboxLog(logId: string, onProgress?: (progress: BlackboxParseProgress) => void): Promise<BlackboxParseResult>;
+  parseBlackboxLog(
+    logId: string,
+    onProgress?: (progress: BlackboxParseProgress) => void
+  ): Promise<BlackboxParseResult>;
   onBlackboxParseProgress(callback: (progress: BlackboxParseProgress) => void): () => void;
 
   // Analysis
-  analyzeFilters(logId: string, sessionIndex?: number, currentSettings?: CurrentFilterSettings, onProgress?: (progress: AnalysisProgress) => void): Promise<FilterAnalysisResult>;
-  analyzePID(logId: string, sessionIndex?: number, currentPIDs?: PIDConfiguration, onProgress?: (progress: AnalysisProgress) => void): Promise<PIDAnalysisResult>;
+  analyzeFilters(
+    logId: string,
+    sessionIndex?: number,
+    currentSettings?: CurrentFilterSettings,
+    onProgress?: (progress: AnalysisProgress) => void
+  ): Promise<FilterAnalysisResult>;
+  analyzePID(
+    logId: string,
+    sessionIndex?: number,
+    currentPIDs?: PIDConfiguration,
+    onProgress?: (progress: AnalysisProgress) => void
+  ): Promise<PIDAnalysisResult>;
 
   // Snapshot Restore
   restoreSnapshot(id: string, createBackup: boolean): Promise<SnapshotRestoreResult>;

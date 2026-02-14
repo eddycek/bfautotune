@@ -29,7 +29,9 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         if (!mspClient) throw new Error('MSP client not initialized');
         if (!mspClient.isConnected()) throw new Error('Flight controller not connected');
 
-        const totalRecs = input.filterRecommendations.length + input.pidRecommendations.length;
+        const ffRecs = input.feedforwardRecommendations ?? [];
+        const totalRecs =
+          input.filterRecommendations.length + input.pidRecommendations.length + ffRecs.length;
         if (totalRecs === 0) throw new Error('No recommendations to apply');
 
         const sendProgress = (progress: ApplyRecommendationsProgress) => {
@@ -75,18 +77,20 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
 
         // Stage 3: Apply filter recommendations via CLI
         let appliedFilters = 0;
-        if (input.filterRecommendations.length > 0) {
+        const needsCLI = input.filterRecommendations.length > 0 || ffRecs.length > 0;
+        if (needsCLI) {
           sendProgress({ stage: 'filter', message: 'Entering CLI mode...', percent: 50 });
-
           await mspClient.connection.enterCLI();
+        }
 
+        if (input.filterRecommendations.length > 0) {
           for (const rec of input.filterRecommendations) {
             const value = Math.round(rec.recommendedValue);
             const cmd = `set ${rec.setting} = ${value}`;
             sendProgress({
               stage: 'filter',
               message: `Setting ${rec.setting} = ${value}...`,
-              percent: 50 + Math.round((appliedFilters / input.filterRecommendations.length) * 30),
+              percent: 50 + Math.round((appliedFilters / input.filterRecommendations.length) * 25),
             });
             await mspClient.connection.sendCLICommand(cmd);
             appliedFilters++;
@@ -98,7 +102,31 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         sendProgress({
           stage: 'filter',
           message: `Applied ${appliedFilters} filter changes`,
-          percent: 80,
+          percent: 75,
+        });
+
+        // Stage 3b: Apply feedforward recommendations via CLI
+        let appliedFeedforward = 0;
+        if (ffRecs.length > 0) {
+          for (const rec of ffRecs) {
+            const value = Math.round(rec.recommendedValue);
+            const cmd = `set ${rec.setting} = ${value}`;
+            sendProgress({
+              stage: 'feedforward',
+              message: `Setting ${rec.setting} = ${value}...`,
+              percent: 75 + Math.round((appliedFeedforward / ffRecs.length) * 10),
+            });
+            await mspClient.connection.sendCLICommand(cmd);
+            appliedFeedforward++;
+          }
+
+          logger.info(`Applied ${appliedFeedforward} feedforward changes via CLI`);
+        }
+
+        sendProgress({
+          stage: 'feedforward',
+          message: `Applied ${appliedFeedforward} feedforward changes`,
+          percent: 85,
         });
 
         // Stage 4: Save and reboot
@@ -111,10 +139,13 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
           success: true,
           appliedPIDs,
           appliedFilters,
+          appliedFeedforward,
           rebooted: true,
         };
 
-        logger.info(`Tuning applied: ${appliedPIDs} PIDs, ${appliedFilters} filters, rebooted`);
+        logger.info(
+          `Tuning applied: ${appliedPIDs} PIDs, ${appliedFilters} filters, ${appliedFeedforward} FF, rebooted`
+        );
         return createResponse<ApplyRecommendationsResult>(result);
       } catch (error) {
         logger.error('Failed to apply recommendations:', error);
