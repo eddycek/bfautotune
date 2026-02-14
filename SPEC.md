@@ -59,7 +59,7 @@ High-level user journey:
 | 2 | Configure Blackbox logging for analysis (high logging rate, correct debug mode); ensure prerequisite settings | :white_check_mark: Blackbox info read + diagnostics (debug_mode, logging rate warnings). One-click "Fix Settings" in FCInfoDisplay + pre-flight warning in TuningStatusBanner → CLI commands → save & reboot. |
 | 3 | Filter tuning: guided throttle-sweep test flight; retrieve log; run noise analysis; propose safe filter adjustments; apply | :white_check_mark: Full pipeline with guided two-flight workflow, post-erase guidance, FFT analysis, interactive spectrum charts, auto-apply via CLI. |
 | 4 | PID tuning: guided stick snap test flight; retrieve log; analyze step responses; apply P/D recommendations | :white_check_mark: Step response analysis, interactive step response charts, auto-apply via MSP, optional verification hover with before/after noise comparison. D sweep multi-log comparison deferred. |
-| 5 | Restore other parameters (FeedForward, I, dynamic damping if used); store tuned snapshot; test-fly; rollback if needed | :construction: Snapshot restore/rollback :white_check_mark:. FF detection + FF-aware PID analysis + MSP read :white_check_mark:. FF/I write-back tuning :x:. |
+| 5 | Restore other parameters (FeedForward, I, dynamic damping if used); store tuned snapshot; test-fly; rollback if needed | :construction: Snapshot restore/rollback :white_check_mark:. FF detection + FF-aware PID analysis + MSP read :white_check_mark:. FF write-back via CLI apply :white_check_mark: (PR #116). I write-back tuning :x:. |
 
 ---
 
@@ -108,7 +108,7 @@ High-level user journey:
 | Flight style-aware PID thresholds (smooth/balanced/aggressive) | :white_check_mark: | Per-profile FlightStyle selector, style-based PID_STYLE_THRESHOLDS map, preset defaults, UI context display |
 | D sweep multi-log comparison (vary D, compare response quality) | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
 | Master gain step: scale P/D together; detect onset of oscillation | :fast_forward: | Deferred — requires multi-flight iterative workflow. |
-| Restore and tune secondary parameters (FF, I, anti-gravity, etc.) | :construction: | FF detection from BBL headers, FF-aware PID recommendations (skip P/D when FF-dominated), MSP_PID_ADVANCED read, FF config display in FC Info. FF/I write-back not yet implemented. |
+| Restore and tune secondary parameters (FF, I, anti-gravity, etc.) | :construction: | FF detection from BBL headers, FF-aware PID recommendations (skip P/D when FF-dominated), MSP_PID_ADVANCED read, FF config display in FC Info. FF write-back via CLI apply stage (PR #116) :white_check_mark:. I write-back not yet implemented. |
 | Write final PIDs to FC; save; snapshot + diff vs previous | :white_check_mark: | Auto-apply PIDs via MSP + filters via CLI. Pre-tuning safety snapshot. Save & reboot. |
 
 ---
@@ -169,7 +169,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Package analysis engine as a stateless service (container) | :fast_forward: | Architecture supports this — analysis modules are pure functions |
-| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 305 tests (151 filter + 97 PID + 22 data quality + 35 shared/pipeline) |
+| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 327 tests (151 filter + 122 PID + 22 data quality + 27 header validation + 5 misc) |
 | Cloud optional; local remains primary | :white_check_mark: | Fully offline, no network calls |
 
 ---
@@ -291,7 +291,7 @@ End-to-end manual testing with real hardware to validate the entire tuning workf
 - Cross-platform smoke test (macOS primary, Windows/Linux basic)
 
 ### Phase 6: CI/CD & Cross-Platform Releases :white_check_mark:
-**Status:** Complete (PRs #109–#119)
+**Status:** Complete (PRs #109–#120)
 
 Automated build pipeline producing installable applications for all platforms.
 
@@ -308,6 +308,7 @@ Automated build pipeline producing installable applications for all platforms.
 - React ErrorBoundary for crash recovery
 - IPC handler modularization (split monolithic 1500-line file into 11 domain modules)
 - Data quality scoring: 0-100 quality score for flight data, confidence adjustment, quality warnings (PR #119)
+- Flight quality score with trend chart: visual quality tracking across tuning sessions in history panel (PR #120)
 - Feedforward write-back via CLI apply stage (PR #116)
 
 **Remaining (deferred):**
@@ -337,7 +338,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 14, 2026 | **Tests:** 1665 across 89 files | **PRs Merged:** #1–#119
+**Last Updated:** February 14, 2026 | **Tests:** 1700 across 91 files | **PRs Merged:** #1–#120
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -347,7 +348,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 | Phase 3: Mode-Aware Analysis | **100%** :white_check_mark: | Wizard modes, read-only analysis, flight guides |
 | Phase 4: Two-Flight Workflow | **100%** :white_check_mark: | Session state machine, smart reconnect, status banner, verification flight, tuning history |
 | Phase 5: Manual Testing & UX Polish | **0%** :x: | Next up |
-| Phase 6: CI/CD & Releases | **100%** :white_check_mark: | CI pipeline, cross-platform releases, ESLint/Prettier, ErrorBoundary, handler split |
+| Phase 6: CI/CD & Releases | **100%** :white_check_mark: | CI pipeline, cross-platform releases, ESLint/Prettier, ErrorBoundary, handler split, data quality, flight quality score |
 | Phase 7: E2E on Real FC | **0%** :x: | After Phase 5 |
 
 ### Remaining Spec Items (deferred to future iterations)
@@ -356,8 +357,9 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 |------|---------|-------|
 | D sweep multi-log comparison | 8 | Requires multi-flight iterative workflow |
 | Master gain step (P/D scaling) | 8 | Requires multi-flight iterative workflow |
-| FF/I/secondary parameter tuning | 8 | FF detection + FF-aware PID recommendations + MSP read done. FF/I write-back (applying FF changes to FC) remaining. |
+| FF/I/secondary parameter tuning | 8 | FF detection + FF-aware PID recommendations + MSP read done. FF write-back via CLI apply stage done (PR #116). I write-back not yet implemented. |
 | ~~RPM filtering validation~~ | ~~7~~ | ✅ Done — RPM-aware bounds, dynamic notch optimization, motor harmonic diagnostic (PRs #63-#69) |
+| ~~FF write-back~~ | ~~8~~ | ✅ Done — Feedforward write-back via CLI apply stage (PR #116). I write-back remaining. |
 | UI tooltips for technical terms | 9 | Nice-to-have UX enhancement |
 | Auto-configure BB logging settings | 4 | Would streamline pre-flight setup |
 | AI-powered tuning (optional) | 2 | Post-MVP, user-supplied API key |

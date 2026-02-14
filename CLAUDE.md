@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Betaflight PID AutoTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 4 complete, Phase 6 complete (CI/CD, code quality)
+**Current Phase**: Phase 4 complete, Phase 6 complete (CI/CD, code quality, data quality scoring, flight quality score)
 
 **Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 
@@ -235,6 +235,7 @@ Rates flight data quality 0-100 before generating recommendations. Integrated in
 - Quality warnings: `few_segments`, `short_hover_time`, `narrow_throttle_coverage`, `few_steps_per_axis`, `missing_axis_coverage`, `low_step_magnitude`
 - UI: quality pill in FilterAnalysisStep, PIDAnalysisStep, AnalysisOverview
 - History: compact `dataQuality` in `FilterMetricsSummary` / `PIDMetricsSummary`
+- **Flight quality score** (`src/shared/utils/tuneQualityScore.ts`): Composite 0-100 score combining data quality, noise reduction, and PID metrics. Displayed as badge in TuningCompletionSummary and TuningHistoryPanel. Trend chart (QualityTrendChart) shows progression across sessions.
 
 ### Stateful Tuning Session
 
@@ -296,7 +297,8 @@ Completed tuning sessions are archived with self-contained metrics for compariso
 - **TuningCompletionSummary**: Shown when `session.phase === 'completed'` instead of the generic banner. Shows noise chart (if verification data available), applied changes, PID metrics, Dismiss/Start New buttons
 - **NoiseComparisonChart**: Before/after spectrum overlay using Recharts. "Before" from filter hover flight, "After" from verification hover flight. Delta pill shows dB improvement/regression
 - **AppliedChangesTable**: Reusable table of setting changes with old → new values and % change
-- **TuningHistoryPanel**: Dashboard section below SnapshotManager. Expandable cards per completed tuning session (newest first)
+- **TuningHistoryPanel**: Dashboard section below SnapshotManager. Expandable cards per completed tuning session (newest first). Includes quality score badge and trend chart.
+- **QualityTrendChart**: Line chart showing flight quality score progression across tuning sessions (minimum 2 data points to render)
 - **TuningSessionDetail**: Expanded view reusing NoiseComparisonChart and AppliedChangesTable
 - **useTuningHistory hook**: Loads history for current profile, reloads on profile change and session dismissal
 - Verification flight: optional hover after PID apply. Compare filter hover spectrum (before) vs verification hover spectrum (after)
@@ -485,6 +487,25 @@ When user selects drone size, defaults auto-populate:
 - React state updates in tests need `waitFor()`
 - Don't check loading state immediately after action
 - Use `await waitFor(() => expect(loading).toBe(true))`
+
+## Documentation Requirements
+
+**MANDATORY: Every PR must update documentation.** Before merging any PR, ensure all affected documentation files are up-to-date:
+
+1. **TESTING.md** — Update test inventory (counts, new/removed test files) whenever tests are added or removed
+2. **ARCHITECTURE.md** — Update when architecture, handler counts, line counts, component structure, or test summary changes
+3. **README.md** — Update test count, feature list, or usage instructions if affected
+4. **SPEC.md** — Update progress summary (test count, PR range) and phase tracking
+5. **CLAUDE.md** — Update architecture sections, IPC handler table, or gotchas when relevant code changes
+6. **docs/README.md** — Update when design docs are added, completed, or status changes
+7. **docs/*.md** — Update status headers when all tasks in a design doc are merged
+8. **QUICK_START.md** — Update if development workflow or prerequisites change
+
+**Key numbers to keep in sync across files:**
+- Total test count and test file count (ARCHITECTURE.md, README.md, SPEC.md, TESTING.md, docs/README.md)
+- IPC handler counts per module (ARCHITECTURE.md, CLAUDE.md)
+- Hook count (ARCHITECTURE.md)
+- PR merge range (SPEC.md)
 
 ## Code Style
 
