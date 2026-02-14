@@ -37,13 +37,12 @@ export function useBlackboxInfo() {
   useEffect(() => {
     console.log('[useBlackboxInfo] Mount - loading info');
     loadBlackboxInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once on mount
 
   return {
     info,
     loading,
     error,
-    refresh: loadBlackboxInfo
+    refresh: loadBlackboxInfo,
   };
 }
