@@ -124,10 +124,7 @@ describe('analyze', () => {
     const result = await analyze(data, 0);
 
     // Should detect a peak near 150 Hz on at least one axis
-    const allPeaks = [
-      ...result.noise.roll.peaks,
-      ...result.noise.pitch.peaks,
-    ];
+    const allPeaks = [...result.noise.roll.peaks, ...result.noise.pitch.peaks];
     const peak150 = allPeaks.find((p) => Math.abs(p.frequency - 150) < 30);
     expect(peak150).toBeDefined();
   });
@@ -225,7 +222,7 @@ describe('analyze', () => {
     expect(result.warnings![0].severity).toBe('warning');
   });
 
-  it('should not include warnings when segments are found', async () => {
+  it('should not include no_sweep_segments warning when segments are found', async () => {
     const data = createFlightData({
       sampleRate: 4000,
       durationS: 3,
@@ -234,8 +231,8 @@ describe('analyze', () => {
     });
 
     const result = await analyze(data, 0);
-    // Either no warnings field or empty array
-    expect(result.warnings?.length ?? 0).toBe(0);
+    const sweepWarning = (result.warnings ?? []).find((w) => w.code === 'no_sweep_segments');
+    expect(sweepWarning).toBeUndefined();
   });
 
   it('should produce deterministic noise levels for clean vs noisy signals', async () => {
@@ -302,5 +299,33 @@ describe('analyze', () => {
 
     const result = await analyze(data, 0, DEFAULT_FILTER_SETTINGS);
     expect(result.rpmFilterActive).toBe(false);
+  });
+
+  it('should include dataQuality score in result', async () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      durationS: 3,
+      backgroundNoise: 0.5,
+    });
+
+    const result = await analyze(data, 0);
+    expect(result.dataQuality).toBeDefined();
+    expect(result.dataQuality!.overall).toBeGreaterThanOrEqual(0);
+    expect(result.dataQuality!.overall).toBeLessThanOrEqual(100);
+    expect(['excellent', 'good', 'fair', 'poor']).toContain(result.dataQuality!.tier);
+    expect(result.dataQuality!.subScores.length).toBeGreaterThan(0);
+  });
+
+  it('should include dataQuality in fallback (no segments) result', async () => {
+    const data = createFlightData({
+      sampleRate: 4000,
+      durationS: 2,
+      throttle: 0.05,
+      backgroundNoise: 0.5,
+    });
+
+    const result = await analyze(data, 0);
+    expect(result.dataQuality).toBeDefined();
+    expect(result.dataQuality!.tier).toBe('poor');
   });
 });

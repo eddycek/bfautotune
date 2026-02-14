@@ -8,7 +8,9 @@ import type { FilterAnalysisResult, PIDAnalysisResult } from '@shared/types/anal
 
 // Mock recharts to avoid SVG rendering in tests
 vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
+  ResponsiveContainer: ({ children }: any) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
   LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
   Line: () => null,
   XAxis: () => null,
@@ -144,9 +146,27 @@ const mockFilterResult: FilterAnalysisResult = {
 };
 
 const mockPIDResult: PIDAnalysisResult = {
-  roll: { responses: [], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
-  pitch: { responses: [], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
-  yaw: { responses: [], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
+  roll: {
+    responses: [],
+    meanOvershoot: 5,
+    meanRiseTimeMs: 20,
+    meanSettlingTimeMs: 50,
+    meanLatencyMs: 8,
+  },
+  pitch: {
+    responses: [],
+    meanOvershoot: 8,
+    meanRiseTimeMs: 22,
+    meanSettlingTimeMs: 55,
+    meanLatencyMs: 9,
+  },
+  yaw: {
+    responses: [],
+    meanOvershoot: 3,
+    meanRiseTimeMs: 30,
+    meanSettlingTimeMs: 60,
+    meanLatencyMs: 10,
+  },
   recommendations: [
     {
       setting: 'pid_roll_p',
@@ -207,7 +227,10 @@ describe('AnalysisOverview', () => {
     render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
     await waitFor(() => {
-      expect(window.betaflight.parseBlackboxLog).toHaveBeenCalledWith('log-1', expect.any(Function));
+      expect(window.betaflight.parseBlackboxLog).toHaveBeenCalledWith(
+        'log-1',
+        expect.any(Function)
+      );
     });
   });
 
@@ -298,9 +321,7 @@ describe('AnalysisOverview', () => {
   });
 
   it('shows parse error with retry button', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockRejectedValue(
-      new Error('Corrupt log file')
-    );
+    vi.mocked(window.betaflight.parseBlackboxLog).mockRejectedValue(new Error('Corrupt log file'));
 
     render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
@@ -331,9 +352,7 @@ describe('AnalysisOverview', () => {
   it('shows PID error with retry button', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
-    vi.mocked(window.betaflight.analyzePID).mockRejectedValue(
-      new Error('No step inputs found')
-    );
+    vi.mocked(window.betaflight.analyzePID).mockRejectedValue(new Error('No step inputs found'));
 
     render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
 
@@ -601,6 +620,52 @@ describe('AnalysisOverview', () => {
     });
   });
 
+  it('shows filter data quality pill when dataQuality is present', async () => {
+    const filterWithQuality: FilterAnalysisResult = {
+      ...mockFilterResult,
+      dataQuality: { overall: 72, tier: 'good', subScores: [] },
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(filterWithQuality);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Data: good \(72\/100\)/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows PID data quality pill when dataQuality is present', async () => {
+    const pidWithQuality: PIDAnalysisResult = {
+      ...mockPIDResult,
+      dataQuality: { overall: 45, tier: 'fair', subScores: [] },
+    };
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithQuality);
+
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Data: fair \(45\/100\)/)).toBeInTheDocument();
+    });
+  });
+
+  it('does not show quality pill when dataQuality is absent', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
+
+    render(<AnalysisOverview logId="log-1" logName="blackbox_2026-02-11.bbl" onExit={onExit} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('low')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Data:/)).not.toBeInTheDocument();
+  });
+
   it('log name is not clickable for single-session logs', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
@@ -613,8 +678,9 @@ describe('AnalysisOverview', () => {
     });
 
     // Log name is a static span, not a button
-    expect(screen.queryByRole('button', { name: 'blackbox_2026-02-11.bbl' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'blackbox_2026-02-11.bbl' })
+    ).not.toBeInTheDocument();
     expect(screen.getByText('blackbox_2026-02-11.bbl')).toBeInTheDocument();
   });
-
 });

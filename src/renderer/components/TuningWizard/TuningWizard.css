@@ -440,6 +440,23 @@
   color: #aaa;
 }
 
+/* Data quality tier pills */
+.analysis-meta-pill.quality-excellent,
+.analysis-meta-pill.quality-good {
+  background: rgba(81, 207, 102, 0.12);
+  color: #51cf66;
+}
+
+.analysis-meta-pill.quality-fair {
+  background: rgba(255, 212, 59, 0.12);
+  color: #ffd43b;
+}
+
+.analysis-meta-pill.quality-poor {
+  background: rgba(255, 135, 135, 0.12);
+  color: #ff8787;
+}
+
 /* Noise details toggle */
 .noise-details-toggle {
   background: none;
@@ -605,4 +622,3 @@
   color: #51cf66;
   margin-bottom: 16px;
 }
-

@@ -6,7 +6,9 @@ import type { PIDAnalysisResult } from '@shared/types/analysis.types';
 
 // Mock recharts to avoid SVG rendering in tests
 vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
+  ResponsiveContainer: ({ children }: any) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
   LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
   Line: () => null,
   XAxis: () => null,
@@ -17,9 +19,27 @@ vi.mock('recharts', () => ({
 }));
 
 const mockPIDResult: PIDAnalysisResult = {
-  roll: { responses: [], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
-  pitch: { responses: [], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
-  yaw: { responses: [], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
+  roll: {
+    responses: [],
+    meanOvershoot: 5,
+    meanRiseTimeMs: 20,
+    meanSettlingTimeMs: 50,
+    meanLatencyMs: 8,
+  },
+  pitch: {
+    responses: [],
+    meanOvershoot: 8,
+    meanRiseTimeMs: 22,
+    meanSettlingTimeMs: 55,
+    meanLatencyMs: 9,
+  },
+  yaw: {
+    responses: [],
+    meanOvershoot: 3,
+    meanRiseTimeMs: 30,
+    meanSettlingTimeMs: 60,
+    meanLatencyMs: 10,
+  },
   recommendations: [],
   summary: 'Your PIDs look good.',
   analysisTimeMs: 200,
@@ -44,10 +64,7 @@ describe('PIDAnalysisStep', () => {
 
   it('shows flight style pill when flightStyle is present', () => {
     render(
-      <PIDAnalysisStep
-        {...defaultProps}
-        pidResult={{ ...mockPIDResult, flightStyle: 'smooth' }}
-      />
+      <PIDAnalysisStep {...defaultProps} pidResult={{ ...mockPIDResult, flightStyle: 'smooth' }} />
     );
 
     expect(screen.getByText(/Tuning for: Smooth flying/)).toBeInTheDocument();
@@ -65,35 +82,46 @@ describe('PIDAnalysisStep', () => {
   });
 
   it('does not show flight style pill when flightStyle is absent', () => {
-    render(
-      <PIDAnalysisStep
-        {...defaultProps}
-        pidResult={mockPIDResult}
-      />
-    );
+    render(<PIDAnalysisStep {...defaultProps} pidResult={mockPIDResult} />);
 
     expect(screen.queryByText(/Tuning for:/)).not.toBeInTheDocument();
   });
 
   it('shows step count pill with correct pluralization', () => {
-    render(
-      <PIDAnalysisStep
-        {...defaultProps}
-        pidResult={mockPIDResult}
-      />
-    );
+    render(<PIDAnalysisStep {...defaultProps} pidResult={mockPIDResult} />);
 
     expect(screen.getByText(/12 steps detected/)).toBeInTheDocument();
   });
 
   it('uses singular "step" for single step', () => {
     render(
-      <PIDAnalysisStep
-        {...defaultProps}
-        pidResult={{ ...mockPIDResult, stepsDetected: 1 }}
-      />
+      <PIDAnalysisStep {...defaultProps} pidResult={{ ...mockPIDResult, stepsDetected: 1 }} />
     );
 
     expect(screen.getByText(/1 step detected/)).toBeInTheDocument();
+  });
+
+  it('shows data quality pill when dataQuality is present', () => {
+    render(
+      <PIDAnalysisStep
+        {...defaultProps}
+        pidResult={{
+          ...mockPIDResult,
+          dataQuality: {
+            overall: 85,
+            tier: 'excellent',
+            subScores: [],
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Data: excellent \(85\/100\)/)).toBeInTheDocument();
+  });
+
+  it('does not show data quality pill when dataQuality is absent', () => {
+    render(<PIDAnalysisStep {...defaultProps} pidResult={mockPIDResult} />);
+
+    expect(screen.queryByText(/Data:/)).not.toBeInTheDocument();
   });
 });

@@ -58,11 +58,7 @@ export function downsampleSpectrum(
 }
 
 /** Linear interpolation with binary search on sorted frequency array */
-function interpolate(
-  frequencies: Float64Array,
-  values: Float64Array,
-  targetFreq: number
-): number {
+function interpolate(frequencies: Float64Array, values: Float64Array, targetFreq: number): number {
   // Edge cases
   if (targetFreq <= frequencies[0]) {
     return round2(values[0]);
@@ -101,14 +97,11 @@ function round2(v: number): number {
  * Spectrum access: result.noise.roll.spectrum.frequencies (shared across axes)
  */
 export function extractFilterMetrics(result: FilterAnalysisResult): FilterMetricsSummary {
-  const spectrum = downsampleSpectrum(
-    result.noise.roll.spectrum.frequencies,
-    {
-      roll: result.noise.roll.spectrum.magnitudes,
-      pitch: result.noise.pitch.spectrum.magnitudes,
-      yaw: result.noise.yaw.spectrum.magnitudes,
-    }
-  );
+  const spectrum = downsampleSpectrum(result.noise.roll.spectrum.frequencies, {
+    roll: result.noise.roll.spectrum.magnitudes,
+    pitch: result.noise.pitch.spectrum.magnitudes,
+    yaw: result.noise.yaw.spectrum.magnitudes,
+  });
 
   return {
     noiseLevel: result.noise.overallLevel,
@@ -128,6 +121,9 @@ export function extractFilterMetrics(result: FilterAnalysisResult): FilterMetric
     rpmFilterActive: result.rpmFilterActive,
     summary: result.summary,
     spectrum,
+    ...(result.dataQuality
+      ? { dataQuality: { overall: result.dataQuality.overall, tier: result.dataQuality.tier } }
+      : {}),
   };
 }
 
@@ -157,5 +153,8 @@ export function extractPIDMetrics(result: PIDAnalysisResult): PIDMetricsSummary 
     stepsDetected: result.stepsDetected,
     currentPIDs: result.currentPIDs,
     summary: result.summary,
+    ...(result.dataQuality
+      ? { dataQuality: { overall: result.dataQuality.overall, tier: result.dataQuality.tier } }
+      : {}),
   };
 }

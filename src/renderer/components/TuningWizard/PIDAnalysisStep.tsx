@@ -39,7 +39,7 @@ export function PIDAnalysisStep({
   // Check if any trace data exists
   const hasTraces = pidResult
     ? ['roll', 'pitch', 'yaw'].some((axis) =>
-        pidResult[axis as 'roll' | 'pitch' | 'yaw'].responses.some(r => r.trace)
+        pidResult[axis as 'roll' | 'pitch' | 'yaw'].responses.some((r) => r.trace)
       )
     : false;
 
@@ -97,6 +97,14 @@ export function PIDAnalysisStep({
               Tuning for: {FLIGHT_STYLE_LABELS[pidResult.flightStyle]} flying
             </span>
           )}
+          {pidResult.dataQuality && (
+            <span
+              className={`analysis-meta-pill quality-${pidResult.dataQuality.tier}`}
+              title={`Data quality: ${pidResult.dataQuality.overall}/100`}
+            >
+              Data: {pidResult.dataQuality.tier} ({pidResult.dataQuality.overall}/100)
+            </span>
+          )}
         </div>
 
         {pidResult.warnings && pidResult.warnings.length > 0 && (
@@ -104,7 +112,11 @@ export function PIDAnalysisStep({
             {pidResult.warnings.map((w, i) => (
               <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
                 <span className="analysis-warning-icon">
-                  {w.severity === 'error' ? '\u274C' : w.severity === 'info' ? '\u2139\uFE0F' : '\u26A0\uFE0F'}
+                  {w.severity === 'error'
+                    ? '\u274C'
+                    : w.severity === 'info'
+                      ? '\u2139\uFE0F'
+                      : '\u26A0\uFE0F'}
                 </span>
                 <span>{w.message}</span>
               </div>
@@ -122,13 +134,16 @@ export function PIDAnalysisStep({
                   <div key={`current-${axis}`} className="axis-summary-card">
                     <div className="axis-summary-card-title">{axis}</div>
                     <div className="axis-summary-card-stat">
-                      <span>P: </span>{pids.P}
+                      <span>P: </span>
+                      {pids.P}
                     </div>
                     <div className="axis-summary-card-stat">
-                      <span>I: </span>{pids.I}
+                      <span>I: </span>
+                      {pids.I}
                     </div>
                     <div className="axis-summary-card-stat">
-                      <span>D: </span>{pids.D}
+                      <span>D: </span>
+                      {pids.D}
                     </div>
                   </div>
                 );
@@ -145,16 +160,20 @@ export function PIDAnalysisStep({
               <div key={axis} className="axis-summary-card">
                 <div className="axis-summary-card-title">{axis}</div>
                 <div className="axis-summary-card-stat">
-                  <span>Overshoot: </span>{profile.meanOvershoot.toFixed(1)}%
+                  <span>Overshoot: </span>
+                  {profile.meanOvershoot.toFixed(1)}%
                 </div>
                 <div className="axis-summary-card-stat">
-                  <span>Rise: </span>{profile.meanRiseTimeMs.toFixed(0)} ms
+                  <span>Rise: </span>
+                  {profile.meanRiseTimeMs.toFixed(0)} ms
                 </div>
                 <div className="axis-summary-card-stat">
-                  <span>Settling: </span>{profile.meanSettlingTimeMs.toFixed(0)} ms
+                  <span>Settling: </span>
+                  {profile.meanSettlingTimeMs.toFixed(0)} ms
                 </div>
                 <div className="axis-summary-card-stat">
-                  <span>Latency: </span>{profile.meanLatencyMs.toFixed(0)} ms
+                  <span>Latency: </span>
+                  {profile.meanLatencyMs.toFixed(0)} ms
                 </div>
               </div>
             );
@@ -163,26 +182,35 @@ export function PIDAnalysisStep({
 
         {hasTraces && (
           <>
-            <button
-              className="noise-details-toggle"
-              onClick={() => setChartOpen(!chartOpen)}
-            >
+            <button className="noise-details-toggle" onClick={() => setChartOpen(!chartOpen)}>
               {chartOpen ? 'Hide step response charts' : 'Show step response charts'}
             </button>
 
             {chartOpen && (
               <>
                 <p className="chart-description">
-                  How the quad responds to stick inputs (step response).
-                  The <strong>dashed white line</strong> is the commanded rate (setpoint) and the{' '}
-                  <strong>colored line</strong> is the actual gyro response.
-                  Ideally, the gyro should follow the setpoint quickly with minimal overshoot and no oscillation.
+                  How the quad responds to stick inputs (step response). The{' '}
+                  <strong>dashed white line</strong> is the commanded rate (setpoint) and the{' '}
+                  <strong>colored line</strong> is the actual gyro response. Ideally, the gyro
+                  should follow the setpoint quickly with minimal overshoot and no oscillation.
                 </p>
                 <p className="chart-legend">
-                  <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#fff' }} /> Setpoint</span>
-                  <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
-                  <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
-                  <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
+                  <span className="chart-legend-item">
+                    <span
+                      className="chart-legend-line chart-legend-line--dashed"
+                      style={{ borderColor: '#fff' }}
+                    />{' '}
+                    Setpoint
+                  </span>
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll
+                  </span>
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch
+                  </span>
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw
+                  </span>
                 </p>
                 <StepResponseChart
                   roll={pidResult.roll}
@@ -229,13 +257,12 @@ export function PIDAnalysisStep({
     <div className="analysis-section">
       <h3>PID Analysis</h3>
       <p>
-        Analyze stick input step responses to evaluate PID performance.
-        This measures overshoot, rise time, and settling time to find
-        optimal P, I, and D gains.
+        Analyze stick input step responses to evaluate PID performance. This measures overshoot,
+        rise time, and settling time to find optimal P, I, and D gains.
       </p>
       <p className="analysis-section-detail">
-        Tip: For best results, your test flight should include quick, sharp stick
-        inputs (snaps) on each axis.
+        Tip: For best results, your test flight should include quick, sharp stick inputs (snaps) on
+        each axis.
       </p>
       <button className="wizard-btn wizard-btn-primary" onClick={runPIDAnalysis}>
         Run PID Analysis

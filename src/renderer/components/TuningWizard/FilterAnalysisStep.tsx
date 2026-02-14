@@ -89,8 +89,8 @@ export function FilterAnalysisStep({
           Noise level:{' '}
           <span className={`noise-level-badge ${filterResult.noise.overallLevel}`}>
             {filterResult.noise.overallLevel}
-          </span>
-          {' '}&mdash; {filterResult.summary}
+          </span>{' '}
+          &mdash; {filterResult.summary}
         </p>
 
         <div className="analysis-meta">
@@ -98,8 +98,18 @@ export function FilterAnalysisStep({
             {filterResult.segmentsUsed} segment{filterResult.segmentsUsed !== 1 ? 's' : ''} analyzed
           </span>
           {filterResult.rpmFilterActive !== undefined && (
-            <span className={`analysis-meta-pill ${filterResult.rpmFilterActive ? 'rpm-active' : 'rpm-inactive'}`}>
+            <span
+              className={`analysis-meta-pill ${filterResult.rpmFilterActive ? 'rpm-active' : 'rpm-inactive'}`}
+            >
               RPM Filter: {filterResult.rpmFilterActive ? 'Active' : 'Not detected'}
+            </span>
+          )}
+          {filterResult.dataQuality && (
+            <span
+              className={`analysis-meta-pill quality-${filterResult.dataQuality.tier}`}
+              title={`Data quality: ${filterResult.dataQuality.overall}/100`}
+            >
+              Data: {filterResult.dataQuality.tier} ({filterResult.dataQuality.overall}/100)
             </span>
           )}
         </div>
@@ -107,7 +117,9 @@ export function FilterAnalysisStep({
         {filterResult.rpmFilterActive && (
           <div className="analysis-warning analysis-warning--info">
             <span className="analysis-warning-icon">{'\u2139\uFE0F'}</span>
-            <span>RPM filter is active — filter recommendations are optimized for lower latency.</span>
+            <span>
+              RPM filter is active — filter recommendations are optimized for lower latency.
+            </span>
           </div>
         )}
 
@@ -115,7 +127,9 @@ export function FilterAnalysisStep({
           <div className="analysis-warnings">
             {filterResult.warnings.map((w, i) => (
               <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
-                <span className="analysis-warning-icon">{w.severity === 'error' ? '\u274C' : '\u26A0\uFE0F'}</span>
+                <span className="analysis-warning-icon">
+                  {w.severity === 'error' ? '\u274C' : '\u26A0\uFE0F'}
+                </span>
                 <span>{w.message}</span>
               </div>
             ))}
@@ -132,17 +146,32 @@ export function FilterAnalysisStep({
         {noiseDetailsOpen && (
           <div className="noise-details">
             <p className="chart-description">
-              Frequency spectrum of gyro noise during stable hover.
-              Peaks indicate noise sources &mdash; <strong>motor harmonics</strong> (propeller vibrations),{' '}
-              <strong>frame resonance</strong> (structural vibrations), or <strong>electrical</strong> noise.
-              A flat, low spectrum means a clean build. Tall peaks may need filter adjustments.
+              Frequency spectrum of gyro noise during stable hover. Peaks indicate noise sources
+              &mdash; <strong>motor harmonics</strong> (propeller vibrations),{' '}
+              <strong>frame resonance</strong> (structural vibrations), or{' '}
+              <strong>electrical</strong> noise. A flat, low spectrum means a clean build. Tall
+              peaks may need filter adjustments.
             </p>
             <p className="chart-legend">
-              <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
-              <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
-              <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
-              <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" /> Noise floor</span>
-              <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#ffd43b' }} /> Peak marker</span>
+              <span className="chart-legend-item">
+                <span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll
+              </span>
+              <span className="chart-legend-item">
+                <span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch
+              </span>
+              <span className="chart-legend-item">
+                <span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw
+              </span>
+              <span className="chart-legend-item">
+                <span className="chart-legend-line chart-legend-line--dashed" /> Noise floor
+              </span>
+              <span className="chart-legend-item">
+                <span
+                  className="chart-legend-line chart-legend-line--dashed"
+                  style={{ borderColor: '#ffd43b' }}
+                />{' '}
+                Peak marker
+              </span>
             </p>
             <SpectrumChart noise={filterResult.noise} />
             <div className="axis-summary">
@@ -152,10 +181,12 @@ export function FilterAnalysisStep({
                   <div key={axis} className="axis-summary-card">
                     <div className="axis-summary-card-title">{axis}</div>
                     <div className="axis-summary-card-stat">
-                      <span>Noise floor: </span>{profile.noiseFloorDb.toFixed(0)} dB
+                      <span>Noise floor: </span>
+                      {profile.noiseFloorDb.toFixed(0)} dB
                     </div>
                     <div className="axis-summary-card-stat">
-                      <span>Peaks: </span>{profile.peaks.length}
+                      <span>Peaks: </span>
+                      {profile.peaks.length}
                     </div>
                     {profile.peaks.map((peak, i) => (
                       <div key={i} className="axis-summary-card-stat">
@@ -208,9 +239,8 @@ export function FilterAnalysisStep({
     <div className="analysis-section">
       <h3>Filter Analysis</h3>
       <p>
-        Analyze gyro noise from your flight data to find optimal filter settings.
-        This uses FFT (Fast Fourier Transform) to identify noise frequencies and
-        recommend filter adjustments.
+        Analyze gyro noise from your flight data to find optimal filter settings. This uses FFT
+        (Fast Fourier Transform) to identify noise frequencies and recommend filter adjustments.
       </p>
       <button className="wizard-btn wizard-btn-primary" onClick={runFilterAnalysis}>
         Run Filter Analysis
