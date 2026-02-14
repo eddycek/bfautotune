@@ -14,6 +14,7 @@ import { TuningCompletionSummary } from './components/TuningHistory/TuningComple
 import { TuningHistoryPanel } from './components/TuningHistory/TuningHistoryPanel';
 import { FixSettingsConfirmModal } from './components/FCInfo/FixSettingsConfirmModal';
 import { computeBBSettingsStatus } from './utils/bbSettingsUtils';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { useProfiles } from './hooks/useProfiles';
@@ -57,8 +58,9 @@ function AppContent() {
   const fetchBBSettings = (connStatus: ConnectionStatus) => {
     if (connStatus.connected) {
       setFcVersion(connStatus.fcInfo?.version || '');
-      window.betaflight.getBlackboxSettings()
-        .then(s => setBbSettings(s))
+      window.betaflight
+        .getBlackboxSettings()
+        .then((s) => setBbSettings(s))
         .catch(() => setBbSettings(null));
     } else {
       setBbSettings(null);
@@ -86,7 +88,11 @@ function AppContent() {
     };
   }, []);
 
-  const handleProfileWizardComplete = async (input: ProfileCreationInput | { presetId: string; customName?: string; flightStyle?: FlightStyle }) => {
+  const handleProfileWizardComplete = async (
+    input:
+      | ProfileCreationInput
+      | { presetId: string; customName?: string; flightStyle?: FlightStyle }
+  ) => {
     try {
       if ('presetId' in input) {
         // Create from preset
@@ -124,7 +130,10 @@ function AppContent() {
 
           await window.betaflight.eraseBlackboxFlash();
           // Re-read phase after potential transition above
-          const phaseForErase = currentPhase === 'filter_applied' ? 'pid_flight_pending' : (tuning.session?.phase ?? null);
+          const phaseForErase =
+            currentPhase === 'filter_applied'
+              ? 'pid_flight_pending'
+              : (tuning.session?.phase ?? null);
           setErasedForPhase(phaseForErase);
           toast.success('Flash memory erased');
         } catch (err) {
@@ -317,44 +326,62 @@ function AppContent() {
 
       <main className="app-main">
         {analysisLogId ? (
-          <AnalysisOverview logId={analysisLogId} logName={analysisLogName || analysisLogId} onExit={() => { setAnalysisLogId(null); setAnalysisLogName(null); }} />
+          <AnalysisOverview
+            logId={analysisLogId}
+            logName={analysisLogName || analysisLogId}
+            onExit={() => {
+              setAnalysisLogId(null);
+              setAnalysisLogName(null);
+            }}
+          />
         ) : activeLogId ? (
-          <TuningWizard logId={activeLogId} mode={wizardMode} onExit={() => setActiveLogId(null)} onApplyComplete={handleApplyComplete} />
+          <TuningWizard
+            logId={activeLogId}
+            mode={wizardMode}
+            onExit={() => setActiveLogId(null)}
+            onApplyComplete={handleApplyComplete}
+          />
         ) : (
           <div className="main-content">
             <div className={`top-row ${isConnected && currentProfile ? 'top-row-connected' : ''}`}>
               <ConnectionPanel />
               {isConnected && currentProfile && <ProfileSelector />}
             </div>
-            {isConnected && currentProfile && tuning.session && tuning.session.phase === 'completed' && (
-              <TuningCompletionSummary
-                session={tuning.session}
-                onDismiss={() => handleTuningAction('dismiss')}
-                onStartNew={() => handleTuningAction('start_new_cycle')}
-              />
-            )}
-            {isConnected && currentProfile && tuning.session && tuning.session.phase !== 'completed' && (
-              <TuningStatusBanner
-                session={tuning.session}
-                flashErased={erasedForPhase === tuning.session.phase}
-                erasing={erasing}
-                downloading={downloading}
-                analyzingVerification={analyzingVerification}
-                bbSettingsOk={bbStatus.allOk}
-                fixingSettings={fixingSettings}
-                onFixSettings={() => setShowBannerFixConfirm(true)}
-                onAction={handleTuningAction}
-                onViewGuide={(mode) => setShowFlightGuideMode(mode)}
-                onReset={async () => {
-                  try {
-                    setErasedForPhase(null);
-                    await tuning.resetSession();
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : 'Failed to reset');
-                  }
-                }}
-              />
-            )}
+            {isConnected &&
+              currentProfile &&
+              tuning.session &&
+              tuning.session.phase === 'completed' && (
+                <TuningCompletionSummary
+                  session={tuning.session}
+                  onDismiss={() => handleTuningAction('dismiss')}
+                  onStartNew={() => handleTuningAction('start_new_cycle')}
+                />
+              )}
+            {isConnected &&
+              currentProfile &&
+              tuning.session &&
+              tuning.session.phase !== 'completed' && (
+                <TuningStatusBanner
+                  session={tuning.session}
+                  flashErased={erasedForPhase === tuning.session.phase}
+                  erasing={erasing}
+                  downloading={downloading}
+                  analyzingVerification={analyzingVerification}
+                  bbSettingsOk={bbStatus.allOk}
+                  fixingSettings={fixingSettings}
+                  onFixSettings={() => setShowBannerFixConfirm(true)}
+                  onAction={handleTuningAction}
+                  onViewGuide={(mode) => setShowFlightGuideMode(mode)}
+                  onReset={async () => {
+                    try {
+                      setErasedForPhase(null);
+                      await tuning.resetSession();
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : 'Failed to reset');
+                    }
+                  }}
+                />
+              )}
             {isConnected && currentProfile && !tuning.session && !tuning.loading && (
               <div className="start-tuning-banner">
                 <p>Ready to tune? Start a guided two-flight tuning session.</p>
@@ -365,7 +392,9 @@ function AppContent() {
                       setErasedForPhase(null);
                       await tuning.startSession();
                     } catch (err) {
-                      toast.error(err instanceof Error ? err.message : 'Failed to start tuning session');
+                      toast.error(
+                        err instanceof Error ? err.message : 'Failed to start tuning session'
+                      );
                     }
                   }}
                 >
@@ -374,7 +403,9 @@ function AppContent() {
               </div>
             )}
             {isConnected && <FCInfoDisplay />}
-            {isConnected && <BlackboxStatus onAnalyze={handleAnalyze} readonly={!!tuning.session} />}
+            {isConnected && (
+              <BlackboxStatus onAnalyze={handleAnalyze} readonly={!!tuning.session} />
+            )}
             {isConnected && currentProfile && <SnapshotManager />}
             {currentProfile && (
               <TuningHistoryPanel history={tuningHistory.history} loading={tuningHistory.loading} />
@@ -391,13 +422,9 @@ function AppContent() {
         />
       )}
 
-      {showWorkflowHelp && (
-        <TuningWorkflowModal onClose={() => setShowWorkflowHelp(false)} />
-      )}
+      {showWorkflowHelp && <TuningWorkflowModal onClose={() => setShowWorkflowHelp(false)} />}
 
-      {showFlightGuideMode && (
-        <TuningWorkflowModal onClose={() => setShowFlightGuideMode(null)} />
-      )}
+      {showFlightGuideMode && <TuningWorkflowModal onClose={() => setShowFlightGuideMode(null)} />}
 
       {showBannerFixConfirm && bbStatus.fixCommands.length > 0 && (
         <FixSettingsConfirmModal
@@ -414,9 +441,11 @@ function AppContent() {
 
 function App() {
   return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 
