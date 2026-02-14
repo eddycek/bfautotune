@@ -16,6 +16,7 @@ Overview of all design documents in this directory. Each document starts as a de
 | [TUNING_WORKFLOW_FIXES](./TUNING_WORKFLOW_FIXES.md) | **Complete** | #42–#43 | Fix for download/analyze being blocked during tuning session + phase transition after apply |
 | [TUNING_HISTORY_AND_COMPARISON](./TUNING_HISTORY_AND_COMPARISON.md) | **Complete** | #96–#99 | Tuning session history + before/after comparison on completion (UX #3 + #6) |
 | [SD_CARD_BLACKBOX_SUPPORT](./SD_CARD_BLACKBOX_SUPPORT.md) | **Complete** | #105 | SD card blackbox storage support via MSC (Mass Storage Class) mode |
+| [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Proposed** | — | Research-based tuning accuracy improvements: Wiener deconvolution, throttle spectrograms, proportional PID scaling, data quality scoring, chirp analysis |
 | [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (4/7 done, rest are future work) |
 
 ## Status Legend
