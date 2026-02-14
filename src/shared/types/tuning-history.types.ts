@@ -89,6 +89,7 @@ export interface CompletedTuningRecord {
   /** Applied changes */
   appliedFilterChanges: AppliedChange[];
   appliedPIDChanges: AppliedChange[];
+  appliedFeedforwardChanges: AppliedChange[];
 
   /** Analysis metrics (nullable — may not have been computed) */
   filterMetrics: FilterMetricsSummary | null;

@@ -3,7 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TuningSummaryStep } from './TuningSummaryStep';
 import type { FilterAnalysisResult, PIDAnalysisResult } from '@shared/types/analysis.types';
-import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
+import type {
+  ApplyRecommendationsProgress,
+  ApplyRecommendationsResult,
+} from '@shared/types/ipc.types';
 
 const mockAxisNoiseProfile = {
   spectrum: { frequencies: new Float64Array(0), magnitudes: new Float64Array(0) },
@@ -87,6 +90,7 @@ const mockApplyResult: ApplyRecommendationsResult = {
   success: true,
   appliedFilters: 1,
   appliedPIDs: 1,
+  appliedFeedforward: 0,
   snapshotId: 'snap-123',
   rebooted: true,
 };

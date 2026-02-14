@@ -15,17 +15,16 @@ export type TuningMode = 'filter' | 'pid' | 'full';
 
 /** Phases of the tuning session state machine */
 export type TuningPhase =
-  | 'filter_flight_pending'   // Waiting for user to fly filter test flight
-  | 'filter_log_ready'        // FC reconnected, ready to download filter log
-  | 'filter_analysis'         // Filter log downloaded, analyzing
-  | 'filter_applied'          // Filters applied, flash erased, ready for PID flight
-  | 'pid_flight_pending'      // Waiting for user to fly PID test flight
-  | 'pid_log_ready'           // FC reconnected, ready to download PID log
-  | 'pid_analysis'            // PID log downloaded, analyzing
-  | 'pid_applied'             // PIDs applied, flash erased, ready for verification
-  | 'verification_pending'    // Waiting for verification flight
-  | 'completed'               // Tuning done
-  ;
+  | 'filter_flight_pending' // Waiting for user to fly filter test flight
+  | 'filter_log_ready' // FC reconnected, ready to download filter log
+  | 'filter_analysis' // Filter log downloaded, analyzing
+  | 'filter_applied' // Filters applied, flash erased, ready for PID flight
+  | 'pid_flight_pending' // Waiting for user to fly PID test flight
+  | 'pid_log_ready' // FC reconnected, ready to download PID log
+  | 'pid_analysis' // PID log downloaded, analyzing
+  | 'pid_applied' // PIDs applied, flash erased, ready for verification
+  | 'verification_pending' // Waiting for verification flight
+  | 'completed'; // Tuning done
 
 /** A single setting change applied during tuning */
 export interface AppliedChange {
@@ -62,6 +61,9 @@ export interface TuningSession {
 
   /** Summary of applied PID changes */
   appliedPIDChanges?: AppliedChange[];
+
+  /** Summary of applied feedforward changes */
+  appliedFeedforwardChanges?: AppliedChange[];
 
   /** Log ID of the verification flight (after download) */
   verificationLogId?: string;

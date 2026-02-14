@@ -106,22 +106,41 @@ function createMockMSPClient(connected = true) {
     disconnect: vi.fn().mockResolvedValue(undefined),
     getConnectionStatus: vi.fn().mockReturnValue({ connected: true, port: '/dev/ttyUSB0' }),
     getFCInfo: vi.fn().mockResolvedValue({
-      variant: 'BTFL', version: '4.5.1', firmwareVersion: '4.5.1',
-      target: 'STM32F7X2', boardName: 'SPEEDY',
+      variant: 'BTFL',
+      version: '4.5.1',
+      firmwareVersion: '4.5.1',
+      target: 'STM32F7X2',
+      boardName: 'SPEEDY',
       apiVersion: { protocol: 0, major: 1, minor: 46 },
     }),
     getFCSerialNumber: vi.fn().mockResolvedValue('SN-001'),
     getPIDConfiguration: vi.fn().mockResolvedValue({
-      roll: { P: 45, I: 80, D: 40 }, pitch: { P: 47, I: 84, D: 43 }, yaw: { P: 45, I: 80, D: 0 },
+      roll: { P: 45, I: 80, D: 40 },
+      pitch: { P: 47, I: 84, D: 43 },
+      yaw: { P: 45, I: 80, D: 0 },
     }),
     setPIDConfiguration: vi.fn().mockResolvedValue(undefined),
     getFilterConfiguration: vi.fn().mockResolvedValue({
-      gyro_lpf1_static_hz: 250, gyro_lpf2_static_hz: 500,
-      dterm_lpf1_static_hz: 150, dterm_lpf2_static_hz: 150,
-      dyn_notch_min_hz: 100, dyn_notch_max_hz: 600,
+      gyro_lpf1_static_hz: 250,
+      gyro_lpf2_static_hz: 500,
+      dterm_lpf1_static_hz: 150,
+      dterm_lpf2_static_hz: 150,
+      dyn_notch_min_hz: 100,
+      dyn_notch_max_hz: 600,
     }),
-    getFeedforwardConfiguration: vi.fn().mockResolvedValue({ feedforwardTransition: 0, feedforwardAveraging: 0 }),
-    getBlackboxInfo: vi.fn().mockResolvedValue({ supported: true, totalSize: 2048000, usedSize: 1024000, hasLogs: true, freeSize: 1024000, usagePercent: 50 }),
+    getFeedforwardConfiguration: vi
+      .fn()
+      .mockResolvedValue({ feedforwardTransition: 0, feedforwardAveraging: 0 }),
+    getBlackboxInfo: vi
+      .fn()
+      .mockResolvedValue({
+        supported: true,
+        totalSize: 2048000,
+        usedSize: 1024000,
+        hasLogs: true,
+        freeSize: 1024000,
+        usagePercent: 50,
+      }),
     downloadBlackboxLog: vi.fn().mockResolvedValue(Buffer.from('fake-log-data')),
     eraseBlackboxFlash: vi.fn().mockResolvedValue(undefined),
     testBlackboxRead: vi.fn().mockResolvedValue({ success: true, message: 'OK' }),
@@ -139,22 +158,39 @@ function createMockMSPClient(connected = true) {
 function createMockProfileManager() {
   return {
     createProfile: vi.fn().mockResolvedValue({
-      id: 'prof-1', fcSerialNumber: 'SN-001', name: 'Test',
-      snapshotIds: [], createdAt: '2026-01-01', updatedAt: '2026-01-01', connectionCount: 1,
+      id: 'prof-1',
+      fcSerialNumber: 'SN-001',
+      name: 'Test',
+      snapshotIds: [],
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      connectionCount: 1,
     }),
     createProfileFromPreset: vi.fn().mockResolvedValue({
-      id: 'prof-preset', fcSerialNumber: 'SN-001', name: '5" Freestyle',
-      snapshotIds: [], createdAt: '2026-01-01', updatedAt: '2026-01-01', connectionCount: 1,
+      id: 'prof-preset',
+      fcSerialNumber: 'SN-001',
+      name: '5" Freestyle',
+      snapshotIds: [],
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      connectionCount: 1,
     }),
     updateProfile: vi.fn().mockResolvedValue({ id: 'prof-1', name: 'Updated' }),
     deleteProfile: vi.fn().mockResolvedValue(undefined),
     getProfile: vi.fn().mockResolvedValue({
-      id: 'prof-1', fcSerialNumber: 'SN-001', name: 'Test',
-      snapshotIds: ['snap-1', 'snap-2'], baselineSnapshotId: 'snap-1',
+      id: 'prof-1',
+      fcSerialNumber: 'SN-001',
+      name: 'Test',
+      snapshotIds: ['snap-1', 'snap-2'],
+      baselineSnapshotId: 'snap-1',
     }),
     getCurrentProfile: vi.fn().mockResolvedValue({
-      id: 'prof-1', fcSerialNumber: 'SN-001', fcSerial: 'SN-001', name: 'Test',
-      snapshotIds: ['snap-1'], baselineSnapshotId: 'snap-1',
+      id: 'prof-1',
+      fcSerialNumber: 'SN-001',
+      fcSerial: 'SN-001',
+      name: 'Test',
+      snapshotIds: ['snap-1'],
+      baselineSnapshotId: 'snap-1',
     }),
     getCurrentProfileId: vi.fn().mockReturnValue('prof-1'),
     clearCurrentProfile: vi.fn(),
@@ -167,14 +203,21 @@ function createMockProfileManager() {
 function createMockSnapshotManager() {
   return {
     createSnapshot: vi.fn().mockResolvedValue({
-      id: 'snap-new', label: 'Test', type: 'manual',
+      id: 'snap-new',
+      label: 'Test',
+      type: 'manual',
       configuration: { cliDiff: 'set gyro_lpf1_static_hz = 250' },
       fcInfo: { variant: 'BTFL', version: '4.5.1' },
     }),
     createBaselineIfMissing: vi.fn().mockResolvedValue(undefined),
     loadSnapshot: vi.fn().mockResolvedValue({
-      id: 'snap-1', label: 'Baseline', type: 'baseline',
-      configuration: { cliDiff: 'set debug_mode = GYRO_SCALED\nset blackbox_sample_rate = 1\nset gyro_lpf1_static_hz = 250' },
+      id: 'snap-1',
+      label: 'Baseline',
+      type: 'baseline',
+      configuration: {
+        cliDiff:
+          'set debug_mode = GYRO_SCALED\nset blackbox_sample_rate = 1\nset gyro_lpf1_static_hz = 250',
+      },
       fcInfo: { variant: 'BTFL', version: '4.5.1' },
     }),
     deleteSnapshot: vi.fn().mockResolvedValue(undefined),
@@ -189,13 +232,20 @@ function createMockSnapshotManager() {
 function createMockBlackboxManager() {
   return {
     saveLog: vi.fn().mockResolvedValue({
-      id: 'log-1', profileId: 'prof-1', fcSerial: 'SN-001',
-      timestamp: '2026-01-01', filename: 'blackbox_001.bbl',
-      filepath: '/tmp/logs/blackbox_001.bbl', size: 1024,
+      id: 'log-1',
+      profileId: 'prof-1',
+      fcSerial: 'SN-001',
+      timestamp: '2026-01-01',
+      filename: 'blackbox_001.bbl',
+      filepath: '/tmp/logs/blackbox_001.bbl',
+      size: 1024,
     }),
     getLog: vi.fn().mockResolvedValue({
-      id: 'log-1', profileId: 'prof-1', filename: 'blackbox_001.bbl',
-      filepath: '/tmp/logs/blackbox_001.bbl', size: 1024,
+      id: 'log-1',
+      profileId: 'prof-1',
+      filename: 'blackbox_001.bbl',
+      filepath: '/tmp/logs/blackbox_001.bbl',
+      size: 1024,
     }),
     listLogs: vi.fn().mockResolvedValue([]),
     deleteLog: vi.fn().mockResolvedValue(undefined),
@@ -207,12 +257,16 @@ function createMockTuningSessionManager() {
   return {
     getSession: vi.fn().mockResolvedValue(null),
     createSession: vi.fn().mockResolvedValue({
-      profileId: 'prof-1', phase: 'filter_flight_pending',
-      startedAt: '2026-01-01', updatedAt: '2026-01-01',
+      profileId: 'prof-1',
+      phase: 'filter_flight_pending',
+      startedAt: '2026-01-01',
+      updatedAt: '2026-01-01',
     }),
     updatePhase: vi.fn().mockResolvedValue({
-      profileId: 'prof-1', phase: 'filter_flight_pending',
-      startedAt: '2026-01-01', updatedAt: '2026-01-01',
+      profileId: 'prof-1',
+      phase: 'filter_flight_pending',
+      startedAt: '2026-01-01',
+      updatedAt: '2026-01-01',
     }),
     deleteSession: vi.fn().mockResolvedValue(undefined),
   };
@@ -227,7 +281,11 @@ async function invoke(channel: string, ...args: any[]): Promise<IPCResponse<any>
 }
 
 /** Invoke a handler with a custom event (for progress tracking) */
-async function invokeWithEvent(channel: string, event: any, ...args: any[]): Promise<IPCResponse<any>> {
+async function invokeWithEvent(
+  channel: string,
+  event: any,
+  ...args: any[]
+): Promise<IPCResponse<any>> {
   const handler = registeredHandlers.get(channel);
   if (!handler) throw new Error(`No handler registered for ${channel}`);
   return handler(event, ...args);
@@ -360,7 +418,8 @@ describe('IPC Handlers', () => {
 
     it('returns defaults when settings not in diff', async () => {
       mockSnapshotMgr.loadSnapshot.mockResolvedValue({
-        id: 'snap-1', configuration: { cliDiff: '' },
+        id: 'snap-1',
+        configuration: { cliDiff: '' },
       });
       const res = await invoke(IPCChannel.FC_GET_BLACKBOX_SETTINGS);
       expect(res.success).toBe(true);
@@ -379,7 +438,10 @@ describe('IPC Handlers', () => {
       mockMSP.getPidProcessDenom.mockRejectedValue(new Error('timeout'));
       mockSnapshotMgr.loadSnapshot.mockResolvedValue({
         id: 'snap-1',
-        configuration: { cliDiff: 'set debug_mode = GYRO_SCALED\nset blackbox_sample_rate = 1\nset pid_process_denom = 4' },
+        configuration: {
+          cliDiff:
+            'set debug_mode = GYRO_SCALED\nset blackbox_sample_rate = 1\nset pid_process_denom = 4',
+        },
       });
       const res = await invoke(IPCChannel.FC_GET_BLACKBOX_SETTINGS);
       expect(res.success).toBe(true);
@@ -507,13 +569,19 @@ describe('IPC Handlers', () => {
 
   describe('PROFILE_CREATE', () => {
     it('creates profile and sends profileChanged event', async () => {
-      const input = { fcSerialNumber: 'SN-001', fcInfo: {}, name: 'Test', size: '5"', battery: '4S' };
+      const input = {
+        fcSerialNumber: 'SN-001',
+        fcInfo: {},
+        name: 'Test',
+        size: '5"',
+        battery: '4S',
+      };
       const res = await invoke(IPCChannel.PROFILE_CREATE, input);
       expect(res.success).toBe(true);
       expect(mockProfileMgr.createProfile).toHaveBeenCalledWith(input);
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         IPCChannel.EVENT_PROFILE_CHANGED,
-        expect.objectContaining({ id: 'prof-1' }),
+        expect.objectContaining({ id: 'prof-1' })
       );
     });
 
@@ -541,7 +609,10 @@ describe('IPC Handlers', () => {
     it('uses custom name when provided', async () => {
       await invoke(IPCChannel.PROFILE_CREATE_FROM_PRESET, '5inch-freestyle', 'My Quad');
       expect(mockProfileMgr.createProfileFromPreset).toHaveBeenCalledWith(
-        expect.anything(), 'SN-001', expect.anything(), 'My Quad',
+        expect.anything(),
+        'SN-001',
+        expect.anything(),
+        'My Quad'
       );
     });
 
@@ -577,7 +648,8 @@ describe('IPC Handlers', () => {
       const res = await invoke(IPCChannel.PROFILE_DELETE, 'prof-1');
       expect(res.success).toBe(true);
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        IPCChannel.EVENT_PROFILE_CHANGED, null,
+        IPCChannel.EVENT_PROFILE_CHANGED,
+        null
       );
     });
 
@@ -699,7 +771,8 @@ describe('IPC Handlers', () => {
       };
       await invoke(IPCChannel.PID_UPDATE_CONFIG, config);
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        IPCChannel.EVENT_PID_CHANGED, config,
+        IPCChannel.EVENT_PID_CHANGED,
+        config
       );
     });
 
@@ -765,15 +838,19 @@ describe('IPC Handlers', () => {
       expect(res.data.id).toBe('log-1');
       // Progress events sent
       expect(event.sender.send).toHaveBeenCalledWith(
-        IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS, 50,
+        IPCChannel.EVENT_BLACKBOX_DOWNLOAD_PROGRESS,
+        50
       );
     });
 
     it('rejects concurrent downloads', async () => {
       // Simulate a download in progress by making the first one hang
       let resolveDownload: any;
-      mockMSP.downloadBlackboxLog.mockImplementation(() =>
-        new Promise(resolve => { resolveDownload = resolve; })
+      mockMSP.downloadBlackboxLog.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveDownload = resolve;
+          })
       );
 
       const { event: e1 } = createMockEvent();
@@ -781,7 +858,7 @@ describe('IPC Handlers', () => {
 
       const promise1 = invokeWithEvent(IPCChannel.BLACKBOX_DOWNLOAD_LOG, e1);
       // Wait a tick for the flag to be set
-      await new Promise(r => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 10));
 
       const res2 = await invokeWithEvent(IPCChannel.BLACKBOX_DOWNLOAD_LOG, e2);
       expect(res2.success).toBe(false);
@@ -891,7 +968,8 @@ describe('IPC Handlers', () => {
     it('sends parse progress events', async () => {
       vi.mocked(fsp.readFile).mockResolvedValue(Buffer.from('data'));
       mockParse.mockImplementation(async (_data: any, onProgress: any) => {
-        if (onProgress) onProgress({ percent: 50, bytesProcessed: 500, totalBytes: 1000, currentSession: 0 });
+        if (onProgress)
+          onProgress({ percent: 50, bytesProcessed: 500, totalBytes: 1000, currentSession: 0 });
         return { sessions: [{ index: 0 }], success: true, parseTimeMs: 50 };
       });
 
@@ -899,7 +977,7 @@ describe('IPC Handlers', () => {
       await invokeWithEvent(IPCChannel.BLACKBOX_PARSE_LOG, event, 'log-1');
       expect(event.sender.send).toHaveBeenCalledWith(
         IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS,
-        expect.objectContaining({ percent: 50 }),
+        expect.objectContaining({ percent: 50 })
       );
     });
   });
@@ -910,17 +988,21 @@ describe('IPC Handlers', () => {
     beforeEach(() => {
       vi.mocked(fsp.readFile).mockResolvedValue(Buffer.from('bbl-data'));
       mockParse.mockResolvedValue({
-        sessions: [{
-          index: 0,
-          header: { rawHeaders: new Map() },
-          flightData: {},
-        }],
+        sessions: [
+          {
+            index: 0,
+            header: { rawHeaders: new Map() },
+            flightData: {},
+          },
+        ],
         success: true,
         parseTimeMs: 100,
       });
       mockAnalyzeFilters.mockResolvedValue({
         noise: { overallLevel: 'medium' },
-        recommendations: [{ setting: 'gyro_lpf1_static_hz', currentValue: 250, recommendedValue: 200 }],
+        recommendations: [
+          { setting: 'gyro_lpf1_static_hz', currentValue: 250, recommendedValue: 200 },
+        ],
         summary: 'Test',
         analysisTimeMs: 500,
         sessionIndex: 0,
@@ -957,7 +1039,11 @@ describe('IPC Handlers', () => {
 
     it('attaches header validation warnings', async () => {
       mockValidateBBLHeader.mockReturnValue([
-        { code: 'wrong_debug_mode', message: 'Debug mode should be GYRO_SCALED', severity: 'warning' },
+        {
+          code: 'wrong_debug_mode',
+          message: 'Debug mode should be GYRO_SCALED',
+          severity: 'warning',
+        },
       ]);
       const { event } = createMockEvent();
       const res = await invokeWithEvent(IPCChannel.ANALYSIS_RUN_FILTER, event, 'log-1');
@@ -967,16 +1053,25 @@ describe('IPC Handlers', () => {
     });
 
     it('reports progress via events', async () => {
-      mockAnalyzeFilters.mockImplementation(async (_data: any, _idx: any, _settings: any, onProgress: any) => {
-        if (onProgress) onProgress({ step: 'fft', percent: 50 });
-        return { noise: { overallLevel: 'low' }, recommendations: [], summary: '', analysisTimeMs: 100, sessionIndex: 0, segmentsUsed: 1 };
-      });
+      mockAnalyzeFilters.mockImplementation(
+        async (_data: any, _idx: any, _settings: any, onProgress: any) => {
+          if (onProgress) onProgress({ step: 'fft', percent: 50 });
+          return {
+            noise: { overallLevel: 'low' },
+            recommendations: [],
+            summary: '',
+            analysisTimeMs: 100,
+            sessionIndex: 0,
+            segmentsUsed: 1,
+          };
+        }
+      );
 
       const { event } = createMockEvent();
       await invokeWithEvent(IPCChannel.ANALYSIS_RUN_FILTER, event, 'log-1');
       expect(event.sender.send).toHaveBeenCalledWith(
         IPCChannel.EVENT_ANALYSIS_PROGRESS,
-        expect.objectContaining({ step: 'fft', percent: 50 }),
+        expect.objectContaining({ step: 'fft', percent: 50 })
       );
     });
   });
@@ -985,11 +1080,13 @@ describe('IPC Handlers', () => {
     beforeEach(() => {
       vi.mocked(fsp.readFile).mockResolvedValue(Buffer.from('bbl-data'));
       mockParse.mockResolvedValue({
-        sessions: [{
-          index: 0,
-          header: { rawHeaders: new Map() },
-          flightData: {},
-        }],
+        sessions: [
+          {
+            index: 0,
+            header: { rawHeaders: new Map() },
+            flightData: {},
+          },
+        ],
         success: true,
         parseTimeMs: 100,
       });
@@ -1003,7 +1100,11 @@ describe('IPC Handlers', () => {
         analysisTimeMs: 300,
         sessionIndex: 0,
         stepsDetected: 15,
-        currentPIDs: { roll: { P: 45, I: 80, D: 40 }, pitch: { P: 47, I: 84, D: 43 }, yaw: { P: 45, I: 80, D: 0 } },
+        currentPIDs: {
+          roll: { P: 45, I: 80, D: 40 },
+          pitch: { P: 47, I: 84, D: 43 },
+          yaw: { P: 45, I: 80, D: 0 },
+        },
       });
     });
 
@@ -1022,15 +1123,19 @@ describe('IPC Handlers', () => {
 
     it('reads flight style from current profile', async () => {
       mockProfileMgr.getCurrentProfile.mockResolvedValue({
-        id: 'prof-1', flightStyle: 'aggressive',
+        id: 'prof-1',
+        flightStyle: 'aggressive',
       });
       const { event } = createMockEvent();
       await invokeWithEvent(IPCChannel.ANALYSIS_RUN_PID, event, 'log-1');
       expect(mockAnalyzePID).toHaveBeenCalledWith(
-        expect.anything(), 0, expect.anything(), expect.anything(),
+        expect.anything(),
+        0,
+        expect.anything(),
+        expect.anything(),
         null, // flightPIDs
         expect.anything(), // rawHeaders
-        'aggressive', // flightStyle
+        'aggressive' // flightStyle
       );
     });
 
@@ -1046,21 +1151,45 @@ describe('IPC Handlers', () => {
   describe('TUNING_APPLY_RECOMMENDATIONS', () => {
     const baseInput = {
       filterRecommendations: [
-        { setting: 'gyro_lpf1_static_hz', currentValue: 250, recommendedValue: 200, reason: '', impact: 'noise' as const, confidence: 'high' as const },
+        {
+          setting: 'gyro_lpf1_static_hz',
+          currentValue: 250,
+          recommendedValue: 200,
+          reason: '',
+          impact: 'noise' as const,
+          confidence: 'high' as const,
+        },
       ],
       pidRecommendations: [
-        { setting: 'pid_roll_p', currentValue: 45, recommendedValue: 50, reason: '', impact: 'response' as const, confidence: 'high' as const },
+        {
+          setting: 'pid_roll_p',
+          currentValue: 45,
+          recommendedValue: 50,
+          reason: '',
+          impact: 'response' as const,
+          confidence: 'high' as const,
+        },
       ],
+      feedforwardRecommendations: [],
       createSnapshot: true,
     };
 
     it('applies PID via MSP then filters via CLI in correct order', async () => {
       const { event } = createMockEvent();
       const callOrder: string[] = [];
-      mockMSP.setPIDConfiguration.mockImplementation(async () => { callOrder.push('setPID'); });
-      mockMSP.connection.enterCLI.mockImplementation(async () => { callOrder.push('enterCLI'); });
-      mockMSP.connection.sendCLICommand.mockImplementation(async () => { callOrder.push('sendCLI'); return ''; });
-      mockMSP.saveAndReboot.mockImplementation(async () => { callOrder.push('save'); });
+      mockMSP.setPIDConfiguration.mockImplementation(async () => {
+        callOrder.push('setPID');
+      });
+      mockMSP.connection.enterCLI.mockImplementation(async () => {
+        callOrder.push('enterCLI');
+      });
+      mockMSP.connection.sendCLICommand.mockImplementation(async () => {
+        callOrder.push('sendCLI');
+        return '';
+      });
+      mockMSP.saveAndReboot.mockImplementation(async () => {
+        callOrder.push('save');
+      });
 
       const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
       expect(res.success).toBe(true);
@@ -1073,7 +1202,14 @@ describe('IPC Handlers', () => {
       const input = {
         ...baseInput,
         pidRecommendations: [
-          { setting: 'pid_roll_p', currentValue: 45, recommendedValue: 300, reason: '', impact: 'response' as const, confidence: 'high' as const },
+          {
+            setting: 'pid_roll_p',
+            currentValue: 45,
+            recommendedValue: 300,
+            reason: '',
+            impact: 'response' as const,
+            confidence: 'high' as const,
+          },
         ],
       };
       const { event } = createMockEvent();
@@ -1088,13 +1224,14 @@ describe('IPC Handlers', () => {
       await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
 
       const progressCalls = event.sender.send.mock.calls.filter(
-        (c: any[]) => c[0] === IPCChannel.EVENT_TUNING_APPLY_PROGRESS,
+        (c: any[]) => c[0] === IPCChannel.EVENT_TUNING_APPLY_PROGRESS
       );
-      expect(progressCalls.length).toBeGreaterThanOrEqual(4);
+      expect(progressCalls.length).toBeGreaterThanOrEqual(5);
       // Verify stages appear in order
       const stages = progressCalls.map((c: any[]) => c[1].stage);
       expect(stages).toContain('pid');
       expect(stages).toContain('filter');
+      expect(stages).toContain('feedforward');
       expect(stages).toContain('save');
     });
 
@@ -1119,7 +1256,12 @@ describe('IPC Handlers', () => {
     });
 
     it('rejects empty recommendations', async () => {
-      const input = { filterRecommendations: [], pidRecommendations: [], createSnapshot: false };
+      const input = {
+        filterRecommendations: [],
+        pidRecommendations: [],
+        feedforwardRecommendations: [],
+        createSnapshot: false,
+      };
       const { event } = createMockEvent();
       const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, input);
       expect(res.success).toBe(false);
@@ -1132,6 +1274,68 @@ describe('IPC Handlers', () => {
       const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, input);
       expect(res.success).toBe(true);
       expect(res.data.snapshotId).toBeUndefined();
+    });
+
+    it('applies feedforward recommendations via CLI', async () => {
+      const input = {
+        filterRecommendations: [],
+        pidRecommendations: [],
+        feedforwardRecommendations: [
+          {
+            setting: 'feedforward_boost',
+            currentValue: 15,
+            recommendedValue: 10,
+            reason: '',
+            impact: 'overshoot' as const,
+            confidence: 'medium' as const,
+          },
+        ],
+        createSnapshot: false,
+      };
+      const { event } = createMockEvent();
+      const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, input);
+      expect(res.success).toBe(true);
+      expect(res.data.appliedFeedforward).toBe(1);
+      expect(res.data.appliedFilters).toBe(0);
+      expect(res.data.appliedPIDs).toBe(0);
+      expect(mockMSP.connection.enterCLI).toHaveBeenCalled();
+      expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith('set feedforward_boost = 10');
+    });
+
+    it('applies filters and feedforward in single CLI session', async () => {
+      const input = {
+        ...baseInput,
+        pidRecommendations: [],
+        feedforwardRecommendations: [
+          {
+            setting: 'feedforward_boost',
+            currentValue: 15,
+            recommendedValue: 10,
+            reason: '',
+            impact: 'overshoot' as const,
+            confidence: 'medium' as const,
+          },
+        ],
+      };
+      const { event } = createMockEvent();
+      const callOrder: string[] = [];
+      mockMSP.connection.enterCLI.mockImplementation(async () => {
+        callOrder.push('enterCLI');
+      });
+      mockMSP.connection.sendCLICommand.mockImplementation(async (cmd: string) => {
+        callOrder.push(`cli:${cmd}`);
+        return '';
+      });
+      mockMSP.saveAndReboot.mockImplementation(async () => {
+        callOrder.push('save');
+      });
+
+      const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, input);
+      expect(res.success).toBe(true);
+      expect(res.data.appliedFilters).toBe(1);
+      expect(res.data.appliedFeedforward).toBe(1);
+      // Only one enterCLI call for both filter + FF
+      expect(callOrder.filter((c) => c === 'enterCLI')).toHaveLength(1);
     });
 
     it('returns error when not connected', async () => {
@@ -1197,7 +1401,9 @@ describe('IPC Handlers', () => {
       expect(res.success).toBe(true);
       // Only 'set ...', 'feature ...', 'serial ...' should be applied
       expect(res.data.appliedCommands).toBe(4);
-      expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith('set gyro_lpf1_static_hz = 250');
+      expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith(
+        'set gyro_lpf1_static_hz = 250'
+      );
       expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith('feature TELEMETRY');
       expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith('serial 0 64 115200');
     });
@@ -1219,7 +1425,7 @@ describe('IPC Handlers', () => {
       await invokeWithEvent(IPCChannel.SNAPSHOT_RESTORE, event, 'snap-1', true);
 
       const progressCalls = event.sender.send.mock.calls.filter(
-        (c: any[]) => c[0] === IPCChannel.EVENT_SNAPSHOT_RESTORE_PROGRESS,
+        (c: any[]) => c[0] === IPCChannel.EVENT_SNAPSHOT_RESTORE_PROGRESS
       );
       expect(progressCalls.length).toBeGreaterThanOrEqual(3);
       const stages = progressCalls.map((c: any[]) => c[1].stage);
@@ -1234,7 +1440,8 @@ describe('IPC Handlers', () => {
   describe('TUNING_GET_SESSION', () => {
     it('returns session for current profile', async () => {
       mockTuningMgr.getSession.mockResolvedValue({
-        profileId: 'prof-1', phase: 'filter_flight_pending',
+        profileId: 'prof-1',
+        phase: 'filter_flight_pending',
       });
       const res = await invoke(IPCChannel.TUNING_GET_SESSION);
       expect(res.success).toBe(true);
@@ -1258,8 +1465,10 @@ describe('IPC Handlers', () => {
   describe('TUNING_START_SESSION', () => {
     it('creates session and sends event', async () => {
       mockTuningMgr.getSession.mockResolvedValue({
-        profileId: 'prof-1', phase: 'filter_flight_pending',
-        startedAt: '2026-01-01', updatedAt: '2026-01-01',
+        profileId: 'prof-1',
+        phase: 'filter_flight_pending',
+        startedAt: '2026-01-01',
+        updatedAt: '2026-01-01',
         baselineSnapshotId: 'snap-new',
       });
 
@@ -1268,7 +1477,7 @@ describe('IPC Handlers', () => {
       expect(mockTuningMgr.createSession).toHaveBeenCalledWith('prof-1');
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         IPCChannel.EVENT_TUNING_SESSION_CHANGED,
-        expect.objectContaining({ phase: 'filter_flight_pending' }),
+        expect.objectContaining({ phase: 'filter_flight_pending' })
       );
     });
 
@@ -1288,15 +1497,20 @@ describe('IPC Handlers', () => {
   describe('TUNING_UPDATE_PHASE', () => {
     it('updates phase and sends event', async () => {
       mockTuningMgr.updatePhase.mockResolvedValue({
-        profileId: 'prof-1', phase: 'filter_log_ready',
+        profileId: 'prof-1',
+        phase: 'filter_log_ready',
       });
 
-      const res = await invoke(IPCChannel.TUNING_UPDATE_PHASE, 'filter_log_ready', { filterLogId: 'log-1' });
+      const res = await invoke(IPCChannel.TUNING_UPDATE_PHASE, 'filter_log_ready', {
+        filterLogId: 'log-1',
+      });
       expect(res.success).toBe(true);
-      expect(mockTuningMgr.updatePhase).toHaveBeenCalledWith('prof-1', 'filter_log_ready', { filterLogId: 'log-1' });
+      expect(mockTuningMgr.updatePhase).toHaveBeenCalledWith('prof-1', 'filter_log_ready', {
+        filterLogId: 'log-1',
+      });
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         IPCChannel.EVENT_TUNING_SESSION_CHANGED,
-        expect.objectContaining({ phase: 'filter_log_ready' }),
+        expect.objectContaining({ phase: 'filter_log_ready' })
       );
     });
   });
@@ -1307,7 +1521,8 @@ describe('IPC Handlers', () => {
       expect(res.success).toBe(true);
       expect(mockTuningMgr.deleteSession).toHaveBeenCalledWith('prof-1');
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        IPCChannel.EVENT_TUNING_SESSION_CHANGED, null,
+        IPCChannel.EVENT_TUNING_SESSION_CHANGED,
+        null
       );
     });
   });

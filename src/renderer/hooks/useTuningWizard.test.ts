@@ -85,10 +85,7 @@ const mockParseResult: BlackboxParseResult = {
 };
 
 const mockMultiSessionResult: BlackboxParseResult = {
-  sessions: [
-    mockSession,
-    { ...mockSession, index: 1 },
-  ],
+  sessions: [mockSession, { ...mockSession, index: 1 }],
   fileSize: 2 * 1024 * 1024,
   parseTimeMs: 400,
   success: true,
@@ -130,9 +127,27 @@ const mockFilterResult: FilterAnalysisResult = {
 };
 
 const mockPIDResult: PIDAnalysisResult = {
-  roll: { responses: [], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
-  pitch: { responses: [], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
-  yaw: { responses: [], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
+  roll: {
+    responses: [],
+    meanOvershoot: 5,
+    meanRiseTimeMs: 20,
+    meanSettlingTimeMs: 50,
+    meanLatencyMs: 8,
+  },
+  pitch: {
+    responses: [],
+    meanOvershoot: 8,
+    meanRiseTimeMs: 22,
+    meanSettlingTimeMs: 55,
+    meanLatencyMs: 9,
+  },
+  yaw: {
+    responses: [],
+    meanOvershoot: 3,
+    meanRiseTimeMs: 30,
+    meanSettlingTimeMs: 60,
+    meanLatencyMs: 10,
+  },
   recommendations: [
     {
       setting: 'pid_roll_p',
@@ -200,9 +215,7 @@ describe('useTuningWizard', () => {
   });
 
   it('handles parse error', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockRejectedValue(
-      new Error('Corrupt log file')
-    );
+    vi.mocked(window.betaflight.parseBlackboxLog).mockRejectedValue(new Error('Corrupt log file'));
 
     const { result } = renderHook(() => useTuningWizard('log-1'));
 
@@ -244,7 +257,10 @@ describe('useTuningWizard', () => {
     });
 
     expect(window.betaflight.analyzeFilters).toHaveBeenCalledWith(
-      'log-1', 0, undefined, expect.any(Function)
+      'log-1',
+      0,
+      undefined,
+      expect.any(Function)
     );
     expect(result.current.filterResult).toEqual(mockFilterResult);
     expect(result.current.filterAnalyzing).toBe(false);
@@ -275,16 +291,17 @@ describe('useTuningWizard', () => {
     });
 
     expect(window.betaflight.analyzePID).toHaveBeenCalledWith(
-      'log-1', 0, undefined, expect.any(Function)
+      'log-1',
+      0,
+      undefined,
+      expect.any(Function)
     );
     expect(result.current.pidResult).toEqual(mockPIDResult);
     expect(result.current.pidAnalyzing).toBe(false);
   });
 
   it('handles PID analysis error', async () => {
-    vi.mocked(window.betaflight.analyzePID).mockRejectedValue(
-      new Error('No step inputs found')
-    );
+    vi.mocked(window.betaflight.analyzePID).mockRejectedValue(new Error('No step inputs found'));
 
     const { result } = renderHook(() => useTuningWizard('log-1'));
 
@@ -313,7 +330,10 @@ describe('useTuningWizard', () => {
   it('sets parsing to true during parse', async () => {
     let resolvePromise: (value: any) => void;
     vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(
-      () => new Promise((resolve) => { resolvePromise = resolve; })
+      () =>
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
     );
 
     const { result } = renderHook(() => useTuningWizard('log-1'));
@@ -369,6 +389,7 @@ describe('useTuningWizard', () => {
       snapshotId: 'snap-1',
       appliedPIDs: 1,
       appliedFilters: 1,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -389,6 +410,7 @@ describe('useTuningWizard', () => {
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: mockFilterResult.recommendations,
       pidRecommendations: mockPIDResult.recommendations,
+      feedforwardRecommendations: [],
       createSnapshot: true,
     });
     expect(result.current.applyState).toBe('done');
@@ -454,6 +476,7 @@ describe('useTuningWizard', () => {
       success: true,
       appliedPIDs: 0,
       appliedFilters: 1,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -472,6 +495,7 @@ describe('useTuningWizard', () => {
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: mockFilterResult.recommendations,
       pidRecommendations: [],
+      feedforwardRecommendations: [],
       createSnapshot: false,
     });
   });
@@ -483,6 +507,7 @@ describe('useTuningWizard', () => {
       success: true,
       appliedPIDs: 1,
       appliedFilters: 0,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -501,7 +526,49 @@ describe('useTuningWizard', () => {
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: [],
       pidRecommendations: mockPIDResult.recommendations,
+      feedforwardRecommendations: [],
       createSnapshot: true,
+    });
+  });
+
+  it('mode=pid splits PID and feedforward recommendations', async () => {
+    const pidWithFF: PIDAnalysisResult = {
+      ...mockPIDResult,
+      recommendations: [
+        ...mockPIDResult.recommendations,
+        {
+          setting: 'feedforward_boost',
+          currentValue: 15,
+          recommendedValue: 10,
+          reason: 'Lower FF boost',
+          impact: 'overshoot',
+          confidence: 'medium',
+        },
+      ],
+    };
+    vi.mocked(window.betaflight.analyzePID).mockResolvedValue(pidWithFF);
+    vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
+      success: true,
+      appliedPIDs: 1,
+      appliedFilters: 0,
+      appliedFeedforward: 1,
+      rebooted: true,
+    });
+
+    const { result } = renderHook(() => useTuningWizard('log-1', 'pid'));
+
+    await act(async () => {
+      await result.current.runPIDAnalysis();
+    });
+    await act(async () => {
+      await result.current.confirmApply(false);
+    });
+
+    expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
+      filterRecommendations: [],
+      pidRecommendations: [mockPIDResult.recommendations[0]],
+      feedforwardRecommendations: [pidWithFF.recommendations[1]],
+      createSnapshot: false,
     });
   });
 
@@ -512,6 +579,7 @@ describe('useTuningWizard', () => {
       success: true,
       appliedPIDs: 1,
       appliedFilters: 1,
+      appliedFeedforward: 0,
       rebooted: true,
     });
 
@@ -530,6 +598,7 @@ describe('useTuningWizard', () => {
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: mockFilterResult.recommendations,
       pidRecommendations: mockPIDResult.recommendations,
+      feedforwardRecommendations: [],
       createSnapshot: true,
     });
   });

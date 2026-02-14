@@ -19,6 +19,7 @@ interface TuningWizardProps {
   onApplyComplete?: (changes: {
     filterChanges?: AppliedChange[];
     pidChanges?: AppliedChange[];
+    feedforwardChanges?: AppliedChange[];
     filterMetrics?: FilterMetricsSummary;
     pidMetrics?: PIDMetricsSummary;
   }) => void;
@@ -34,31 +35,48 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
       applyCalled.current = true;
 
       if (onApplyComplete) {
-        const filterChanges = mode !== 'pid'
-          ? wizard.filterResult?.recommendations.map(r => ({
-              setting: r.setting,
-              previousValue: r.currentValue,
-              newValue: r.recommendedValue,
-            }))
-          : undefined;
+        const filterChanges =
+          mode !== 'pid'
+            ? wizard.filterResult?.recommendations.map((r) => ({
+                setting: r.setting,
+                previousValue: r.currentValue,
+                newValue: r.recommendedValue,
+              }))
+            : undefined;
 
-        const pidChanges = mode !== 'filter'
-          ? wizard.pidResult?.recommendations.map(r => ({
-              setting: r.setting,
-              previousValue: r.currentValue,
-              newValue: r.recommendedValue,
-            }))
-          : undefined;
+        const allPidRecs = mode !== 'filter' ? (wizard.pidResult?.recommendations ?? []) : [];
 
-        const filterMetrics = mode !== 'pid' && wizard.filterResult
-          ? extractFilterMetrics(wizard.filterResult)
-          : undefined;
+        const pidChanges = allPidRecs
+          .filter((r) => r.setting.startsWith('pid_'))
+          .map((r) => ({
+            setting: r.setting,
+            previousValue: r.currentValue,
+            newValue: r.recommendedValue,
+          }));
 
-        const pidMetrics = mode !== 'filter' && wizard.pidResult
-          ? extractPIDMetrics(wizard.pidResult)
-          : undefined;
+        const feedforwardChanges = allPidRecs
+          .filter((r) => r.setting.startsWith('feedforward_'))
+          .map((r) => ({
+            setting: r.setting,
+            previousValue: r.currentValue,
+            newValue: r.recommendedValue,
+          }));
 
-        onApplyComplete({ filterChanges, pidChanges, filterMetrics, pidMetrics });
+        const filterMetrics =
+          mode !== 'pid' && wizard.filterResult
+            ? extractFilterMetrics(wizard.filterResult)
+            : undefined;
+
+        const pidMetrics =
+          mode !== 'filter' && wizard.pidResult ? extractPIDMetrics(wizard.pidResult) : undefined;
+
+        onApplyComplete({
+          filterChanges,
+          pidChanges: pidChanges.length > 0 ? pidChanges : undefined,
+          feedforwardChanges: feedforwardChanges.length > 0 ? feedforwardChanges : undefined,
+          filterMetrics,
+          pidMetrics,
+        });
       }
     }
 
@@ -140,9 +158,7 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
 
       <WizardProgress currentStep={wizard.step} mode={mode} />
 
-      <div className="tuning-wizard-content">
-        {renderStep()}
-      </div>
+      <div className="tuning-wizard-content">{renderStep()}</div>
 
       {wizard.applyState === 'confirming' && (
         <ApplyConfirmationModal

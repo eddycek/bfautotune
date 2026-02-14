@@ -35,10 +35,15 @@ function flightCount(session: TuningSession): number {
   return count;
 }
 
-export function TuningCompletionSummary({ session, onDismiss, onStartNew }: TuningCompletionSummaryProps) {
+export function TuningCompletionSummary({
+  session,
+  onDismiss,
+  onStartNew,
+}: TuningCompletionSummaryProps) {
   const hasVerification = !!session.verificationMetrics && !!session.filterMetrics;
   const filterChanges = session.appliedFilterChanges ?? [];
   const pidChanges = session.appliedPIDChanges ?? [];
+  const ffChanges = session.appliedFeedforwardChanges ?? [];
 
   return (
     <div className="completion-summary">
@@ -50,7 +55,9 @@ export function TuningCompletionSummary({ session, onDismiss, onStartNew }: Tuni
             <span className="completion-meta-sep">{'\u2022'}</span>
             <span>Duration: {formatDuration(session.startedAt, session.updatedAt)}</span>
             <span className="completion-meta-sep">{'\u2022'}</span>
-            <span>{flightCount(session)} flight{flightCount(session) !== 1 ? 's' : ''}</span>
+            <span>
+              {flightCount(session)} flight{flightCount(session) !== 1 ? 's' : ''}
+            </span>
           </div>
         </div>
       </div>
@@ -77,6 +84,9 @@ export function TuningCompletionSummary({ session, onDismiss, onStartNew }: Tuni
       <div className="completion-changes-row">
         <AppliedChangesTable title="Filter Changes" changes={filterChanges} />
         <AppliedChangesTable title="PID Changes" changes={pidChanges} />
+        {ffChanges.length > 0 && (
+          <AppliedChangesTable title="Feedforward Changes" changes={ffChanges} />
+        )}
       </div>
 
       {session.pidMetrics && (
@@ -86,7 +96,7 @@ export function TuningCompletionSummary({ session, onDismiss, onStartNew }: Tuni
             <span>{session.pidMetrics.stepsDetected} steps detected</span>
           </div>
           <div className="completion-pid-axes">
-            {(['roll', 'pitch', 'yaw'] as const).map(axis => {
+            {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
               const m = session.pidMetrics![axis];
               return (
                 <div key={axis} className="completion-pid-axis">

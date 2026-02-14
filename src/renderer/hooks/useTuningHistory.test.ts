@@ -8,7 +8,26 @@ describe('useTuningHistory', () => {
   });
 
   it('loads history on mount', async () => {
-    const mockRecords = [{ id: 'r1', profileId: 'p1', startedAt: '2026-01-01', completedAt: '2026-01-01', appliedFilterChanges: [], appliedPIDChanges: [], baselineSnapshotId: null, postFilterSnapshotId: null, postTuningSnapshotId: null, filterLogId: null, pidLogId: null, verificationLogId: null, filterMetrics: null, pidMetrics: null, verificationMetrics: null }];
+    const mockRecords = [
+      {
+        id: 'r1',
+        profileId: 'p1',
+        startedAt: '2026-01-01',
+        completedAt: '2026-01-01',
+        appliedFilterChanges: [],
+        appliedPIDChanges: [],
+        appliedFeedforwardChanges: [],
+        baselineSnapshotId: null,
+        postFilterSnapshotId: null,
+        postTuningSnapshotId: null,
+        filterLogId: null,
+        pidLogId: null,
+        verificationLogId: null,
+        filterMetrics: null,
+        pidMetrics: null,
+        verificationMetrics: null,
+      },
+    ];
     vi.mocked(window.betaflight.getTuningHistory).mockResolvedValue(mockRecords);
 
     const { result } = renderHook(() => useTuningHistory());
@@ -89,7 +108,7 @@ describe('useTuningHistory', () => {
     sessionCallback?.({ phase: 'filter_flight_pending' });
 
     // Wait a tick and verify no extra call
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 50));
     expect(window.betaflight.getTuningHistory).toHaveBeenCalledTimes(1);
   });
 });

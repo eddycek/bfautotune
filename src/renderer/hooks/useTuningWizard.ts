@@ -3,9 +3,12 @@ import type { BlackboxLogSession, BlackboxParseProgress } from '@shared/types/bl
 import type {
   FilterAnalysisResult,
   PIDAnalysisResult,
-  AnalysisProgress
+  AnalysisProgress,
 } from '@shared/types/analysis.types';
-import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
+import type {
+  ApplyRecommendationsProgress,
+  ApplyRecommendationsResult,
+} from '@shared/types/ipc.types';
 import type { TuningMode } from '@shared/types/tuning.types';
 import { markIntentionalDisconnect } from './useConnection';
 
@@ -179,35 +182,41 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
     setApplyState('idle');
   }, []);
 
-  const confirmApply = useCallback(async (createSnapshot: boolean) => {
-    setApplyState('applying');
-    setApplyProgress(null);
-    setApplyError(null);
-    setApplyResult(null);
+  const confirmApply = useCallback(
+    async (createSnapshot: boolean) => {
+      setApplyState('applying');
+      setApplyProgress(null);
+      setApplyError(null);
+      setApplyResult(null);
 
-    // Mark the upcoming disconnect as intentional so useConnection
-    // shows "Disconnected" instead of "FC disconnected unexpectedly"
-    markIntentionalDisconnect();
+      // Mark the upcoming disconnect as intentional so useConnection
+      // shows "Disconnected" instead of "FC disconnected unexpectedly"
+      markIntentionalDisconnect();
 
-    try {
-      // In mode-specific modes, only send relevant recommendations
-      const filterRecs = mode === 'pid' ? [] : (filterResult?.recommendations ?? []);
-      const pidRecs = mode === 'filter' ? [] : (pidResult?.recommendations ?? []);
+      try {
+        // In mode-specific modes, only send relevant recommendations
+        const filterRecs = mode === 'pid' ? [] : (filterResult?.recommendations ?? []);
+        const allPidRecs = mode === 'filter' ? [] : (pidResult?.recommendations ?? []);
+        const pidRecs = allPidRecs.filter((r) => r.setting.startsWith('pid_'));
+        const ffRecs = allPidRecs.filter((r) => r.setting.startsWith('feedforward_'));
 
-      const result = await window.betaflight.applyRecommendations({
-        filterRecommendations: filterRecs,
-        pidRecommendations: pidRecs,
-        createSnapshot,
-      });
+        const result = await window.betaflight.applyRecommendations({
+          filterRecommendations: filterRecs,
+          pidRecommendations: pidRecs,
+          feedforwardRecommendations: ffRecs,
+          createSnapshot,
+        });
 
-      setApplyResult(result);
-      setApplyState('done');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to apply recommendations';
-      setApplyError(message);
-      setApplyState('error');
-    }
-  }, [filterResult, pidResult]);
+        setApplyResult(result);
+        setApplyState('done');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to apply recommendations';
+        setApplyError(message);
+        setApplyState('error');
+      }
+    },
+    [filterResult, pidResult]
+  );
 
   return {
     mode,
