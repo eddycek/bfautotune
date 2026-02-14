@@ -5,7 +5,6 @@
 import type { PIDConfiguration } from './pid.types';
 import type { FlightStyle } from './profile.types';
 
-
 /** Power spectrum for one axis */
 export interface PowerSpectrum {
   /** Frequency bins in Hz */
@@ -59,9 +58,40 @@ export interface FilterRecommendation {
   confidence: 'high' | 'medium' | 'low';
 }
 
+/** Data quality score for analysis input data */
+export interface DataQualityScore {
+  /** Overall quality score 0-100 */
+  overall: number;
+  /** Quality tier derived from overall score */
+  tier: 'excellent' | 'good' | 'fair' | 'poor';
+  /** Individual sub-scores that make up the overall score */
+  subScores: DataQualitySubScore[];
+}
+
+/** A sub-score contributing to the overall data quality */
+export interface DataQualitySubScore {
+  /** Human-readable name of this metric */
+  name: string;
+  /** Score 0-100 */
+  score: number;
+  /** Weight in the overall score (0-1) */
+  weight: number;
+}
+
 /** A warning about data quality or configuration issues */
 export interface AnalysisWarning {
-  code: 'low_logging_rate' | 'wrong_debug_mode' | 'no_sweep_segments' | 'few_steps' | 'feedforward_active';
+  code:
+    | 'low_logging_rate'
+    | 'wrong_debug_mode'
+    | 'no_sweep_segments'
+    | 'few_steps'
+    | 'feedforward_active'
+    | 'short_hover_time'
+    | 'few_segments'
+    | 'narrow_throttle_coverage'
+    | 'few_steps_per_axis'
+    | 'missing_axis_coverage'
+    | 'low_step_magnitude';
   message: string;
   severity: 'info' | 'warning' | 'error';
 }
@@ -84,6 +114,8 @@ export interface FilterAnalysisResult {
   rpmFilterActive?: boolean;
   /** Data quality warnings */
   warnings?: AnalysisWarning[];
+  /** Data quality score for the input flight data */
+  dataQuality?: DataQualityScore;
 }
 
 /** A steady flight segment identified from throttle/gyro data */
@@ -259,4 +291,6 @@ export interface PIDAnalysisResult {
   flightStyle?: FlightStyle;
   /** Data quality warnings */
   warnings?: AnalysisWarning[];
+  /** Data quality score for the input flight data */
+  dataQuality?: DataQualityScore;
 }

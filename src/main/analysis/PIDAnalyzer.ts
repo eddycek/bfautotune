@@ -16,6 +16,7 @@ import type {
 import { detectSteps } from './StepDetector';
 import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
+import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -105,23 +106,40 @@ export async function analyzePID(
 
   await yieldToEventLoop();
 
+  // Score data quality
+  const qualityResult = scorePIDDataQuality({
+    totalSteps: steps.length,
+    axisResponses: { roll: rollResponses, pitch: pitchResponses, yaw: yawResponses },
+  });
+
   // Extract feedforward context before recommendations (needed for FF-aware rules)
-  const feedforwardContext = rawHeaders
-    ? extractFeedforwardContext(rawHeaders)
-    : undefined;
+  const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
   // Step 3: Generate recommendations
   onProgress?.({ step: 'scoring', percent: 80 });
-  const recommendations = recommendPID(roll, pitch, yaw, currentPIDs, flightPIDs, feedforwardContext, flightStyle);
+  const rawRecommendations = recommendPID(
+    roll,
+    pitch,
+    yaw,
+    currentPIDs,
+    flightPIDs,
+    feedforwardContext,
+    flightStyle
+  );
+  const recommendations = adjustPIDConfidenceByQuality(
+    rawRecommendations,
+    qualityResult.score.tier
+  );
   const summary = generatePIDSummary(roll, pitch, yaw, recommendations, flightStyle);
 
   onProgress?.({ step: 'scoring', percent: 100 });
 
-  const warnings: AnalysisWarning[] = [];
+  const warnings: AnalysisWarning[] = [...qualityResult.warnings];
   if (feedforwardContext?.active) {
     warnings.push({
       code: 'feedforward_active',
-      message: 'Feedforward is active on this flight. Overshoot and rise time measurements include feedforward contribution — some overshoot may be from FF rather than P/D imbalance.',
+      message:
+        'Feedforward is active on this flight. Overshoot and rise time measurements include feedforward contribution — some overshoot may be from FF rather than P/D imbalance.',
       severity: 'info',
     });
   }
@@ -138,6 +156,7 @@ export async function analyzePID(
     currentPIDs,
     feedforwardContext,
     flightStyle,
+    dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }

@@ -65,8 +65,8 @@ describe('PIDAnalyzer', () => {
       const stepAt = 1000;
       const mag = 300;
       const data = createFlightData({
-        rollSetpointFn: i => i >= stepAt ? mag : 0,
-        rollGyroFn: i => i >= stepAt ? mag : 0,
+        rollSetpointFn: (i) => (i >= stepAt ? mag : 0),
+        rollGyroFn: (i) => (i >= stepAt ? mag : 0),
       });
 
       const result = await analyzePID(data, 0, PIDS);
@@ -85,8 +85,8 @@ describe('PIDAnalyzer', () => {
     it('should report progress during analysis', async () => {
       const stepAt = 1000;
       const data = createFlightData({
-        rollSetpointFn: i => i >= stepAt ? 300 : 0,
-        rollGyroFn: i => i >= stepAt ? 300 : 0,
+        rollSetpointFn: (i) => (i >= stepAt ? 300 : 0),
+        rollGyroFn: (i) => (i >= stepAt ? 300 : 0),
       });
 
       const progressUpdates: AnalysisProgress[] = [];
@@ -100,7 +100,7 @@ describe('PIDAnalyzer', () => {
       // Should end at 100%
       expect(progressUpdates[progressUpdates.length - 1].percent).toBe(100);
       // Should cover all PID-specific steps
-      const steps = new Set(progressUpdates.map(p => p.step));
+      const steps = new Set(progressUpdates.map((p) => p.step));
       expect(steps.has('detecting')).toBe(true);
       expect(steps.has('measuring')).toBe(true);
       expect(steps.has('scoring')).toBe(true);
@@ -130,8 +130,8 @@ describe('PIDAnalyzer', () => {
       const stepAt = 1000;
       const mag = 300;
       const data = createFlightData({
-        rollSetpointFn: i => i >= stepAt ? mag : 0,
-        rollGyroFn: i => {
+        rollSetpointFn: (i) => (i >= stepAt ? mag : 0),
+        rollGyroFn: (i) => {
           if (i < stepAt) return 0;
           const t = (i - stepAt) / SAMPLE_RATE;
           // Significant overshoot
@@ -170,12 +170,12 @@ describe('PIDAnalyzer', () => {
     it('should handle multiple steps on same axis', async () => {
       const mag = 300;
       const data = createFlightData({
-        rollSetpointFn: i => {
+        rollSetpointFn: (i) => {
           if (i >= 5000) return -mag; // Second step
-          if (i >= 1000) return mag;  // First step
+          if (i >= 1000) return mag; // First step
           return 0;
         },
-        rollGyroFn: i => {
+        rollGyroFn: (i) => {
           if (i >= 5000) return -mag;
           if (i >= 1000) return mag;
           return 0;
@@ -192,10 +192,10 @@ describe('PIDAnalyzer', () => {
       const stepAt = 1000;
       const mag = 300;
       const data = createFlightData({
-        rollSetpointFn: i => i >= stepAt ? mag : 0,
-        rollGyroFn: i => i >= stepAt ? mag : 0,
-        pitchSetpointFn: i => i >= 3000 ? -mag : 0,
-        pitchGyroFn: i => i >= 3000 ? -mag : 0,
+        rollSetpointFn: (i) => (i >= stepAt ? mag : 0),
+        rollGyroFn: (i) => (i >= stepAt ? mag : 0),
+        pitchSetpointFn: (i) => (i >= 3000 ? -mag : 0),
+        pitchGyroFn: (i) => (i >= 3000 ? -mag : 0),
       });
 
       const result = await analyzePID(data, 0, PIDS);
@@ -207,8 +207,8 @@ describe('PIDAnalyzer', () => {
 
     it('should attach feedforward context when rawHeaders provided', async () => {
       const data = createFlightData({
-        rollSetpointFn: i => i >= 1000 ? 300 : 0,
-        rollGyroFn: i => i >= 1000 ? 300 : 0,
+        rollSetpointFn: (i) => (i >= 1000 ? 300 : 0),
+        rollGyroFn: (i) => (i >= 1000 ? 300 : 0),
       });
       const headers = new Map<string, string>();
       headers.set('feedforward_boost', '15');
@@ -228,7 +228,7 @@ describe('PIDAnalyzer', () => {
       const result = await analyzePID(data, 0, PIDS, undefined, undefined, headers);
 
       expect(result.warnings).toBeDefined();
-      const ffWarning = result.warnings!.find(w => w.code === 'feedforward_active');
+      const ffWarning = result.warnings!.find((w) => w.code === 'feedforward_active');
       expect(ffWarning).toBeDefined();
       expect(ffWarning!.severity).toBe('info');
       expect(ffWarning!.message).toContain('Feedforward');
@@ -243,7 +243,8 @@ describe('PIDAnalyzer', () => {
 
       expect(result.feedforwardContext).toBeDefined();
       expect(result.feedforwardContext!.active).toBe(false);
-      expect(result.warnings).toBeUndefined();
+      const ffWarning = (result.warnings ?? []).find((w) => w.code === 'feedforward_active');
+      expect(ffWarning).toBeUndefined();
     });
 
     it('should not set feedforwardContext when rawHeaders not provided', async () => {
@@ -256,8 +257,8 @@ describe('PIDAnalyzer', () => {
 
     it('should include stepsDetected count', async () => {
       const data = createFlightData({
-        rollSetpointFn: i => i >= 1000 ? 300 : 0,
-        rollGyroFn: i => i >= 1000 ? 300 : 0,
+        rollSetpointFn: (i) => (i >= 1000 ? 300 : 0),
+        rollGyroFn: (i) => (i >= 1000 ? 300 : 0),
       });
 
       const result = await analyzePID(data, 0, PIDS);
@@ -268,8 +269,8 @@ describe('PIDAnalyzer', () => {
 
     it('should pass flightStyle through to result', async () => {
       const data = createFlightData({
-        rollSetpointFn: i => i >= 1000 ? 300 : 0,
-        rollGyroFn: i => i >= 1000 ? 300 : 0,
+        rollSetpointFn: (i) => (i >= 1000 ? 300 : 0),
+        rollGyroFn: (i) => (i >= 1000 ? 300 : 0),
       });
 
       const result = await analyzePID(data, 0, PIDS, undefined, undefined, undefined, 'aggressive');
@@ -279,13 +280,39 @@ describe('PIDAnalyzer', () => {
 
     it('should default flightStyle to balanced', async () => {
       const data = createFlightData({
-        rollSetpointFn: i => i >= 1000 ? 300 : 0,
-        rollGyroFn: i => i >= 1000 ? 300 : 0,
+        rollSetpointFn: (i) => (i >= 1000 ? 300 : 0),
+        rollGyroFn: (i) => (i >= 1000 ? 300 : 0),
       });
 
       const result = await analyzePID(data, 0, PIDS);
 
       expect(result.flightStyle).toBe('balanced');
+    });
+
+    it('should include dataQuality score in result', async () => {
+      const stepAt = 1000;
+      const mag = 300;
+      const data = createFlightData({
+        rollSetpointFn: (i) => (i >= stepAt ? mag : 0),
+        rollGyroFn: (i) => (i >= stepAt ? mag : 0),
+      });
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      expect(result.dataQuality).toBeDefined();
+      expect(result.dataQuality!.overall).toBeGreaterThanOrEqual(0);
+      expect(result.dataQuality!.overall).toBeLessThanOrEqual(100);
+      expect(['excellent', 'good', 'fair', 'poor']).toContain(result.dataQuality!.tier);
+      expect(result.dataQuality!.subScores.length).toBeGreaterThan(0);
+    });
+
+    it('should produce poor dataQuality for flights with no steps', async () => {
+      const data = createFlightData({});
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      expect(result.dataQuality).toBeDefined();
+      expect(result.dataQuality!.tier).toBe('poor');
     });
 
     it('should use flightStyle thresholds in recommendations', async () => {
@@ -294,8 +321,8 @@ describe('PIDAnalyzer', () => {
       const mag = 300;
       const overshootFactor = 1.15;
       const data = createFlightData({
-        rollSetpointFn: i => i >= stepAt ? mag : 0,
-        rollGyroFn: i => {
+        rollSetpointFn: (i) => (i >= stepAt ? mag : 0),
+        rollGyroFn: (i) => {
           if (i < stepAt) return 0;
           // Initial overshoot then settle
           const elapsed = (i - stepAt) / SAMPLE_RATE;
@@ -305,15 +332,23 @@ describe('PIDAnalyzer', () => {
       });
 
       // With aggressive style (moderateOvershoot=25), 15% shouldn't trigger
-      const aggressive = await analyzePID(data, 0, PIDS, undefined, undefined, undefined, 'aggressive');
-      const aggressiveOvershootRecs = aggressive.recommendations.filter(r =>
-        r.reason.includes('overshoot') || r.reason.includes('Overshoot')
+      const aggressive = await analyzePID(
+        data,
+        0,
+        PIDS,
+        undefined,
+        undefined,
+        undefined,
+        'aggressive'
+      );
+      const aggressiveOvershootRecs = aggressive.recommendations.filter(
+        (r) => r.reason.includes('overshoot') || r.reason.includes('Overshoot')
       );
 
       // With smooth style (moderateOvershoot=8), 15% should trigger
       const smooth = await analyzePID(data, 0, PIDS, undefined, undefined, undefined, 'smooth');
-      const smoothOvershootRecs = smooth.recommendations.filter(r =>
-        r.reason.includes('overshoot') || r.reason.includes('Overshoot')
+      const smoothOvershootRecs = smooth.recommendations.filter(
+        (r) => r.reason.includes('overshoot') || r.reason.includes('Overshoot')
       );
 
       // Smooth should be at least as strict as aggressive

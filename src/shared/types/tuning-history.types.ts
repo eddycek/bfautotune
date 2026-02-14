@@ -41,6 +41,8 @@ export interface FilterMetricsSummary {
   summary: string;
   /** Optional downsampled spectrum for chart rendering */
   spectrum?: CompactSpectrum;
+  /** Data quality score summary */
+  dataQuality?: { overall: number; tier: string };
 }
 
 /** Compact per-axis PID step response metrics */
@@ -63,6 +65,8 @@ export interface PIDMetricsSummary {
   currentPIDs: PIDConfiguration;
   /** 1-2 sentence summary */
   summary: string;
+  /** Data quality score summary */
+  dataQuality?: { overall: number; tier: string };
 }
 
 /** A completed tuning session archived for history/comparison */

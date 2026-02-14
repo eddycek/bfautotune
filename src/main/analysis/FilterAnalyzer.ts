@@ -10,6 +10,7 @@ import type {
   AnalysisProgress,
   AnalysisWarning,
   CurrentFilterSettings,
+  DataQualityScore,
   PowerSpectrum,
 } from '@shared/types/analysis.types';
 import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
@@ -17,6 +18,7 @@ import { findSteadySegments, findThrottleSweepSegments } from './SegmentSelector
 import { computePowerSpectrum, trimSpectrum } from './FFTCompute';
 import { analyzeAxisNoise, buildNoiseProfile } from './NoiseAnalyzer';
 import { recommend, generateSummary, isRpmFilterActive } from './FilterRecommender';
+import { scoreFilterDataQuality, adjustFilterConfidenceByQuality } from './DataQualityScorer';
 import { FFT_WINDOW_SIZE, FREQUENCY_MIN_HZ, FREQUENCY_MAX_HZ } from './constants';
 
 /** Maximum number of segments to use (more = slower but more accurate) */
@@ -50,14 +52,33 @@ export async function analyze(
   // Use up to MAX_SEGMENTS
   const usedSegments = segments.slice(0, MAX_SEGMENTS);
 
+  // Score data quality
+  const qualityResult = scoreFilterDataQuality({
+    segments: usedSegments,
+    hasSweepSegments: sweepSegments.length > 0,
+    flightDurationS: flightData.durationSeconds,
+  });
+
   if (usedSegments.length === 0) {
     // No steady segments found — analyze the entire flight as one segment (with warning)
-    const warnings: AnalysisWarning[] = [{
-      code: 'no_sweep_segments',
-      message: 'No hover or throttle sweep segments found. The entire flight was analyzed, which may include stick transients and reduce accuracy. For best results, fly gentle hovers with smooth throttle sweeps.',
-      severity: 'warning',
-    }];
-    return analyzeEntireFlight(flightData, sessionIndex, currentSettings, startTime, onProgress, warnings);
+    const warnings: AnalysisWarning[] = [
+      {
+        code: 'no_sweep_segments',
+        message:
+          'No hover or throttle sweep segments found. The entire flight was analyzed, which may include stick transients and reduce accuracy. For best results, fly gentle hovers with smooth throttle sweeps.',
+        severity: 'warning',
+      },
+      ...qualityResult.warnings,
+    ];
+    return analyzeEntireFlight(
+      flightData,
+      sessionIndex,
+      currentSettings,
+      startTime,
+      onProgress,
+      warnings,
+      qualityResult.score
+    );
   }
 
   // Yield to event loop
@@ -101,7 +122,11 @@ export async function analyze(
   // Step 4: Generate recommendations
   onProgress?.({ step: 'recommending', percent: 85 });
   const rpmActive = isRpmFilterActive(currentSettings);
-  const recommendations = recommend(noiseProfile, currentSettings);
+  const rawRecommendations = recommend(noiseProfile, currentSettings);
+  const recommendations = adjustFilterConfidenceByQuality(
+    rawRecommendations,
+    qualityResult.score.tier
+  );
   const summary = generateSummary(noiseProfile, recommendations, rpmActive);
 
   onProgress?.({ step: 'recommending', percent: 100 });
@@ -114,6 +139,8 @@ export async function analyze(
     sessionIndex,
     segmentsUsed: usedSegments.length,
     rpmFilterActive: rpmActive,
+    dataQuality: qualityResult.score,
+    ...(qualityResult.warnings.length > 0 ? { warnings: qualityResult.warnings } : {}),
   };
 }
 
@@ -126,7 +153,8 @@ async function analyzeEntireFlight(
   currentSettings: CurrentFilterSettings,
   startTime: number,
   onProgress?: (progress: AnalysisProgress) => void,
-  warnings?: AnalysisWarning[]
+  warnings?: AnalysisWarning[],
+  dataQuality?: DataQualityScore
 ): Promise<FilterAnalysisResult> {
   onProgress?.({ step: 'fft', percent: 30 });
 
@@ -150,7 +178,10 @@ async function analyzeEntireFlight(
 
   onProgress?.({ step: 'recommending', percent: 85 });
   const rpmActive = isRpmFilterActive(currentSettings);
-  const recommendations = recommend(noiseProfile, currentSettings);
+  const rawRecommendations = recommend(noiseProfile, currentSettings);
+  const recommendations = dataQuality
+    ? adjustFilterConfidenceByQuality(rawRecommendations, dataQuality.tier)
+    : rawRecommendations;
   const summary = generateSummary(noiseProfile, recommendations, rpmActive);
 
   onProgress?.({ step: 'recommending', percent: 100 });
@@ -164,6 +195,7 @@ async function analyzeEntireFlight(
     segmentsUsed: 0,
     rpmFilterActive: rpmActive,
     warnings,
+    dataQuality,
   };
 }
 

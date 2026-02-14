@@ -46,14 +46,13 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
   // Check if any trace data exists for step response chart
   const hasTraces = overview.pidResult
     ? ['roll', 'pitch', 'yaw'].some((axis) =>
-        overview.pidResult![axis as 'roll' | 'pitch' | 'yaw'].responses.some(r => r.trace)
+        overview.pidResult![axis as 'roll' | 'pitch' | 'yaw'].responses.some((r) => r.trace)
       )
     : false;
 
   const isMultiSession = overview.sessions !== null && overview.sessions.length > 1;
-  const selectedSession = overview.sessionSelected && overview.sessions
-    ? overview.sessions[overview.sessionIndex]
-    : null;
+  const selectedSession =
+    overview.sessionSelected && overview.sessions ? overview.sessions[overview.sessionIndex] : null;
 
   return (
     <div className="analysis-overview">
@@ -62,10 +61,7 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
           <h2>Analysis Overview</h2>
           <div className="analysis-breadcrumb">
             {isMultiSession && overview.sessionSelected ? (
-              <button
-                className="analysis-breadcrumb-log"
-                onClick={overview.resetToSessionPicker}
-              >
+              <button className="analysis-breadcrumb-log" onClick={overview.resetToSessionPicker}>
                 {logName}
               </button>
             ) : (
@@ -74,14 +70,15 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
             {selectedSession && (
               <>
                 <span className="analysis-breadcrumb-arrow">{'\u2192'}</span>
-                <span className="analysis-breadcrumb-session">Session {overview.sessionIndex + 1}</span>
+                <span className="analysis-breadcrumb-session">
+                  Session {overview.sessionIndex + 1}
+                </span>
               </>
             )}
           </div>
           {selectedSession && (
             <div className="analysis-breadcrumb-meta">
-              {selectedSession.flightData.durationSeconds.toFixed(1)}s
-              {' \u2022 '}
+              {selectedSession.flightData.durationSeconds.toFixed(1)}s{' \u2022 '}
               {selectedSession.flightData.frameCount.toLocaleString()} frames
               {' \u2022 '}
               {selectedSession.flightData.sampleRateHz} Hz
@@ -174,7 +171,9 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
           {overview.filterProgress && (
             <div className="analysis-progress">
               <div className="analysis-progress-label">
-                <span>{FILTER_STEP_LABELS[overview.filterProgress.step] || overview.filterProgress.step}</span>
+                <span>
+                  {FILTER_STEP_LABELS[overview.filterProgress.step] || overview.filterProgress.step}
+                </span>
                 <span>{overview.filterProgress.percent}%</span>
               </div>
               <div className="analysis-progress-bar">
@@ -205,17 +204,29 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
             Noise level:{' '}
             <span className={`noise-level-badge ${overview.filterResult.noise.overallLevel}`}>
               {overview.filterResult.noise.overallLevel}
-            </span>
-            {' '}&mdash; {stripRecommendation(overview.filterResult.summary)}
+            </span>{' '}
+            &mdash; {stripRecommendation(overview.filterResult.summary)}
           </p>
 
           <div className="analysis-meta">
             <span className="analysis-meta-pill">
-              {overview.filterResult.segmentsUsed} segment{overview.filterResult.segmentsUsed !== 1 ? 's' : ''} analyzed
+              {overview.filterResult.segmentsUsed} segment
+              {overview.filterResult.segmentsUsed !== 1 ? 's' : ''} analyzed
             </span>
             {overview.filterResult.rpmFilterActive !== undefined && (
-              <span className={`analysis-meta-pill ${overview.filterResult.rpmFilterActive ? 'rpm-active' : 'rpm-inactive'}`}>
+              <span
+                className={`analysis-meta-pill ${overview.filterResult.rpmFilterActive ? 'rpm-active' : 'rpm-inactive'}`}
+              >
                 RPM Filter: {overview.filterResult.rpmFilterActive ? 'Active' : 'Not detected'}
+              </span>
+            )}
+            {overview.filterResult.dataQuality && (
+              <span
+                className={`analysis-meta-pill quality-${overview.filterResult.dataQuality.tier}`}
+                title={`Data quality: ${overview.filterResult.dataQuality.overall}/100`}
+              >
+                Data: {overview.filterResult.dataQuality.tier} (
+                {overview.filterResult.dataQuality.overall}/100)
               </span>
             )}
           </div>
@@ -223,7 +234,9 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
           {overview.filterResult.rpmFilterActive && (
             <div className="analysis-warning analysis-warning--info">
               <span className="analysis-warning-icon">{'\u2139\uFE0F'}</span>
-              <span>RPM filter is active — filter recommendations are optimized for lower latency.</span>
+              <span>
+                RPM filter is active — filter recommendations are optimized for lower latency.
+              </span>
             </div>
           )}
 
@@ -231,7 +244,9 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
             <div className="analysis-warnings">
               {overview.filterResult.warnings.map((w, i) => (
                 <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
-                  <span className="analysis-warning-icon">{w.severity === 'error' ? '\u274C' : '\u26A0\uFE0F'}</span>
+                  <span className="analysis-warning-icon">
+                    {w.severity === 'error' ? '\u274C' : '\u26A0\uFE0F'}
+                  </span>
                   <span>{w.message}</span>
                 </div>
               ))}
@@ -239,46 +254,62 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
           )}
 
           <div className="noise-details">
-              <p className="chart-description">
-                Frequency spectrum of gyro noise during stable hover.
-                Peaks indicate noise sources &mdash; <strong>motor harmonics</strong> (propeller vibrations),{' '}
-                <strong>frame resonance</strong> (structural vibrations), or <strong>electrical</strong> noise.
-                A flat, low spectrum means a clean build. Tall peaks may need filter adjustments.
-              </p>
-              <p className="chart-legend">
-                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
-                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
-                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
-                <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" /> Noise floor</span>
-                <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#ffd43b' }} /> Peak marker</span>
-              </p>
-              <SpectrumChart noise={overview.filterResult.noise} />
-              <div className="axis-summary">
-                {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
-                  const profile = overview.filterResult!.noise[axis];
-                  return (
-                    <div key={axis} className="axis-summary-card">
-                      <div className="axis-summary-card-title">{axis}</div>
-                      <div className="axis-summary-card-stat">
-                        <span>Noise floor: </span>{profile.noiseFloorDb.toFixed(0)} dB
-                      </div>
-                      <div className="axis-summary-card-stat">
-                        <span>Peaks: </span>{profile.peaks.length}
-                      </div>
-                      {profile.peaks.map((peak, i) => (
-                        <div key={i} className="axis-summary-card-stat">
-                          <span>{peak.frequency.toFixed(0)} Hz </span>
-                          <span className={`noise-peak-badge ${peak.type}`}>
-                            {PEAK_TYPE_LABELS[peak.type] || peak.type}
-                          </span>
-                        </div>
-                      ))}
+            <p className="chart-description">
+              Frequency spectrum of gyro noise during stable hover. Peaks indicate noise sources
+              &mdash; <strong>motor harmonics</strong> (propeller vibrations),{' '}
+              <strong>frame resonance</strong> (structural vibrations), or{' '}
+              <strong>electrical</strong> noise. A flat, low spectrum means a clean build. Tall
+              peaks may need filter adjustments.
+            </p>
+            <p className="chart-legend">
+              <span className="chart-legend-item">
+                <span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll
+              </span>
+              <span className="chart-legend-item">
+                <span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch
+              </span>
+              <span className="chart-legend-item">
+                <span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw
+              </span>
+              <span className="chart-legend-item">
+                <span className="chart-legend-line chart-legend-line--dashed" /> Noise floor
+              </span>
+              <span className="chart-legend-item">
+                <span
+                  className="chart-legend-line chart-legend-line--dashed"
+                  style={{ borderColor: '#ffd43b' }}
+                />{' '}
+                Peak marker
+              </span>
+            </p>
+            <SpectrumChart noise={overview.filterResult.noise} />
+            <div className="axis-summary">
+              {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
+                const profile = overview.filterResult!.noise[axis];
+                return (
+                  <div key={axis} className="axis-summary-card">
+                    <div className="axis-summary-card-title">{axis}</div>
+                    <div className="axis-summary-card-stat">
+                      <span>Noise floor: </span>
+                      {profile.noiseFloorDb.toFixed(0)} dB
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="axis-summary-card-stat">
+                      <span>Peaks: </span>
+                      {profile.peaks.length}
+                    </div>
+                    {profile.peaks.map((peak, i) => (
+                      <div key={i} className="axis-summary-card-stat">
+                        <span>{peak.frequency.toFixed(0)} Hz </span>
+                        <span className={`noise-peak-badge ${peak.type}`}>
+                          {PEAK_TYPE_LABELS[peak.type] || peak.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
-
+          </div>
         </div>
       )}
 
@@ -292,7 +323,9 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
           {overview.pidProgress && (
             <div className="analysis-progress">
               <div className="analysis-progress-label">
-                <span>{PID_STEP_LABELS[overview.pidProgress.step] || overview.pidProgress.step}</span>
+                <span>
+                  {PID_STEP_LABELS[overview.pidProgress.step] || overview.pidProgress.step}
+                </span>
                 <span>{overview.pidProgress.percent}%</span>
               </div>
               <div className="analysis-progress-bar">
@@ -324,8 +357,18 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
           </p>
           <div className="analysis-meta">
             <span className="analysis-meta-pill">
-              {overview.pidResult.stepsDetected} step{overview.pidResult.stepsDetected !== 1 ? 's' : ''} detected
+              {overview.pidResult.stepsDetected} step
+              {overview.pidResult.stepsDetected !== 1 ? 's' : ''} detected
             </span>
+            {overview.pidResult.dataQuality && (
+              <span
+                className={`analysis-meta-pill quality-${overview.pidResult.dataQuality.tier}`}
+                title={`Data quality: ${overview.pidResult.dataQuality.overall}/100`}
+              >
+                Data: {overview.pidResult.dataQuality.tier} (
+                {overview.pidResult.dataQuality.overall}/100)
+              </span>
+            )}
           </div>
 
           {overview.pidResult.warnings && overview.pidResult.warnings.length > 0 && (
@@ -333,7 +376,11 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
               {overview.pidResult.warnings.map((w, i) => (
                 <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
                   <span className="analysis-warning-icon">
-                    {w.severity === 'error' ? '\u274C' : w.severity === 'info' ? '\u2139\uFE0F' : '\u26A0\uFE0F'}
+                    {w.severity === 'error'
+                      ? '\u274C'
+                      : w.severity === 'info'
+                        ? '\u2139\uFE0F'
+                        : '\u26A0\uFE0F'}
                   </span>
                   <span>{w.message}</span>
                 </div>
@@ -351,13 +398,16 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
                     <div key={`current-${axis}`} className="axis-summary-card">
                       <div className="axis-summary-card-title">{axis}</div>
                       <div className="axis-summary-card-stat">
-                        <span>P: </span>{pids.P}
+                        <span>P: </span>
+                        {pids.P}
                       </div>
                       <div className="axis-summary-card-stat">
-                        <span>I: </span>{pids.I}
+                        <span>I: </span>
+                        {pids.I}
                       </div>
                       <div className="axis-summary-card-stat">
-                        <span>D: </span>{pids.D}
+                        <span>D: </span>
+                        {pids.D}
                       </div>
                     </div>
                   );
@@ -374,16 +424,20 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
                 <div key={axis} className="axis-summary-card">
                   <div className="axis-summary-card-title">{axis}</div>
                   <div className="axis-summary-card-stat">
-                    <span>Overshoot: </span>{profile.meanOvershoot.toFixed(1)}%
+                    <span>Overshoot: </span>
+                    {profile.meanOvershoot.toFixed(1)}%
                   </div>
                   <div className="axis-summary-card-stat">
-                    <span>Rise: </span>{profile.meanRiseTimeMs.toFixed(0)} ms
+                    <span>Rise: </span>
+                    {profile.meanRiseTimeMs.toFixed(0)} ms
                   </div>
                   <div className="axis-summary-card-stat">
-                    <span>Settling: </span>{profile.meanSettlingTimeMs.toFixed(0)} ms
+                    <span>Settling: </span>
+                    {profile.meanSettlingTimeMs.toFixed(0)} ms
                   </div>
                   <div className="axis-summary-card-stat">
-                    <span>Latency: </span>{profile.meanLatencyMs.toFixed(0)} ms
+                    <span>Latency: </span>
+                    {profile.meanLatencyMs.toFixed(0)} ms
                   </div>
                 </div>
               );
@@ -393,16 +447,28 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
           {hasTraces && (
             <>
               <p className="chart-description">
-                How the quad responds to stick inputs (step response).
-                The <strong>dashed white line</strong> is the commanded rate (setpoint) and the{' '}
-                <strong>colored line</strong> is the actual gyro response.
-                Ideally, the gyro should follow the setpoint quickly with minimal overshoot and no oscillation.
+                How the quad responds to stick inputs (step response). The{' '}
+                <strong>dashed white line</strong> is the commanded rate (setpoint) and the{' '}
+                <strong>colored line</strong> is the actual gyro response. Ideally, the gyro should
+                follow the setpoint quickly with minimal overshoot and no oscillation.
               </p>
               <p className="chart-legend">
-                <span className="chart-legend-item"><span className="chart-legend-line chart-legend-line--dashed" style={{ borderColor: '#fff' }} /> Setpoint</span>
-                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll</span>
-                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch</span>
-                <span className="chart-legend-item"><span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw</span>
+                <span className="chart-legend-item">
+                  <span
+                    className="chart-legend-line chart-legend-line--dashed"
+                    style={{ borderColor: '#fff' }}
+                  />{' '}
+                  Setpoint
+                </span>
+                <span className="chart-legend-item">
+                  <span className="chart-legend-line" style={{ borderColor: '#ff6b6b' }} /> Roll
+                </span>
+                <span className="chart-legend-item">
+                  <span className="chart-legend-line" style={{ borderColor: '#51cf66' }} /> Pitch
+                </span>
+                <span className="chart-legend-item">
+                  <span className="chart-legend-line" style={{ borderColor: '#4dabf7' }} /> Yaw
+                </span>
               </p>
               <StepResponseChart
                 roll={overview.pidResult!.roll}
@@ -411,7 +477,6 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
               />
             </>
           )}
-
         </div>
       )}
     </div>
