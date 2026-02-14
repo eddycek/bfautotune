@@ -8,6 +8,18 @@ BFAutoTune connects to your Betaflight flight controller over USB, guides you th
 
 **How it works:** Connect FC → Fly hover + throttle sweeps → App tunes filters → Fly stick snaps → App tunes PIDs → Done.
 
+## Download
+
+Pre-built binaries are available on the [Releases](https://github.com/eddycek/bfautotune/releases) page:
+
+| Platform | Format | File |
+|----------|--------|------|
+| **macOS** | Disk Image | `Betaflight.PID.AutoTune-*.dmg` |
+| **Windows** | Installer | `Betaflight.PID.AutoTune-Setup-*.exe` |
+| **Linux** | AppImage | `Betaflight.PID.AutoTune-*.AppImage` |
+
+> **Note:** macOS builds are currently unsigned. On first launch, right-click the app and select **Open**, or run `xattr -cr /Applications/Betaflight\ PID\ AutoTune.app` in Terminal to bypass Gatekeeper.
+
 ## Supported Betaflight Versions
 
 | Tier | Version | Notes |
@@ -25,6 +37,7 @@ Connecting with BF 4.2 or earlier will show an error and auto-disconnect. See [B
 - **Phase 2.5:** ✅ Complete - Profile simplification, interactive analysis charts
 - **Phase 3:** ✅ Complete - Mode-aware wizard, read-only analysis, flight guides
 - **Phase 4:** ✅ Complete - Stateful two-flight tuning workflow
+- **Phase 6:** ✅ Complete - CI/CD with GitHub Actions (tests on PR, cross-platform releases on tag)
 
 See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 
@@ -161,6 +174,18 @@ npm run build
 ```
 
 Output will be in the `release/` directory.
+
+### Releasing
+
+Releases are automated via GitHub Actions. To create a new release:
+
+```bash
+# Update version in package.json, then:
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+This triggers the release workflow which builds native installers for macOS (`.dmg`), Windows (`.exe`), and Linux (`.AppImage`), then uploads them as a draft GitHub Release. Review the draft and publish it manually.
 
 ## Project Structure
 
@@ -583,7 +608,7 @@ The autotuning rules and thresholds are based on established FPV community pract
 - **Phase 3**: ✅ Mode-aware wizard, read-only analysis overview, flight guides
 - **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect, verification flight, tuning history
 - **Phase 5**: ⬜ Complete manual testing & UX polish (real hardware validation)
-- **Phase 6**: ⬜ CI/CD & cross-platform releases (macOS/Windows/Linux installers)
+- **Phase 6**: ✅ CI/CD & cross-platform releases (macOS/Windows/Linux installers)
 - **Phase 7**: ⬜ E2E tests on real FC in CI pipeline
 
 See [SPEC.md](./SPEC.md) for detailed requirements and phase tracking.
