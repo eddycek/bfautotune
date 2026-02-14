@@ -19,7 +19,10 @@ export class MockSerialPort extends EventEmitter {
   private _shouldFailClose = false;
   private _shouldFailWrite = false;
 
-  constructor(opts: { path: string; baudRate: number; [key: string]: any }, callback?: (error?: Error | null) => void) {
+  constructor(
+    opts: { path: string; baudRate: number; [key: string]: any },
+    callback?: (error?: Error | null) => void
+  ) {
     super();
     this.path = opts.path;
     this.baudRate = opts.baudRate;
@@ -115,7 +118,6 @@ export class MockSerialPort extends EventEmitter {
  */
 export let lastCreatedPort: MockSerialPort | null = null;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createSerialPortMock(): any {
   return {
     SerialPort: class extends MockSerialPort {
