@@ -145,4 +145,84 @@ describe('TuningHistoryPanel', () => {
 
     expect(screen.getByText(/Noise: low/)).toBeInTheDocument();
   });
+
+  it('shows quality score badge in card header', () => {
+    const record = makeRecord('r1', '2026-02-10T00:00:00Z');
+    // Add PID metrics so score can be computed
+    record.pidMetrics = {
+      roll: {
+        meanOvershoot: 5,
+        meanRiseTimeMs: 10,
+        meanSettlingTimeMs: 60,
+        meanLatencyMs: 3,
+        meanTrackingErrorRMS: 0.05,
+      },
+      pitch: {
+        meanOvershoot: 5,
+        meanRiseTimeMs: 10,
+        meanSettlingTimeMs: 60,
+        meanLatencyMs: 3,
+        meanTrackingErrorRMS: 0.05,
+      },
+      yaw: {
+        meanOvershoot: 5,
+        meanRiseTimeMs: 10,
+        meanSettlingTimeMs: 60,
+        meanLatencyMs: 3,
+        meanTrackingErrorRMS: 0.05,
+      },
+      stepsDetected: 20,
+      currentPIDs: {
+        roll: { P: 45, I: 80, D: 30 },
+        pitch: { P: 47, I: 82, D: 32 },
+        yaw: { P: 35, I: 90, D: 0 },
+      },
+      summary: 'Good',
+    };
+    const { container } = render(<TuningHistoryPanel history={[record]} loading={false} />);
+
+    const badge = container.querySelector('.quality-score-badge');
+    expect(badge).not.toBeNull();
+  });
+
+  it('renders trend chart with 2+ records', () => {
+    const r1 = makeRecord('r1', '2026-02-10T00:00:00Z');
+    const r2 = makeRecord('r2', '2026-02-01T00:00:00Z');
+    // Add PID metrics so scores are computable
+    const pidMetrics = {
+      roll: {
+        meanOvershoot: 5,
+        meanRiseTimeMs: 10,
+        meanSettlingTimeMs: 60,
+        meanLatencyMs: 3,
+        meanTrackingErrorRMS: 0.05,
+      },
+      pitch: {
+        meanOvershoot: 5,
+        meanRiseTimeMs: 10,
+        meanSettlingTimeMs: 60,
+        meanLatencyMs: 3,
+        meanTrackingErrorRMS: 0.05,
+      },
+      yaw: {
+        meanOvershoot: 5,
+        meanRiseTimeMs: 10,
+        meanSettlingTimeMs: 60,
+        meanLatencyMs: 3,
+        meanTrackingErrorRMS: 0.05,
+      },
+      stepsDetected: 20,
+      currentPIDs: {
+        roll: { P: 45, I: 80, D: 30 },
+        pitch: { P: 47, I: 82, D: 32 },
+        yaw: { P: 35, I: 90, D: 0 },
+      },
+      summary: 'Good',
+    };
+    r1.pidMetrics = pidMetrics;
+    r2.pidMetrics = pidMetrics;
+    render(<TuningHistoryPanel history={[r1, r2]} loading={false} />);
+
+    expect(screen.getByText('Tune Quality Trend')).toBeInTheDocument();
+  });
 });

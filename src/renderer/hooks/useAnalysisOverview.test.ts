@@ -85,10 +85,7 @@ const mockParseResult: BlackboxParseResult = {
 };
 
 const mockMultiSessionResult: BlackboxParseResult = {
-  sessions: [
-    mockSession,
-    { ...mockSession, index: 1 },
-  ],
+  sessions: [mockSession, { ...mockSession, index: 1 }],
   fileSize: 2 * 1024 * 1024,
   parseTimeMs: 400,
   success: true,
@@ -130,9 +127,30 @@ const mockFilterResult: FilterAnalysisResult = {
 };
 
 const mockPIDResult: PIDAnalysisResult = {
-  roll: { responses: [], meanOvershoot: 5, meanRiseTimeMs: 20, meanSettlingTimeMs: 50, meanLatencyMs: 8 },
-  pitch: { responses: [], meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
-  yaw: { responses: [], meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
+  roll: {
+    responses: [],
+    meanOvershoot: 5,
+    meanRiseTimeMs: 20,
+    meanSettlingTimeMs: 50,
+    meanLatencyMs: 8,
+    meanTrackingErrorRMS: 0,
+  },
+  pitch: {
+    responses: [],
+    meanOvershoot: 8,
+    meanRiseTimeMs: 22,
+    meanSettlingTimeMs: 55,
+    meanLatencyMs: 9,
+    meanTrackingErrorRMS: 0,
+  },
+  yaw: {
+    responses: [],
+    meanOvershoot: 3,
+    meanRiseTimeMs: 30,
+    meanSettlingTimeMs: 60,
+    meanLatencyMs: 10,
+    meanTrackingErrorRMS: 0,
+  },
   recommendations: [
     {
       setting: 'pid_roll_p',
@@ -167,7 +185,10 @@ describe('useAnalysisOverview', () => {
     renderHook(() => useAnalysisOverview('log-1'));
 
     await waitFor(() => {
-      expect(window.betaflight.parseBlackboxLog).toHaveBeenCalledWith('log-1', expect.any(Function));
+      expect(window.betaflight.parseBlackboxLog).toHaveBeenCalledWith(
+        'log-1',
+        expect.any(Function)
+      );
     });
   });
 
@@ -186,8 +207,18 @@ describe('useAnalysisOverview', () => {
       expect(result.current.pidResult).toEqual(mockPIDResult);
     });
 
-    expect(window.betaflight.analyzeFilters).toHaveBeenCalledWith('log-1', 0, undefined, expect.any(Function));
-    expect(window.betaflight.analyzePID).toHaveBeenCalledWith('log-1', 0, undefined, expect.any(Function));
+    expect(window.betaflight.analyzeFilters).toHaveBeenCalledWith(
+      'log-1',
+      0,
+      undefined,
+      expect.any(Function)
+    );
+    expect(window.betaflight.analyzePID).toHaveBeenCalledWith(
+      'log-1',
+      0,
+      undefined,
+      expect.any(Function)
+    );
   });
 
   it('does not auto-run analyses for multi-session parse (waits for selection)', async () => {
@@ -219,15 +250,23 @@ describe('useAnalysisOverview', () => {
     });
 
     await waitFor(() => {
-      expect(window.betaflight.analyzeFilters).toHaveBeenCalledWith('log-1', 1, undefined, expect.any(Function));
-      expect(window.betaflight.analyzePID).toHaveBeenCalledWith('log-1', 1, undefined, expect.any(Function));
+      expect(window.betaflight.analyzeFilters).toHaveBeenCalledWith(
+        'log-1',
+        1,
+        undefined,
+        expect.any(Function)
+      );
+      expect(window.betaflight.analyzePID).toHaveBeenCalledWith(
+        'log-1',
+        1,
+        undefined,
+        expect.any(Function)
+      );
     });
   });
 
   it('handles parse error', async () => {
-    vi.mocked(window.betaflight.parseBlackboxLog).mockRejectedValue(
-      new Error('Corrupt log file')
-    );
+    vi.mocked(window.betaflight.parseBlackboxLog).mockRejectedValue(new Error('Corrupt log file'));
 
     const { result } = renderHook(() => useAnalysisOverview('log-1'));
 
@@ -260,9 +299,7 @@ describe('useAnalysisOverview', () => {
   it('handles PID analysis error independently', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockParseResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
-    vi.mocked(window.betaflight.analyzePID).mockRejectedValue(
-      new Error('No step inputs found')
-    );
+    vi.mocked(window.betaflight.analyzePID).mockRejectedValue(new Error('No step inputs found'));
 
     const { result } = renderHook(() => useAnalysisOverview('log-1'));
 

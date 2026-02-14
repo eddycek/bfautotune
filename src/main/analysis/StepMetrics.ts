@@ -9,13 +9,13 @@
  * - Ringing count (oscillations before settling)
  */
 import type { TimeSeries } from '@shared/types/blackbox.types';
-import type { StepEvent, StepResponse, StepResponseTrace, AxisStepProfile } from '@shared/types/analysis.types';
-import {
-  SETTLING_TOLERANCE,
-  RISE_TIME_LOW,
-  RISE_TIME_HIGH,
-  LATENCY_THRESHOLD,
-} from './constants';
+import type {
+  StepEvent,
+  StepResponse,
+  StepResponseTrace,
+  AxisStepProfile,
+} from '@shared/types/analysis.types';
+import { SETTLING_TOLERANCE, RISE_TIME_LOW, RISE_TIME_HIGH, LATENCY_THRESHOLD } from './constants';
 
 /**
  * Compute response metrics for a single step event.
@@ -56,6 +56,7 @@ export function computeStepResponse(
       ringingCount: 0,
       peakValue: baseline,
       steadyStateValue,
+      trackingErrorRMS: 1.0,
     };
   }
 
@@ -86,9 +87,10 @@ export function computeStepResponse(
     if (riseLowIdx >= 0 && riseHighIdx >= 0) break;
   }
 
-  const riseTimeMs = (riseLowIdx >= 0 && riseHighIdx >= 0)
-    ? (riseHighIdx - riseLowIdx) * msPerSample
-    : windowLen * msPerSample;
+  const riseTimeMs =
+    riseLowIdx >= 0 && riseHighIdx >= 0
+      ? (riseHighIdx - riseLowIdx) * msPerSample
+      : windowLen * msPerSample;
 
   // Peak value: max deviation from baseline in the step direction
   let peakValue = baseline;
@@ -102,9 +104,15 @@ export function computeStepResponse(
   }
 
   // Overshoot: how much the peak exceeds the target
-  const overshootPercent = Math.abs(effectiveMagnitude) > 1
-    ? Math.max(0, ((effectiveMagnitude > 0 ? peakValue - effectiveTarget : effectiveTarget - peakValue) / Math.abs(effectiveMagnitude)) * 100)
-    : 0;
+  const overshootPercent =
+    Math.abs(effectiveMagnitude) > 1
+      ? Math.max(
+          0,
+          ((effectiveMagnitude > 0 ? peakValue - effectiveTarget : effectiveTarget - peakValue) /
+            Math.abs(effectiveMagnitude)) *
+            100
+        )
+      : 0;
 
   // Settling time: last time the signal exits the ±SETTLING_TOLERANCE band around steady state
   const settlingBand = Math.abs(effectiveMagnitude) * SETTLING_TOLERANCE;
@@ -148,6 +156,14 @@ export function computeStepResponse(
     trace.gyro.push(gyro.values[i]);
   }
 
+  // Compute tracking error RMS: normalized by |magnitude|
+  let sumSqErr = 0;
+  for (let i = startIndex; i < endIndex; i++) {
+    const err = (setpoint.values[i] - gyro.values[i]) / Math.abs(magnitude);
+    sumSqErr += err * err;
+  }
+  const trackingErrorRMS = Math.sqrt(sumSqErr / windowLen);
+
   return {
     step,
     riseTimeMs,
@@ -158,6 +174,7 @@ export function computeStepResponse(
     peakValue,
     steadyStateValue,
     trace,
+    trackingErrorRMS,
   };
 }
 
@@ -172,35 +189,22 @@ export function aggregateAxisMetrics(responses: StepResponse[]): AxisStepProfile
       meanRiseTimeMs: 0,
       meanSettlingTimeMs: 0,
       meanLatencyMs: 0,
+      meanTrackingErrorRMS: 0,
     };
   }
 
   // Filter out degenerate steps (false positives or badly detected) for metric computation
-  const valid = responses.filter(r =>
-    r.riseTimeMs > 0 &&
-    r.overshootPercent < 500
-  );
+  const valid = responses.filter((r) => r.riseTimeMs > 0 && r.overshootPercent < 500);
   const src = valid.length > 0 ? valid : responses;
 
   return {
     responses, // keep all for chart display
-    meanOvershoot: mean(
-      new Float64Array(src.map(r => r.overshootPercent)),
-      0,
-      src.length
-    ),
-    meanRiseTimeMs: mean(
-      new Float64Array(src.map(r => r.riseTimeMs)),
-      0,
-      src.length
-    ),
-    meanSettlingTimeMs: mean(
-      new Float64Array(src.map(r => r.settlingTimeMs)),
-      0,
-      src.length
-    ),
-    meanLatencyMs: mean(
-      new Float64Array(src.map(r => r.latencyMs)),
+    meanOvershoot: mean(new Float64Array(src.map((r) => r.overshootPercent)), 0, src.length),
+    meanRiseTimeMs: mean(new Float64Array(src.map((r) => r.riseTimeMs)), 0, src.length),
+    meanSettlingTimeMs: mean(new Float64Array(src.map((r) => r.settlingTimeMs)), 0, src.length),
+    meanLatencyMs: mean(new Float64Array(src.map((r) => r.latencyMs)), 0, src.length),
+    meanTrackingErrorRMS: mean(
+      new Float64Array(src.map((r) => r.trackingErrorRMS ?? 0)),
       0,
       src.length
     ),
@@ -254,7 +258,12 @@ export function classifyFFContribution(
 }
 
 /** Check if value has crossed a threshold in the correct direction */
-function crossedThreshold(value: number, baseline: number, threshold: number, isPositive: boolean): boolean {
+function crossedThreshold(
+  value: number,
+  baseline: number,
+  threshold: number,
+  isPositive: boolean
+): boolean {
   if (isPositive) {
     return value >= threshold;
   } else {

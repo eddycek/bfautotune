@@ -65,6 +65,39 @@
   color: #888;
 }
 
+.tuning-history-card-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quality-score-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.quality-score-excellent {
+  background: rgba(81, 207, 102, 0.15);
+  color: #51cf66;
+}
+
+.quality-score-good {
+  background: rgba(81, 207, 102, 0.15);
+  color: #51cf66;
+}
+
+.quality-score-fair {
+  background: rgba(255, 212, 59, 0.15);
+  color: #ffd43b;
+}
+
+.quality-score-poor {
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff6b6b;
+}
+
 .tuning-history-card-chevron {
   font-size: 14px;
   color: #666;

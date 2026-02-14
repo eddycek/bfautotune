@@ -51,6 +51,22 @@ export interface AxisPIDSummary {
   meanRiseTimeMs: number;
   meanSettlingTimeMs: number;
   meanLatencyMs: number;
+  meanTrackingErrorRMS?: number;
+}
+
+/** A single component contributing to the tune quality score */
+export interface TuneQualityComponent {
+  label: string;
+  score: number;
+  maxPoints: number;
+  rawValue: number;
+}
+
+/** Overall tune quality score computed from filter + PID metrics */
+export interface TuneQualityScore {
+  overall: number;
+  tier: 'excellent' | 'good' | 'fair' | 'poor';
+  components: TuneQualityComponent[];
 }
 
 /** Compact PID analysis metrics for history storage */

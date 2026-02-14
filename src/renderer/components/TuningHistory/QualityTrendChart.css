@@ -1,0 +1,22 @@
+.quality-trend-chart {
+  margin-bottom: 12px;
+}
+
+.quality-trend-title {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.quality-trend-container {
+  background: var(--bg-tertiary, #1e1e1e);
+  border-radius: 6px;
+  padding: 12px 8px 4px 0;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.quality-trend-container .recharts-tooltip-cursor {
+  stroke: #555;
+}

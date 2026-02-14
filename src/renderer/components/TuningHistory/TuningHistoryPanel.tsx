@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
+import React, { useMemo, useState } from 'react';
+import type { CompletedTuningRecord, TuneQualityScore } from '@shared/types/tuning-history.types';
+import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
 import { TuningSessionDetail } from './TuningSessionDetail';
+import { QualityTrendChart } from './QualityTrendChart';
 import './TuningHistoryPanel.css';
 
 interface TuningHistoryPanelProps {
@@ -24,15 +26,27 @@ function recordSummary(record: CompletedTuningRecord): string {
   if (pc > 0) parts.push(`${pc} PID`);
   const changes = parts.length > 0 ? `${parts.join(' + ')} changes` : 'No changes';
 
-  const noise = record.filterMetrics
-    ? `Noise: ${record.filterMetrics.noiseLevel}`
-    : '';
+  const noise = record.filterMetrics ? `Noise: ${record.filterMetrics.noiseLevel}` : '';
 
   return noise ? `${changes} \u2022 ${noise}` : changes;
 }
 
 export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const scoreMap = useMemo(() => {
+    const map = new Map<string, TuneQualityScore | null>();
+    for (const record of history) {
+      map.set(
+        record.id,
+        computeTuneQualityScore({
+          filterMetrics: record.filterMetrics,
+          pidMetrics: record.pidMetrics,
+        })
+      );
+    }
+    return map;
+  }, [history]);
 
   if (loading) return null;
   if (history.length === 0) return null;
@@ -41,9 +55,12 @@ export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps
     <div className="tuning-history-panel">
       <h3 className="tuning-history-title">Tuning History</h3>
 
+      <QualityTrendChart history={history} />
+
       <div className="tuning-history-list">
         {history.map((record) => {
           const isExpanded = expandedId === record.id;
+          const score = scoreMap.get(record.id);
           return (
             <div key={record.id} className={`tuning-history-card ${isExpanded ? 'expanded' : ''}`}>
               <button
@@ -55,9 +72,16 @@ export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps
                   <span className="tuning-history-card-date">{formatDate(record.completedAt)}</span>
                   <span className="tuning-history-card-summary">{recordSummary(record)}</span>
                 </div>
-                <span className={`tuning-history-card-chevron ${isExpanded ? 'open' : ''}`}>
-                  {'\u25B8'}
-                </span>
+                <div className="tuning-history-card-right">
+                  {score && (
+                    <span className={`quality-score-badge quality-score-${score.tier}`}>
+                      {score.overall}
+                    </span>
+                  )}
+                  <span className={`tuning-history-card-chevron ${isExpanded ? 'open' : ''}`}>
+                    {'\u25B8'}
+                  </span>
+                </div>
               </button>
 
               {isExpanded && (

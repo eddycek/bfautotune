@@ -16,7 +16,12 @@ function makeSeries(fn: (i: number) => number, numSamples: number): TimeSeries {
   return { time, values };
 }
 
-function makeStep(startIndex: number, endIndex: number, magnitude: number, axis: 0 | 1 | 2 = 0): StepEvent {
+function makeStep(
+  startIndex: number,
+  endIndex: number,
+  magnitude: number,
+  axis: 0 | 1 | 2 = 0
+): StepEvent {
   return {
     axis,
     startIndex,
@@ -34,8 +39,8 @@ describe('StepMetrics', () => {
       const stepMag = 300;
 
       // Perfect step: gyro matches setpoint exactly after the step
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
-      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -51,13 +56,15 @@ describe('StepMetrics', () => {
       const overshootFraction = 0.2; // 20% overshoot
 
       // Underdamped: overshoots then settles
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
         const t = (i - stepAt) / SAMPLE_RATE;
         // Decaying oscillation around target
-        return stepMag * (1 + overshootFraction * Math.exp(-t * 30) * Math.cos(2 * Math.PI * 20 * t));
+        return (
+          stepMag * (1 + overshootFraction * Math.exp(-t * 30) * Math.cos(2 * Math.PI * 20 * t))
+        );
       }, numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -73,12 +80,12 @@ describe('StepMetrics', () => {
       const stepMag = 300;
 
       // Overdamped: slow exponential approach, no overshoot
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
         const t = (i - stepAt) / SAMPLE_RATE;
         return stepMag * (1 - Math.exp(-t * 10)); // Slow rise with τ = 100ms
       }, numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -95,13 +102,13 @@ describe('StepMetrics', () => {
       const stepMag = 300;
 
       // Oscillating response: sustained oscillation around target
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
         const t = (i - stepAt) / SAMPLE_RATE;
         // Damped oscillation with multiple cycles
         return stepMag + 30 * Math.exp(-t * 8) * Math.sin(2 * Math.PI * 40 * t);
       }, numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -118,11 +125,11 @@ describe('StepMetrics', () => {
       const delaySamples = Math.round((delayMs / 1000) * SAMPLE_RATE);
 
       // Delayed response
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt + delaySamples) return 0;
         return stepMag;
       }, numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -138,8 +145,8 @@ describe('StepMetrics', () => {
       const stepMag = -300;
 
       // Perfect negative step
-      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -155,7 +162,7 @@ describe('StepMetrics', () => {
 
       // Response that oscillates then settles at sample ~600
       const settleAt = 600;
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
         if (i < settleAt) {
           // Oscillate around target
@@ -164,7 +171,7 @@ describe('StepMetrics', () => {
         }
         return stepMag; // Settled
       }, numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -181,12 +188,12 @@ describe('StepMetrics', () => {
       const stepMag = 300;
       const peakVal = 380;
 
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
         if (i === stepAt + 50) return peakVal; // Single peak
         return stepMag;
       }, numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -201,7 +208,7 @@ describe('StepMetrics', () => {
 
       // Gyro doesn't respond at all
       const gyro = makeSeries(() => 0, numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -215,8 +222,8 @@ describe('StepMetrics', () => {
       const numSamples = 2000;
       const stepMag = 300;
 
-      const gyro = makeSeries(i => stepMag, numSamples);
-      const setpoint = makeSeries(i => stepMag, numSamples);
+      const gyro = makeSeries((i) => stepMag, numSamples);
+      const setpoint = makeSeries((i) => stepMag, numSamples);
       const step = makeStep(0, 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -229,8 +236,8 @@ describe('StepMetrics', () => {
       const stepAt = 100;
       const stepMag = 300;
 
-      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, 250, stepMag); // Only 150 samples
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -245,8 +252,8 @@ describe('StepMetrics', () => {
       const stepEnd = stepAt + 400;
       const stepMag = 300;
 
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
-      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepEnd, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -260,7 +267,8 @@ describe('StepMetrics', () => {
       expect(result.trace!.timeMs[0]).toBe(0);
       // Last sample time should be (windowLen - 1) * msPerSample
       expect(result.trace!.timeMs[result.trace!.timeMs.length - 1]).toBeCloseTo(
-        (stepEnd - stepAt - 1) * MS_PER_SAMPLE, 2
+        (stepEnd - stepAt - 1) * MS_PER_SAMPLE,
+        2
       );
 
       // Setpoint should be stepMag for all samples (step started at stepAt)
@@ -277,8 +285,8 @@ describe('StepMetrics', () => {
       const delaySamples = 20;
 
       // Gyro responds after a delay
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
-      const gyro = makeSeries(i => (i >= stepAt + delaySamples ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt + delaySamples ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepEnd, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -296,8 +304,8 @@ describe('StepMetrics', () => {
       const stepMag = 300;
 
       // Instant response — gyro jumps to target immediately
-      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 1200, stepMag);
 
       const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
@@ -305,10 +313,63 @@ describe('StepMetrics', () => {
       // Rise time should be ~0 since it jumps instantly
       expect(result.riseTimeMs).toBeLessThan(2);
     });
+
+    it('should compute near-zero trackingErrorRMS for perfect tracking', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 1200, stepMag);
+
+      const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      expect(result.trackingErrorRMS).toBeDefined();
+      expect(result.trackingErrorRMS).toBeCloseTo(0, 1);
+    });
+
+    it('should compute non-zero trackingErrorRMS for offset response', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+      const offset = 30; // constant 30 deg/s error = 10% of magnitude
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag - offset : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 1200, stepMag);
+
+      const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      expect(result.trackingErrorRMS).toBeDefined();
+      // Error = offset/|magnitude| = 30/300 = 0.1 for all samples after step
+      // Before step: setpoint=0, gyro=0 → error=0. Combined RMS should be close to 0.1
+      expect(result.trackingErrorRMS!).toBeGreaterThan(0.05);
+      expect(result.trackingErrorRMS!).toBeLessThan(0.15);
+    });
+
+    it('should return trackingErrorRMS=1.0 for near-zero magnitude', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 0.5; // near-zero
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries(() => 0, numSamples);
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+
+      const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      expect(result.trackingErrorRMS).toBe(1.0);
+    });
   });
 
   describe('aggregateAxisMetrics', () => {
-    function makeResponse(overshoot: number, riseTime: number, settling: number, latency: number): StepResponse {
+    function makeResponse(
+      overshoot: number,
+      riseTime: number,
+      settling: number,
+      latency: number
+    ): StepResponse {
       return {
         step: makeStep(0, 100, 300),
         riseTimeMs: riseTime,
@@ -359,9 +420,9 @@ describe('StepMetrics', () => {
 
     it('should exclude degenerate steps from mean computation', () => {
       const responses = [
-        makeResponse(15, 25, 60, 5),   // valid
-        makeResponse(20, 30, 80, 8),   // valid
-        makeResponse(808, 0, 300, 0),  // degenerate: 0ms rise, 808% overshoot
+        makeResponse(15, 25, 60, 5), // valid
+        makeResponse(20, 30, 80, 8), // valid
+        makeResponse(808, 0, 300, 0), // degenerate: 0ms rise, 808% overshoot
       ];
 
       const profile = aggregateAxisMetrics(responses);
@@ -376,16 +437,37 @@ describe('StepMetrics', () => {
     });
 
     it('should fall back to all responses if all are degenerate', () => {
-      const responses = [
-        makeResponse(600, 0, 300, 0),
-        makeResponse(900, 0, 300, 0),
-      ];
+      const responses = [makeResponse(600, 0, 300, 0), makeResponse(900, 0, 300, 0)];
 
       const profile = aggregateAxisMetrics(responses);
 
       // No valid responses, so fall back to all
       expect(profile.meanOvershoot).toBeCloseTo(750, 0);
       expect(profile.meanRiseTimeMs).toBeCloseTo(0, 0);
+    });
+
+    it('should aggregate meanTrackingErrorRMS from responses', () => {
+      const responses = [
+        { ...makeResponse(10, 20, 50, 5), trackingErrorRMS: 0.1 },
+        { ...makeResponse(20, 40, 100, 10), trackingErrorRMS: 0.2 },
+        { ...makeResponse(30, 60, 150, 15), trackingErrorRMS: 0.3 },
+      ];
+
+      const profile = aggregateAxisMetrics(responses);
+
+      expect(profile.meanTrackingErrorRMS).toBeCloseTo(0.2, 2);
+    });
+
+    it('should handle missing trackingErrorRMS (treat as 0)', () => {
+      const responses = [
+        makeResponse(10, 20, 50, 5), // no trackingErrorRMS
+        { ...makeResponse(20, 40, 100, 10), trackingErrorRMS: 0.4 },
+      ];
+
+      const profile = aggregateAxisMetrics(responses);
+
+      // (0 + 0.4) / 2 = 0.2
+      expect(profile.meanTrackingErrorRMS).toBeCloseTo(0.2, 2);
     });
   });
 
@@ -397,20 +479,20 @@ describe('StepMetrics', () => {
       const peakAt = stepAt + 50; // peak 50 samples after step
 
       // Gyro with overshoot
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
         if (i === peakAt) return stepMag * 1.3; // 30% overshoot peak
         if (i >= stepAt) return stepMag;
         return 0;
       }, numSamples);
 
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 400, stepMag);
       const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
 
       // pidF much larger than pidP at peak
-      const pidP = makeSeries(i => (i === peakAt ? 20 : 10), numSamples);
-      const pidF = makeSeries(i => (i === peakAt ? 80 : 5), numSamples);
+      const pidP = makeSeries((i) => (i === peakAt ? 20 : 10), numSamples);
+      const pidF = makeSeries((i) => (i === peakAt ? 80 : 5), numSamples);
 
       const result = classifyFFContribution(response, pidP, pidF, gyro);
       expect(result).toBe(true);
@@ -422,20 +504,20 @@ describe('StepMetrics', () => {
       const stepMag = 300;
       const peakAt = stepAt + 50;
 
-      const gyro = makeSeries(i => {
+      const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
         if (i === peakAt) return stepMag * 1.3;
         if (i >= stepAt) return stepMag;
         return 0;
       }, numSamples);
 
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 400, stepMag);
       const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
 
       // pidP much larger than pidF at peak
-      const pidP = makeSeries(i => (i === peakAt ? 80 : 10), numSamples);
-      const pidF = makeSeries(i => (i === peakAt ? 10 : 5), numSamples);
+      const pidP = makeSeries((i) => (i === peakAt ? 80 : 10), numSamples);
+      const pidF = makeSeries((i) => (i === peakAt ? 10 : 5), numSamples);
 
       const result = classifyFFContribution(response, pidP, pidF, gyro);
       expect(result).toBe(false);
@@ -447,8 +529,8 @@ describe('StepMetrics', () => {
       const stepMag = 300;
 
       // No overshoot — gyro matches setpoint exactly
-      const gyro = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
-      const setpoint = makeSeries(i => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
       const step = makeStep(stepAt, stepAt + 400, stepMag);
       const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
 

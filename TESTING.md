@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1665 tests across 89 files** (last verified: February 14, 2026)
+**Total: 1694 tests across 91 files** (last verified: February 14, 2026)
 
 ### UI Components
 
@@ -186,8 +186,9 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/charts/AxisTabs.test.tsx` | 6 | Tab rendering, selection, aria-selected, onChange callback |
 | `TuningHistory/AppliedChangesTable.test.tsx` | 7 | Setting changes table, percent formatting, empty state, zero value handling |
 | `TuningHistory/NoiseComparisonChart.test.tsx` | 7 | Before/after spectrum overlay, delta pill, axis tabs, empty state |
-| `TuningHistory/TuningCompletionSummary.test.tsx` | 10 | Completion summary with/without verification, noise chart, changes, PID metrics, actions |
-| `TuningHistory/TuningHistoryPanel.test.tsx` | 8 | History list, expand/collapse, detail view, empty/loading states |
+| `TuningHistory/TuningCompletionSummary.test.tsx` | 11 | Completion summary with/without verification, noise chart, changes, PID metrics, actions, quality score badge |
+| `TuningHistory/TuningHistoryPanel.test.tsx` | 10 | History list, expand/collapse, detail view, empty/loading states, quality score badge, trend chart |
+| `TuningHistory/QualityTrendChart.test.tsx` | 5 | Trend chart rendering, minimum data threshold, null score handling |
 | `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |
 | `ProfileCard.test.tsx` | 17 | Profile card rendering, badges (Active/Recent), relative time, click handlers, locked state, CSS classes |
 | `PresetSelector.test.tsx` | 11 | Preset dropdown rendering, selection callback, flight style mapping |
@@ -288,7 +289,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
-| `analysis/StepMetrics.test.ts` | 22 | Rise time, overshoot, settling, latency, ringing, FF contribution classification |
+| `analysis/StepMetrics.test.ts` | 27 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS computation and aggregation |
 | `analysis/PIDRecommender.test.ts` | 40 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds |
 | `analysis/PIDAnalyzer.test.ts` | 19 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring |
 | `analysis/AnalysisPipeline.realdata.test.ts` | 20 | End-to-end filter+PID analysis with bf45-reference fixture and real_flight.bbl, safety bounds, determinism, performance |
@@ -309,7 +310,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `shared/utils/metricsExtract.test.ts` | 12 | Spectrum downsampling, filter/PID metrics extraction, boundary handling |
+| `shared/utils/metricsExtract.test.ts` | 13 | Spectrum downsampling, filter/PID metrics extraction, boundary handling, trackingErrorRMS extraction |
+| `shared/utils/tuneQualityScore.test.ts` | 14 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping |
 | `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
 | `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |
 

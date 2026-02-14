@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { recommendPID, generatePIDSummary, extractFlightPIDs, extractFeedforwardContext } from './PIDRecommender';
+import {
+  recommendPID,
+  generatePIDSummary,
+  extractFlightPIDs,
+  extractFeedforwardContext,
+} from './PIDRecommender';
 import type { PIDConfiguration } from '@shared/types/pid.types';
-import type { AxisStepProfile, FeedforwardContext, StepResponse, StepEvent } from '@shared/types/analysis.types';
+import type {
+  AxisStepProfile,
+  FeedforwardContext,
+  StepResponse,
+  StepEvent,
+} from '@shared/types/analysis.types';
 import { P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
 
 function makeStep(): StepEvent {
@@ -22,7 +32,9 @@ function makeResponse(overrides: Partial<StepResponse> = {}): StepResponse {
   };
 }
 
-function makeProfile(overrides: Partial<AxisStepProfile> & { responses?: StepResponse[] } = {}): AxisStepProfile {
+function makeProfile(
+  overrides: Partial<AxisStepProfile> & { responses?: StepResponse[] } = {}
+): AxisStepProfile {
   const responses = overrides.responses || [makeResponse()];
   return {
     responses,
@@ -30,11 +42,19 @@ function makeProfile(overrides: Partial<AxisStepProfile> & { responses?: StepRes
     meanRiseTimeMs: overrides.meanRiseTimeMs ?? responses[0].riseTimeMs,
     meanSettlingTimeMs: overrides.meanSettlingTimeMs ?? responses[0].settlingTimeMs,
     meanLatencyMs: overrides.meanLatencyMs ?? responses[0].latencyMs,
+    meanTrackingErrorRMS: 0,
   };
 }
 
 function emptyProfile(): AxisStepProfile {
-  return { responses: [], meanOvershoot: 0, meanRiseTimeMs: 0, meanSettlingTimeMs: 0, meanLatencyMs: 0 };
+  return {
+    responses: [],
+    meanOvershoot: 0,
+    meanRiseTimeMs: 0,
+    meanSettlingTimeMs: 0,
+    meanLatencyMs: 0,
+    meanTrackingErrorRMS: 0,
+  };
 }
 
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -62,7 +82,7 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       expect(dRec).toBeDefined();
       expect(dRec!.recommendedValue).toBeGreaterThan(DEFAULT_PIDS.roll.D);
       expect(dRec!.reason).toContain('overshoot');
@@ -74,8 +94,8 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
-      const pRec = recs.find(r => r.setting === 'pid_roll_p');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
       expect(dRec).toBeDefined();
       expect(dRec!.confidence).toBe('high');
       // D=30 is below 60% of D_GAIN_MAX, so P should NOT be reduced (D-first strategy)
@@ -92,8 +112,8 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), highDPids);
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
-      const pRec = recs.find(r => r.setting === 'pid_roll_p');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
       expect(dRec).toBeDefined();
       expect(pRec).toBeDefined();
       expect(dRec!.confidence).toBe('high');
@@ -108,7 +128,7 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
 
-      const pRec = recs.find(r => r.setting === 'pid_roll_p');
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
       expect(pRec).toBeDefined();
       expect(pRec!.recommendedValue).toBeGreaterThan(DEFAULT_PIDS.roll.P);
       expect(pRec!.reason).toContain('sluggish');
@@ -123,7 +143,7 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       expect(dRec).toBeDefined();
       expect(dRec!.reason).toContain('scillation');
     });
@@ -144,7 +164,7 @@ describe('PIDRecommender', () => {
       const recs = recommendPID(sluggish, emptyProfile(), emptyProfile(), maxPIDs);
 
       // Should not recommend going above P_GAIN_MAX
-      const pRec = recs.find(r => r.setting === 'pid_roll_p');
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
       if (pRec) {
         expect(pRec.recommendedValue).toBeLessThanOrEqual(P_GAIN_MAX);
       }
@@ -161,7 +181,7 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), maxPIDs);
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       if (dRec) {
         expect(dRec.recommendedValue).toBeLessThanOrEqual(D_GAIN_MAX);
       }
@@ -177,7 +197,7 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
 
-      const dRecs = recs.filter(r => r.setting === 'pid_roll_d');
+      const dRecs = recs.filter((r) => r.setting === 'pid_roll_d');
       expect(dRecs.length).toBeLessThanOrEqual(1);
     });
 
@@ -192,10 +212,10 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(emptyProfile(), pitchProfile, emptyProfile(), DEFAULT_PIDS);
 
-      const pitchRecs = recs.filter(r => r.setting.includes('pitch'));
+      const pitchRecs = recs.filter((r) => r.setting.includes('pitch'));
       expect(pitchRecs.length).toBeGreaterThan(0);
       // Should not have roll recommendations
-      const rollRecs = recs.filter(r => r.setting.includes('roll'));
+      const rollRecs = recs.filter((r) => r.setting.includes('roll'));
       expect(rollRecs.length).toBe(0);
     });
 
@@ -207,8 +227,8 @@ describe('PIDRecommender', () => {
       const recs = recommendPID(emptyProfile(), emptyProfile(), yawProfile, DEFAULT_PIDS);
 
       // At 25%, yaw moderate threshold is 25, so 25 > 25 is false — no overshoot recs
-      expect(recs.filter(r => r.confidence === 'high').length).toBe(0);
-      expect(recs.find(r => r.setting === 'pid_yaw_d')).toBeUndefined();
+      expect(recs.filter((r) => r.confidence === 'high').length).toBe(0);
+      expect(recs.find((r) => r.setting === 'pid_yaw_d')).toBeUndefined();
     });
 
     it('should include beginner-friendly reason strings', () => {
@@ -232,7 +252,7 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       expect(dRec).toBeDefined();
       expect(dRec!.reason).toContain('settle');
     });
@@ -256,7 +276,7 @@ describe('PIDRecommender', () => {
 
       const recs = recommendPID(profile, emptyProfile(), emptyProfile(), currentPIDs, flightPIDs);
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       // Target: flightD + 5 = 25 + 5 = 30, current = 30 → no recommendation (already at target)
       expect(dRec).toBeUndefined();
     });
@@ -271,7 +291,13 @@ describe('PIDRecommender', () => {
       const overshootProfile = makeProfile({ meanOvershoot: 35 });
 
       // First run: get recommendations
-      const recs1 = recommendPID(overshootProfile, emptyProfile(), emptyProfile(), flightPIDs, flightPIDs);
+      const recs1 = recommendPID(
+        overshootProfile,
+        emptyProfile(),
+        emptyProfile(),
+        flightPIDs,
+        flightPIDs
+      );
       expect(recs1.length).toBeGreaterThan(0);
 
       // Apply recommendations to current PIDs
@@ -286,7 +312,13 @@ describe('PIDRecommender', () => {
       }
 
       // Second run: same flight data, same flightPIDs, but applied as current
-      const recs2 = recommendPID(overshootProfile, emptyProfile(), emptyProfile(), appliedPIDs, flightPIDs);
+      const recs2 = recommendPID(
+        overshootProfile,
+        emptyProfile(),
+        emptyProfile(),
+        appliedPIDs,
+        flightPIDs
+      );
       expect(recs2.length).toBe(0);
     });
 
@@ -309,15 +341,22 @@ describe('PIDRecommender', () => {
       });
       const ffContext: FeedforwardContext = { active: true, boost: 15 };
 
-      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, ffContext);
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        ffContext
+      );
 
-      const ffRec = recs.find(r => r.setting === 'feedforward_boost');
+      const ffRec = recs.find((r) => r.setting === 'feedforward_boost');
       expect(ffRec).toBeDefined();
       expect(ffRec!.recommendedValue).toBe(10);
       expect(ffRec!.reason).toContain('feedforward');
       // Should NOT have P/D recommendations for this axis
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
-      const pRec = recs.find(r => r.setting === 'pid_roll_p');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
       expect(dRec).toBeUndefined();
       expect(pRec).toBeUndefined();
     });
@@ -330,12 +369,19 @@ describe('PIDRecommender', () => {
       });
       const ffContext: FeedforwardContext = { active: true, boost: 15 };
 
-      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, ffContext);
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        ffContext
+      );
 
-      const ffRec = recs.find(r => r.setting === 'feedforward_boost');
+      const ffRec = recs.find((r) => r.setting === 'feedforward_boost');
       expect(ffRec).toBeUndefined();
       // Should have normal D recommendation
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       expect(dRec).toBeDefined();
     });
 
@@ -345,7 +391,15 @@ describe('PIDRecommender', () => {
       const profile = makeProfile({ meanOvershoot: 20 });
 
       const recsDefault = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
-      const recsBalanced = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'balanced');
+      const recsBalanced = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced'
+      );
 
       expect(recsBalanced).toEqual(recsDefault);
     });
@@ -354,9 +408,17 @@ describe('PIDRecommender', () => {
       // smooth moderateOvershoot = 8, so 10% > 8 → should trigger D increase
       const profile = makeProfile({ meanOvershoot: 10 });
 
-      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'smooth');
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'smooth'
+      );
 
-      const dRec = recs.find(r => r.setting === 'pid_roll_d');
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       expect(dRec).toBeDefined();
       expect(dRec!.reason).toContain('overshoot');
     });
@@ -366,9 +428,17 @@ describe('PIDRecommender', () => {
       // 20% < 25 → no moderate overshoot rule, and < 35 → no severe rule
       const profile = makeProfile({ meanOvershoot: 20 });
 
-      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'aggressive');
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'aggressive'
+      );
 
-      const overshootRecs = recs.filter(r => r.reason.includes('overshoot'));
+      const overshootRecs = recs.filter((r) => r.reason.includes('overshoot'));
       expect(overshootRecs.length).toBe(0);
     });
 
@@ -377,9 +447,17 @@ describe('PIDRecommender', () => {
       // 100ms < 120 → not sluggish for smooth
       const profile = makeProfile({ meanOvershoot: 2, meanRiseTimeMs: 100 });
 
-      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'smooth');
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'smooth'
+      );
 
-      const sluggishRecs = recs.filter(r => r.reason.includes('sluggish'));
+      const sluggishRecs = recs.filter((r) => r.reason.includes('sluggish'));
       expect(sluggishRecs.length).toBe(0);
     });
 
@@ -388,9 +466,17 @@ describe('PIDRecommender', () => {
       // 70ms > 50 and meanOvershoot < 18 → sluggish
       const profile = makeProfile({ meanOvershoot: 5, meanRiseTimeMs: 70 });
 
-      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS, undefined, undefined, 'aggressive');
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'aggressive'
+      );
 
-      const sluggishRecs = recs.filter(r => r.reason.includes('sluggish'));
+      const sluggishRecs = recs.filter((r) => r.reason.includes('sluggish'));
       expect(sluggishRecs.length).toBeGreaterThan(0);
     });
 
@@ -400,9 +486,16 @@ describe('PIDRecommender', () => {
       const pitchProfile = makeProfile({ responses: [ffResponse], meanOvershoot: 30 });
       const ffContext: FeedforwardContext = { active: true, boost: 15 };
 
-      const recs = recommendPID(rollProfile, pitchProfile, emptyProfile(), DEFAULT_PIDS, undefined, ffContext);
+      const recs = recommendPID(
+        rollProfile,
+        pitchProfile,
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        ffContext
+      );
 
-      const ffRecs = recs.filter(r => r.setting === 'feedforward_boost');
+      const ffRecs = recs.filter((r) => r.setting === 'feedforward_boost');
       expect(ffRecs.length).toBe(1);
     });
   });
