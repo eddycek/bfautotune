@@ -102,12 +102,13 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - **MSP Protocol** - Betaflight communication protocol
 - **fft.js** - FFT computation for noise analysis
 - **Recharts** - SVG-based interactive analysis charts
+- **ESLint** + **Prettier** - Code linting and formatting (lint-staged pre-commit)
 
 ## Installation
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 20+ and npm
 - Python 3 (for native module compilation)
 - Build tools:
   - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
@@ -148,7 +149,7 @@ This will:
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Test suite:** 1520 tests across 82 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Test suite:** 1625 tests across 88 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
 ```bash
 # Run tests in watch mode
@@ -223,7 +224,18 @@ bfautotune/
 │   │   │   ├── TuningHistoryManager.ts # Tuning history archive
 │   │   │   └── FileStorage.ts           # Generic file storage utilities
 │   │   ├── ipc/                 # IPC handlers
-│   │   │   ├── handlers.ts     # All IPC request handlers
+│   │   │   ├── handlers/       # Domain-split handler modules (11 files)
+│   │   │   │   ├── index.ts            # DI container, registerIPCHandlers
+│   │   │   │   ├── types.ts            # HandlerDependencies interface
+│   │   │   │   ├── events.ts           # Event broadcast functions
+│   │   │   │   ├── connectionHandlers.ts
+│   │   │   │   ├── fcInfoHandlers.ts
+│   │   │   │   ├── snapshotHandlers.ts
+│   │   │   │   ├── profileHandlers.ts
+│   │   │   │   ├── pidHandlers.ts
+│   │   │   │   ├── blackboxHandlers.ts
+│   │   │   │   ├── analysisHandlers.ts
+│   │   │   │   └── tuningHandlers.ts
 │   │   │   └── channels.ts     # Channel definitions
 │   │   └── utils/               # Logger, error types
 │   │
@@ -255,6 +267,7 @@ bfautotune/
 │   │   │   ├── Toast/                 # Toast notification system
 │   │   │   ├── ProfileWizard.tsx      # New FC profile creation wizard
 │   │   │   ├── ProfileSelector.tsx    # Profile switching dropdown
+│   │   │   ├── ErrorBoundary.tsx      # React error boundary (crash recovery)
 │   │   │   ├── ProfileCard.tsx        # Individual profile display
 │   │   │   ├── ProfileEditModal.tsx   # Profile editing dialog
 │   │   │   └── ProfileDeleteModal.tsx # Profile deletion confirmation

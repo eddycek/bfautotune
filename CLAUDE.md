@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Betaflight PID AutoTune is an Electron-based desktop application for managing FPV drone PID configurations. It uses MSP (MultiWii Serial Protocol) to communicate with Betaflight flight controllers over USB serial connection.
 
-**Current Phase**: Phase 4 - Stateful Two-Flight Tuning Workflow
+**Current Phase**: Phase 4 complete, Phase 6 complete (CI/CD, code quality)
 
 **Tech Stack**: Electron + TypeScript + React + Vite + serialport + fft.js
 
@@ -114,7 +114,23 @@ npm run rebuild
 - **MSP_FILTER_CONFIG**: 47-byte layout stable from 4.3 onward
 - Full policy: `docs/BF_VERSION_POLICY.md`
 
-### IPC Architecture
+### IPC Architecture (Modular Handlers)
+
+IPC handlers are split into domain modules under `src/main/ipc/handlers/`:
+
+| Module | Handlers | Purpose |
+|--------|----------|---------|
+| `types.ts` | — | `HandlerDependencies` interface, `createResponse`, `parseDiffSetting` |
+| `events.ts` | — | 7 event broadcast functions |
+| `connectionHandlers.ts` | 4 | Port scanning, connect, disconnect, status |
+| `fcInfoHandlers.ts` | 5 | FC info, CLI export, BB settings, FF config, fix settings |
+| `snapshotHandlers.ts` | 6 | Snapshot CRUD, export, restore |
+| `profileHandlers.ts` | 10 | Profile CRUD, presets, FC serial |
+| `pidHandlers.ts` | 3 | PID get/set/save |
+| `blackboxHandlers.ts` | 8 | Info, download, list, delete, erase, folder, test, parse |
+| `analysisHandlers.ts` | 2 | Filter and PID analysis |
+| `tuningHandlers.ts` | 6 | Apply, session CRUD, history |
+| `index.ts` | — | DI container, `registerIPCHandlers()` |
 
 **Request-Response Pattern**:
 ```typescript
@@ -488,12 +504,19 @@ Design docs follow a lifecycle: **Proposed → Complete**. See `docs/README.md` 
 - Custom hooks for business logic (useConnection, useProfiles, useSnapshots)
 - No prop drilling - use event subscriptions for cross-component communication
 - Loading/error states in all async operations
+- `ErrorBoundary` wraps `App` — class component crash recovery with "Try Again" button
 
 ### Error Handling
 - Main process: throw descriptive errors with context
 - IPC handlers: catch errors, return `IPCResponse` with error message
-- Renderer: display errors in UI, log to console
+- Renderer: display errors in UI, log to console, ErrorBoundary for uncaught render errors
 - MSP operations: retry logic with recovery attempts
+
+### Code Quality
+- **ESLint**: Flat config (`eslint.config.mjs`), `typescript-eslint` recommended, `react-hooks` rules
+- **Prettier**: 100 char width, single quotes, trailing comma es5 (`.prettierrc.json`)
+- **lint-staged**: Pre-commit runs `eslint --fix` + `prettier --write` + `vitest related` on changed files
+- **TypeScript**: `tsc --noEmit` enforced in CI (zero errors)
 
 ## Claude Code Configuration
 

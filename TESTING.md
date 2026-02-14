@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1584 tests across 84 files** (last verified: February 12, 2026)
+**Total: 1625 tests across 88 files** (last verified: February 14, 2026)
 
 ### UI Components
 
@@ -189,6 +189,10 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningHistory/TuningCompletionSummary.test.tsx` | 10 | Completion summary with/without verification, noise chart, changes, PID metrics, actions |
 | `TuningHistory/TuningHistoryPanel.test.tsx` | 8 | History list, expand/collapse, detail view, empty/loading states |
 | `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |
+| `ProfileCard.test.tsx` | 17 | Profile card rendering, badges (Active/Recent), relative time, click handlers, locked state, CSS classes |
+| `PresetSelector.test.tsx` | 11 | Preset dropdown rendering, selection callback, flight style mapping |
+| `ErrorBoundary.test.tsx` | 6 | Error catch, fallback UI, try again reset, custom fallback, normal render |
+| `App.test.tsx` | 7 | App render, title, version, BF compat badge, help button, ErrorBoundary integration |
 
 ### Charts
 
