@@ -1,6 +1,6 @@
 # Tuning Precision Improvements
 
-> **Status**: Proposed
+> **Status**: Active (PR #119 — Data Quality Scoring implemented)
 
 Research-based analysis of techniques to improve tuning recommendation accuracy. Prioritized by impact and implementation effort.
 
@@ -97,33 +97,36 @@ Same for P (rise time deviation), with configurable scaling factors per flight s
 
 ---
 
-### 4. Data Quality Scoring
+### 4. Data Quality Scoring — ✅ Implemented (PR #119)
 
 **Problem**: Analysis quality depends on flight data quality, but the app doesn't validate this. Bad stick snaps, insufficient throttle coverage, or short flights produce unreliable recommendations with no warning.
 
-**Solution**: Compute a quality score before analysis and report specific issues:
+**Solution**: Compute a quality score (0-100) before analysis and report specific issues. Tier mapping: 80-100 excellent, 60-79 good, 40-59 fair, 0-39 poor. Confidence adjustment: fair→downgrade high to medium; poor→downgrade high to medium + medium to low.
 
-**Filter analysis quality**:
-- Throttle range coverage (% of 0-100% range represented in data)
-- Segment duration (total usable hover time in seconds)
-- Gyro stability during segments (variance within segments)
-- Score: 0-100 with thresholds (>80 good, 50-80 usable, <50 unreliable)
+**Filter analysis quality** (4 weighted sub-scores):
+- Segment count (0.20 weight): 3+ segments → 100, 0 → 0
+- Total hover time (0.35 weight): 5s+ → 100, <0.5s → 0
+- Throttle coverage (0.25 weight): 40%+ range → 100, <10% → 0
+- Segment type (0.20 weight): Sweep segments → 100, fallback → 40
 
-**PID analysis quality**:
-- Valid steps per axis (minimum 3 per axis for reliable statistics)
-- Step magnitude distribution (need variety — not all tiny or all huge)
-- Hold duration after steps (sufficient for settling time measurement)
-- Axis coverage (all 3 axes have adequate steps)
-- Score: 0-100 with specific remediation ("Need more roll inputs", "Steps too small")
+**PID analysis quality** (4 weighted sub-scores):
+- Step count (0.30 weight): 15+ steps → 100, 0 → 0
+- Axis coverage (0.30 weight): 3 axes with 3+ steps each → 100, 0 axes → 0
+- Magnitude variety (0.20 weight): coefficient of variation scoring
+- Hold quality (0.20 weight): mean hold duration vs threshold
 
-**New files**:
-- `src/main/analysis/DataQualityScorer.ts`
+**Warnings**: `few_segments`, `short_hover_time`, `narrow_throttle_coverage`, `few_steps_per_axis`, `missing_axis_coverage`, `low_step_magnitude`
 
-**Modified files**:
-- `src/main/analysis/FilterAnalyzer.ts` — compute and include quality score
-- `src/main/analysis/PIDAnalyzer.ts` — compute and include quality score
-- `src/shared/types/analysis.types.ts` — quality score types
-- UI components — display quality badge/warning
+**UI**: Quality pill (colored by tier) displayed in FilterAnalysisStep, PIDAnalysisStep, and AnalysisOverview. Existing warning UI renders quality warnings automatically.
+
+**Files**:
+- `src/main/analysis/DataQualityScorer.ts` — scoring module (22 tests)
+- `src/main/analysis/FilterAnalyzer.ts` — integrated scoring + confidence adjustment
+- `src/main/analysis/PIDAnalyzer.ts` — integrated scoring + confidence adjustment
+- `src/shared/types/analysis.types.ts` — `DataQualityScore`, `DataQualitySubScore` types, extended warning codes
+- `src/shared/types/tuning-history.types.ts` — compact `dataQuality` in history records
+- `src/shared/utils/metricsExtract.ts` — quality score propagation to history
+- UI: quality pill in 3 components + 4 CSS classes
 
 ---
 

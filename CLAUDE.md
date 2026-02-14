@@ -224,6 +224,18 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 - **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
+### Data Quality Scoring (`src/main/analysis/DataQualityScorer.ts`)
+
+Rates flight data quality 0-100 before generating recommendations. Integrated into both FilterAnalyzer and PIDAnalyzer.
+
+- **`scoreFilterDataQuality()`**: Sub-scores: segment count (0.20), hover time (0.35), throttle coverage (0.25), segment type (0.20)
+- **`scorePIDDataQuality()`**: Sub-scores: step count (0.30), axis coverage (0.30), magnitude variety (0.20), hold quality (0.20)
+- **`adjustFilterConfidenceByQuality()` / `adjustPIDConfidenceByQuality()`**: Downgrades recommendation confidence for fair/poor data
+- Tier mapping: 80-100 excellent, 60-79 good, 40-59 fair, 0-39 poor
+- Quality warnings: `few_segments`, `short_hover_time`, `narrow_throttle_coverage`, `few_steps_per_axis`, `missing_axis_coverage`, `low_step_magnitude`
+- UI: quality pill in FilterAnalysisStep, PIDAnalysisStep, AnalysisOverview
+- History: compact `dataQuality` in `FilterMetricsSummary` / `PIDMetricsSummary`
+
 ### Stateful Tuning Session
 
 Two-flight iterative tuning approach: filters first (hover + throttle sweeps), then PIDs (stick snaps).

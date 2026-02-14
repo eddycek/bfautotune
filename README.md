@@ -68,6 +68,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - **Flight style preferences**: Smooth (cinematic), Balanced (freestyle), or Aggressive (racing) — PID thresholds adapt to pilot preference
 - **RPM filter awareness**: Detects RPM filter state via MSP or BBL headers, widens safety bounds when active (gyro LPF1 up to 500 Hz), recommends dynamic notch optimization (count/Q), diagnoses motor harmonic anomalies
 - **Feedforward awareness**: Detects FF state from BBL headers, classifies FF-dominated overshoot, adjusts P/D recommendations accordingly
+- **Data quality scoring**: Rates input flight data 0-100 (excellent/good/fair/poor), adjusts recommendation confidence based on data quality, warns about insufficient hover time, missing axes, or too few steps
 - Convergent recommendations (idempotent - rerunning produces same result)
 - Safety bounds prevent extreme values, plain-English explanations
 - One-click apply with automatic safety snapshot
@@ -149,7 +150,7 @@ This will:
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Test suite:** 1625 tests across 88 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Test suite:** 1665 tests across 89 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
 ```bash
 # Run tests in watch mode
@@ -203,7 +204,7 @@ bfautotune/
 │   │   │   ├── commands.ts      # MSP command definitions
 │   │   │   └── types.ts         # MSP type definitions
 │   │   ├── blackbox/            # BBL binary log parser (6 modules, 245 tests)
-│   │   ├── analysis/            # FFT noise + step response analysis (10 modules, FF-aware)
+│   │   ├── analysis/            # FFT noise + step response analysis (11 modules, FF-aware)
 │   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
 │   │   │   ├── SegmentSelector.ts   # Hover segment detection
 │   │   │   ├── NoiseAnalyzer.ts     # Peak detection, noise classification
@@ -213,6 +214,7 @@ bfautotune/
 │   │   │   ├── StepMetrics.ts       # Rise time, overshoot, settling, FF classification
 │   │   │   ├── PIDRecommender.ts    # Flight-PID-anchored P/D recommendations, FF-aware
 │   │   │   ├── PIDAnalyzer.ts       # PID analysis orchestrator (FF context wiring)
+│   │   │   ├── DataQualityScorer.ts # Flight data quality scoring (0-100)
 │   │   │   ├── headerValidation.ts  # BB header diagnostics
 │   │   │   └── constants.ts         # Tunable thresholds
 │   │   ├── storage/             # Data managers
@@ -305,6 +307,7 @@ bfautotune/
     ├── TUNING_HISTORY_AND_COMPARISON.md     # Session history + before/after comparison
     ├── TUNING_WORKFLOW_REVISION.md          # Two-flight tuning workflow design
     ├── TUNING_WORKFLOW_FIXES.md             # Download/analyze fix + phase transitions
+    ├── TUNING_PRECISION_IMPROVEMENTS.md     # Research: tuning accuracy improvements
     └── UX_IMPROVEMENT_IDEAS.md              # UX improvement backlog
 ```
 

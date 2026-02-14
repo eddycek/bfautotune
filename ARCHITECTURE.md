@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 12, 2026 | **Phase 4 Complete** | **1520 tests, 82 files**
+**Last Updated:** February 14, 2026 | **Phase 4 Complete** | **1665 tests, 89 files**
 
 ---
 
@@ -57,8 +57,8 @@
 │  │  ┌───┴──────────┐  ┌─────────────────┐  ┌──────────────────┐      │  │
 │  │  │MSPConnection │  │ BlackboxParser  │  │ Analysis Engine │      │  │
 │  │  │ + CLI Mode   │  │ (6 modules,     │  │ FFT + Step Resp │      │  │
-│  │  │ + fcEntered  │  │  227 tests)     │  │ (10 modules,    │      │  │
-│  │  │   CLI flag   │  │                 │  │  209 tests)     │      │  │
+│  │  │ + fcEntered  │  │  227 tests)     │  │ (11 modules,    │      │  │
+│  │  │   CLI flag   │  │                 │  │  231 tests)     │      │  │
 │  │  └───┬──────────┘  └─────────────────┘  └──────────────────┘      │  │
 │  │      │                                                             │  │
 │  │  ┌───┴──────────┐                                                  │  │
@@ -282,11 +282,12 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `SegmentSelector.ts` | 195 | 27 | Hover + throttle sweep detection |
 | `NoiseAnalyzer.ts` | 246 | 25 | Peak detection, noise classification |
 | `FilterRecommender.ts` | 330 | 41 | Noise-based filter targets, RPM-aware bounds |
-| `FilterAnalyzer.ts` | 206 | 14 | Filter analysis orchestrator |
+| `FilterAnalyzer.ts` | 206 | 16 | Filter analysis orchestrator (data quality integration) |
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
 | `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
 | `PIDRecommender.ts` | 380 | 40 | Flight-PID-anchored P/D recommendations, FF-aware rules, flight style thresholds |
-| `PIDAnalyzer.ts` | 185 | 17 | PID analysis orchestrator (FF context wiring, flight style) |
+| `PIDAnalyzer.ts` | 185 | 19 | PID analysis orchestrator (FF context wiring, flight style, data quality) |
+| `DataQualityScorer.ts` | ~200 | 22 | Flight data quality scoring (0-100), confidence adjustment |
 | `headerValidation.ts` | 94 | 20 | BB header diagnostics, version-aware debug mode, RPM enrichment |
 | `constants.ts` | 177 | — | All tunable thresholds |
 
@@ -803,21 +804,23 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1520 tests across 82 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1665 tests across 89 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 8 | 245 |
-| FFT Analysis | 5 | 141 |
-| Step Response | 4 | 95 |
+| FFT Analysis | 6 | 151 |
+| Step Response | 4 | 97 |
+| Data Quality | 1 | 22 |
 | Header Validation + Constants | 2 | 27 |
-| MSP Protocol & Client | 3 | 123 |
+| MSP Protocol & Client | 3 | 140 |
+| MSC (Mass Storage) | 2 | 32 |
 | Storage Managers | 7 | 115 |
-| IPC Handlers | 1 | 103 |
-| UI Components | 29 | 390 |
-| React Hooks | 12 | 125 |
+| IPC Handlers | 1 | 105 |
+| UI Components | 33 | 435 |
+| React Hooks | 12 | 128 |
 | Charts | 3 | 35 |
-| Shared Constants & Utils | 4 | 24 |
+| Shared Constants & Utils | 5 | 24 |
 | E2E Workflows | 1 | 30 |
 | Real-data Pipeline | 1 | 20 |
 

@@ -151,8 +151,8 @@ High-level user journey:
 | `msp-client` | connect, read/write settings, reboot, log download | :white_check_mark: | `src/main/msp/` — MSPProtocol, MSPConnection, MSPClient |
 | `config-vcs` | snapshots, diffs, rollback, export/import | :white_check_mark: | `src/main/storage/SnapshotManager.ts` + ProfileManager + snapshot restore + diff view |
 | `blackbox-parser` | decode logs | :white_check_mark: | `src/main/blackbox/` — 6 modules, 245 tests (incl. fuzz + real-flight regression) |
-| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 127 tests (convergent noise-based targets, RPM-aware) |
-| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 95 tests (flight PID anchoring, convergent, FF-aware) |
+| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 129 tests (convergent noise-based targets, RPM-aware, data quality scoring) |
+| `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 97 tests (flight PID anchoring, convergent, FF-aware, data quality scoring) |
 | `tuning-orchestrator` | state machine + safety constraints | :white_check_mark: | TuningSessionManager (10-phase state machine) + apply handlers + restore handler |
 | `ui-wizard` | screens + explanations + charts | :white_check_mark: | TuningWizard (mode-aware) + AnalysisOverview + TuningStatusBanner + interactive charts |
 
@@ -169,7 +169,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Package analysis engine as a stateless service (container) | :fast_forward: | Architecture supports this — analysis modules are pure functions |
-| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 283 tests (141 filter + 95 PID + 47 shared/pipeline) |
+| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 305 tests (151 filter + 97 PID + 22 data quality + 35 shared/pipeline) |
 | Cloud optional; local remains primary | :white_check_mark: | Fully offline, no network calls |
 
 ---
@@ -254,7 +254,7 @@ High-level user journey:
 - TuningWorkflowModal (two-flight workflow preparation)
 
 ### Phase 4: Stateful Two-Flight Tuning Workflow :white_check_mark:
-**Status:** Complete | **PRs:** #31–#99 | **Tests:** 1520 across 82 files
+**Status:** Complete | **PRs:** #31–#99 | **Tests:** 1520+ across 82+ files
 
 - TuningSessionManager (10-phase state machine, per-profile persistence)
 - TuningStatusBanner (dashboard banner with step indicator, action buttons)
@@ -291,7 +291,7 @@ End-to-end manual testing with real hardware to validate the entire tuning workf
 - Cross-platform smoke test (macOS primary, Windows/Linux basic)
 
 ### Phase 6: CI/CD & Cross-Platform Releases :white_check_mark:
-**Status:** Complete (PRs #109–#114)
+**Status:** Complete (PRs #109–#119)
 
 Automated build pipeline producing installable applications for all platforms.
 
@@ -307,6 +307,8 @@ Automated build pipeline producing installable applications for all platforms.
 - TypeScript strict type checking in CI (zero errors enforced)
 - React ErrorBoundary for crash recovery
 - IPC handler modularization (split monolithic 1500-line file into 11 domain modules)
+- Data quality scoring: 0-100 quality score for flight data, confidence adjustment, quality warnings (PR #119)
+- Feedforward write-back via CLI apply stage (PR #116)
 
 **Remaining (deferred):**
 - Code signing (macOS notarization, Windows Authenticode)
@@ -335,7 +337,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 14, 2026 | **Tests:** 1625 across 88 files | **PRs Merged:** #1–#114
+**Last Updated:** February 14, 2026 | **Tests:** 1665 across 89 files | **PRs Merged:** #1–#119
 
 | Phase | Status | Notes |
 |-------|--------|-------|
