@@ -36,7 +36,7 @@ Primary focus: filter tuning (noise vs latency) and PID tuning (step response). 
 | 3 | Beginner-first UX: wizard flow + clear explanations + safety checks | :white_check_mark: Wizard UI, results display with before/after cards, apply confirmation, interactive charts, flight guides. |
 | 4 | Full local workflow: USB connect, log download/import, analysis, apply settings | :white_check_mark: Complete end-to-end: connect → download → parse → analyze → apply → rollback. |
 | 5 | Configuration versioning: snapshots, rollback, labeling, export/import | :white_check_mark: Full snapshot system with diff view, restore/rollback, safety backups. |
-| 6 | Cross-platform: Windows/macOS/Linux | :construction: Code is cross-platform. Builds and installers not yet set up (Phase 6). |
+| 6 | Cross-platform: Windows/macOS/Linux | :white_check_mark: Electron app with cross-platform builds (macOS .dmg, Windows .exe, Linux .AppImage). CI/CD via GitHub Actions. |
 | 7 | Minimal cloud dependencies; optional AI via user-supplied API key | :white_check_mark: Fully offline. AI integration deferred. |
 
 ---
@@ -189,7 +189,7 @@ High-level user journey:
 
 | Deliverable | Status | Notes |
 |-------------|--------|-------|
-| Cross-platform desktop app (Win/macOS/Linux) | :construction: | Electron app runs. Cross-platform builds planned for Phase 6. |
+| Cross-platform desktop app (Win/macOS/Linux) | :white_check_mark: | Electron app with CI/CD builds for macOS (.dmg), Windows (.exe), Linux (.AppImage). |
 | USB connect + read/write Betaflight settings via MSP | :white_check_mark: | Complete |
 | Snapshot/versioning with rollback | :white_check_mark: | Complete with diff view |
 | Blackbox log import/download + parsing | :white_check_mark: | Complete (245 parser tests incl. fuzz) |
@@ -290,21 +290,26 @@ End-to-end manual testing with real hardware to validate the entire tuning workf
 - Validate recommendation convergence on real flight data
 - Cross-platform smoke test (macOS primary, Windows/Linux basic)
 
-### Phase 6: CI/CD & Cross-Platform Releases :x:
-**Status:** Not started
+### Phase 6: CI/CD & Cross-Platform Releases :white_check_mark:
+**Status:** Complete (PRs #109–#114)
 
-Set up automated build pipeline that produces installable applications for all platforms.
+Automated build pipeline producing installable applications for all platforms.
 
-**Goals:**
-- GitHub Actions CI pipeline (lint, test, build on every PR)
-- Automated cross-platform builds:
-  - **macOS**: `.dmg` installer (Apple Silicon + Intel)
-  - **Windows**: `.exe` / `.msi` installer (NSIS or WiX)
-  - **Linux**: `.AppImage` / `.deb` / `.rpm`
-- Electron Builder or Electron Forge for packaging
+**Completed:**
+- GitHub Actions CI pipeline: lint (`eslint`), type check (`tsc --noEmit`), test (`vitest`) on every PR
+- Automated cross-platform release builds on git tag push:
+  - **macOS**: `.dmg` installer
+  - **Windows**: `.exe` installer (NSIS)
+  - **Linux**: `.AppImage`
+- Electron Builder for packaging
+- Draft GitHub Releases with auto-uploaded artifacts
+- ESLint + Prettier configuration with lint-staged pre-commit integration
+- TypeScript strict type checking in CI (zero errors enforced)
+- React ErrorBoundary for crash recovery
+- IPC handler modularization (split monolithic 1500-line file into 11 domain modules)
+
+**Remaining (deferred):**
 - Code signing (macOS notarization, Windows Authenticode)
-- Automated GitHub Releases with changelogs
-- Version bumping and tagging strategy
 - Auto-update mechanism (electron-updater)
 
 ### Phase 7: E2E Tests on Real Flight Controller :x:
@@ -330,7 +335,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 12, 2026 | **Tests:** 1520 across 82 files | **PRs Merged:** #1–#99
+**Last Updated:** February 14, 2026 | **Tests:** 1625 across 88 files | **PRs Merged:** #1–#114
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -340,8 +345,8 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 | Phase 3: Mode-Aware Analysis | **100%** :white_check_mark: | Wizard modes, read-only analysis, flight guides |
 | Phase 4: Two-Flight Workflow | **100%** :white_check_mark: | Session state machine, smart reconnect, status banner, verification flight, tuning history |
 | Phase 5: Manual Testing & UX Polish | **0%** :x: | Next up |
-| Phase 6: CI/CD & Releases | **0%** :x: | After Phase 5 |
-| Phase 7: E2E on Real FC | **0%** :x: | After Phase 6 |
+| Phase 6: CI/CD & Releases | **100%** :white_check_mark: | CI pipeline, cross-platform releases, ESLint/Prettier, ErrorBoundary, handler split |
+| Phase 7: E2E on Real FC | **0%** :x: | After Phase 5 |
 
 ### Remaining Spec Items (deferred to future iterations)
 
