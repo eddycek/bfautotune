@@ -2,9 +2,9 @@
 
 ## Prerequisites
 
-1. **Node.js 18+**
+1. **Node.js 20+**
    ```bash
-   node --version  # Should be v18.0.0 or higher
+   node --version  # Should be v20.0.0 or higher
    ```
 
 2. **Python 3** (for native module compilation)
@@ -76,7 +76,7 @@ The app runs without a flight controller connected:
 
 ### Add New IPC Handler
 1. Define channel in `src/shared/types/ipc.types.ts`
-2. Add handler in `src/main/ipc/handlers.ts`
+2. Add handler in the appropriate domain module under `src/main/ipc/handlers/` (e.g., `connectionHandlers.ts`, `fcInfoHandlers.ts`)
 3. Add method in `src/preload/index.ts`
 4. Use in React: `window.betaflight.yourMethod()`
 

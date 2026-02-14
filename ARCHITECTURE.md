@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 14, 2026 | **Phase 4 Complete** | **1665 tests, 89 files**
+**Last Updated:** February 14, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1700 tests, 91 files**
 
 ---
 
@@ -31,19 +31,19 @@
 │  │  │  useTuningWizard | useAnalysisOverview | useToast | ...        │  │  │
 │  │  └────────────────────────────┬───────────────────────────────────┘  │  │
 │  │                               │                                      │  │
-│  │                      window.betaflight API (60+ methods)             │  │
+│  │                      window.betaflight API                           │  │
 │  └───────────────────────────────┼──────────────────────────────────────┘  │
 │                                  │                                         │
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
-│  │              Preload Script (contextBridge, 501 lines)              │  │
+│  │              Preload Script (contextBridge, 527 lines)              │  │
 │  └───────────────────────────────┼──────────────────────────────────────┘  │
-│                                  │ IPC (60+ channels, 14 event types)      │
+│                                  │ IPC (44 channels, 14 event types)       │
 │                                  │                                         │
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
 │  │                     Main Process (Node.js)                          │  │
 │  │                                                                      │  │
 │  │  ┌────────────────────────────┴─────────────────────────────────┐   │  │
-│  │  │                    IPC Handlers (1307 lines)                  │   │  │
+│  │  │                    IPC Handlers (1822 lines, 11 modules)      │   │  │
 │  │  │  connection:* | fc:* | snapshot:* | profile:* | blackbox:*  │   │  │
 │  │  │  analysis:* | tuning:* | pid:*                              │   │  │
 │  │  └───┬──────────┬──────────┬────────────┬──────────┬───────────┘   │  │
@@ -84,7 +84,7 @@
 
 ## Main Process (`src/main/`)
 
-### Entry Point (`index.ts`, 172 lines)
+### Entry Point (`index.ts`, 238 lines)
 
 Creates and wires six managers:
 
@@ -479,19 +479,18 @@ TuningSession {
 
 ### IPC Layer (`src/main/ipc/`)
 
-**60+ IPC channels** organized by domain:
+**44 IPC channels** organized by domain:
 
 | Domain | Channels | Key Operations |
 |--------|----------|---------------|
 | Connection (4) | `list_ports`, `connect`, `disconnect`, `get_status` | Port scanning, connect/disconnect |
-| FC Info (4) | `get_info`, `export_cli`, `get_blackbox_settings`, `get_feedforward_config` | FC data, CLI export, FF config |
+| FC Info (5) | `get_info`, `export_cli`, `get_blackbox_settings`, `get_feedforward_config`, `fix_blackbox_settings` | FC data, CLI export, FF config, BB settings fix |
 | Profiles (10) | `create`, `create_from_preset`, `update`, `delete`, `list`, `get`, `get_current`, `set_current`, `export`, `get_fc_serial` | Full profile CRUD |
 | Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
 | Blackbox (8) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log` | Flash ops + parsing |
 | Analysis (2) | `run_filter`, `run_pid` | FFT + step response analysis |
 | Tuning (6) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session`, `get_history` | Apply + session state + history |
 | PID (3) | `get_config`, `update_config`, `save_config` | MSP PID read/write |
-| BB Settings (1) | `fix_blackbox_settings` | Fix debug_mode + logging rate via CLI |
 
 **14 Event types** (Main → Renderer):
 
@@ -534,7 +533,7 @@ Skipped: diff, batch, defaults, save, board_name, mcu_id, profile, rateprofile
 
 ---
 
-## Preload Bridge (`src/preload/index.ts`, 501 lines)
+## Preload Bridge (`src/preload/index.ts`, 527 lines)
 
 Exposes `window.betaflight` API to renderer via `contextBridge.exposeInMainWorld()`. All methods return Promises; events return unsubscribe functions.
 
@@ -622,7 +621,7 @@ App (ToastProvider wrapper)
 │   └── ToastContainer
 ```
 
-### React Hooks (17 hooks)
+### React Hooks (11 hooks)
 
 | Hook | Key Returns | Purpose |
 |------|-------------|---------|
@@ -804,24 +803,23 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1665 tests across 89 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1700 tests across 91 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
-| Blackbox Parser | 8 | 245 |
-| FFT Analysis | 6 | 151 |
-| Step Response | 4 | 97 |
-| Data Quality | 1 | 22 |
+| Blackbox Parser | 9 | 245 |
+| FFT Analysis (+ Data Quality) | 6 | 151 |
+| Step Response (+ Real-data) | 5 | 122 |
 | Header Validation + Constants | 2 | 27 |
 | MSP Protocol & Client | 3 | 140 |
 | MSC (Mass Storage) | 2 | 32 |
 | Storage Managers | 7 | 115 |
 | IPC Handlers | 1 | 105 |
-| UI Components | 33 | 435 |
-| React Hooks | 12 | 128 |
+| UI Components | 35 | 493 |
+| Contexts | 1 | 10 |
+| React Hooks | 12 | 146 |
 | Charts | 3 | 35 |
-| Shared Constants & Utils | 5 | 24 |
+| Shared Constants & Utils | 4 | 39 |
 | E2E Workflows | 1 | 30 |
-| Real-data Pipeline | 1 | 20 |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
