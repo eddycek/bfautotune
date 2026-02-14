@@ -43,6 +43,7 @@ export interface DroneProfileOptional {
   motorKV?: number;
   notes?: string;
   flightStyle?: FlightStyle;
+  lastConnected?: string;
 }
 
 /**

@@ -9,11 +9,13 @@ function makeMockLog(index: number) {
   ts.setMinutes(index); // Each log 1 min apart for stable sort order
   return {
     id: `log-${index}`,
+    profileId: 'profile-1',
+    fcSerial: 'SERIAL123',
     filename: `blackbox_${index}.bbl`,
     filepath: `/tmp/blackbox_${index}.bbl`,
     timestamp: ts.toISOString(),
     size: 1024 * 1024,
-    fcInfo: { variant: 'BTFL', version: '4.5.0' },
+    fcInfo: { variant: 'BTFL', version: '4.5.0', target: 'STM32F405' },
   };
 }
 
@@ -273,11 +275,13 @@ describe('BlackboxStatus', () => {
   describe('readonly mode', () => {
     const mockLog = {
       id: 'log-1',
+      profileId: 'profile-1',
+      fcSerial: 'SERIAL123',
       filename: 'blackbox_2026-02-09.bbl',
       filepath: '/tmp/blackbox_2026-02-09.bbl',
       timestamp: '2026-02-09T12:00:00Z',
       size: 6 * 1024 * 1024,
-      fcInfo: { variant: 'BTFL', version: '4.5.0' },
+      fcInfo: { variant: 'BTFL', version: '4.5.0', target: 'STM32F405' },
     };
 
     it('hides Download, Erase, and Test Read buttons when readonly', async () => {

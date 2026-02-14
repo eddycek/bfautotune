@@ -141,7 +141,7 @@ export function NoiseComparisonChart({ before, after }: NoiseComparisonChartProp
             <Tooltip
               contentStyle={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 4, fontSize: 12 }}
               labelFormatter={(val) => `${val} Hz`}
-              formatter={(value: number, name: string) => [`${value.toFixed(1)} dB`, name]}
+              formatter={((value: number | undefined, name: string) => [`${(value ?? 0).toFixed(1)} dB`, name]) as any}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
 

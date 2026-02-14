@@ -206,10 +206,10 @@ describe('useSnapshots', () => {
   it('clears snapshots on disconnect', async () => {
     let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
 
-    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation(((callback: (status: ConnectionStatus) => void) => {
       connectionChangeCallback = callback;
       return () => {};
-    });
+    }) as any);
 
     const { result } = renderHook(() => useSnapshots());
 
@@ -218,7 +218,7 @@ describe('useSnapshots', () => {
     });
 
     // Trigger disconnect
-    connectionChangeCallback?.({ connected: false });
+    connectionChangeCallback!({ connected: false });
 
     await waitFor(() => {
       expect(result.current.snapshots).toEqual([]);
@@ -228,10 +228,10 @@ describe('useSnapshots', () => {
   it('reloads snapshots when connection established', async () => {
     let connectionChangeCallback: ((status: ConnectionStatus) => void) | null = null;
 
-    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation((callback) => {
+    vi.mocked(window.betaflight.onConnectionChanged).mockImplementation(((callback: (status: ConnectionStatus) => void) => {
       connectionChangeCallback = callback;
       return () => {};
-    });
+    }) as any);
 
     renderHook(() => useSnapshots());
 
@@ -242,7 +242,7 @@ describe('useSnapshots', () => {
     vi.mocked(window.betaflight.listSnapshots).mockClear();
 
     // Trigger connect
-    connectionChangeCallback?.({ connected: true, portPath: '/dev/ttyUSB0' });
+    connectionChangeCallback!({ connected: true, portPath: '/dev/ttyUSB0' });
 
     await waitFor(() => {
       expect(window.betaflight.listSnapshots).toHaveBeenCalled();
@@ -252,10 +252,10 @@ describe('useSnapshots', () => {
   it('clears snapshots when no profile selected', async () => {
     let profileChangeCallback: ((profile: DroneProfile | null) => void) | null = null;
 
-    vi.mocked(window.betaflight.onProfileChanged).mockImplementation((callback) => {
+    vi.mocked(window.betaflight.onProfileChanged).mockImplementation(((callback: (profile: DroneProfile | null) => void) => {
       profileChangeCallback = callback;
       return () => {};
-    });
+    }) as any);
 
     const { result } = renderHook(() => useSnapshots());
 
@@ -264,7 +264,7 @@ describe('useSnapshots', () => {
     });
 
     // Trigger no profile
-    profileChangeCallback?.(null);
+    profileChangeCallback!(null);
 
     await waitFor(() => {
       expect(result.current.snapshots).toEqual([]);
@@ -274,10 +274,10 @@ describe('useSnapshots', () => {
   it('reloads snapshots when profile changes', async () => {
     let profileChangeCallback: ((profile: DroneProfile | null) => void) | null = null;
 
-    vi.mocked(window.betaflight.onProfileChanged).mockImplementation((callback) => {
+    vi.mocked(window.betaflight.onProfileChanged).mockImplementation(((callback: (profile: DroneProfile | null) => void) => {
       profileChangeCallback = callback;
       return () => {};
-    });
+    }) as any);
 
     renderHook(() => useSnapshots());
 
@@ -300,11 +300,18 @@ describe('useSnapshots', () => {
       connectionCount: 1,
       lastConnected: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      fcInfo: { variant: 'BTFL', version: '4.4.0' }
+      updatedAt: new Date().toISOString(),
+      fcInfo: {
+        variant: 'BTFL',
+        version: '4.4.0',
+        target: 'MATEKF405',
+        boardName: 'MATEKF405',
+        apiVersion: { protocol: 1, major: 12, minor: 0 }
+      }
     };
 
     // Trigger profile change
-    profileChangeCallback?.(newProfile);
+    profileChangeCallback!(newProfile);
 
     await waitFor(() => {
       expect(window.betaflight.listSnapshots).toHaveBeenCalled();

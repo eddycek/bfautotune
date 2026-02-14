@@ -2,22 +2,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useBlackboxLogs } from './useBlackboxLogs';
 import type { BlackboxLogMetadata } from '@shared/types/blackbox.types';
+import type { DroneProfile } from '@shared/types/profile.types';
 
 describe('useBlackboxLogs', () => {
   const mockLogs: BlackboxLogMetadata[] = [
     {
       id: 'log1',
+      profileId: 'profile-1',
+      fcSerial: 'SERIAL123',
       filename: 'LOG00001.BFL',
       filepath: '/path/to/LOG00001.BFL',
       size: 1048576,
-      timestamp: '2024-01-01T12:00:00Z'
+      timestamp: '2024-01-01T12:00:00Z',
+      fcInfo: { variant: 'BTFL', version: '4.5.0', target: 'STM32F405' }
     },
     {
       id: 'log2',
+      profileId: 'profile-1',
+      fcSerial: 'SERIAL123',
       filename: 'LOG00002.BFL',
       filepath: '/path/to/LOG00002.BFL',
       size: 2097152,
-      timestamp: '2024-01-02T12:00:00Z'
+      timestamp: '2024-01-02T12:00:00Z',
+      fcInfo: { variant: 'BTFL', version: '4.5.0', target: 'STM32F405' }
     }
   ];
 
@@ -72,7 +79,7 @@ describe('useBlackboxLogs', () => {
   });
 
   it('subscribes to profile changes and reloads logs', async () => {
-    let profileChangeCallback: (() => void) | null = null;
+    let profileChangeCallback: ((profile: DroneProfile | null) => void) | null = null;
 
     vi.mocked(window.betaflight.onProfileChanged).mockImplementation((callback) => {
       profileChangeCallback = callback;
@@ -91,16 +98,19 @@ describe('useBlackboxLogs', () => {
     const updatedLogs: BlackboxLogMetadata[] = [
       {
         id: 'log3',
+        profileId: 'profile-1',
+        fcSerial: 'SERIAL123',
         filename: 'LOG00003.BFL',
         filepath: '/path/to/LOG00003.BFL',
         size: 3145728,
-        timestamp: '2024-01-03T12:00:00Z'
+        timestamp: '2024-01-03T12:00:00Z',
+        fcInfo: { variant: 'BTFL', version: '4.5.0', target: 'STM32F405' }
       }
     ];
     vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(updatedLogs);
 
     // Trigger profile change
-    profileChangeCallback?.();
+    (profileChangeCallback as ((profile: DroneProfile | null) => void) | null)?.(null);
 
     await waitFor(() => {
       expect(result.current.logs).toEqual(updatedLogs);
@@ -175,10 +185,13 @@ describe('useBlackboxLogs', () => {
       ...mockLogs,
       {
         id: 'log4',
+        profileId: 'profile-1',
+        fcSerial: 'SERIAL123',
         filename: 'LOG00004.BFL',
         filepath: '/path/to/LOG00004.BFL',
         size: 4194304,
-        timestamp: '2024-01-04T12:00:00Z'
+        timestamp: '2024-01-04T12:00:00Z',
+        fcInfo: { variant: 'BTFL', version: '4.5.0', target: 'STM32F405' }
       }
     ];
     vi.mocked(window.betaflight.listBlackboxLogs).mockResolvedValue(updatedLogs);

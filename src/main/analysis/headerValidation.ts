@@ -65,7 +65,7 @@ export function validateBBLHeader(header: BBLLogHeader): AnalysisWarning[] {
 
   // Check debug mode — only for BF 4.3–4.5.x
   // BF 2025.12+ (4.6+) logs unfiltered gyro by default, DEBUG_GYRO_SCALED was removed
-  const firmwareVersion = header.firmwareVersion || '';
+  const firmwareVersion = header.firmwareRevision || '';
   if (!isGyroScaledRemoved(firmwareVersion)) {
     const debugModeStr = header.rawHeaders.get('debug_mode');
     if (debugModeStr !== undefined) {

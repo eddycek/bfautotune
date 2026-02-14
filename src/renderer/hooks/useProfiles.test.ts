@@ -12,8 +12,7 @@ describe('useProfiles', () => {
       size: '5"',
       battery: '4S',
       connectionCount: 10,
-      lastConnected: new Date().toISOString(),
-      createdAt: new Date().toISOString()
+      lastConnected: new Date().toISOString()
     },
     {
       id: 'profile-2',
@@ -22,8 +21,7 @@ describe('useProfiles', () => {
       size: '2"',
       battery: '1S',
       connectionCount: 5,
-      lastConnected: new Date().toISOString(),
-      createdAt: new Date().toISOString()
+      lastConnected: new Date().toISOString()
     }
   ];
 
@@ -33,7 +31,9 @@ describe('useProfiles', () => {
     motorKV: 2400,
     propSize: '5.1"',
     snapshotIds: [],
-    fcInfo: { variant: 'BTFL', version: '4.4.0' }
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    fcInfo: { variant: 'BTFL', version: '4.4.0', target: 'STM32F405', boardName: 'BETAFLIGHTF4', apiVersion: { protocol: 0, major: 1, minor: 46 } }
   };
 
   beforeEach(() => {
@@ -95,7 +95,7 @@ describe('useProfiles', () => {
 
     const input = {
       fcSerialNumber: 'ABC123',
-      fcInfo: { variant: 'BTFL', version: '4.4.0' },
+      fcInfo: { variant: 'BTFL', version: '4.4.0', target: 'STM32F405', boardName: 'BETAFLIGHTF4', apiVersion: { protocol: 0, major: 1, minor: 46 } },
       name: 'New Profile',
       size: '5"' as const,
       battery: '4S' as const,
@@ -231,7 +231,7 @@ describe('useProfiles', () => {
 
     const input = {
       fcSerialNumber: 'ABC123',
-      fcInfo: { variant: 'BTFL', version: '4.4.0' },
+      fcInfo: { variant: 'BTFL', version: '4.4.0', target: 'STM32F405', boardName: 'BETAFLIGHTF4', apiVersion: { protocol: 0, major: 1, minor: 46 } },
       name: 'New Profile',
       size: '5"' as const,
       battery: '4S' as const,
@@ -250,10 +250,10 @@ describe('useProfiles', () => {
   it('reloads profiles when profile changed event fires', async () => {
     let profileChangeCallback: ((profile: DroneProfile | null) => void) | null = null;
 
-    vi.mocked(window.betaflight.onProfileChanged).mockImplementation((callback) => {
+    vi.mocked(window.betaflight.onProfileChanged).mockImplementation(((callback: (profile: DroneProfile | null) => void) => {
       profileChangeCallback = callback;
       return () => {};
-    });
+    }) as any);
 
     renderHook(() => useProfiles());
 
@@ -266,7 +266,7 @@ describe('useProfiles', () => {
 
     // Trigger profile change
     const newProfile = { ...mockFullProfile, name: 'Changed Profile' };
-    profileChangeCallback?.(newProfile);
+    profileChangeCallback!(newProfile);
 
     await waitFor(() => {
       expect(window.betaflight.listProfiles).toHaveBeenCalledTimes(1);

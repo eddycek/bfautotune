@@ -115,7 +115,8 @@ export class MockSerialPort extends EventEmitter {
  */
 export let lastCreatedPort: MockSerialPort | null = null;
 
-export function createSerialPortMock() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createSerialPortMock(): any {
   return {
     SerialPort: class extends MockSerialPort {
       constructor(opts: any, callback?: any) {

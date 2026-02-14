@@ -18,7 +18,8 @@ describe('ProfileDeleteModal', () => {
     connectionCount: 10,
     lastConnected: new Date().toISOString(),
     createdAt: new Date().toISOString(),
-    fcInfo: { variant: 'BTFL', version: '4.4.0' }
+    updatedAt: new Date().toISOString(),
+    fcInfo: { variant: 'BTFL', version: '4.4.0', target: 'STM32F405', boardName: 'MATEKF405', apiVersion: { protocol: 0, major: 1, minor: 46 } }
   };
 
   const mockOnConfirm = vi.fn();

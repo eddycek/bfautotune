@@ -319,7 +319,7 @@ export function registerIPCHandlers(): void {
 
       // Get all snapshots and filter by current profile's snapshot IDs
       const allSnapshots = await snapshotManager.listSnapshots();
-      const profileSnapshots = allSnapshots.filter(snapshot =>
+      const profileSnapshots = allSnapshots.filter((snapshot: SnapshotMetadata) =>
         currentProfile.snapshotIds.includes(snapshot.id)
       );
 
@@ -526,9 +526,8 @@ export function registerIPCHandlers(): void {
 
           // Send connection status update
           if (window) {
-            sendConnectionStatus(window, {
+            sendConnectionChanged(window, {
               connected: false,
-              port: null
             });
           }
         } catch (err) {

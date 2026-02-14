@@ -2,34 +2,58 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionSelectStep } from './SessionSelectStep';
-import type { BlackboxLogSession, BlackboxParseProgress } from '@shared/types/blackbox.types';
+import type { BlackboxLogSession, BlackboxParseProgress, TimeSeries } from '@shared/types/blackbox.types';
+
+const emptyTimeSeries: TimeSeries = { time: new Float64Array(), values: new Float64Array() };
 
 const mockSession: BlackboxLogSession = {
   index: 0,
+  corruptedFrameCount: 0,
+  warnings: [],
   flightData: {
     durationSeconds: 45.2,
     frameCount: 9040,
     sampleRateHz: 200,
-    gyro: { roll: new Float64Array(), pitch: new Float64Array(), yaw: new Float64Array() },
-    setpoint: { roll: new Float64Array(), pitch: new Float64Array(), yaw: new Float64Array() },
-    pid: { roll: new Float64Array(), pitch: new Float64Array(), yaw: new Float64Array() },
-    motor: [new Float64Array(), new Float64Array(), new Float64Array(), new Float64Array()],
+    gyro: [emptyTimeSeries, emptyTimeSeries, emptyTimeSeries],
+    setpoint: [emptyTimeSeries, emptyTimeSeries, emptyTimeSeries, emptyTimeSeries],
+    pidP: [emptyTimeSeries, emptyTimeSeries, emptyTimeSeries],
+    pidI: [emptyTimeSeries, emptyTimeSeries, emptyTimeSeries],
+    pidD: [emptyTimeSeries, emptyTimeSeries, emptyTimeSeries],
+    pidF: [emptyTimeSeries, emptyTimeSeries, emptyTimeSeries],
+    motor: [emptyTimeSeries, emptyTimeSeries, emptyTimeSeries, emptyTimeSeries],
+    debug: [],
   },
   header: {
-    firmware: { version: '4.5.0', revision: 'abc123', date: '2024-01-01' },
-    board: 'STM32F405',
-    debug_mode: 'GYRO_SCALED',
-    fields: [],
-    fieldIndexMap: {},
-    pid_process_denom: 1,
-    gyro_scale: 1,
-    blackbox_sample_rate: 1,
+    product: 'Blackbox flight data recorder by Nicholas Sherlock',
+    dataVersion: 2,
+    firmwareType: 'Betaflight',
+    firmwareRevision: '4.5.0 (abc123)',
+    firmwareDate: '2024-01-01',
+    boardInformation: 'STM32F405',
+    logStartDatetime: '2024-01-01T00:00:00.000Z',
+    craftName: 'Test Quad',
+    iFieldDefs: [],
+    pFieldDefs: [],
+    sFieldDefs: [],
+    gFieldDefs: [],
+    iInterval: 32,
+    pInterval: 1,
+    pDenom: 1,
+    minthrottle: 1070,
+    maxthrottle: 2000,
+    motorOutputRange: 0,
+    vbatref: 4200,
+    looptime: 125,
+    gyroScale: 1,
+    rawHeaders: new Map(),
   },
 };
 
 describe('SessionSelectStep', () => {
   it('shows parsing state with progress', () => {
     const parseProgress: BlackboxParseProgress = {
+      bytesProcessed: 45000,
+      totalBytes: 100000,
       currentSession: 0,
       percent: 45,
     };

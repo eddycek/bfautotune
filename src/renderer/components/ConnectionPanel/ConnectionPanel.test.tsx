@@ -132,7 +132,7 @@ describe('ConnectionPanel', () => {
 
   it('shows cooldown timer after disconnect', async () => {
     const user = userEvent.setup();
-    let connectionCallback: ((status: ConnectionStatus) => void) | null = null;
+    let connectionCallback: (status: ConnectionStatus) => void = () => {};
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
       portPath: '/dev/ttyUSB0'
@@ -143,7 +143,7 @@ describe('ConnectionPanel', () => {
     });
     vi.mocked(window.betaflight.disconnect).mockImplementation(async () => {
       // Simulate FC sending disconnected status after disconnect
-      connectionCallback?.({ connected: false });
+      connectionCallback({ connected: false });
     });
 
     render(<ConnectionPanel />);
@@ -161,7 +161,7 @@ describe('ConnectionPanel', () => {
   });
 
   it('shows cooldown on unexpected disconnect (FC reboot)', async () => {
-    let connectionCallback: ((status: ConnectionStatus) => void) | null = null;
+    let connectionCallback: (status: ConnectionStatus) => void = () => {};
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
       portPath: '/dev/ttyUSB0'
@@ -179,7 +179,7 @@ describe('ConnectionPanel', () => {
     });
 
     // Simulate FC reboot (port closes, no disconnect button click)
-    connectionCallback?.({ connected: false });
+    connectionCallback({ connected: false });
 
     await waitFor(() => {
       expect(screen.getByText(/wait \d+ second/i)).toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('ConnectionPanel', () => {
 
   it('disables controls during cooldown', async () => {
     const user = userEvent.setup();
-    let connectionCallback: ((status: ConnectionStatus) => void) | null = null;
+    let connectionCallback: (status: ConnectionStatus) => void = () => {};
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
       portPath: '/dev/ttyUSB0'
@@ -245,7 +245,7 @@ describe('ConnectionPanel', () => {
       return () => {};
     });
     vi.mocked(window.betaflight.disconnect).mockImplementation(async () => {
-      connectionCallback?.({ connected: false });
+      connectionCallback({ connected: false });
     });
 
     render(<ConnectionPanel />);
