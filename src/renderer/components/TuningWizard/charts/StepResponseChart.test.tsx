@@ -43,7 +43,7 @@ function makeResponse(overshoot: number, hasTrace: boolean = true): StepResponse
           setpoint: Array.from({ length: traceLen }, (_, i) => (i >= 5 ? 300 : 0)),
           gyro: Array.from({ length: traceLen }, (_, i) => {
             if (i < 8) return 0;
-            return 300 + (overshoot * 3) * Math.exp(-(i - 8) * 0.1) * Math.sin(i * 0.5);
+            return 300 + overshoot * 3 * Math.exp(-(i - 8) * 0.1) * Math.sin(i * 0.5);
           }),
         }
       : undefined,
@@ -51,15 +51,15 @@ function makeResponse(overshoot: number, hasTrace: boolean = true): StepResponse
 }
 
 function makeProfile(count: number, withTrace: boolean = true): AxisStepProfile {
-  const responses = Array.from({ length: count }, (_, i) =>
-    makeResponse(5 + i * 3, withTrace)
-  );
+  const responses = Array.from({ length: count }, (_, i) => makeResponse(5 + i * 3, withTrace));
   return {
     responses,
-    meanOvershoot: responses.reduce((s, r) => s + r.overshootPercent, 0) / Math.max(responses.length, 1),
+    meanOvershoot:
+      responses.reduce((s, r) => s + r.overshootPercent, 0) / Math.max(responses.length, 1),
     meanRiseTimeMs: 20,
     meanSettlingTimeMs: 50,
     meanLatencyMs: 5.5,
+    meanTrackingErrorRMS: 0,
   };
 }
 
@@ -73,6 +73,7 @@ const emptyProfile: AxisStepProfile = {
   meanRiseTimeMs: 0,
   meanSettlingTimeMs: 0,
   meanLatencyMs: 0,
+  meanTrackingErrorRMS: 0,
 };
 
 describe('StepResponseChart', () => {
@@ -90,9 +91,7 @@ describe('StepResponseChart', () => {
 
   it('shows empty state when no traces available', () => {
     const noTraceProfile = makeProfile(3, false);
-    render(
-      <StepResponseChart roll={noTraceProfile} pitch={noTraceProfile} yaw={noTraceProfile} />
-    );
+    render(<StepResponseChart roll={noTraceProfile} pitch={noTraceProfile} yaw={noTraceProfile} />);
 
     expect(screen.getByText('No step response trace data available.')).toBeInTheDocument();
   });
@@ -181,5 +180,4 @@ describe('StepResponseChart', () => {
     const lines = container.querySelectorAll('.recharts-line');
     expect(lines.length).toBe(3);
   });
-
 });

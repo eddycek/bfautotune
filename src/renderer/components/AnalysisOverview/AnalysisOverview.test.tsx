@@ -152,6 +152,7 @@ const mockPIDResult: PIDAnalysisResult = {
     meanRiseTimeMs: 20,
     meanSettlingTimeMs: 50,
     meanLatencyMs: 8,
+    meanTrackingErrorRMS: 0,
   },
   pitch: {
     responses: [],
@@ -159,6 +160,7 @@ const mockPIDResult: PIDAnalysisResult = {
     meanRiseTimeMs: 22,
     meanSettlingTimeMs: 55,
     meanLatencyMs: 9,
+    meanTrackingErrorRMS: 0,
   },
   yaw: {
     responses: [],
@@ -166,6 +168,7 @@ const mockPIDResult: PIDAnalysisResult = {
     meanRiseTimeMs: 30,
     meanSettlingTimeMs: 60,
     meanLatencyMs: 10,
+    meanTrackingErrorRMS: 0,
   },
   recommendations: [
     {

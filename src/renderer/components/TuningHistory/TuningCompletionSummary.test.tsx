@@ -4,7 +4,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TuningCompletionSummary } from './TuningCompletionSummary';
 import type { TuningSession } from '@shared/types/tuning.types';
-import type { CompactSpectrum, FilterMetricsSummary, PIDMetricsSummary } from '@shared/types/tuning-history.types';
+import type {
+  CompactSpectrum,
+  FilterMetricsSummary,
+  PIDMetricsSummary,
+} from '@shared/types/tuning-history.types';
 
 // ResponsiveContainer mock
 vi.mock('recharts', async (importOriginal) => {
@@ -39,7 +43,11 @@ const pidMetrics: PIDMetricsSummary = {
   pitch: { meanOvershoot: 8, meanRiseTimeMs: 22, meanSettlingTimeMs: 55, meanLatencyMs: 9 },
   yaw: { meanOvershoot: 3, meanRiseTimeMs: 30, meanSettlingTimeMs: 60, meanLatencyMs: 10 },
   stepsDetected: 12,
-  currentPIDs: { roll: { P: 45, I: 80, D: 30 }, pitch: { P: 47, I: 84, D: 32 }, yaw: { P: 45, I: 80, D: 0 } },
+  currentPIDs: {
+    roll: { P: 45, I: 80, D: 30 },
+    pitch: { P: 47, I: 84, D: 32 },
+    yaw: { P: 45, I: 80, D: 0 },
+  },
   summary: 'Good response',
 };
 
@@ -65,12 +73,8 @@ const baseSession: TuningSession = {
   updatedAt: '2026-02-10T10:30:00Z',
   filterLogId: 'log-f1',
   pidLogId: 'log-p1',
-  appliedFilterChanges: [
-    { setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 300 },
-  ],
-  appliedPIDChanges: [
-    { setting: 'pid_roll_p', previousValue: 45, newValue: 50 },
-  ],
+  appliedFilterChanges: [{ setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 300 }],
+  appliedPIDChanges: [{ setting: 'pid_roll_p', previousValue: 45, newValue: 50 }],
   filterMetrics,
   pidMetrics,
 };
@@ -80,7 +84,13 @@ describe('TuningCompletionSummary', () => {
   const onStartNew = vi.fn();
 
   it('renders title and timestamp', () => {
-    render(<TuningCompletionSummary session={baseSession} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
 
     expect(screen.getByText(/Tuning Complete/)).toBeInTheDocument();
     expect(screen.getByText(/Duration:/)).toBeInTheDocument();
@@ -98,7 +108,13 @@ describe('TuningCompletionSummary', () => {
   });
 
   it('shows numeric noise when no verification', () => {
-    render(<TuningCompletionSummary session={baseSession} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
 
     expect(screen.getByText('Filter Analysis')).toBeInTheDocument();
     expect(screen.getByText(/Roll -40 dB/)).toBeInTheDocument();
@@ -106,20 +122,34 @@ describe('TuningCompletionSummary', () => {
   });
 
   it('shows hint about verification when skipped', () => {
-    render(<TuningCompletionSummary session={baseSession} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
 
     expect(screen.getByText(/Fly a verification hover/)).toBeInTheDocument();
   });
 
   it('does not show hint when verification available', () => {
     const session = { ...baseSession, verificationMetrics };
-    render(<TuningCompletionSummary session={session} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary session={session} onDismiss={onDismiss} onStartNew={onStartNew} />
+    );
 
     expect(screen.queryByText(/Fly a verification hover/)).not.toBeInTheDocument();
   });
 
   it('renders filter and PID changes', () => {
-    render(<TuningCompletionSummary session={baseSession} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
 
     expect(screen.getByText('Filter Changes (1)')).toBeInTheDocument();
     expect(screen.getByText('PID Changes (1)')).toBeInTheDocument();
@@ -128,7 +158,13 @@ describe('TuningCompletionSummary', () => {
   });
 
   it('renders PID step response metrics', () => {
-    render(<TuningCompletionSummary session={baseSession} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
 
     expect(screen.getByText('Step Response Metrics')).toBeInTheDocument();
     expect(screen.getByText('12 steps detected')).toBeInTheDocument();
@@ -137,7 +173,13 @@ describe('TuningCompletionSummary', () => {
 
   it('calls onDismiss when Dismiss clicked', async () => {
     const user = userEvent.setup();
-    render(<TuningCompletionSummary session={baseSession} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
 
     await user.click(screen.getByText('Dismiss'));
     expect(onDismiss).toHaveBeenCalled();
@@ -145,17 +187,42 @@ describe('TuningCompletionSummary', () => {
 
   it('calls onStartNew when Start New clicked', async () => {
     const user = userEvent.setup();
-    render(<TuningCompletionSummary session={baseSession} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
 
     await user.click(screen.getByText('Start New Tuning Cycle'));
     expect(onStartNew).toHaveBeenCalled();
   });
 
   it('handles session with no changes gracefully', () => {
-    const session: TuningSession = { ...baseSession, appliedFilterChanges: [], appliedPIDChanges: [] };
-    render(<TuningCompletionSummary session={session} onDismiss={onDismiss} onStartNew={onStartNew} />);
+    const session: TuningSession = {
+      ...baseSession,
+      appliedFilterChanges: [],
+      appliedPIDChanges: [],
+    };
+    render(
+      <TuningCompletionSummary session={session} onDismiss={onDismiss} onStartNew={onStartNew} />
+    );
 
     expect(screen.queryByText(/Filter Changes/)).not.toBeInTheDocument();
     expect(screen.queryByText(/PID Changes/)).not.toBeInTheDocument();
+  });
+
+  it('shows quality score badge next to title', () => {
+    const { container } = render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
+
+    const badge = container.querySelector('.quality-score-badge');
+    expect(badge).not.toBeNull();
   });
 });

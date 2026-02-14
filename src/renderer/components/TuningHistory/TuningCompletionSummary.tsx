@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { TuningSession } from '@shared/types/tuning.types';
+import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
 import { AppliedChangesTable } from './AppliedChangesTable';
 import './TuningCompletionSummary.css';
@@ -44,12 +45,27 @@ export function TuningCompletionSummary({
   const filterChanges = session.appliedFilterChanges ?? [];
   const pidChanges = session.appliedPIDChanges ?? [];
   const ffChanges = session.appliedFeedforwardChanges ?? [];
+  const score = useMemo(
+    () =>
+      computeTuneQualityScore({
+        filterMetrics: session.filterMetrics,
+        pidMetrics: session.pidMetrics,
+      }),
+    [session.filterMetrics, session.pidMetrics]
+  );
 
   return (
     <div className="completion-summary">
       <div className="completion-summary-header">
         <div>
-          <h3 className="completion-summary-title">{'\u2705'} Tuning Complete</h3>
+          <h3 className="completion-summary-title">
+            {'\u2705'} Tuning Complete
+            {score && (
+              <span className={`quality-score-badge quality-score-${score.tier}`}>
+                {score.overall}
+              </span>
+            )}
+          </h3>
           <div className="completion-summary-meta">
             <span>Started: {formatDate(session.startedAt)}</span>
             <span className="completion-meta-sep">{'\u2022'}</span>

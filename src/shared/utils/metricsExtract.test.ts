@@ -152,6 +152,7 @@ function makePIDResult(overrides?: Partial<PIDAnalysisResult>): PIDAnalysisResul
       meanRiseTimeMs: 8.567,
       meanSettlingTimeMs: 25.123,
       meanLatencyMs: 3.789,
+      meanTrackingErrorRMS: 0.1234,
     },
     pitch: {
       responses: [],
@@ -159,6 +160,7 @@ function makePIDResult(overrides?: Partial<PIDAnalysisResult>): PIDAnalysisResul
       meanRiseTimeMs: 9.222,
       meanSettlingTimeMs: 22.333,
       meanLatencyMs: 4.444,
+      meanTrackingErrorRMS: 0.0987,
     },
     yaw: {
       responses: [],
@@ -166,6 +168,7 @@ function makePIDResult(overrides?: Partial<PIDAnalysisResult>): PIDAnalysisResul
       meanRiseTimeMs: 11.666,
       meanSettlingTimeMs: 30.777,
       meanLatencyMs: 5.888,
+      meanTrackingErrorRMS: 0.1567,
     },
     recommendations: [],
     summary: 'Good PID response.',
@@ -202,12 +205,41 @@ describe('extractPIDMetrics', () => {
   it('handles zero steps detected', () => {
     const result = makePIDResult({
       stepsDetected: 0,
-      roll: { responses: [], meanOvershoot: 0, meanRiseTimeMs: 0, meanSettlingTimeMs: 0, meanLatencyMs: 0 },
-      pitch: { responses: [], meanOvershoot: 0, meanRiseTimeMs: 0, meanSettlingTimeMs: 0, meanLatencyMs: 0 },
-      yaw: { responses: [], meanOvershoot: 0, meanRiseTimeMs: 0, meanSettlingTimeMs: 0, meanLatencyMs: 0 },
+      roll: {
+        responses: [],
+        meanOvershoot: 0,
+        meanRiseTimeMs: 0,
+        meanSettlingTimeMs: 0,
+        meanLatencyMs: 0,
+        meanTrackingErrorRMS: 0,
+      },
+      pitch: {
+        responses: [],
+        meanOvershoot: 0,
+        meanRiseTimeMs: 0,
+        meanSettlingTimeMs: 0,
+        meanLatencyMs: 0,
+        meanTrackingErrorRMS: 0,
+      },
+      yaw: {
+        responses: [],
+        meanOvershoot: 0,
+        meanRiseTimeMs: 0,
+        meanSettlingTimeMs: 0,
+        meanLatencyMs: 0,
+        meanTrackingErrorRMS: 0,
+      },
     });
     const metrics = extractPIDMetrics(result);
     expect(metrics.stepsDetected).toBe(0);
     expect(metrics.roll.meanOvershoot).toBe(0);
+  });
+
+  it('extracts meanTrackingErrorRMS per axis', () => {
+    const result = makePIDResult();
+    const metrics = extractPIDMetrics(result);
+    expect(metrics.roll.meanTrackingErrorRMS).toBeDefined();
+    expect(metrics.pitch.meanTrackingErrorRMS).toBeDefined();
+    expect(metrics.yaw.meanTrackingErrorRMS).toBeDefined();
   });
 });

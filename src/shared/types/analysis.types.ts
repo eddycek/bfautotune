@@ -233,6 +233,8 @@ export interface StepResponse {
   trace?: StepResponseTrace;
   /** Whether overshoot is dominated by feedforward (|pidF| > |pidP| at peak) */
   ffDominated?: boolean;
+  /** RMS of (setpoint−gyro)/|magnitude| over the response window (dimensionless) */
+  trackingErrorRMS?: number;
 }
 
 /** Aggregated step response metrics for one axis */
@@ -247,6 +249,8 @@ export interface AxisStepProfile {
   meanSettlingTimeMs: number;
   /** Mean latency in ms */
   meanLatencyMs: number;
+  /** Mean tracking error RMS across all steps (dimensionless) */
+  meanTrackingErrorRMS: number;
 }
 
 /** A single PID recommendation */

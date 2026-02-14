@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
+import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
 import { AppliedChangesTable } from './AppliedChangesTable';
 
@@ -9,9 +10,36 @@ interface TuningSessionDetailProps {
 
 export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
   const hasComparison = !!record.filterMetrics?.spectrum && !!record.verificationMetrics?.spectrum;
+  const score = useMemo(
+    () =>
+      computeTuneQualityScore({
+        filterMetrics: record.filterMetrics,
+        pidMetrics: record.pidMetrics,
+      }),
+    [record.filterMetrics, record.pidMetrics]
+  );
 
   return (
     <div className="session-detail">
+      {score && (
+        <div className="session-detail-score-breakdown">
+          {score.components.map((c) => (
+            <div key={c.label} className="score-breakdown-row">
+              <span className="score-breakdown-label">{c.label}</span>
+              <div className="score-breakdown-bar-track">
+                <div
+                  className="score-breakdown-bar-fill"
+                  style={{ width: `${(c.score / c.maxPoints) * 100}%` }}
+                />
+              </div>
+              <span className="score-breakdown-value">
+                {c.score}/{c.maxPoints}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {hasComparison && record.filterMetrics && record.verificationMetrics && (
         <NoiseComparisonChart before={record.filterMetrics} after={record.verificationMetrics} />
       )}
