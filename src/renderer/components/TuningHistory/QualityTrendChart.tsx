@@ -33,7 +33,7 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
     for (let i = history.length - 1; i >= 0; i--) {
       const record = history[i];
       const score = computeTuneQualityScore({
-        filterMetrics: record.filterMetrics,
+        filterMetrics: record.verificationMetrics ?? record.filterMetrics,
         pidMetrics: record.pidMetrics,
       });
       if (score) {

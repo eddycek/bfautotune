@@ -40,7 +40,7 @@ export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps
       map.set(
         record.id,
         computeTuneQualityScore({
-          filterMetrics: record.filterMetrics,
+          filterMetrics: record.verificationMetrics ?? record.filterMetrics,
           pidMetrics: record.pidMetrics,
         })
       );
