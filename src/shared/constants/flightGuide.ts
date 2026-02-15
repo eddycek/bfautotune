@@ -74,8 +74,7 @@ export const PID_FLIGHT_PHASES: FlightPhase[] = [
   {
     title: 'Yaw Snaps',
     duration: '3–5 times',
-    description:
-      'Quick yaw movements left and right with brief pauses.',
+    description: 'Quick yaw movements left and right with brief pauses.',
   },
   {
     title: 'Land',
@@ -92,6 +91,41 @@ export const PID_FLIGHT_TIPS: string[] = [
   'Use your normal rate profile (min 300 deg/s recommended)',
   'Make sure Blackbox logging is enabled with 2 kHz rate',
   'After landing, check motor temperatures',
+];
+
+// ---- Verification Hover Guide (post-tuning noise check) ----
+
+export const VERIFICATION_FLIGHT_PHASES: FlightPhase[] = [
+  {
+    title: 'Take off & Hover',
+    duration: '15–20 sec',
+    description:
+      'Hover steadily at mid-throttle. Same as the filter flight — stay as still as possible to capture clean noise data.',
+  },
+  {
+    title: 'Throttle Sweep',
+    duration: '2–3 times',
+    description:
+      'Slowly sweep throttle from hover to full power and back. This lets the app compare noise across the RPM range before and after tuning.',
+  },
+  {
+    title: 'Final Hover',
+    duration: '10 sec',
+    description: 'Hold a steady hover for additional data.',
+  },
+  {
+    title: 'Land',
+    duration: '',
+    description: 'Done! Total flight: 30–60 seconds. Reconnect and download the log.',
+  },
+];
+
+export const VERIFICATION_FLIGHT_TIPS: string[] = [
+  'Fly the same style as your filter test flight — hover + throttle sweeps',
+  'Stay at the same altitude (2–5 meters) for comparable data',
+  'Keep movements gentle — this is a noise measurement, not acro',
+  'After downloading, the app overlays before/after spectra automatically',
+  'If noise improved, you are done. If not, consider another tuning cycle',
 ];
 
 // ---- Legacy Combined Guide (backward compatibility for mode='full') ----
@@ -112,14 +146,12 @@ export const FLIGHT_PHASES: FlightPhase[] = [
   {
     title: 'Pitch Snaps',
     duration: '3–5 times',
-    description:
-      'Same with pitch — forward, center, back, center. Quick and decisive.',
+    description: 'Same with pitch — forward, center, back, center. Quick and decisive.',
   },
   {
     title: 'Yaw Snaps',
     duration: '3–5 times',
-    description:
-      'Quick yaw movements left and right with brief pauses.',
+    description: 'Quick yaw movements left and right with brief pauses.',
   },
   {
     title: 'Final Hover',
@@ -145,13 +177,36 @@ export const FLIGHT_TIPS: string[] = [
 
 export const TUNING_WORKFLOW: WorkflowStep[] = [
   { title: 'Connect your drone', description: 'Plug in via USB and wait for connection.' },
-  { title: 'Create a backup', description: 'Save a snapshot of your current settings before making changes.' },
-  { title: 'Check Blackbox setup', description: 'Set logging rate to 2 kHz. On BF 4.3–4.5, also set debug_mode to GYRO_SCALED (not needed on 2025.12+).' },
+  {
+    title: 'Create a backup',
+    description: 'Save a snapshot of your current settings before making changes.',
+  },
+  {
+    title: 'Check Blackbox setup',
+    description:
+      'Set logging rate to 2 kHz. On BF 4.3–4.5, also set debug_mode to GYRO_SCALED (not needed on 2025.12+).',
+  },
   { title: 'Erase Blackbox data', description: 'Clear old logs for a clean recording.' },
-  { title: 'Fly: Filter test flight', description: 'Hover + throttle sweeps (~30 sec). Follow the filter flight guide.' },
-  { title: 'Analyze & apply filters', description: 'Download the log. Run the Filter Wizard. Apply changes.' },
+  {
+    title: 'Fly: Filter test flight',
+    description: 'Hover + throttle sweeps (~30 sec). Follow the filter flight guide.',
+  },
+  {
+    title: 'Analyze & apply filters',
+    description: 'Download the log. Run the Filter Wizard. Apply changes.',
+  },
   { title: 'Erase Blackbox data again', description: 'Clear the filter flight log.' },
-  { title: 'Fly: PID test flight', description: 'Stick snaps on all axes (~30 sec). Follow the PID flight guide.' },
-  { title: 'Analyze & apply PIDs', description: 'Download the log. Run the PID Wizard. Apply changes.' },
-  { title: 'Optional: Verification hover', description: 'Erase flash, fly a gentle 30–60 second hover with throttle sweeps (same as filter flight). Reconnect, download the log, and click Analyze. The app overlays before/after noise spectra so you can see the improvement. You can skip this step.' },
+  {
+    title: 'Fly: PID test flight',
+    description: 'Stick snaps on all axes (~30 sec). Follow the PID flight guide.',
+  },
+  {
+    title: 'Analyze & apply PIDs',
+    description: 'Download the log. Run the PID Wizard. Apply changes.',
+  },
+  {
+    title: 'Optional: Verification hover',
+    description:
+      'Erase flash, fly a gentle 30–60 second hover with throttle sweeps (same as filter flight). Reconnect, download the log, and click Analyze. The app overlays before/after noise spectra so you can see the improvement. You can skip this step.',
+  },
 ];

@@ -25,7 +25,7 @@ import { markIntentionalDisconnect } from './hooks/useConnection';
 import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
-import type { TuningMode, AppliedChange } from '@shared/types/tuning.types';
+import type { TuningMode, FlightGuideMode, AppliedChange } from '@shared/types/tuning.types';
 import type { FilterMetricsSummary, PIDMetricsSummary } from '@shared/types/tuning-history.types';
 import { extractFilterMetrics } from '@shared/utils/metricsExtract';
 import type { TuningAction } from './components/TuningStatusBanner/TuningStatusBanner';
@@ -41,7 +41,7 @@ function AppContent() {
   const [analysisLogName, setAnalysisLogName] = useState<string | null>(null);
   const [wizardMode, setWizardMode] = useState<TuningMode>('filter');
   const [showWorkflowHelp, setShowWorkflowHelp] = useState(false);
-  const [showFlightGuideMode, setShowFlightGuideMode] = useState<TuningMode | null>(null);
+  const [showFlightGuideMode, setShowFlightGuideMode] = useState<FlightGuideMode | null>(null);
   const [erasedForPhase, setErasedForPhase] = useState<string | null>(null);
   const [flashUsedSize, setFlashUsedSize] = useState<number | null>(null);
   const [erasing, setErasing] = useState(false);

@@ -13,6 +13,9 @@ import type { FilterMetricsSummary, PIDMetricsSummary } from './tuning-history.t
 /** Which analysis mode the wizard is operating in */
 export type TuningMode = 'filter' | 'pid' | 'full';
 
+/** Extended mode for flight guide (includes verification hover) */
+export type FlightGuideMode = TuningMode | 'verification';
+
 /** Phases of the tuning session state machine */
 export type TuningPhase =
   | 'filter_flight_pending' // Waiting for user to fly filter test flight

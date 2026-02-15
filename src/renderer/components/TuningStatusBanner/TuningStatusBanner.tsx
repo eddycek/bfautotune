@@ -1,5 +1,10 @@
 import React from 'react';
-import type { TuningSession, TuningPhase, TuningMode } from '@shared/types/tuning.types';
+import type {
+  TuningSession,
+  TuningPhase,
+  TuningMode,
+  FlightGuideMode,
+} from '@shared/types/tuning.types';
 import './TuningStatusBanner.css';
 
 export type TuningAction =
@@ -25,7 +30,7 @@ interface TuningStatusBannerProps {
   bbSettingsOk?: boolean;
   fixingSettings?: boolean;
   onAction: (action: TuningAction) => void;
-  onViewGuide: (mode: TuningMode) => void;
+  onViewGuide: (mode: FlightGuideMode) => void;
   onReset: () => void;
   onFixSettings?: () => void;
 }
@@ -159,7 +164,7 @@ export function TuningStatusBanner({
   const renderActions = () => {
     // Flash erased state for flight pending / verification phases — show flight guide
     if (showErasedState && (ui?.guideTip || isVerification)) {
-      const guideMode: TuningMode = ui?.guideTip ?? 'filter';
+      const guideMode: FlightGuideMode = isVerification ? 'verification' : ui!.guideTip!;
       return (
         <>
           <button className="wizard-btn wizard-btn-primary" onClick={() => onViewGuide(guideMode)}>
