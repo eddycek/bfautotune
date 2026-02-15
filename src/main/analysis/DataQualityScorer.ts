@@ -172,7 +172,7 @@ export function scorePIDDataQuality(input: PIDQualityInput): {
       warnings.push({
         code: 'few_steps_per_axis',
         message: `Only ${axesCounts[i]} step${axesCounts[i] !== 1 ? 's' : ''} on ${axisNames[i]} axis. At least 3 steps per axis recommended.`,
-        severity: 'info',
+        severity: 'warning',
       });
     }
   }
@@ -190,7 +190,7 @@ export function scorePIDDataQuality(input: PIDQualityInput): {
       warnings.push({
         code: 'low_step_magnitude',
         message: `Average step magnitude is ${meanMag.toFixed(0)} deg/s. Harder stick snaps (200+ deg/s) produce clearer step responses.`,
-        severity: 'info',
+        severity: 'warning',
       });
     }
 

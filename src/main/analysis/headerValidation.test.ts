@@ -72,7 +72,7 @@ describe('validateBBLHeader', () => {
     const warnings = validateBBLHeader(header);
     expect(warnings).toHaveLength(1);
     expect(warnings[0].code).toBe('wrong_debug_mode');
-    expect(warnings[0].severity).toBe('info');
+    expect(warnings[0].severity).toBe('warning');
     expect(warnings[0].message).toContain('GYRO_SCALED');
   });
 
@@ -89,7 +89,7 @@ describe('validateBBLHeader', () => {
     header.rawHeaders.set('debug_mode', '0'); // NONE
     const warnings = validateBBLHeader(header);
     expect(warnings).toHaveLength(2);
-    const codes = warnings.map(w => w.code);
+    const codes = warnings.map((w) => w.code);
     expect(codes).toContain('low_logging_rate');
     expect(codes).toContain('wrong_debug_mode');
   });
@@ -175,27 +175,21 @@ describe('enrichSettingsFromBBLHeaders', () => {
   });
 
   it('returns null when rpm_filter_harmonics not in headers', () => {
-    const headers = new Map<string, string>([
-      ['dshot_bidir', '1'],
-    ]);
+    const headers = new Map<string, string>([['dshot_bidir', '1']]);
 
     const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
     expect(result).toBeNull();
   });
 
   it('returns null when rpm_filter_harmonics is not a number', () => {
-    const headers = new Map<string, string>([
-      ['rpm_filter_harmonics', 'invalid'],
-    ]);
+    const headers = new Map<string, string>([['rpm_filter_harmonics', 'invalid']]);
 
     const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
     expect(result).toBeNull();
   });
 
   it('preserves existing settings while adding RPM data', () => {
-    const headers = new Map<string, string>([
-      ['rpm_filter_harmonics', '2'],
-    ]);
+    const headers = new Map<string, string>([['rpm_filter_harmonics', '2']]);
 
     const settings = { ...DEFAULT_FILTER_SETTINGS, gyro_lpf1_static_hz: 100 };
     const result = enrichSettingsFromBBLHeaders(settings, headers);
@@ -205,9 +199,7 @@ describe('enrichSettingsFromBBLHeaders', () => {
   });
 
   it('handles rpm_filter_harmonics = 0 (RPM disabled)', () => {
-    const headers = new Map<string, string>([
-      ['rpm_filter_harmonics', '0'],
-    ]);
+    const headers = new Map<string, string>([['rpm_filter_harmonics', '0']]);
 
     const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
     expect(result).not.toBeNull();
