@@ -41,7 +41,6 @@ export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps
         record.id,
         computeTuneQualityScore({
           filterMetrics: record.verificationMetrics ?? record.filterMetrics,
-          pidMetrics: record.pidMetrics,
         })
       );
     }

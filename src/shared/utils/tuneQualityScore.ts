@@ -99,7 +99,7 @@ function tierFromScore(score: number): TuneQualityScore['tier'] {
 
 export function computeTuneQualityScore(metrics: {
   filterMetrics: FilterMetricsSummary | null | undefined;
-  pidMetrics: PIDMetricsSummary | null | undefined;
+  pidMetrics?: PIDMetricsSummary | null | undefined;
 }): TuneQualityScore | null {
   const { filterMetrics, pidMetrics } = metrics;
 

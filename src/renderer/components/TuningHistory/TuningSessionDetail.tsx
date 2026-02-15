@@ -14,9 +14,8 @@ export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
     () =>
       computeTuneQualityScore({
         filterMetrics: record.verificationMetrics ?? record.filterMetrics,
-        pidMetrics: record.pidMetrics,
       }),
-    [record.filterMetrics, record.pidMetrics, record.verificationMetrics]
+    [record.filterMetrics, record.verificationMetrics]
   );
 
   return (
