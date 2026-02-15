@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1700 tests across 91 files** (last verified: February 14, 2026)
+**Total: 1740 tests across 92 files** (last verified: February 15, 2026)
 
 ### UI Components
 
@@ -171,11 +171,12 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
-| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 28 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow |
+| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 40 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow, flashUsedSize-based erased state |
 | `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete with metrics, FF warning, RPM status, flight style display |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
-| `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 9 | Workflow preparation modal |
+| `TuningWizard/PhaseIllustration.test.tsx` | 11 | Phase illustration SVG rendering, custom size, aria-hidden, unknown title fallback |
+| `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 19 | Workflow preparation modal, mode-aware step filtering (filter/pid/verification), flight guide sections |
 | `AnalysisOverview/AnalysisOverview.test.tsx` | 28 | Diagnostic-only analysis view, auto-parse, session picker, breadcrumb navigation, session metadata, FF warning, RPM status, data quality pill |
 | `TuningWizard/PIDAnalysisStep.test.tsx` | 7 | PID results display, flight style pill, step count pluralization, data quality pill |
 | `TuningWizard/RecommendationCard.test.tsx` | 11 | Setting label lookup, value display, change percentage, confidence, feedforward labels |

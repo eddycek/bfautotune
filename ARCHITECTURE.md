@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 14, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1700 tests, 91 files**
+**Last Updated:** February 15, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1740 tests, 92 files**
 
 ---
 
@@ -803,7 +803,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1700 tests across 91 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1740 tests across 92 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -815,7 +815,7 @@ Hardware error (FC timeout, USB disconnect)
 | MSC (Mass Storage) | 2 | 32 |
 | Storage Managers | 7 | 115 |
 | IPC Handlers | 1 | 105 |
-| UI Components | 35 | 493 |
+| UI Components | 36 | 533 |
 | Contexts | 1 | 10 |
 | React Hooks | 12 | 146 |
 | Charts | 3 | 35 |
