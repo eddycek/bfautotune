@@ -22,7 +22,8 @@ export interface UseTuningWizardReturn {
   setStep: (step: WizardStep) => void;
   logId: string;
   sessionIndex: number;
-  setSessionIndex: (idx: number) => void;
+  selectSession: (idx: number) => void;
+  sessionSelected: boolean;
   sessions: BlackboxLogSession[] | null;
 
   // Parse
@@ -59,6 +60,7 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
   // Skip guide for filter/pid modes — wizard opens from tuning session where flight is already done
   const [step, setStep] = useState<WizardStep>(mode === 'full' ? 'guide' : 'session');
   const [sessionIndex, setSessionIndex] = useState(0);
+  const [sessionSelected, setSessionSelected] = useState(false);
   const [sessions, setSessions] = useState<BlackboxLogSession[] | null>(null);
 
   // Parse state
@@ -84,6 +86,11 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
   const [applyResult, setApplyResult] = useState<ApplyRecommendationsResult | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
 
+  const selectSession = useCallback((idx: number) => {
+    setSessionIndex(idx);
+    setSessionSelected(true);
+  }, []);
+
   const parseLog = useCallback(async () => {
     setParsing(true);
     setParseProgress(null);
@@ -104,6 +111,7 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
       // Auto-advance if single session
       if (result.sessions.length === 1) {
         setSessionIndex(0);
+        setSessionSelected(true);
         // Skip to the correct step based on mode
         if (mode === 'pid') {
           setStep('pid');
@@ -225,7 +233,8 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
     setStep,
     logId,
     sessionIndex,
-    setSessionIndex,
+    selectSession,
+    sessionSelected,
     sessions,
     parsing,
     parseProgress,
