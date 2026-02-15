@@ -93,6 +93,25 @@ export class TuningHistoryManager {
   }
 
   /**
+   * Update verification metrics on a specific history record by ID.
+   * Returns true if the record was found and updated, false otherwise.
+   */
+  async updateRecordVerification(
+    profileId: string,
+    recordId: string,
+    verificationMetrics: FilterMetricsSummary
+  ): Promise<boolean> {
+    const records = await this.loadRecords(profileId);
+    const record = records.find((r) => r.id === recordId);
+    if (!record) return false;
+
+    record.verificationMetrics = verificationMetrics;
+    await this.saveRecords(profileId, records);
+    logger.info(`Updated verification metrics on history record ${recordId}`);
+    return true;
+  }
+
+  /**
    * Delete all history for a profile. No-op if none exists.
    */
   async deleteHistory(profileId: string): Promise<void> {

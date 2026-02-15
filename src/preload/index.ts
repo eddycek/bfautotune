@@ -569,6 +569,20 @@ const betaflightAPI: BetaflightAPI = {
     }
     return response.data;
   },
+
+  async updateHistoryVerification(
+    recordId: string,
+    verificationMetrics: FilterMetricsSummary
+  ): Promise<void> {
+    const response = await ipcRenderer.invoke(
+      IPCChannel.TUNING_UPDATE_HISTORY_VERIFICATION,
+      recordId,
+      verificationMetrics
+    );
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update history verification');
+    }
+  },
 };
 
 contextBridge.exposeInMainWorld('betaflight', betaflightAPI);

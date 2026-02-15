@@ -237,6 +237,74 @@ describe('TuningHistoryManager', () => {
     });
   });
 
+  describe('updateRecordVerification', () => {
+    const verificationMetrics = {
+      noiseLevel: 'low' as const,
+      roll: { noiseFloorDb: -50, peakCount: 0 },
+      pitch: { noiseFloorDb: -48, peakCount: 0 },
+      yaw: { noiseFloorDb: -52, peakCount: 0 },
+      segmentsUsed: 2,
+      summary: 'Improved noise',
+    };
+
+    it('updates the correct record by ID', async () => {
+      const r1 = await manager.archiveSession(
+        makeCompletedSession('profile-1', {
+          startedAt: '2026-01-10T00:00:00Z',
+          updatedAt: '2026-01-10T01:00:00Z',
+        })
+      );
+      const r2 = await manager.archiveSession(
+        makeCompletedSession('profile-1', {
+          startedAt: '2026-01-20T00:00:00Z',
+          updatedAt: '2026-01-20T01:00:00Z',
+        })
+      );
+
+      const result = await manager.updateRecordVerification(
+        'profile-1',
+        r1.id,
+        verificationMetrics
+      );
+      expect(result).toBe(true);
+
+      const history = await manager.getHistory('profile-1');
+      // r1 is older — index 1 in newest-first
+      const updated = history.find((h) => h.id === r1.id)!;
+      const untouched = history.find((h) => h.id === r2.id)!;
+      expect(updated.verificationMetrics).toEqual(verificationMetrics);
+      expect(untouched.verificationMetrics).toBeNull();
+    });
+
+    it('returns false for unknown record ID', async () => {
+      await manager.archiveSession(makeCompletedSession('profile-1'));
+
+      const result = await manager.updateRecordVerification(
+        'profile-1',
+        'nonexistent-id',
+        verificationMetrics
+      );
+      expect(result).toBe(false);
+    });
+
+    it('returns false for non-existent profile', async () => {
+      const result = await manager.updateRecordVerification(
+        'nonexistent',
+        'any-id',
+        verificationMetrics
+      );
+      expect(result).toBe(false);
+    });
+
+    it('does not create a new record', async () => {
+      const r1 = await manager.archiveSession(makeCompletedSession('profile-1'));
+      await manager.updateRecordVerification('profile-1', r1.id, verificationMetrics);
+
+      const history = await manager.getHistory('profile-1');
+      expect(history).toHaveLength(1);
+    });
+  });
+
   describe('deleteHistory', () => {
     it('deletes all history for a profile', async () => {
       await manager.archiveSession(makeCompletedSession('profile-1'));

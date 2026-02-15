@@ -348,5 +348,39 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
     }
   );
 
+  // Update verification metrics on a specific history record (by record ID)
+  ipcMain.handle(
+    IPCChannel.TUNING_UPDATE_HISTORY_VERIFICATION,
+    async (
+      _event,
+      recordId: string,
+      verificationMetrics: FilterMetricsSummary
+    ): Promise<IPCResponse<void>> => {
+      try {
+        if (!tuningHistoryManager || !profileManager) {
+          return createResponse<void>(undefined, 'Tuning history manager not initialized');
+        }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<void>(undefined, 'No active profile');
+        }
+
+        const updated = await tuningHistoryManager.updateRecordVerification(
+          profileId,
+          recordId,
+          verificationMetrics
+        );
+        if (!updated) {
+          return createResponse<void>(undefined, `History record not found: ${recordId}`);
+        }
+
+        return createResponse<void>(undefined);
+      } catch (error) {
+        logger.error('Failed to update history verification:', error);
+        return createResponse<void>(undefined, getErrorMessage(error));
+      }
+    }
+  );
+
   logger.info('Tuning IPC handlers registered');
 }

@@ -27,7 +27,11 @@ import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
 import type { TuningMode, FlightGuideMode, AppliedChange } from '@shared/types/tuning.types';
-import type { FilterMetricsSummary, PIDMetricsSummary } from '@shared/types/tuning-history.types';
+import type {
+  CompletedTuningRecord,
+  FilterMetricsSummary,
+  PIDMetricsSummary,
+} from '@shared/types/tuning-history.types';
 import { extractFilterMetrics } from '@shared/utils/metricsExtract';
 import type { TuningAction } from './components/TuningStatusBanner/TuningStatusBanner';
 import './App.css';
@@ -56,10 +60,26 @@ function AppContent() {
   const [bbRefreshKey, setBbRefreshKey] = useState(0);
   const [verificationPickerLogId, setVerificationPickerLogId] = useState<string | null>(null);
   const [isReanalyze, setIsReanalyze] = useState(false);
+  const [reanalyzeHistoryRecordId, setReanalyzeHistoryRecordId] = useState<string | null>(null);
+  const [availableLogIds, setAvailableLogIds] = useState<Set<string>>(new Set());
   const { createProfile, createProfileFromPreset, updateProfile, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const tuningHistory = useTuningHistory();
   const toast = useToast();
+
+  const refreshAvailableLogIds = () => {
+    window.betaflight
+      .listBlackboxLogs()
+      .then((logs) => setAvailableLogIds(new Set(logs.map((l) => l.id))))
+      .catch(() => setAvailableLogIds(new Set()));
+  };
+
+  useEffect(() => {
+    refreshAvailableLogIds();
+    return window.betaflight.onProfileChanged(() => {
+      refreshAvailableLogIds();
+    });
+  }, []);
 
   const fetchBBSettings = (connStatus: ConnectionStatus) => {
     if (connStatus.connected) {
@@ -288,7 +308,9 @@ function AppContent() {
 
   const handleVerificationAnalyze = async (sessionIndex: number) => {
     const verLogId = verificationPickerLogId;
+    const historyRecordId = reanalyzeHistoryRecordId;
     setVerificationPickerLogId(null);
+    setReanalyzeHistoryRecordId(null);
     if (!verLogId) return;
 
     try {
@@ -296,7 +318,11 @@ function AppContent() {
       const filterResult = await window.betaflight.analyzeFilters(verLogId, sessionIndex);
       const verificationMetrics = extractFilterMetrics(filterResult);
 
-      if (isReanalyze) {
+      if (historyRecordId) {
+        // Re-analyze a historical record
+        await window.betaflight.updateHistoryVerification(historyRecordId, verificationMetrics);
+        await tuningHistory.reload();
+      } else if (isReanalyze) {
         // Re-analyze — update session + history without duplicate archive
         await window.betaflight.updateVerificationMetrics(verificationMetrics);
       } else {
@@ -316,6 +342,12 @@ function AppContent() {
     if (!verLogId) return;
     setIsReanalyze(true);
     setVerificationPickerLogId(verLogId);
+  };
+
+  const handleReanalyzeHistory = (record: CompletedTuningRecord) => {
+    if (!record.verificationLogId) return;
+    setReanalyzeHistoryRecordId(record.id);
+    setVerificationPickerLogId(record.verificationLogId);
   };
 
   const bbStatus = computeBBSettingsStatus(bbSettings, fcVersion);
@@ -463,7 +495,12 @@ function AppContent() {
             )}
             {isConnected && currentProfile && <SnapshotManager />}
             {currentProfile && (
-              <TuningHistoryPanel history={tuningHistory.history} loading={tuningHistory.loading} />
+              <TuningHistoryPanel
+                history={tuningHistory.history}
+                loading={tuningHistory.loading}
+                onReanalyzeHistory={handleReanalyzeHistory}
+                availableLogIds={availableLogIds}
+              />
             )}
           </div>
         )}
