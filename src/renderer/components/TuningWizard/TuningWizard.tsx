@@ -99,7 +99,7 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
             parseLog={wizard.parseLog}
             sessionIndex={wizard.sessionIndex}
             onSelectSession={(idx) => {
-              wizard.setSessionIndex(idx);
+              wizard.selectSession(idx);
               wizard.setStep(mode === 'pid' ? 'pid' : 'filter');
             }}
           />
@@ -151,7 +151,7 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
           <h2>Tuning Wizard</h2>
           <span className="tuning-wizard-log-id">
             Log: {logId.length > 8 ? `${logId.slice(0, 8)}...` : logId}
-            {wizard.sessions && wizard.sessions[wizard.sessionIndex] && (
+            {wizard.sessionSelected && wizard.sessions?.[wizard.sessionIndex] && (
               <>
                 {' | '}Session {wizard.sessionIndex + 1}
                 {' | '}

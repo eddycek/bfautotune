@@ -325,9 +325,10 @@ describe('useTuningWizard', () => {
     expect(result.current.step).toBe('filter');
 
     act(() => {
-      result.current.setSessionIndex(2);
+      result.current.selectSession(2);
     });
     expect(result.current.sessionIndex).toBe(2);
+    expect(result.current.sessionSelected).toBe(true);
   });
 
   it('sets parsing to true during parse', async () => {
