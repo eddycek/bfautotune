@@ -8,6 +8,8 @@ import './TuningHistoryPanel.css';
 interface TuningHistoryPanelProps {
   history: CompletedTuningRecord[];
   loading: boolean;
+  onReanalyzeHistory?: (record: CompletedTuningRecord) => void;
+  availableLogIds?: Set<string>;
 }
 
 function formatDate(iso: string): string {
@@ -31,7 +33,12 @@ function recordSummary(record: CompletedTuningRecord): string {
   return noise ? `${changes} \u2022 ${noise}` : changes;
 }
 
-export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps) {
+export function TuningHistoryPanel({
+  history,
+  loading,
+  onReanalyzeHistory,
+  availableLogIds,
+}: TuningHistoryPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const scoreMap = useMemo(() => {
@@ -85,7 +92,16 @@ export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps
 
               {isExpanded && (
                 <div className="tuning-history-card-body">
-                  <TuningSessionDetail record={record} />
+                  <TuningSessionDetail
+                    record={record}
+                    onReanalyzeVerification={
+                      onReanalyzeHistory &&
+                      record.verificationLogId &&
+                      availableLogIds?.has(record.verificationLogId)
+                        ? () => onReanalyzeHistory(record)
+                        : undefined
+                    }
+                  />
                 </div>
               )}
             </div>

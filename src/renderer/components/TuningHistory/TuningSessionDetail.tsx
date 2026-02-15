@@ -6,9 +6,10 @@ import { AppliedChangesTable } from './AppliedChangesTable';
 
 interface TuningSessionDetailProps {
   record: CompletedTuningRecord;
+  onReanalyzeVerification?: () => void;
 }
 
-export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
+export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningSessionDetailProps) {
   const hasComparison = !!record.filterMetrics?.spectrum && !!record.verificationMetrics?.spectrum;
   const score = useMemo(
     () =>
@@ -40,7 +41,14 @@ export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
       )}
 
       {hasComparison && record.filterMetrics && record.verificationMetrics && (
-        <NoiseComparisonChart before={record.filterMetrics} after={record.verificationMetrics} />
+        <>
+          <NoiseComparisonChart before={record.filterMetrics} after={record.verificationMetrics} />
+          {onReanalyzeVerification && (
+            <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
+              Re-analyze with different session
+            </button>
+          )}
+        </>
       )}
 
       {!hasComparison && record.filterMetrics && (

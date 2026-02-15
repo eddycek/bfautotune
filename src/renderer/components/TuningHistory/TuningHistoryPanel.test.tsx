@@ -186,6 +186,110 @@ describe('TuningHistoryPanel', () => {
     expect(badge!.textContent).toMatch(/\d+\s+(Excellent|Good|Fair|Poor)/);
   });
 
+  describe('re-analyze verification', () => {
+    const makeRecordWithVerification = (id: string, verLogId: string | null) => {
+      const record = makeRecord(id, '2026-02-10T00:00:00Z');
+      record.verificationLogId = verLogId;
+      if (verLogId) {
+        record.verificationMetrics = {
+          noiseLevel: 'low',
+          roll: { noiseFloorDb: -50, peakCount: 0 },
+          pitch: { noiseFloorDb: -48, peakCount: 0 },
+          yaw: { noiseFloorDb: -52, peakCount: 0 },
+          segmentsUsed: 2,
+          summary: 'Better',
+          spectrum: {
+            frequencies: [100, 200, 300],
+            roll: [-40, -50, -60],
+            pitch: [-38, -48, -58],
+            yaw: [-42, -52, -62],
+          },
+        };
+        // Also need filterMetrics.spectrum for hasComparison
+        record.filterMetrics = {
+          ...record.filterMetrics!,
+          spectrum: {
+            frequencies: [100, 200, 300],
+            roll: [-30, -40, -50],
+            pitch: [-28, -38, -48],
+            yaw: [-32, -42, -52],
+          },
+        };
+      }
+      return record;
+    };
+
+    it('shows re-analyze button when log available', async () => {
+      const user = userEvent.setup();
+      const record = makeRecordWithVerification('r1', 'log-ver-1');
+      const onReanalyze = vi.fn();
+      render(
+        <TuningHistoryPanel
+          history={[record]}
+          loading={false}
+          onReanalyzeHistory={onReanalyze}
+          availableLogIds={new Set(['log-ver-1'])}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /Feb 10, 2026/ }));
+      const link = screen.getByText('Re-analyze with different session');
+      expect(link).toBeInTheDocument();
+    });
+
+    it('calls onReanalyzeHistory with correct record on click', async () => {
+      const user = userEvent.setup();
+      const record = makeRecordWithVerification('r1', 'log-ver-1');
+      const onReanalyze = vi.fn();
+      render(
+        <TuningHistoryPanel
+          history={[record]}
+          loading={false}
+          onReanalyzeHistory={onReanalyze}
+          availableLogIds={new Set(['log-ver-1'])}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /Feb 10, 2026/ }));
+      await user.click(screen.getByText('Re-analyze with different session'));
+      expect(onReanalyze).toHaveBeenCalledWith(record);
+    });
+
+    it('hides re-analyze button when log deleted', async () => {
+      const user = userEvent.setup();
+      const record = makeRecordWithVerification('r1', 'log-ver-1');
+      const onReanalyze = vi.fn();
+      render(
+        <TuningHistoryPanel
+          history={[record]}
+          loading={false}
+          onReanalyzeHistory={onReanalyze}
+          availableLogIds={new Set()} // log not available
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /Feb 10, 2026/ }));
+      expect(screen.queryByText('Re-analyze with different session')).not.toBeInTheDocument();
+    });
+
+    it('hides re-analyze button when record has no verificationLogId', async () => {
+      const user = userEvent.setup();
+      const record = makeRecordWithVerification('r1', null);
+      const onReanalyze = vi.fn();
+      render(
+        <TuningHistoryPanel
+          history={[record]}
+          loading={false}
+          onReanalyzeHistory={onReanalyze}
+          availableLogIds={new Set(['some-other-log'])}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /Feb 10, 2026/ }));
+      expect(screen.queryByText('Re-analyze with different session')).not.toBeInTheDocument();
+    });
+  });
+
   it('renders trend chart with 2+ records', () => {
     const r1 = makeRecord('r1', '2026-02-10T00:00:00Z');
     const r2 = makeRecord('r2', '2026-02-01T00:00:00Z');

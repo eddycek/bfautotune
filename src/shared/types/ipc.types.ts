@@ -146,6 +146,7 @@ export enum IPCChannel {
   TUNING_RESET_SESSION = 'tuning:reset-session',
   TUNING_GET_HISTORY = 'tuning:get-history',
   TUNING_UPDATE_VERIFICATION = 'tuning:update-verification',
+  TUNING_UPDATE_HISTORY_VERIFICATION = 'tuning:update-history-verification',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -253,6 +254,10 @@ export interface BetaflightAPI {
   // Tuning History
   getTuningHistory(): Promise<CompletedTuningRecord[]>;
   updateVerificationMetrics(verificationMetrics: FilterMetricsSummary): Promise<TuningSession>;
+  updateHistoryVerification(
+    recordId: string,
+    verificationMetrics: FilterMetricsSummary
+  ): Promise<void>;
 
   // Events
   onError(callback: (error: string) => void): () => void;
