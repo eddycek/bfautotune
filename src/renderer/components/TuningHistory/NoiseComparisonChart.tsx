@@ -57,8 +57,21 @@ function buildChartData(before: CompactSpectrum, after: CompactSpectrum): Compar
 /** Noise floor below this threshold is treated as "no data" (sentinel -240 dB) */
 const NOISE_FLOOR_VALID_MIN = -100;
 
-function isValidNoiseFloor(db: number): boolean {
-  return db > NOISE_FLOOR_VALID_MIN;
+/** Estimate noise floor from compact spectrum data (25th percentile, same as NoiseAnalyzer) */
+function estimateFromSpectrum(values: number[]): number | null {
+  const valid = values.filter((v) => v > DB_FLOOR);
+  if (valid.length === 0) return null;
+  const sorted = [...valid].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length * 0.25)];
+}
+
+/** Get effective noise floor for an axis — use analysis value, or fallback to spectrum estimate */
+function getNoiseFloorDb(metrics: FilterMetricsSummary, axis: Axis): number | null {
+  const db = metrics[axis].noiseFloorDb;
+  if (db > NOISE_FLOOR_VALID_MIN) return db;
+  // Fallback: estimate from spectrum data
+  if (!metrics.spectrum) return null;
+  return estimateFromSpectrum(metrics.spectrum[axis]);
 }
 
 function computeDelta(
@@ -66,15 +79,15 @@ function computeDelta(
   after: FilterMetricsSummary,
   axis: Axis
 ): number | null {
-  const bDb = before[axis].noiseFloorDb;
-  const aDb = after[axis].noiseFloorDb;
-  if (!isValidNoiseFloor(bDb) || !isValidNoiseFloor(aDb)) return null;
+  const bDb = getNoiseFloorDb(before, axis);
+  const aDb = getNoiseFloorDb(after, axis);
+  if (bDb === null || aDb === null) return null;
   return aDb - bDb;
 }
 
 function avgNoiseFloor(metrics: FilterMetricsSummary): number | null {
-  const vals = [metrics.roll.noiseFloorDb, metrics.pitch.noiseFloorDb, metrics.yaw.noiseFloorDb];
-  const valid = vals.filter(isValidNoiseFloor);
+  const vals = (['roll', 'pitch', 'yaw'] as const).map((a) => getNoiseFloorDb(metrics, a));
+  const valid = vals.filter((v): v is number => v !== null);
   if (valid.length === 0) return null;
   return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
@@ -225,14 +238,14 @@ export function NoiseComparisonChart({ before, after }: NoiseComparisonChartProp
 
       <div className="noise-comparison-floors">
         {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
-          const bValid = isValidNoiseFloor(before[axis].noiseFloorDb);
-          const aValid = isValidNoiseFloor(after[axis].noiseFloorDb);
+          const bDb = getNoiseFloorDb(before, axis);
+          const aDb = getNoiseFloorDb(after, axis);
           const d = computeDelta(before, after, axis);
           return (
             <span key={axis} className="noise-floor-item" style={{ color: AXIS_COLORS[axis] }}>
-              {axis}: {bValid ? before[axis].noiseFloorDb.toFixed(0) : '—'}
+              {axis}: {bDb !== null ? bDb.toFixed(0) : '—'}
               {'\u2192'}
-              {aValid ? after[axis].noiseFloorDb.toFixed(0) : '—'} dB
+              {aDb !== null ? aDb.toFixed(0) : '—'} dB
               {d !== null && ` (${d < 0 ? '\u2193' : '\u2191'}${Math.abs(Math.round(d))})`}
             </span>
           );

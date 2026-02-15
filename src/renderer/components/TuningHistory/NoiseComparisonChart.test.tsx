@@ -111,27 +111,41 @@ describe('NoiseComparisonChart', () => {
     expect(screen.getByText(/yaw:/i)).toBeInTheDocument();
   });
 
-  it('hides delta pill when noise floor has sentinel -240 dB value', () => {
+  it('uses spectrum fallback when noiseFloorDb is sentinel -240', () => {
     const before = makeMetrics(-40, makeSpectrum(0));
     const after = makeMetrics(-240, makeSpectrum(-12));
 
     render(<NoiseComparisonChart before={before} after={after} />);
 
-    expect(screen.queryByText(/improvement/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/regression/)).not.toBeInTheDocument();
+    // Fallback computes noise floor from spectrum → delta pill should render
+    expect(screen.getByText(/improvement/)).toBeInTheDocument();
+    // Should NOT show -240 anywhere
+    const floorItems = screen.getAllByText(/→/);
+    for (const item of floorItems) {
+      expect(item.textContent).not.toContain('-240');
+    }
   });
 
-  it('shows dash for invalid noise floor in per-axis display', () => {
+  it('shows dash when both noiseFloorDb and spectrum are invalid', () => {
+    // Spectrum with all values below DB_FLOOR (-80) → fallback also fails
+    const badSpectrum: CompactSpectrum = {
+      frequencies: [100, 200],
+      roll: [-90, -95],
+      pitch: [-90, -95],
+      yaw: [-90, -95],
+    };
     const before = makeMetrics(-40, makeSpectrum(0));
-    const after = makeMetrics(-240, makeSpectrum(-12));
+    const after = makeMetrics(-240, badSpectrum);
 
     render(<NoiseComparisonChart before={before} after={after} />);
 
-    // After metrics have -240 sentinel → should show '—' instead of -240
+    // No valid after floor → hide delta pill
+    expect(screen.queryByText(/improvement/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/regression/)).not.toBeInTheDocument();
+    // Per-axis should show dash for after
     const floorItems = screen.getAllByText(/→/);
     for (const item of floorItems) {
       expect(item.textContent).toContain('—');
-      expect(item.textContent).not.toContain('-240');
     }
   });
 });
