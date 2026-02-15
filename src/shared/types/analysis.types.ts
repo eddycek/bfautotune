@@ -126,8 +126,12 @@ export interface FlightSegment {
   endIndex: number;
   /** Duration in seconds */
   durationSeconds: number;
-  /** Mean throttle value in this segment (0-100%) */
+  /** Mean throttle value in this segment (0-1 range) */
   averageThrottle: number;
+  /** Minimum throttle value in this segment (0-1 range) */
+  minThrottle: number;
+  /** Maximum throttle value in this segment (0-1 range) */
+  maxThrottle: number;
 }
 
 /** Progress during analysis pipeline */

@@ -1,7 +1,15 @@
 import React from 'react';
 import { RecommendationCard, SETTING_LABELS } from './RecommendationCard';
-import type { FilterAnalysisResult, PIDAnalysisResult, FilterRecommendation, PIDRecommendation } from '@shared/types/analysis.types';
-import type { ApplyRecommendationsProgress, ApplyRecommendationsResult } from '@shared/types/ipc.types';
+import type {
+  FilterAnalysisResult,
+  PIDAnalysisResult,
+  FilterRecommendation,
+  PIDRecommendation,
+} from '@shared/types/analysis.types';
+import type {
+  ApplyRecommendationsProgress,
+  ApplyRecommendationsResult,
+} from '@shared/types/ipc.types';
 import type { TuningMode } from '@shared/types/tuning.types';
 import type { ApplyState } from '../../hooks/useTuningWizard';
 
@@ -32,24 +40,31 @@ function getChangeText(current: number, recommended: number): { text: string; cl
 function getApplyButtonLabel(mode: TuningMode, applyState: ApplyState): string {
   if (applyState === 'applying') return 'Applying...';
   switch (mode) {
-    case 'filter': return 'Apply Filters';
-    case 'pid': return 'Apply PIDs';
-    default: return 'Apply Changes';
+    case 'filter':
+      return 'Apply Filters';
+    case 'pid':
+      return 'Apply PIDs';
+    default:
+      return 'Apply Changes';
   }
 }
 
-function getSuccessMessage(mode: TuningMode, applyResult: ApplyRecommendationsResult): React.ReactNode {
+function getSuccessMessage(
+  mode: TuningMode,
+  applyResult: ApplyRecommendationsResult
+): React.ReactNode {
   switch (mode) {
     case 'filter':
       return (
         <>
           <strong>Filters applied!</strong>
           <br />
-          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written to FC.
+          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written
+          to FC.
           {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
           <br />
-          Next: erase Blackbox, fly the PID test flight (stick snaps on all axes),
-          then reconnect to continue tuning.
+          Next: erase Blackbox, fly the PID test flight (stick snaps on all axes), then reconnect to
+          continue tuning.
           <br />
           <em>After your next flight, check motor temperatures.</em>
         </>
@@ -62,8 +77,7 @@ function getSuccessMessage(mode: TuningMode, applyResult: ApplyRecommendationsRe
           {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} written to FC.
           {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
           <br />
-          Fly a normal flight to verify the feel, then reconnect to download
-          the verification log.
+          Fly a normal flight to verify the feel, then reconnect to download the verification log.
         </>
       );
     default:
@@ -72,7 +86,8 @@ function getSuccessMessage(mode: TuningMode, applyResult: ApplyRecommendationsRe
           <strong>Changes applied successfully!</strong>
           <br />
           {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} and{' '}
-          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written to FC.
+          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written
+          to FC.
           {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
           <br />
           Your FC is rebooting. Close the wizard and reconnect via the Connection panel.
@@ -114,12 +129,16 @@ export function TuningSummaryStep({
       ) : (
         <>
           <div className="summary-stats">
-            <span className="analysis-meta-pill">
-              {filterRecs.length} filter change{filterRecs.length !== 1 ? 's' : ''}
-            </span>
-            <span className="analysis-meta-pill">
-              {pidRecs.length} PID change{pidRecs.length !== 1 ? 's' : ''}
-            </span>
+            {showFilter && (
+              <span className="analysis-meta-pill">
+                {filterRecs.length} filter change{filterRecs.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {showPid && (
+              <span className="analysis-meta-pill">
+                {pidRecs.length} PID change{pidRecs.length !== 1 ? 's' : ''}
+              </span>
+            )}
             {confidenceCounts.high > 0 && (
               <span className="analysis-meta-pill confidence-high">
                 {confidenceCounts.high} high confidence
@@ -154,12 +173,16 @@ export function TuningSummaryStep({
                 return (
                   <tr key={rec.setting}>
                     <td>{SETTING_LABELS[rec.setting] || rec.setting}</td>
-                    <td>{rec.currentValue}{unit}</td>
-                    <td>{rec.recommendedValue}{unit}</td>
                     <td>
-                      <span className={`change-badge ${change.className}`}>
-                        {change.text}
-                      </span>
+                      {rec.currentValue}
+                      {unit}
+                    </td>
+                    <td>
+                      {rec.recommendedValue}
+                      {unit}
+                    </td>
+                    <td>
+                      <span className={`change-badge ${change.className}`}>{change.text}</span>
                     </td>
                   </tr>
                 );
@@ -228,23 +251,14 @@ export function TuningSummaryStep({
       )}
 
       {applyState === 'done' && applyResult && (
-        <div className="apply-success">
-          {getSuccessMessage(mode, applyResult)}
-        </div>
+        <div className="apply-success">{getSuccessMessage(mode, applyResult)}</div>
       )}
 
-      {applyState === 'error' && applyError && (
-        <div className="analysis-error">
-          {applyError}
-        </div>
-      )}
+      {applyState === 'error' && applyError && <div className="analysis-error">{applyError}</div>}
 
       <div className="analysis-actions">
         {applyState === 'error' ? (
-          <button
-            className="wizard-btn wizard-btn-success"
-            onClick={onApply}
-          >
+          <button className="wizard-btn wizard-btn-success" onClick={onApply}>
             Retry Apply
           </button>
         ) : applyState !== 'done' ? (
@@ -257,7 +271,11 @@ export function TuningSummaryStep({
           </button>
         ) : null}
         <button
-          className={applyState === 'done' ? 'wizard-btn wizard-btn-primary' : 'wizard-btn wizard-btn-secondary'}
+          className={
+            applyState === 'done'
+              ? 'wizard-btn wizard-btn-primary'
+              : 'wizard-btn wizard-btn-secondary'
+          }
           onClick={onExit}
         >
           {applyState === 'done' ? 'Close Wizard' : 'Exit Wizard'}

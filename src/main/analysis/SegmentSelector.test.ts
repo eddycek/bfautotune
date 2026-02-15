@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { findSteadySegments, findThrottleSweepSegments, normalizeThrottle, computeStd } from './SegmentSelector';
+import {
+  findSteadySegments,
+  findThrottleSweepSegments,
+  normalizeThrottle,
+  computeStd,
+} from './SegmentSelector';
 import type { BlackboxFlightData, TimeSeries } from '@shared/types/blackbox.types';
 
 /**
@@ -242,6 +247,23 @@ describe('findSteadySegments', () => {
     expect(segments[0].averageThrottle).toBeCloseTo(0.4, 1);
   });
 
+  it('should populate minThrottle and maxThrottle', () => {
+    const sampleRate = 4000;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * 2,
+      // Throttle varies within hover range: 0.3 to 0.6
+      throttle: (i) => 0.3 + (i / (sampleRate * 2)) * 0.3,
+    });
+
+    const segments = findSteadySegments(data);
+    expect(segments.length).toBeGreaterThan(0);
+    expect(segments[0].minThrottle).toBeCloseTo(0.3, 1);
+    expect(segments[0].maxThrottle).toBeCloseTo(0.6, 1);
+    expect(segments[0].minThrottle).toBeLessThan(segments[0].averageThrottle);
+    expect(segments[0].maxThrottle).toBeGreaterThan(segments[0].averageThrottle);
+  });
+
   it('should handle throttle in 1000-2000 range', () => {
     const data = createFlightData({
       sampleRate: 4000,
@@ -402,5 +424,24 @@ describe('findThrottleSweepSegments', () => {
 
     const segments = findThrottleSweepSegments(data);
     expect(segments.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should populate minThrottle and maxThrottle for sweep segments', () => {
+    const sampleRate = 4000;
+    const duration = 5;
+    const data = createFlightData({
+      sampleRate,
+      numSamples: sampleRate * duration,
+      throttle: (i) => {
+        // Linear ramp from 0.2 to 0.9
+        return 0.2 + (i / (sampleRate * duration)) * 0.7;
+      },
+    });
+
+    const segments = findThrottleSweepSegments(data);
+    expect(segments.length).toBeGreaterThanOrEqual(1);
+    expect(segments[0].minThrottle).toBeLessThan(segments[0].maxThrottle);
+    expect(segments[0].minThrottle).toBeCloseTo(0.2, 1);
+    expect(segments[0].maxThrottle).toBeCloseTo(0.9, 1);
   });
 });

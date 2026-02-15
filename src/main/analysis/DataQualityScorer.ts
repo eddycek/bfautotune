@@ -77,20 +77,22 @@ export function scoreFilterDataQuality(input: FilterQualityInput): {
     });
   }
 
-  // Sub-score: throttle coverage
+  // Sub-score: throttle coverage (use per-sample min/max, not segment averages)
   let throttleCoverage = 0;
   if (segments.length > 0) {
-    const minThrottle = Math.min(...segments.map((s) => s.averageThrottle));
-    const maxThrottle = Math.max(...segments.map((s) => s.averageThrottle));
-    throttleCoverage = maxThrottle - minThrottle;
+    const globalMin = Math.min(...segments.map((s) => s.minThrottle));
+    const globalMax = Math.max(...segments.map((s) => s.maxThrottle));
+    throttleCoverage = globalMax - globalMin;
   }
+  // throttleCoverage is 0-1 range; convert to percentage for scoring/display
+  const throttleCoveragePct = throttleCoverage * 100;
   // Linear 10%→0, 40%→100
-  const throttleScore = clamp100(((throttleCoverage - 10) / 30) * 100);
+  const throttleScore = clamp100(((throttleCoveragePct - 10) / 30) * 100);
 
-  if (throttleCoverage < 20 && segments.length > 0) {
+  if (throttleCoveragePct < 20 && segments.length > 0) {
     warnings.push({
       code: 'narrow_throttle_coverage',
-      message: `Throttle coverage is only ${throttleCoverage.toFixed(0)}%. Fly smooth throttle sweeps covering a wider range for noise analysis across different RPMs.`,
+      message: `Throttle coverage is only ${throttleCoveragePct.toFixed(0)}%. Fly smooth throttle sweeps covering a wider range for noise analysis across different RPMs.`,
       severity: 'warning',
     });
   }
