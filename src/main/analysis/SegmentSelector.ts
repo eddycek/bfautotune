@@ -43,10 +43,7 @@ export function findSteadySegments(flightData: BlackboxFlightData): FlightSegmen
 
   // Build a boolean mask: true = sample is in steady hover
   const steadyMask = new Uint8Array(numSamples);
-  const windowSize = Math.min(
-    Math.floor(SEGMENT_WINDOW_DURATION_S * sampleRateHz),
-    numSamples
-  );
+  const windowSize = Math.min(Math.floor(SEGMENT_WINDOW_DURATION_S * sampleRateHz), numSamples);
   const halfWindow = Math.floor(windowSize / 2);
 
   for (let i = 0; i < numSamples; i++) {
@@ -79,14 +76,21 @@ export function findSteadySegments(flightData: BlackboxFlightData): FlightSegmen
     } else if (!isSet && segStart !== -1) {
       const length = i - segStart;
       if (length >= minSegmentSamples) {
-        const startTime = segStart < throttle.time.length ? throttle.time[segStart] : segStart / sampleRateHz;
-        const endTime = (i - 1) < throttle.time.length ? throttle.time[i - 1] : (i - 1) / sampleRateHz;
+        const startTime =
+          segStart < throttle.time.length ? throttle.time[segStart] : segStart / sampleRateHz;
+        const endTime =
+          i - 1 < throttle.time.length ? throttle.time[i - 1] : (i - 1) / sampleRateHz;
         const duration = endTime - startTime;
 
-        // Compute average throttle
+        // Compute average, min, max throttle
         let thrSum = 0;
+        let thrMin = Infinity;
+        let thrMax = -Infinity;
         for (let j = segStart; j < i; j++) {
-          thrSum += normalizeThrottle(throttle.values[j]);
+          const thr = normalizeThrottle(throttle.values[j]);
+          thrSum += thr;
+          if (thr < thrMin) thrMin = thr;
+          if (thr > thrMax) thrMax = thr;
         }
 
         segments.push({
@@ -94,6 +98,8 @@ export function findSteadySegments(flightData: BlackboxFlightData): FlightSegmen
           endIndex: i,
           durationSeconds: duration > 0 ? duration : length / sampleRateHz,
           averageThrottle: thrSum / length,
+          minThrottle: thrMin,
+          maxThrottle: thrMax,
         });
       }
       segStart = -1;
@@ -218,12 +224,19 @@ export function findThrottleSweepSegments(flightData: BlackboxFlightData): Fligh
 
     if (bestEnd > 0) {
       const startTime = i < throttle.time.length ? throttle.time[i] : i / sampleRateHz;
-      const endTime = (bestEnd - 1) < throttle.time.length ? throttle.time[bestEnd - 1] : (bestEnd - 1) / sampleRateHz;
+      const endTime =
+        bestEnd - 1 < throttle.time.length
+          ? throttle.time[bestEnd - 1]
+          : (bestEnd - 1) / sampleRateHz;
       const duration = endTime - startTime;
 
       let thrSum = 0;
+      let thrMin = Infinity;
+      let thrMax = -Infinity;
       for (let j = i; j < bestEnd; j++) {
         thrSum += smoothed[j];
+        if (smoothed[j] < thrMin) thrMin = smoothed[j];
+        if (smoothed[j] > thrMax) thrMax = smoothed[j];
       }
 
       segments.push({
@@ -231,6 +244,8 @@ export function findThrottleSweepSegments(flightData: BlackboxFlightData): Fligh
         endIndex: bestEnd,
         durationSeconds: duration > 0 ? duration : (bestEnd - i) / sampleRateHz,
         averageThrottle: thrSum / (bestEnd - i),
+        minThrottle: thrMin,
+        maxThrottle: thrMax,
       });
 
       // Jump past this sweep
@@ -291,7 +306,10 @@ function computeLinearResidual(data: Float64Array, start: number, end: number): 
   if (n <= 2) return 0;
 
   // Fit linear regression: y = a + b*x
-  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+  let sumX = 0,
+    sumY = 0,
+    sumXY = 0,
+    sumXX = 0;
   for (let i = start; i < end; i++) {
     const x = i - start;
     const y = data[i];
@@ -308,7 +326,8 @@ function computeLinearResidual(data: Float64Array, start: number, end: number): 
 
   // Compute residual (RMSE normalized by range)
   let ssRes = 0;
-  let yMin = Infinity, yMax = -Infinity;
+  let yMin = Infinity,
+    yMax = -Infinity;
   for (let i = start; i < end; i++) {
     const x = i - start;
     const predicted = a + b * x;
@@ -329,7 +348,8 @@ function computeLinearResidual(data: Float64Array, start: number, end: number): 
  * Compute throttle range within a segment.
  */
 function computeThrottleRange(data: Float64Array, start: number, end: number): number {
-  let min = Infinity, max = -Infinity;
+  let min = Infinity,
+    max = -Infinity;
   for (let i = start; i < end; i++) {
     if (data[i] < min) min = data[i];
     if (data[i] > max) max = data[i];

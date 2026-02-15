@@ -13,8 +13,19 @@ import type {
   PIDRecommendation,
 } from '@shared/types/analysis.types';
 
-function makeSegment(duration: number, throttle: number): FlightSegment {
-  return { startIndex: 0, endIndex: 1000, durationSeconds: duration, averageThrottle: throttle };
+function makeSegment(
+  duration: number,
+  throttle: number,
+  opts?: { minThrottle?: number; maxThrottle?: number }
+): FlightSegment {
+  return {
+    startIndex: 0,
+    endIndex: 1000,
+    durationSeconds: duration,
+    averageThrottle: throttle,
+    minThrottle: opts?.minThrottle ?? throttle,
+    maxThrottle: opts?.maxThrottle ?? throttle,
+  };
 }
 
 function makeStepEvent(axis: 0 | 1 | 2, magnitude: number): StepEvent {
@@ -38,7 +49,11 @@ describe('DataQualityScorer', () => {
   describe('scoreFilterDataQuality', () => {
     it('scores excellent for ideal data (3+ segments, 5s+ hover, sweep, wide throttle)', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(2, 30), makeSegment(2, 50), makeSegment(2, 70)],
+        segments: [
+          makeSegment(2, 0.3, { minThrottle: 0.2, maxThrottle: 0.4 }),
+          makeSegment(2, 0.5, { minThrottle: 0.4, maxThrottle: 0.6 }),
+          makeSegment(2, 0.7, { minThrottle: 0.6, maxThrottle: 0.8 }),
+        ],
         hasSweepSegments: true,
         flightDurationS: 30,
       });
@@ -64,7 +79,7 @@ describe('DataQualityScorer', () => {
 
     it('warns about few segments when count < 2', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(3, 50)],
+        segments: [makeSegment(3, 0.5)],
         hasSweepSegments: false,
         flightDurationS: 10,
       });
@@ -74,7 +89,10 @@ describe('DataQualityScorer', () => {
 
     it('does not warn about segments when count >= 2', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(3, 40), makeSegment(3, 60)],
+        segments: [
+          makeSegment(3, 0.4, { minThrottle: 0.3, maxThrottle: 0.5 }),
+          makeSegment(3, 0.6, { minThrottle: 0.5, maxThrottle: 0.7 }),
+        ],
         hasSweepSegments: false,
         flightDurationS: 10,
       });
@@ -84,7 +102,10 @@ describe('DataQualityScorer', () => {
 
     it('warns about short hover time when total < 2s', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(0.5, 50), makeSegment(0.5, 60)],
+        segments: [
+          makeSegment(0.5, 0.5, { minThrottle: 0.45, maxThrottle: 0.55 }),
+          makeSegment(0.5, 0.6, { minThrottle: 0.55, maxThrottle: 0.65 }),
+        ],
         hasSweepSegments: false,
         flightDurationS: 10,
       });
@@ -94,7 +115,10 @@ describe('DataQualityScorer', () => {
 
     it('does not warn about hover time when total >= 2s', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(2, 50), makeSegment(2, 60)],
+        segments: [
+          makeSegment(2, 0.5, { minThrottle: 0.45, maxThrottle: 0.55 }),
+          makeSegment(2, 0.6, { minThrottle: 0.55, maxThrottle: 0.65 }),
+        ],
         hasSweepSegments: false,
         flightDurationS: 10,
       });
@@ -104,7 +128,11 @@ describe('DataQualityScorer', () => {
 
     it('warns about narrow throttle coverage when range < 20%', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(3, 50), makeSegment(3, 55), makeSegment(3, 52)],
+        segments: [
+          makeSegment(3, 0.5, { minThrottle: 0.48, maxThrottle: 0.52 }),
+          makeSegment(3, 0.55, { minThrottle: 0.53, maxThrottle: 0.57 }),
+          makeSegment(3, 0.52, { minThrottle: 0.5, maxThrottle: 0.54 }),
+        ],
         hasSweepSegments: false,
         flightDurationS: 30,
       });
@@ -114,7 +142,10 @@ describe('DataQualityScorer', () => {
 
     it('does not warn about throttle when range >= 20%', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(3, 30), makeSegment(3, 60)],
+        segments: [
+          makeSegment(3, 0.3, { minThrottle: 0.2, maxThrottle: 0.4 }),
+          makeSegment(3, 0.6, { minThrottle: 0.5, maxThrottle: 0.7 }),
+        ],
         hasSweepSegments: false,
         flightDurationS: 30,
       });
@@ -122,9 +153,30 @@ describe('DataQualityScorer', () => {
       expect(result.warnings.some((w) => w.code === 'narrow_throttle_coverage')).toBe(false);
     });
 
+    it('uses per-sample min/max (not segment averages) for throttle coverage', () => {
+      // All segments hover at ~50% average, but throttle swept from 20% to 80% within segments
+      const result = scoreFilterDataQuality({
+        segments: [
+          makeSegment(3, 0.5, { minThrottle: 0.2, maxThrottle: 0.55 }),
+          makeSegment(3, 0.51, { minThrottle: 0.45, maxThrottle: 0.8 }),
+          makeSegment(3, 0.49, { minThrottle: 0.3, maxThrottle: 0.6 }),
+        ],
+        hasSweepSegments: true,
+        flightDurationS: 30,
+      });
+
+      // Global min=0.20, max=0.80 → 60% coverage — no warning
+      expect(result.warnings.some((w) => w.code === 'narrow_throttle_coverage')).toBe(false);
+      const throttleSub = result.score.subScores.find((s) => s.name === 'Throttle coverage');
+      expect(throttleSub!.score).toBeGreaterThanOrEqual(80);
+    });
+
     it('gives higher score to sweep segments vs fallback', () => {
       const base = {
-        segments: [makeSegment(3, 40), makeSegment(3, 60)],
+        segments: [
+          makeSegment(3, 0.4, { minThrottle: 0.3, maxThrottle: 0.5 }),
+          makeSegment(3, 0.6, { minThrottle: 0.5, maxThrottle: 0.7 }),
+        ],
         flightDurationS: 30,
       };
 
@@ -136,7 +188,7 @@ describe('DataQualityScorer', () => {
 
     it('returns score between 0 and 100', () => {
       const result = scoreFilterDataQuality({
-        segments: [makeSegment(1, 50)],
+        segments: [makeSegment(1, 0.5)],
         hasSweepSegments: false,
         flightDurationS: 5,
       });

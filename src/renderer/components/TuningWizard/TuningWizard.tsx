@@ -149,7 +149,18 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
       <div className="tuning-wizard-header">
         <div className="tuning-wizard-header-left">
           <h2>Tuning Wizard</h2>
-          <span className="tuning-wizard-log-id">Log: {logId}</span>
+          <span className="tuning-wizard-log-id">
+            Log: {logId.length > 8 ? `${logId.slice(0, 8)}...` : logId}
+            {wizard.sessions && wizard.sessions[wizard.sessionIndex] && (
+              <>
+                {' | '}Session {wizard.sessionIndex + 1}
+                {' | '}
+                {Math.round(wizard.sessions[wizard.sessionIndex].flightData.durationSeconds)}s
+                {' | '}
+                {wizard.sessions[wizard.sessionIndex].flightData.sampleRateHz} Hz
+              </>
+            )}
+          </span>
         </div>
         <button className="wizard-btn wizard-btn-secondary" onClick={onExit}>
           Exit

@@ -261,12 +261,29 @@ describe('TuningWizard', () => {
     await waitFor(() => expect(screen.getByText('Tuning Summary')).toBeInTheDocument());
   }
 
-  it('renders wizard header with log ID and exit button', () => {
+  it('renders wizard header with truncated log ID and exit button', () => {
     render(<TuningWizard logId="test-log-1" onExit={onExit} />);
 
     expect(screen.getByText('Tuning Wizard')).toBeInTheDocument();
-    expect(screen.getByText('Log: test-log-1')).toBeInTheDocument();
+    expect(screen.getByText('Log: test-log', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('Exit')).toBeInTheDocument();
+  });
+
+  it('shows session metadata in header after parsing', async () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
+    vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
+
+    const user = userEvent.setup();
+    render(<TuningWizard logId="test-log-1" onExit={onExit} />);
+
+    await passGuide(user);
+
+    // After parsing completes, header should show session metadata
+    await waitFor(() => {
+      expect(screen.getByText(/Session 1/)).toBeInTheDocument();
+      expect(screen.getByText(/60s/)).toBeInTheDocument();
+      expect(screen.getByText(/8000 Hz/)).toBeInTheDocument();
+    });
   });
 
   it('calls onExit when Exit button is clicked', async () => {
@@ -848,36 +865,44 @@ describe('TuningWizard', () => {
 
   // ---- Mode-specific tests ----
 
-  it('mode=filter shows filter flight guide on first step', () => {
+  it('mode=filter skips guide and starts at session step', () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(() => new Promise(() => {}));
     render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
 
-    expect(screen.getByText('Throttle Sweep')).toBeInTheDocument();
-    expect(screen.queryByText('Roll Snaps')).not.toBeInTheDocument();
+    // Should show parsing (session step auto-triggers), not flight guide
+    expect(screen.getByText('Parsing Blackbox Log')).toBeInTheDocument();
+    expect(screen.queryByText('Test Flight Guide')).not.toBeInTheDocument();
   });
 
-  it('mode=pid shows pid flight guide on first step', () => {
+  it('mode=pid skips guide and starts at session step', () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(() => new Promise(() => {}));
     render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} />);
 
-    expect(screen.getByText('Roll Snaps')).toBeInTheDocument();
-    expect(screen.queryByText('Throttle Sweep')).not.toBeInTheDocument();
+    // Should show parsing (session step auto-triggers), not flight guide
+    expect(screen.getByText('Parsing Blackbox Log')).toBeInTheDocument();
+    expect(screen.queryByText('Test Flight Guide')).not.toBeInTheDocument();
   });
 
-  it('mode=filter WizardProgress hides PIDs step', () => {
+  it('mode=filter WizardProgress hides PIDs and Flight Guide steps', () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(() => new Promise(() => {}));
     render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
 
     const progressLabels = screen.getAllByText(/(Flight Guide|Session|Filters|PIDs|Summary)/);
     const labels = progressLabels.map((el) => el.textContent);
     expect(labels).toContain('Filters');
     expect(labels).not.toContain('PIDs');
+    expect(labels).not.toContain('Flight Guide');
   });
 
-  it('mode=pid WizardProgress hides Filters step', () => {
+  it('mode=pid WizardProgress hides Filters and Flight Guide steps', () => {
+    vi.mocked(window.betaflight.parseBlackboxLog).mockImplementation(() => new Promise(() => {}));
     render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} />);
 
     const progressLabels = screen.getAllByText(/(Flight Guide|Session|Filters|PIDs|Summary)/);
     const labels = progressLabels.map((el) => el.textContent);
     expect(labels).toContain('PIDs');
     expect(labels).not.toContain('Filters');
+    expect(labels).not.toContain('Flight Guide');
   });
 
   it('mode=filter skips from filter results directly to summary', async () => {
@@ -887,8 +912,7 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
 
-    await passGuide(user);
-
+    // Guide is skipped — auto-parse + auto-advance to filter step
     await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run Filter Analysis'));
 
@@ -918,8 +942,6 @@ describe('TuningWizard', () => {
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
-
-    await passGuide(user);
 
     await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run Filter Analysis'));
@@ -957,9 +979,7 @@ describe('TuningWizard', () => {
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" mode="pid" onExit={onExit} />);
 
-    await passGuide(user);
-
-    // pid mode auto-advances to pid step (single session)
+    // pid mode skips guide, auto-advances to pid step (single session)
     await waitFor(() => expect(screen.getByText('Run PID Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run PID Analysis'));
     await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
@@ -1005,7 +1025,6 @@ describe('TuningWizard', () => {
       />
     );
 
-    await passGuide(user);
     await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run Filter Analysis'));
     await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
@@ -1053,7 +1072,6 @@ describe('TuningWizard', () => {
       />
     );
 
-    await passGuide(user);
     await waitFor(() => expect(screen.getByText('Run PID Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run PID Analysis'));
     await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
@@ -1127,14 +1145,13 @@ describe('TuningWizard', () => {
     expect(screen.queryByText(/RPM Filter:/)).not.toBeInTheDocument();
   });
 
-  it('mode=filter summary hides PID recommendation section', async () => {
+  it('mode=filter summary hides PID recommendation section and PID pill', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
 
     const user = userEvent.setup();
     render(<TuningWizard logId="test-log-1" mode="filter" onExit={onExit} />);
 
-    await passGuide(user);
     await waitFor(() => expect(screen.getByText('Run Filter Analysis')).toBeInTheDocument());
     await user.click(screen.getByText('Run Filter Analysis'));
     await waitFor(() => expect(screen.getByText('Continue to Summary')).toBeInTheDocument());
@@ -1143,6 +1160,9 @@ describe('TuningWizard', () => {
     await waitFor(() => {
       expect(screen.getByText('Filter Recommendations')).toBeInTheDocument();
       expect(screen.queryByText('PID Recommendations')).not.toBeInTheDocument();
+      // Filter pill should be visible, PID pill should not
+      expect(screen.getByText('1 filter change')).toBeInTheDocument();
+      expect(screen.queryByText(/PID change/)).not.toBeInTheDocument();
     });
   });
 });
