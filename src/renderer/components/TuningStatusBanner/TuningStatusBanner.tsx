@@ -149,22 +149,31 @@ export function TuningStatusBanner({
     text = ui.text;
   }
 
-  const showErasedState = (flashErased || flashUsedSize === 0) && isFlightPending;
+  const showErasedState =
+    (flashErased || flashUsedSize === 0) && (isFlightPending || isVerification);
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
-  const activeStepIndex = showErasedState ? stepIndex + 1 : stepIndex;
+  const activeStepIndex = showErasedState && isFlightPending ? stepIndex + 1 : stepIndex;
 
   const showBBWarning = isFlightPending && !showErasedState && bbSettingsOk === false;
 
   const renderActions = () => {
-    // Flash erased state for flight pending phases
-    if (showErasedState && ui?.guideTip) {
+    // Flash erased state for flight pending / verification phases — show flight guide
+    if (showErasedState && (ui?.guideTip || isVerification)) {
+      const guideMode: TuningMode = ui?.guideTip ?? 'filter';
       return (
-        <button
-          className="wizard-btn wizard-btn-primary"
-          onClick={() => onViewGuide(ui!.guideTip!)}
-        >
-          View Flight Guide
-        </button>
+        <>
+          <button className="wizard-btn wizard-btn-primary" onClick={() => onViewGuide(guideMode)}>
+            View Flight Guide
+          </button>
+          {isVerification && (
+            <button
+              className="wizard-btn wizard-btn-secondary"
+              onClick={() => onAction('skip_verification')}
+            >
+              Skip & Complete
+            </button>
+          )}
+        </>
       );
     }
 
@@ -323,7 +332,9 @@ export function TuningStatusBanner({
         )}
         <p className="tuning-status-text">
           {showErasedState
-            ? `Flash erased! Disconnect your drone and fly the ${flightType} test flight.`
+            ? isVerification
+              ? 'Flash erased! Disconnect and fly a 30-60s hover to verify noise improvement.'
+              : `Flash erased! Disconnect your drone and fly the ${flightType} test flight.`
             : text}
         </p>
         <div className="tuning-status-actions">

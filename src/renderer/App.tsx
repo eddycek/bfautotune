@@ -222,9 +222,10 @@ function AppContent() {
           setErasing(true);
           await tuning.updatePhase('verification_pending');
           await window.betaflight.eraseBlackboxFlash();
+          setErasedForPhase('verification_pending');
           setFlashUsedSize(0);
           setBbRefreshKey((k) => k + 1);
-          toast.success('Flash erased! Disconnect and fly a 30-60s hover.');
+          toast.success('Flash erased!');
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to prepare verification');
         } finally {

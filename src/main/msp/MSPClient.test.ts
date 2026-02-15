@@ -1033,6 +1033,14 @@ describe('MSPClient.rebootPending', () => {
     client.clearRebootPending();
     expect(client.rebootPending).toBe(false);
   });
+
+  it('setRebootPending sets the flag', () => {
+    const { client } = createClientWithStub();
+
+    expect(client.rebootPending).toBe(false);
+    client.setRebootPending();
+    expect(client.rebootPending).toBe(true);
+  });
 });
 
 // ─── disconnect ──────────────────────────────────────────────────────

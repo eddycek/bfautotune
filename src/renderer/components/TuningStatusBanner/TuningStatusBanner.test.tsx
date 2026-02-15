@@ -376,4 +376,20 @@ describe('TuningStatusBanner', () => {
     expect(screen.queryByText(/Flash erased!/)).not.toBeInTheDocument();
     expect(screen.getByText('Open Filter Wizard')).toBeInTheDocument();
   });
+
+  it('shows erased state with flight guide for verification_pending after erase', () => {
+    renderBanner({ ...baseSession, phase: 'verification_pending' }, true);
+
+    expect(screen.getByText(/Flash erased! Disconnect and fly a 30-60s hover/)).toBeInTheDocument();
+    expect(screen.getByText('View Flight Guide')).toBeInTheDocument();
+    expect(screen.getByText('Skip & Complete')).toBeInTheDocument();
+    expect(screen.queryByText('Download Log')).not.toBeInTheDocument();
+  });
+
+  it('shows Download Log for verification_pending when flash has data (reconnect after flight)', () => {
+    renderBanner({ ...baseSession, phase: 'verification_pending' }, false, { flashUsedSize: 1000 });
+
+    expect(screen.getByText('Download Log')).toBeInTheDocument();
+    expect(screen.queryByText('View Flight Guide')).not.toBeInTheDocument();
+  });
 });

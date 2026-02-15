@@ -922,6 +922,14 @@ export class MSPClient extends EventEmitter {
   }
 
   /**
+   * Set reboot pending flag before a disconnect that will cause FC reboot.
+   * Prevents profile from being cleared during expected disconnect/reconnect.
+   */
+  setRebootPending(): void {
+    this._rebootPending = true;
+  }
+
+  /**
    * Clear reboot pending flag after FC reconnects from save reboot.
    */
   clearRebootPending(): void {
