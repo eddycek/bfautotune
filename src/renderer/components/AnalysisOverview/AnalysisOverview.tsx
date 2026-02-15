@@ -245,7 +245,11 @@ export function AnalysisOverview({ logId, logName, onExit }: AnalysisOverviewPro
               {overview.filterResult.warnings.map((w, i) => (
                 <div key={i} className={`analysis-warning analysis-warning--${w.severity}`}>
                   <span className="analysis-warning-icon">
-                    {w.severity === 'error' ? '\u274C' : '\u26A0\uFE0F'}
+                    {w.severity === 'error'
+                      ? '\u274C'
+                      : w.severity === 'info'
+                        ? '\u2139\uFE0F'
+                        : '\u26A0\uFE0F'}
                   </span>
                   <span>{w.message}</span>
                 </div>

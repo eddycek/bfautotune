@@ -56,7 +56,8 @@ export function validateBBLHeader(header: BBLLogHeader): AnalysisWarning[] {
       const nyquist = Math.round(loggingRateHz / 2);
       warnings.push({
         code: 'low_logging_rate',
-        message: `Logging rate is ${Math.round(loggingRateHz)} Hz (Nyquist: ${nyquist} Hz). ` +
+        message:
+          `Logging rate is ${Math.round(loggingRateHz)} Hz (Nyquist: ${nyquist} Hz). ` +
           `Motor noise (200–600 Hz) may not be visible. Recommended: 2 kHz or higher.`,
         severity: 'warning',
       });
@@ -73,10 +74,11 @@ export function validateBBLHeader(header: BBLLogHeader): AnalysisWarning[] {
       if (!isNaN(debugMode) && debugMode !== GYRO_SCALED_DEBUG_MODE) {
         warnings.push({
           code: 'wrong_debug_mode',
-          message: `Debug mode is not GYRO_SCALED (current: ${debugModeStr}). ` +
+          message:
+            `Debug mode is not GYRO_SCALED (current: ${debugModeStr}). ` +
             `FFT may analyze filtered gyro data instead of raw noise. ` +
             `Set debug_mode = GYRO_SCALED in Betaflight for best filter analysis results.`,
-          severity: 'info',
+          severity: 'warning',
         });
       }
     }
