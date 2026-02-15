@@ -171,22 +171,41 @@ async function initialize(): Promise<void> {
 
             // Create post-apply snapshot on first reconnect after tuning apply
             if (session.phase === 'filter_applied' || session.phase === 'pid_applied') {
-              const label =
-                session.phase === 'filter_applied' ? 'Post-filter (auto)' : 'Post-tuning (auto)';
-              logger.info(`Creating post-apply snapshot: ${label}`);
-              const snapshot = await snapshotManager.createSnapshot(label, 'auto');
-
-              // Save snapshot ID to tuning session for history tracking
               const snapshotField =
                 session.phase === 'filter_applied'
                   ? 'postFilterSnapshotId'
                   : 'postTuningSnapshotId';
-              const updated = await tuningSessionManager.updatePhase(
-                existingProfile.id,
-                session.phase, // same phase — just adding data
-                { [snapshotField]: snapshot.id }
-              );
-              sendTuningSessionChanged(updated);
+
+              // Dedup: skip if snapshot already created on a previous reconnect
+              const alreadyExists =
+                snapshotField === 'postFilterSnapshotId'
+                  ? session.postFilterSnapshotId
+                  : session.postTuningSnapshotId;
+
+              if (alreadyExists) {
+                logger.info(`Post-apply snapshot already exists (${snapshotField}), skipping`);
+              } else {
+                const label =
+                  session.phase === 'filter_applied' ? 'Post-filter (auto)' : 'Post-tuning (auto)';
+                logger.info(`Creating post-apply snapshot: ${label}`);
+                const snapshot = await snapshotManager.createSnapshot(label, 'auto');
+
+                // Save snapshot ID to tuning session for history tracking
+                const updated = await tuningSessionManager.updatePhase(
+                  existingProfile.id,
+                  session.phase, // same phase — just adding data
+                  { [snapshotField]: snapshot.id }
+                );
+                sendTuningSessionChanged(updated);
+
+                // Snapshot creation left FC in CLI mode (via exportCLIDiff).
+                // Only way to exit CLI is reboot — save+reboot to exit cleanly.
+                // FC will reconnect again; dedup guard prevents infinite loop.
+                logger.info('Saving and rebooting to exit CLI after post-apply snapshot');
+                await mspClient.saveAndReboot();
+                // Stop processing — FC is rebooting, will reconnect
+                return;
+              }
             }
           }
         } catch (err) {

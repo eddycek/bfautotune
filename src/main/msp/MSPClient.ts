@@ -34,9 +34,8 @@ export class MSPClient extends EventEmitter {
     super();
     this.connection = new MSPConnection();
 
-    this.connection.on('connected', () => {
-      this.emit('connected');
-    });
+    // 'connected' is emitted at the end of connect(), not here,
+    // to prevent race conditions with initialization.
 
     this.connection.on('disconnected', () => {
       this.connectionStatus = { connected: false };
@@ -156,6 +155,7 @@ export class MSPClient extends EventEmitter {
 
       logger.info('Connected to FC:', fcInfo);
       this.emit('connection-changed', this.connectionStatus);
+      this.emit('connected'); // After all init is complete — safe for handlers
     } catch (error) {
       this.connectionStatus = { connected: false };
       this.currentPort = null;
@@ -445,7 +445,9 @@ export class MSPClient extends EventEmitter {
   async saveAndReboot(): Promise<void> {
     try {
       this._rebootPending = true;
-      await this.connection.enterCLI();
+      if (!this.connection.isInCLI()) {
+        await this.connection.enterCLI();
+      }
       // Use writeCLIRaw instead of sendCLICommand because `save` causes
       // FC to reboot — the CLI prompt never comes back, so waiting for
       // it would always time out.

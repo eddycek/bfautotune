@@ -1001,6 +1001,17 @@ describe('MSPClient.saveAndReboot', () => {
     expect(client.rebootPending).toBe(true);
   });
 
+  it('skips enterCLI when already in CLI mode', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.isInCLI.mockReturnValue(true);
+
+    await client.saveAndReboot();
+
+    expect(mockConn.enterCLI).not.toHaveBeenCalled();
+    expect(mockConn.writeCLIRaw).toHaveBeenCalledWith('save');
+    expect(mockConn.clearFCRebootedFromCLI).toHaveBeenCalled();
+  });
+
   it('clears rebootPending on error', async () => {
     const { client, mockConn } = createClientWithStub();
     mockConn.enterCLI.mockRejectedValue(new Error('CLI entry failed'));
@@ -1193,6 +1204,28 @@ describe('MSPClient.connect', () => {
     mockConn.isOpen.mockReturnValue(true);
 
     await expect(client.connect('/dev/ttyUSB0')).rejects.toThrow('Already connected');
+  });
+
+  it('emits connected event only after initialization completes', async () => {
+    const { client, sendCommand, mockConn } = createClientWithStub();
+    mockConn.isOpen.mockReturnValue(false);
+    mockFCResponses(sendCommand);
+    (client as any).delay = vi.fn().mockResolvedValue(undefined);
+
+    const eventOrder: string[] = [];
+    client.on('connection-changed', () => eventOrder.push('connection-changed'));
+    client.on('connected', () => eventOrder.push('connected'));
+
+    // Verify that connection.open does NOT trigger 'connected' on the client
+    mockConn.open.mockImplementation(async () => {
+      // At this point, no 'connected' should have been emitted yet
+      expect(eventOrder).toEqual([]);
+    });
+
+    await client.connect('/dev/ttyUSB0');
+
+    // Both events should fire, connected AFTER connection-changed
+    expect(eventOrder).toEqual(['connection-changed', 'connected']);
   });
 
   it('rejects old firmware and closes port', async () => {
