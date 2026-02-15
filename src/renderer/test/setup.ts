@@ -13,8 +13,8 @@ vi.mock('../hooks/useToast', () => ({
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
-    warning: vi.fn()
-  }))
+    warning: vi.fn(),
+  })),
 }));
 
 // Mock window.betaflight API
@@ -92,8 +92,9 @@ global.window.betaflight = {
 
   // Tuning History
   getTuningHistory: vi.fn().mockResolvedValue([]),
+  updateVerificationMetrics: vi.fn(),
 
   // Events
   onError: vi.fn(() => () => {}),
-  onLog: vi.fn(() => () => {})
+  onLog: vi.fn(() => () => {}),
 };

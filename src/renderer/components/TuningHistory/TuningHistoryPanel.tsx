@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { CompletedTuningRecord, TuneQualityScore } from '@shared/types/tuning-history.types';
-import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
+import { computeTuneQualityScore, TIER_LABELS } from '@shared/utils/tuneQualityScore';
 import { TuningSessionDetail } from './TuningSessionDetail';
 import { QualityTrendChart } from './QualityTrendChart';
 import './TuningHistoryPanel.css';
@@ -75,7 +75,7 @@ export function TuningHistoryPanel({ history, loading }: TuningHistoryPanelProps
                 <div className="tuning-history-card-right">
                   {score && (
                     <span className={`quality-score-badge quality-score-${score.tier}`}>
-                      {score.overall}
+                      {score.overall} {TIER_LABELS[score.tier]}
                     </span>
                   )}
                   <span className={`tuning-history-card-chevron ${isExpanded ? 'open' : ''}`}>

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 15, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1740 tests, 92 files**
+**Last Updated:** February 15, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1753 tests, 93 files**
 
 ---
 
@@ -489,7 +489,7 @@ TuningSession {
 | Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
 | Blackbox (8) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log` | Flash ops + parsing |
 | Analysis (2) | `run_filter`, `run_pid` | FFT + step response analysis |
-| Tuning (6) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session`, `get_history` | Apply + session state + history |
+| Tuning (7) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session`, `get_history`, `update_verification` | Apply + session state + history + re-analyze verification |
 | PID (3) | `get_config`, `update_config`, `save_config` | MSP PID read/write |
 
 **14 Event types** (Main → Renderer):
@@ -803,7 +803,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1740 tests across 92 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1753 tests across 93 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|

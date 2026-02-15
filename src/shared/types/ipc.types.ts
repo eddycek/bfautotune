@@ -29,7 +29,7 @@ import type {
   PIDRecommendation,
 } from './analysis.types';
 import type { TuningSession, TuningPhase } from './tuning.types';
-import type { CompletedTuningRecord } from './tuning-history.types';
+import type { CompletedTuningRecord, FilterMetricsSummary } from './tuning-history.types';
 
 /** Progress during snapshot restore */
 export interface SnapshotRestoreProgress {
@@ -145,6 +145,7 @@ export enum IPCChannel {
   TUNING_UPDATE_PHASE = 'tuning:update-phase',
   TUNING_RESET_SESSION = 'tuning:reset-session',
   TUNING_GET_HISTORY = 'tuning:get-history',
+  TUNING_UPDATE_VERIFICATION = 'tuning:update-verification',
 
   // Events (main -> renderer)
   EVENT_CONNECTION_CHANGED = 'event:connection-changed',
@@ -251,6 +252,7 @@ export interface BetaflightAPI {
 
   // Tuning History
   getTuningHistory(): Promise<CompletedTuningRecord[]>;
+  updateVerificationMetrics(verificationMetrics: FilterMetricsSummary): Promise<TuningSession>;
 
   // Events
   onError(callback: (error: string) => void): () => void;

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import type { TuningSession } from '@shared/types/tuning.types';
-import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
+import { computeTuneQualityScore, TIER_LABELS } from '@shared/utils/tuneQualityScore';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
 import { AppliedChangesTable } from './AppliedChangesTable';
 import './TuningCompletionSummary.css';
@@ -9,6 +9,7 @@ interface TuningCompletionSummaryProps {
   session: TuningSession;
   onDismiss: () => void;
   onStartNew: () => void;
+  onReanalyzeVerification?: () => void;
 }
 
 function formatDate(iso: string): string {
@@ -40,6 +41,7 @@ export function TuningCompletionSummary({
   session,
   onDismiss,
   onStartNew,
+  onReanalyzeVerification,
 }: TuningCompletionSummaryProps) {
   const hasVerification = !!session.verificationMetrics && !!session.filterMetrics;
   const filterChanges = session.appliedFilterChanges ?? [];
@@ -62,7 +64,7 @@ export function TuningCompletionSummary({
             {'\u2705'} Tuning Complete
             {score && (
               <span className={`quality-score-badge quality-score-${score.tier}`}>
-                {score.overall}
+                {score.overall} {TIER_LABELS[score.tier]}
               </span>
             )}
           </h3>
@@ -79,7 +81,17 @@ export function TuningCompletionSummary({
       </div>
 
       {hasVerification && session.filterMetrics && session.verificationMetrics && (
-        <NoiseComparisonChart before={session.filterMetrics} after={session.verificationMetrics} />
+        <>
+          <NoiseComparisonChart
+            before={session.filterMetrics}
+            after={session.verificationMetrics}
+          />
+          {onReanalyzeVerification && session.verificationLogId && (
+            <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
+              Re-analyze with different session
+            </button>
+          )}
+        </>
       )}
 
       {!hasVerification && session.filterMetrics && (

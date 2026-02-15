@@ -12,6 +12,7 @@ import { TuningWorkflowModal } from './components/TuningWorkflowModal/TuningWork
 import { TuningStatusBanner } from './components/TuningStatusBanner/TuningStatusBanner';
 import { TuningCompletionSummary } from './components/TuningHistory/TuningCompletionSummary';
 import { TuningHistoryPanel } from './components/TuningHistory/TuningHistoryPanel';
+import { VerificationSessionModal } from './components/TuningHistory/VerificationSessionModal';
 import { FixSettingsConfirmModal } from './components/FCInfo/FixSettingsConfirmModal';
 import { computeBBSettingsStatus } from './utils/bbSettingsUtils';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -53,6 +54,8 @@ function AppContent() {
   const [fcVersion, setFcVersion] = useState('');
   const [analyzingVerification, setAnalyzingVerification] = useState(false);
   const [bbRefreshKey, setBbRefreshKey] = useState(0);
+  const [verificationPickerLogId, setVerificationPickerLogId] = useState<string | null>(null);
+  const [isReanalyze, setIsReanalyze] = useState(false);
   const { createProfile, createProfileFromPreset, updateProfile, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const tuningHistory = useTuningHistory();
@@ -246,17 +249,8 @@ function AppContent() {
           toast.info('Download a verification log first');
           break;
         }
-        try {
-          setAnalyzingVerification(true);
-          const filterResult = await window.betaflight.analyzeFilters(verLogId);
-          const verificationMetrics = extractFilterMetrics(filterResult);
-          await tuning.updatePhase('completed', { verificationMetrics });
-          setErasedForPhase(null);
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : 'Failed to analyze verification');
-        } finally {
-          setAnalyzingVerification(false);
-        }
+        setIsReanalyze(false);
+        setVerificationPickerLogId(verLogId);
         break;
       }
       case 'dismiss':
@@ -290,6 +284,38 @@ function AppContent() {
         pidMetrics: changes.pidMetrics,
       });
     }
+  };
+
+  const handleVerificationAnalyze = async (sessionIndex: number) => {
+    const verLogId = verificationPickerLogId;
+    setVerificationPickerLogId(null);
+    if (!verLogId) return;
+
+    try {
+      setAnalyzingVerification(true);
+      const filterResult = await window.betaflight.analyzeFilters(verLogId, sessionIndex);
+      const verificationMetrics = extractFilterMetrics(filterResult);
+
+      if (isReanalyze) {
+        // Re-analyze — update session + history without duplicate archive
+        await window.betaflight.updateVerificationMetrics(verificationMetrics);
+      } else {
+        // First-time — transition to completed (archives session)
+        await tuning.updatePhase('completed', { verificationMetrics });
+      }
+      setErasedForPhase(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to analyze verification');
+    } finally {
+      setAnalyzingVerification(false);
+    }
+  };
+
+  const handleReanalyzeVerification = () => {
+    const verLogId = tuning.session?.verificationLogId;
+    if (!verLogId) return;
+    setIsReanalyze(true);
+    setVerificationPickerLogId(verLogId);
   };
 
   const bbStatus = computeBBSettingsStatus(bbSettings, fcVersion);
@@ -377,6 +403,7 @@ function AppContent() {
                   session={tuning.session}
                   onDismiss={() => handleTuningAction('dismiss')}
                   onStartNew={() => handleTuningAction('start_new_cycle')}
+                  onReanalyzeVerification={handleReanalyzeVerification}
                 />
               )}
             {isConnected &&
@@ -464,6 +491,14 @@ function AppContent() {
           commands={bbStatus.fixCommands}
           onConfirm={handleBannerFixSettings}
           onCancel={() => setShowBannerFixConfirm(false)}
+        />
+      )}
+
+      {verificationPickerLogId && (
+        <VerificationSessionModal
+          logId={verificationPickerLogId}
+          onAnalyze={handleVerificationAnalyze}
+          onCancel={() => setVerificationPickerLogId(null)}
         />
       )}
 
