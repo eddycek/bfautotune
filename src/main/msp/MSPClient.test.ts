@@ -27,17 +27,34 @@ vi.mock('../utils/logger', () => ({
 
 vi.mock('../utils/errors', () => ({
   ConnectionError: class extends Error {
-    constructor(m: string, public details?: any) { super(m); this.name = 'ConnectionError'; }
+    constructor(
+      m: string,
+      public details?: any
+    ) {
+      super(m);
+      this.name = 'ConnectionError';
+    }
   },
   MSPError: class extends Error {
-    constructor(m: string) { super(m); this.name = 'MSPError'; }
+    constructor(m: string) {
+      super(m);
+      this.name = 'MSPError';
+    }
   },
   TimeoutError: class extends Error {
-    constructor(m = 'Operation timed out') { super(m); this.name = 'TimeoutError'; }
+    constructor(m = 'Operation timed out') {
+      super(m);
+      this.name = 'TimeoutError';
+    }
   },
   UnsupportedVersionError: class extends Error {
-    constructor(m: string, public detectedVersion?: string, public detectedApi?: any) {
-      super(m); this.name = 'UnsupportedVersionError';
+    constructor(
+      m: string,
+      public detectedVersion?: string,
+      public detectedApi?: any
+    ) {
+      super(m);
+      this.name = 'UnsupportedVersionError';
     }
   },
 }));
@@ -55,14 +72,14 @@ describe('MSPClient.extractFlashPayload', () => {
   it('strips 7-byte header (BF 4.1+ with compression flag)', () => {
     // [4B addr=0][2B size=5][1B comp=0][5 bytes data]
     const buf = Buffer.alloc(12);
-    buf.writeUInt32LE(0, 0);    // address
-    buf.writeUInt16LE(5, 4);    // dataSize = 5
-    buf[6] = 0;                 // isCompressed = false
+    buf.writeUInt32LE(0, 0); // address
+    buf.writeUInt16LE(5, 4); // dataSize = 5
+    buf[6] = 0; // isCompressed = false
     buf[7] = 0x48; // 'H'
     buf[8] = 0x20; // ' '
     buf[9] = 0x50; // 'P'
     buf[10] = 0x72; // 'r'
-    buf[11] = 0x6F; // 'o'
+    buf[11] = 0x6f; // 'o'
 
     const result = MSPClient.extractFlashPayload(buf);
     expect(result.length).toBe(5);
@@ -91,13 +108,13 @@ describe('MSPClient.extractFlashPayload', () => {
     buf.writeUInt32LE(100, 0);
     buf.writeUInt16LE(3, 4);
     buf[6] = 1; // isCompressed = true
-    buf[7] = 0xAA;
-    buf[8] = 0xBB;
-    buf[9] = 0xCC;
+    buf[7] = 0xaa;
+    buf[8] = 0xbb;
+    buf[9] = 0xcc;
 
     const result = MSPClient.extractFlashPayload(buf);
     expect(result.length).toBe(3);
-    expect(result[0]).toBe(0xAA);
+    expect(result[0]).toBe(0xaa);
   });
 
   it('returns raw data for buffers shorter than 6 bytes', () => {
@@ -109,7 +126,7 @@ describe('MSPClient.extractFlashPayload', () => {
   it('correctly strips header for typical 180-byte chunk', () => {
     // Simulates a real download chunk: 7-byte header + 180 bytes flash data
     const flashData = Buffer.alloc(180);
-    for (let i = 0; i < 180; i++) flashData[i] = i & 0xFF;
+    for (let i = 0; i < 180; i++) flashData[i] = i & 0xff;
 
     const response = Buffer.alloc(187);
     response.writeUInt32LE(0, 0);
@@ -148,13 +165,13 @@ describe('MSPClient.getFilterConfiguration', () => {
     // 44: U8  rpm_notch_min_hz    45: U16 dyn_notch_max
     const buf = Buffer.alloc(47, 0);
     buf.writeUInt16LE(250, 20); // gyro_lpf1_static_hz
-    buf.writeUInt16LE(150, 1);  // dterm_lpf1_static_hz
+    buf.writeUInt16LE(150, 1); // dterm_lpf1_static_hz
     buf.writeUInt16LE(500, 22); // gyro_lpf2_static_hz
     buf.writeUInt16LE(150, 26); // dterm_lpf2_static_hz
     buf.writeUInt16LE(300, 39); // dyn_notch_q
     buf.writeUInt16LE(100, 41); // dyn_notch_min_hz
-    buf.writeUInt8(3, 43);      // rpm_filter_harmonics
-    buf.writeUInt8(100, 44);    // rpm_filter_min_hz
+    buf.writeUInt8(3, 43); // rpm_filter_harmonics
+    buf.writeUInt8(100, 44); // rpm_filter_min_hz
     buf.writeUInt16LE(600, 45); // dyn_notch_max_hz
 
     mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_FILTER_CONFIG, data: buf });
@@ -206,15 +223,15 @@ describe('MSPClient.getFilterConfiguration', () => {
   it('reads dyn_notch_count from extended response (byte 47+)', async () => {
     const buf = Buffer.alloc(48, 0);
     buf.writeUInt16LE(250, 20); // gyro_lpf1_static_hz
-    buf.writeUInt16LE(150, 1);  // dterm_lpf1_static_hz
+    buf.writeUInt16LE(150, 1); // dterm_lpf1_static_hz
     buf.writeUInt16LE(500, 22); // gyro_lpf2_static_hz
     buf.writeUInt16LE(150, 26); // dterm_lpf2_static_hz
     buf.writeUInt16LE(300, 39); // dyn_notch_q
     buf.writeUInt16LE(100, 41); // dyn_notch_min_hz
-    buf.writeUInt8(3, 43);      // rpm_filter_harmonics
-    buf.writeUInt8(100, 44);    // rpm_filter_min_hz
+    buf.writeUInt8(3, 43); // rpm_filter_harmonics
+    buf.writeUInt8(100, 44); // rpm_filter_min_hz
     buf.writeUInt16LE(600, 45); // dyn_notch_max_hz
-    buf.writeUInt8(1, 47);      // dyn_notch_count
+    buf.writeUInt8(1, 47); // dyn_notch_count
 
     mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_FILTER_CONFIG, data: buf });
 
@@ -254,14 +271,14 @@ describe('MSPClient.getFeedforwardConfiguration', () => {
   it('parses valid MSP_PID_ADVANCED response into FeedforwardConfiguration', async () => {
     // Build a 45-byte response buffer matching BF 4.3+ layout
     const buf = Buffer.alloc(45, 0);
-    buf.writeUInt8(50, 8);         // feedforwardTransition
-    buf.writeUInt16LE(120, 24);    // feedforwardRoll
-    buf.writeUInt16LE(120, 26);    // feedforwardPitch
-    buf.writeUInt16LE(80, 28);     // feedforwardYaw
-    buf.writeUInt8(37, 41);        // feedforwardSmoothFactor
-    buf.writeUInt8(15, 42);        // feedforwardBoost
-    buf.writeUInt8(100, 43);       // feedforwardMaxRateLimit
-    buf.writeUInt8(7, 44);         // feedforwardJitterFactor
+    buf.writeUInt8(50, 8); // feedforwardTransition
+    buf.writeUInt16LE(120, 24); // feedforwardRoll
+    buf.writeUInt16LE(120, 26); // feedforwardPitch
+    buf.writeUInt16LE(80, 28); // feedforwardYaw
+    buf.writeUInt8(37, 41); // feedforwardSmoothFactor
+    buf.writeUInt8(15, 42); // feedforwardBoost
+    buf.writeUInt8(100, 43); // feedforwardMaxRateLimit
+    buf.writeUInt8(7, 44); // feedforwardJitterFactor
 
     mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_PID_ADVANCED, data: buf });
 
@@ -317,8 +334,8 @@ describe('getPidProcessDenom', () => {
 
   it('reads pid_process_denom from byte 1 of MSP_ADVANCED_CONFIG', async () => {
     const buf = Buffer.alloc(8, 0);
-    buf.writeUInt8(1, 0);  // gyro_sync_denom
-    buf.writeUInt8(2, 1);  // pid_process_denom
+    buf.writeUInt8(1, 0); // gyro_sync_denom
+    buf.writeUInt8(2, 1); // pid_process_denom
     mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_ADVANCED_CONFIG, data: buf });
 
     const result = await client.getPidProcessDenom();
@@ -329,8 +346,8 @@ describe('getPidProcessDenom', () => {
 
   it('returns 1 for default pid_process_denom', async () => {
     const buf = Buffer.alloc(8, 0);
-    buf.writeUInt8(1, 0);  // gyro_sync_denom
-    buf.writeUInt8(1, 1);  // pid_process_denom = 1 (8kHz PID)
+    buf.writeUInt8(1, 0); // gyro_sync_denom
+    buf.writeUInt8(1, 1); // pid_process_denom = 1 (8kHz PID)
     mockSendCommand.mockResolvedValue({ command: MSPCommand.MSP_ADVANCED_CONFIG, data: buf });
 
     const result = await client.getPidProcessDenom();
@@ -532,7 +549,10 @@ describe('MSPClient.getFCInfo', () => {
         case MSPCommand.MSP_FC_VERSION:
           return { command: cmd, data: buildFCVersionData(4, 5, 1) };
         case MSPCommand.MSP_BOARD_INFO:
-          return { command: cmd, data: buildBoardInfoData({ targetName: 'STM32F7X2', boardName: 'SPEEDYBEEF7V3' }) };
+          return {
+            command: cmd,
+            data: buildBoardInfoData({ targetName: 'STM32F7X2', boardName: 'SPEEDYBEEF7V3' }),
+          };
         default:
           throw new Error(`Unexpected command: ${cmd}`);
       }
@@ -582,7 +602,11 @@ describe('MSPClient.getPIDConfiguration', () => {
 describe('MSPClient.setPIDConfiguration', () => {
   it('sends correct 30-byte buffer with P/I/D values', async () => {
     const { client, sendCommand } = createClientWithStub();
-    sendCommand.mockResolvedValue({ command: MSPCommand.MSP_SET_PID, data: Buffer.alloc(0), error: false });
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_SET_PID,
+      data: Buffer.alloc(0),
+      error: false,
+    });
 
     await client.setPIDConfiguration({
       roll: { P: 45, I: 67, D: 23 },
@@ -599,31 +623,39 @@ describe('MSPClient.setPIDConfiguration', () => {
     expect(sentBuf[3]).toBe(50); // pitch P
     expect(sentBuf[6]).toBe(35); // yaw P
     expect(sentBuf[7]).toBe(90); // yaw I
-    expect(sentBuf[8]).toBe(0);  // yaw D
+    expect(sentBuf[8]).toBe(0); // yaw D
   });
 
   it('throws on error response from FC', async () => {
     const { client, sendCommand } = createClientWithStub();
-    sendCommand.mockResolvedValue({ command: MSPCommand.MSP_SET_PID, data: Buffer.alloc(0), error: true });
+    sendCommand.mockResolvedValue({
+      command: MSPCommand.MSP_SET_PID,
+      data: Buffer.alloc(0),
+      error: true,
+    });
 
-    await expect(client.setPIDConfiguration({
-      roll: { P: 45, I: 67, D: 23 },
-      pitch: { P: 50, I: 72, D: 25 },
-      yaw: { P: 35, I: 90, D: 0 },
-    })).rejects.toThrow('Failed to set PID configuration');
+    await expect(
+      client.setPIDConfiguration({
+        roll: { P: 45, I: 67, D: 23 },
+        pitch: { P: 50, I: 72, D: 25 },
+        yaw: { P: 35, I: 90, D: 0 },
+      })
+    ).rejects.toThrow('Failed to set PID configuration');
   });
 });
 
 // ─── getBlackboxInfo ─────────────────────────────────────────────────
 
 /** Build MSP_SDCARD_SUMMARY response (11 bytes) */
-function buildSDCardSummaryData(opts: {
-  supported?: boolean;
-  state?: number;
-  lastError?: number;
-  freeSizeKB?: number;
-  totalSizeKB?: number;
-} = {}): Buffer {
+function buildSDCardSummaryData(
+  opts: {
+    supported?: boolean;
+    state?: number;
+    lastError?: number;
+    freeSizeKB?: number;
+    totalSizeKB?: number;
+  } = {}
+): Buffer {
   const buf = Buffer.alloc(11, 0);
   buf.writeUInt8(opts.supported !== false ? 0x01 : 0x00, 0);
   buf.writeUInt8(opts.state ?? 4, 1); // 4 = READY
@@ -950,7 +982,45 @@ describe('MSPClient.saveAndReboot', () => {
     expect(mockConn.enterCLI).toHaveBeenCalled();
     expect(mockConn.writeCLIRaw).toHaveBeenCalledWith('save');
     expect(mockConn.clearFCRebootedFromCLI).toHaveBeenCalled();
-    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+    expect(emitSpy).toHaveBeenCalledWith(
+      'connection-changed',
+      expect.objectContaining({ connected: false })
+    );
+  });
+
+  it('sets rebootPending before save', async () => {
+    const { client, mockConn } = createClientWithStub();
+    let flagDuringSave = false;
+    mockConn.enterCLI.mockImplementation(async () => {
+      flagDuringSave = client.rebootPending;
+    });
+
+    await client.saveAndReboot();
+
+    expect(flagDuringSave).toBe(true);
+    expect(client.rebootPending).toBe(true);
+  });
+
+  it('clears rebootPending on error', async () => {
+    const { client, mockConn } = createClientWithStub();
+    mockConn.enterCLI.mockRejectedValue(new Error('CLI entry failed'));
+
+    await expect(client.saveAndReboot()).rejects.toThrow('CLI entry failed');
+    expect(client.rebootPending).toBe(false);
+  });
+});
+
+// ─── rebootPending flag ──────────────────────────────────────────────
+
+describe('MSPClient.rebootPending', () => {
+  it('clearRebootPending clears the flag', async () => {
+    const { client } = createClientWithStub();
+
+    await client.saveAndReboot();
+    expect(client.rebootPending).toBe(true);
+
+    client.clearRebootPending();
+    expect(client.rebootPending).toBe(false);
   });
 });
 
@@ -964,7 +1034,10 @@ describe('MSPClient.disconnect', () => {
     await client.disconnect();
 
     expect(mockConn.close).toHaveBeenCalled();
-    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+    expect(emitSpy).toHaveBeenCalledWith(
+      'connection-changed',
+      expect.objectContaining({ connected: false })
+    );
   });
 
   it('handles already-closed port gracefully', async () => {
@@ -975,7 +1048,10 @@ describe('MSPClient.disconnect', () => {
     await client.disconnect();
 
     expect(mockConn.close).not.toHaveBeenCalled();
-    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+    expect(emitSpy).toHaveBeenCalledWith(
+      'connection-changed',
+      expect.objectContaining({ connected: false })
+    );
   });
 
   it('emits disconnected even if close() throws', async () => {
@@ -984,7 +1060,10 @@ describe('MSPClient.disconnect', () => {
     const emitSpy = vi.spyOn(client, 'emit');
 
     await expect(client.disconnect()).rejects.toThrow('Close failed');
-    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({ connected: false }));
+    expect(emitSpy).toHaveBeenCalledWith(
+      'connection-changed',
+      expect.objectContaining({ connected: false })
+    );
   });
 });
 
@@ -1078,7 +1157,10 @@ describe('MSPClient.connect', () => {
         case MSPCommand.MSP_FC_VERSION:
           return { command: cmd, data: buildFCVersionData(4, 5, 1) };
         case MSPCommand.MSP_BOARD_INFO:
-          return { command: cmd, data: buildBoardInfoData({ targetName: 'STM32F7X2', boardName: 'SPEEDYBEEF7V3' }) };
+          return {
+            command: cmd,
+            data: buildBoardInfoData({ targetName: 'STM32F7X2', boardName: 'SPEEDYBEEF7V3' }),
+          };
         default:
           return { command: cmd, data: Buffer.alloc(0) };
       }
@@ -1096,10 +1178,13 @@ describe('MSPClient.connect', () => {
     await client.connect('/dev/ttyUSB0');
 
     expect(mockConn.open).toHaveBeenCalledWith('/dev/ttyUSB0', 115200);
-    expect(emitSpy).toHaveBeenCalledWith('connection-changed', expect.objectContaining({
-      connected: true,
-      portPath: '/dev/ttyUSB0',
-    }));
+    expect(emitSpy).toHaveBeenCalledWith(
+      'connection-changed',
+      expect.objectContaining({
+        connected: true,
+        portPath: '/dev/ttyUSB0',
+      })
+    );
   });
 
   it('throws when already connected', async () => {

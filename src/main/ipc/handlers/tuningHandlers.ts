@@ -72,15 +72,33 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
 
         sendProgress({ stage: 'pid', message: `Applied ${appliedPIDs} PID changes`, percent: 20 });
 
-        // Stage 2: Enter CLI mode for filter changes (no MSP after this)
-        // Safety snapshot is NOT created here — Pre-tuning (auto) from Start Tuning covers rollback.
+        // Stage 2: Create pre-apply snapshot if requested (enters CLI via exportCLIDiff)
+        let snapshotId: string | undefined;
+        if (input.createSnapshot && snapshotManager) {
+          try {
+            sendProgress({
+              stage: 'snapshot',
+              message: 'Creating pre-apply snapshot...',
+              percent: 25,
+            });
+            const snapshot = await snapshotManager.createSnapshot('Pre-apply (auto)', 'auto');
+            snapshotId = snapshot.id;
+            logger.info(`Pre-apply snapshot created: ${snapshotId}`);
+          } catch (e) {
+            logger.warn('Could not create pre-apply snapshot (non-fatal):', e);
+          }
+        }
 
         // Stage 3: Apply filter recommendations via CLI
         let appliedFilters = 0;
         const needsCLI = input.filterRecommendations.length > 0 || ffRecs.length > 0;
         if (needsCLI) {
-          sendProgress({ stage: 'filter', message: 'Entering CLI mode...', percent: 50 });
-          await mspClient.connection.enterCLI();
+          // createSnapshot() enters CLI via exportCLIDiff() and does NOT exit,
+          // so we may already be in CLI mode — only enter if not already there.
+          if (!mspClient.connection.isInCLI()) {
+            sendProgress({ stage: 'filter', message: 'Entering CLI mode...', percent: 50 });
+            await mspClient.connection.enterCLI();
+          }
         }
 
         if (input.filterRecommendations.length > 0) {
@@ -137,6 +155,7 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
 
         const result: ApplyRecommendationsResult = {
           success: true,
+          snapshotId,
           appliedPIDs,
           appliedFilters,
           appliedFeedforward,

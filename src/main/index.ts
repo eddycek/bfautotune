@@ -7,7 +7,20 @@ import { ProfileManager } from './storage/ProfileManager';
 import { BlackboxManager } from './storage/BlackboxManager';
 import { TuningSessionManager } from './storage/TuningSessionManager';
 import { TuningHistoryManager } from './storage/TuningHistoryManager';
-import { registerIPCHandlers, setMSPClient, setSnapshotManager, setProfileManager, setBlackboxManager, setTuningSessionManager, setTuningHistoryManager, sendConnectionChanged, sendProfileChanged, sendNewFCDetected, sendTuningSessionChanged, consumePendingSettingsSnapshot } from './ipc/handlers';
+import {
+  registerIPCHandlers,
+  setMSPClient,
+  setSnapshotManager,
+  setProfileManager,
+  setBlackboxManager,
+  setTuningSessionManager,
+  setTuningHistoryManager,
+  sendConnectionChanged,
+  sendProfileChanged,
+  sendNewFCDetected,
+  sendTuningSessionChanged,
+  consumePendingSettingsSnapshot,
+} from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
 
@@ -118,39 +131,56 @@ async function initialize(): Promise<void> {
           mspClient.clearMSCMode();
         }
 
+        // Clear reboot pending flag if it was set (FC reconnected after save reboot)
+        if (mspClient.rebootPending) {
+          logger.info('FC reconnected after save reboot — clearing rebootPending flag');
+          mspClient.clearRebootPending();
+        }
+
         // Smart reconnect: check tuning session state
         try {
           const session = await tuningSessionManager.getSession(existingProfile.id);
           if (session) {
             // Auto-transition from *_flight_pending → *_log_ready if flash has data
-            if (session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending') {
+            if (
+              session.phase === 'filter_flight_pending' ||
+              session.phase === 'pid_flight_pending'
+            ) {
               const bbInfo = await mspClient.getBlackboxInfo();
 
               // For flash: usedSize > 0 means logs exist
               // For SD card: usedSize is always > 0 (filesystem overhead),
               // so we skip auto-transition for SD card — user confirms via UI
               if (bbInfo.storageType === 'flash' && bbInfo.hasLogs && bbInfo.usedSize > 0) {
-                const nextPhase = session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
-                logger.info(`Smart reconnect: flash has data, transitioning ${session.phase} → ${nextPhase}`);
-                const updated = await tuningSessionManager.updatePhase(existingProfile.id, nextPhase);
+                const nextPhase =
+                  session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
+                logger.info(
+                  `Smart reconnect: flash has data, transitioning ${session.phase} → ${nextPhase}`
+                );
+                const updated = await tuningSessionManager.updatePhase(
+                  existingProfile.id,
+                  nextPhase
+                );
                 sendTuningSessionChanged(updated);
               } else if (bbInfo.storageType === 'sdcard') {
-                logger.info('Smart reconnect: SD card detected — skipping auto-transition (user must confirm)');
+                logger.info(
+                  'Smart reconnect: SD card detected — skipping auto-transition (user must confirm)'
+                );
               }
             }
 
             // Create post-apply snapshot on first reconnect after tuning apply
             if (session.phase === 'filter_applied' || session.phase === 'pid_applied') {
-              const label = session.phase === 'filter_applied'
-                ? 'Post-filter (auto)'
-                : 'Post-tuning (auto)';
+              const label =
+                session.phase === 'filter_applied' ? 'Post-filter (auto)' : 'Post-tuning (auto)';
               logger.info(`Creating post-apply snapshot: ${label}`);
               const snapshot = await snapshotManager.createSnapshot(label, 'auto');
 
               // Save snapshot ID to tuning session for history tracking
-              const snapshotField = session.phase === 'filter_applied'
-                ? 'postFilterSnapshotId'
-                : 'postTuningSnapshotId';
+              const snapshotField =
+                session.phase === 'filter_applied'
+                  ? 'postFilterSnapshotId'
+                  : 'postTuningSnapshotId';
               const updated = await tuningSessionManager.updatePhase(
                 existingProfile.id,
                 session.phase, // same phase — just adding data
@@ -182,9 +212,11 @@ async function initialize(): Promise<void> {
   mspClient.on('disconnected', () => {
     const window = getMainWindow();
 
-    // If FC is in MSC mode, this disconnect is expected — don't clear profile
-    if (mspClient.mscModeActive) {
-      logger.info('FC disconnected (MSC mode active — expected, keeping profile)');
+    // If FC is in MSC mode or rebooting after save, this disconnect is expected — don't clear profile
+    if (mspClient.mscModeActive || mspClient.rebootPending) {
+      logger.info(
+        `FC disconnected (${mspClient.mscModeActive ? 'MSC mode' : 'reboot pending'} — expected, keeping profile)`
+      );
       // Still notify renderer that FC is disconnected (UI needs to reflect this)
       if (window) {
         sendConnectionChanged(window, { connected: false });
