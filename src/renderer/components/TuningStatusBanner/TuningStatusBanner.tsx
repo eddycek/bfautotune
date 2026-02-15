@@ -154,8 +154,9 @@ export function TuningStatusBanner({
     text = ui.text;
   }
 
+  const flashHasData = flashUsedSize != null && flashUsedSize > 0;
   const showErasedState =
-    (flashErased || flashUsedSize === 0) && (isFlightPending || isVerification);
+    !flashHasData && (flashErased || flashUsedSize === 0) && (isFlightPending || isVerification);
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
   const activeStepIndex = showErasedState && isFlightPending ? stepIndex + 1 : stepIndex;
 
