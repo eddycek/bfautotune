@@ -27,7 +27,7 @@ describe('BlackboxStatus', () => {
     usedSize: 8 * 1024 * 1024, // 8 MB
     hasLogs: true,
     freeSize: 8 * 1024 * 1024, // 8 MB
-    usagePercent: 50
+    usagePercent: 50,
   };
 
   const mockBlackboxInfoEmpty: BlackboxInfo = {
@@ -37,7 +37,7 @@ describe('BlackboxStatus', () => {
     usedSize: 0,
     hasLogs: false,
     freeSize: 16 * 1024 * 1024,
-    usagePercent: 0
+    usagePercent: 0,
   };
 
   const mockBlackboxInfoNotSupported: BlackboxInfo = {
@@ -47,7 +47,7 @@ describe('BlackboxStatus', () => {
     usedSize: 0,
     hasLogs: false,
     freeSize: 0,
-    usagePercent: 0
+    usagePercent: 0,
   };
 
   const mockSDCardInfo: BlackboxInfo = {
@@ -57,7 +57,7 @@ describe('BlackboxStatus', () => {
     usedSize: 28 * 1024 * 1024 * 1024, // 28 GB
     hasLogs: true,
     freeSize: 4 * 1024 * 1024 * 1024, // 4 GB
-    usagePercent: 87
+    usagePercent: 87,
   };
 
   const mockSDCardNotReady: BlackboxInfo = {
@@ -67,7 +67,7 @@ describe('BlackboxStatus', () => {
     usedSize: 0,
     hasLogs: false,
     freeSize: 0,
-    usagePercent: 0
+    usagePercent: 0,
   };
 
   beforeEach(() => {
@@ -145,7 +145,7 @@ describe('BlackboxStatus', () => {
       usedSize: 64 * 1024 * 1024, // 64 MB
       hasLogs: true,
       freeSize: 64 * 1024 * 1024,
-      usagePercent: 50
+      usagePercent: 50,
     };
 
     vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(largeStorageInfo);
@@ -164,7 +164,7 @@ describe('BlackboxStatus', () => {
       ...mockBlackboxInfoSupported,
       usedSize: 4 * 1024 * 1024, // 4 MB
       freeSize: 12 * 1024 * 1024, // 12 MB
-      usagePercent: 25
+      usagePercent: 25,
     };
 
     vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(lowUsageInfo);
@@ -182,7 +182,7 @@ describe('BlackboxStatus', () => {
       ...mockBlackboxInfoSupported,
       usedSize: 14 * 1024 * 1024, // 14 MB
       freeSize: 2 * 1024 * 1024, // 2 MB
-      usagePercent: 87
+      usagePercent: 87,
     };
 
     vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(highUsageInfo);
@@ -366,6 +366,44 @@ describe('BlackboxStatus', () => {
       await user.click(screen.getByText('Analyze'));
 
       expect(onAnalyze).toHaveBeenCalledWith('log-1', 'blackbox_2026-02-09.bbl');
+    });
+  });
+
+  describe('refreshKey', () => {
+    it('re-fetches blackbox info when refreshKey changes', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+      const { rerender } = render(<BlackboxStatus refreshKey={0} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('50%')).toBeInTheDocument();
+      });
+
+      expect(window.betaflight.getBlackboxInfo).toHaveBeenCalledTimes(1);
+
+      // After erase, parent increments refreshKey
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoEmpty);
+      rerender(<BlackboxStatus refreshKey={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('No logs recorded yet')).toBeInTheDocument();
+      });
+
+      expect(window.betaflight.getBlackboxInfo).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not re-fetch when refreshKey stays the same', async () => {
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+      const { rerender } = render(<BlackboxStatus refreshKey={0} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('50%')).toBeInTheDocument();
+      });
+
+      rerender(<BlackboxStatus refreshKey={0} />);
+
+      expect(window.betaflight.getBlackboxInfo).toHaveBeenCalledTimes(1);
     });
   });
 
