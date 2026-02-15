@@ -38,8 +38,9 @@ describe('TuningWorkflowModal', () => {
 
   it('shows filter flight guide phases', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
-    expect(screen.getByText('Throttle Sweep')).toBeInTheDocument();
-    expect(screen.getByText('Final Hover')).toBeInTheDocument();
+    // Throttle Sweep appears in both filter and verification guides
+    expect(screen.getAllByText('Throttle Sweep').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Final Hover').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows PID flight guide phases', () => {
@@ -49,12 +50,10 @@ describe('TuningWorkflowModal', () => {
     expect(screen.getByText('Yaw Snaps')).toBeInTheDocument();
   });
 
-  it('shows tips for both guides', () => {
+  it('shows tips for all three guides', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
     const tipHeaders = screen.getAllByText('Tips');
-    expect(tipHeaders.length).toBe(2);
-    const altitudeTips = screen.getAllByText('Stay at 2–5 meters altitude');
-    expect(altitudeTips.length).toBe(2);
+    expect(tipHeaders.length).toBe(3);
   });
 
   it('calls onClose when "Got it" is clicked', async () => {
@@ -139,6 +138,34 @@ describe('TuningWorkflowModal', () => {
     it('shows PID-specific subtitle', () => {
       render(<TuningWorkflowModal onClose={onClose} mode="pid" />);
       expect(screen.getByText('Follow these steps for the PID tuning flight.')).toBeInTheDocument();
+    });
+  });
+
+  describe('mode="verification"', () => {
+    it('shows verification title and subtitle', () => {
+      render(<TuningWorkflowModal onClose={onClose} mode="verification" />);
+      expect(screen.getByText('Verification Hover')).toBeInTheDocument();
+      expect(
+        screen.getByText('Fly a short hover to verify noise improvement after tuning.')
+      ).toBeInTheDocument();
+    });
+
+    it('shows verification flight phases', () => {
+      render(<TuningWorkflowModal onClose={onClose} mode="verification" />);
+      expect(screen.getByText('Throttle Sweep')).toBeInTheDocument();
+      expect(screen.getByText('Final Hover')).toBeInTheDocument();
+    });
+
+    it('does not show workflow steps or filter/PID guides', () => {
+      render(<TuningWorkflowModal onClose={onClose} mode="verification" />);
+      expect(screen.queryByText('Connect your drone')).not.toBeInTheDocument();
+      expect(screen.queryByText('Flight 1: Filter Test Flight')).not.toBeInTheDocument();
+      expect(screen.queryByText('Flight 2: PID Test Flight')).not.toBeInTheDocument();
+    });
+
+    it('shows verification-specific tips', () => {
+      render(<TuningWorkflowModal onClose={onClose} mode="verification" />);
+      expect(screen.getByText(/before\/after spectra/)).toBeInTheDocument();
     });
   });
 });

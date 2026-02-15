@@ -1,6 +1,6 @@
 import React from 'react';
 import { TUNING_WORKFLOW } from '@shared/constants/flightGuide';
-import type { TuningMode } from '@shared/types/tuning.types';
+import type { FlightGuideMode } from '@shared/types/tuning.types';
 import { useConnection } from '../../hooks/useConnection';
 import { FlightGuideContent } from '../TuningWizard/FlightGuideContent';
 import '../../components/ProfileWizard.css';
@@ -22,16 +22,17 @@ function isGyroScaledNotNeeded(version?: string): boolean {
 
 interface TuningWorkflowModalProps {
   onClose: () => void;
-  mode?: TuningMode; // 'filter' | 'pid' — undefined = show all
+  mode?: FlightGuideMode; // 'filter' | 'pid' | 'verification' — undefined = show all
 }
 
-function getSubtitle(mode?: TuningMode): string {
+function getSubtitle(mode?: FlightGuideMode): string {
   if (mode === 'filter') return 'Follow these steps for the filter tuning flight.';
   if (mode === 'pid') return 'Follow these steps for the PID tuning flight.';
+  if (mode === 'verification') return 'Fly a short hover to verify noise improvement after tuning.';
   return 'Follow this workflow each time you tune. Repeat until your quad feels dialed in.';
 }
 
-function getWorkflowSteps(mode?: TuningMode) {
+function getWorkflowSteps(mode?: FlightGuideMode) {
   if (mode === 'filter') {
     // Steps 0–5: Connect → Analyze & apply filters
     return TUNING_WORKFLOW.slice(0, 6);
@@ -39,6 +40,9 @@ function getWorkflowSteps(mode?: TuningMode) {
   if (mode === 'pid') {
     // Steps 6–8: Erase again → Analyze & apply PIDs
     return TUNING_WORKFLOW.slice(6, 9);
+  }
+  if (mode === 'verification') {
+    return [];
   }
   return TUNING_WORKFLOW;
 }
@@ -51,27 +55,35 @@ export function TuningWorkflowModal({ onClose, mode }: TuningWorkflowModalProps)
   const showFilter = mode === undefined || mode === 'filter';
   const showPid = mode === undefined || mode === 'pid';
   const showVerification = mode === undefined;
+  const isVerificationMode = mode === 'verification';
+
+  const title = isVerificationMode ? 'Verification Hover' : 'How to Prepare Blackbox Data';
+
   return (
     <div className="profile-wizard-overlay" onClick={onClose}>
       <div className="profile-wizard-modal" onClick={(e) => e.stopPropagation()}>
         <div className="profile-wizard-header">
-          <h2>How to Prepare Blackbox Data</h2>
+          <h2>{title}</h2>
           <p>{getSubtitle(mode)}</p>
         </div>
 
-        <div className="workflow-steps">
-          {steps.map((step, i) => (
-            <div key={i} className="workflow-step">
-              <div className="workflow-step-number">{i + 1}</div>
-              <div className="workflow-step-content">
-                <div className="workflow-step-title">{step.title}</div>
-                <div className="workflow-step-desc">
-                  {filterWorkflowDescription(step.description, hideGyroScaled)}
+        {steps.length > 0 && (
+          <div className="workflow-steps">
+            {steps.map((step, i) => (
+              <div key={i} className="workflow-step">
+                <div className="workflow-step-number">{i + 1}</div>
+                <div className="workflow-step-content">
+                  <div className="workflow-step-title">{step.title}</div>
+                  <div className="workflow-step-desc">
+                    {filterWorkflowDescription(step.description, hideGyroScaled)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {isVerificationMode && <FlightGuideContent mode="verification" fcVersion={fcVersion} />}
 
         {showFilter && (
           <>
@@ -93,13 +105,7 @@ export function TuningWorkflowModal({ onClose, mode }: TuningWorkflowModalProps)
           <>
             <hr className="workflow-divider" />
             <h3 className="workflow-subheading">Optional: Verification Hover</h3>
-            <p className="workflow-step-desc">
-              After applying PIDs, erase flash and fly a 30–60 second hover with gentle throttle
-              sweeps — the same type of flight as the filter test. Reconnect, download the log, and
-              click Analyze. The app runs filter analysis on the new log and overlays the
-              before/after noise spectra so you can see the improvement at a glance. This step is
-              optional — skip it if the quad already feels good.
-            </p>
+            <FlightGuideContent mode="verification" fcVersion={fcVersion} />
           </>
         )}
 

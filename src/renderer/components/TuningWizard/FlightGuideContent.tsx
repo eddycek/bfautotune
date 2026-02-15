@@ -1,5 +1,5 @@
 import React from 'react';
-import type { TuningMode } from '@shared/types/tuning.types';
+import type { FlightGuideMode } from '@shared/types/tuning.types';
 import {
   FLIGHT_PHASES,
   FLIGHT_TIPS,
@@ -7,12 +7,14 @@ import {
   FILTER_FLIGHT_TIPS,
   PID_FLIGHT_PHASES,
   PID_FLIGHT_TIPS,
+  VERIFICATION_FLIGHT_PHASES,
+  VERIFICATION_FLIGHT_TIPS,
 } from '@shared/constants/flightGuide';
 import { PhaseIllustration } from './PhaseIllustration';
 import './FlightGuideContent.css';
 
 interface FlightGuideContentProps {
-  mode?: TuningMode;
+  mode?: FlightGuideMode;
   /** Connected FC version string (e.g. '4.5.1'). When provided, version-specific tips are filtered. */
   fcVersion?: string;
 }
@@ -25,13 +27,37 @@ function shouldHideGyroScaledTip(version?: string): boolean {
   return parseInt(match[1]) > 4 || (parseInt(match[1]) === 4 && parseInt(match[2]) >= 6);
 }
 
+function getPhasesForMode(mode: FlightGuideMode) {
+  switch (mode) {
+    case 'filter':
+      return FILTER_FLIGHT_PHASES;
+    case 'pid':
+      return PID_FLIGHT_PHASES;
+    case 'verification':
+      return VERIFICATION_FLIGHT_PHASES;
+    default:
+      return FLIGHT_PHASES;
+  }
+}
+
+function getTipsForMode(mode: FlightGuideMode) {
+  switch (mode) {
+    case 'filter':
+      return FILTER_FLIGHT_TIPS;
+    case 'pid':
+      return PID_FLIGHT_TIPS;
+    case 'verification':
+      return VERIFICATION_FLIGHT_TIPS;
+    default:
+      return FLIGHT_TIPS;
+  }
+}
+
 export function FlightGuideContent({ mode = 'full', fcVersion }: FlightGuideContentProps) {
-  const phases =
-    mode === 'filter' ? FILTER_FLIGHT_PHASES : mode === 'pid' ? PID_FLIGHT_PHASES : FLIGHT_PHASES;
+  const phases = getPhasesForMode(mode);
 
   const hideGyroTip = shouldHideGyroScaledTip(fcVersion);
-  const allTips =
-    mode === 'filter' ? FILTER_FLIGHT_TIPS : mode === 'pid' ? PID_FLIGHT_TIPS : FLIGHT_TIPS;
+  const allTips = getTipsForMode(mode);
   const tips = hideGyroTip ? allTips.filter((t) => !t.includes('GYRO_SCALED')) : allTips;
 
   return (
