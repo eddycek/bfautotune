@@ -2,7 +2,14 @@ import { EventEmitter } from 'events';
 import { SerialPort } from 'serialport';
 import { MSPConnection } from './MSPConnection';
 import { MSPCommand, CLI_COMMANDS } from './commands';
-import type { PortInfo, ApiVersionInfo, BoardInfo, FCInfo, Configuration, ConnectionStatus } from '@shared/types/common.types';
+import type {
+  PortInfo,
+  ApiVersionInfo,
+  BoardInfo,
+  FCInfo,
+  Configuration,
+  ConnectionStatus,
+} from '@shared/types/common.types';
 import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { BlackboxInfo, SDCardInfo } from '@shared/types/blackbox.types';
@@ -18,6 +25,8 @@ export class MSPClient extends EventEmitter {
   private currentPort: string | null = null;
   /** True when FC is in MSC mode — suppresses normal disconnect handling */
   private _mscModeActive: boolean = false;
+  /** True when FC is rebooting after save — suppresses normal disconnect handling */
+  private _rebootPending: boolean = false;
   /** Cached storage type from last getBlackboxInfo() call */
   private _lastStorageType: 'flash' | 'sdcard' | 'none' = 'none';
 
@@ -44,6 +53,10 @@ export class MSPClient extends EventEmitter {
     return this._mscModeActive;
   }
 
+  get rebootPending(): boolean {
+    return this._rebootPending;
+  }
+
   get lastStorageType(): 'flash' | 'sdcard' | 'none' {
     return this._lastStorageType;
   }
@@ -54,25 +67,25 @@ export class MSPClient extends EventEmitter {
       logger.info(`Found ${ports.length} serial ports:`, ports);
 
       // Filter for likely Betaflight devices
-      const filtered = ports.filter(port => {
+      const filtered = ports.filter((port) => {
         if (!port.vendorId) return false;
         const vid = `0x${port.vendorId}`;
-        return BETAFLIGHT.VENDOR_IDS.some(id => id.toLowerCase() === vid.toLowerCase());
+        return BETAFLIGHT.VENDOR_IDS.some((id) => id.toLowerCase() === vid.toLowerCase());
       });
 
       logger.info(`Filtered to ${filtered.length} Betaflight-compatible ports`);
 
       // If no filtered ports, return all ports with vendorId
-      const result = filtered.length > 0 ? filtered : ports.filter(p => p.vendorId);
+      const result = filtered.length > 0 ? filtered : ports.filter((p) => p.vendorId);
 
-      return result.map(port => ({
+      return result.map((port) => ({
         path: port.path,
         manufacturer: port.manufacturer,
         serialNumber: port.serialNumber,
         pnpId: port.pnpId,
         locationId: port.locationId,
         productId: port.productId,
-        vendorId: port.vendorId
+        vendorId: port.vendorId,
       }));
     } catch (error) {
       logger.error('Failed to list ports:', error);
@@ -117,7 +130,10 @@ export class MSPClient extends EventEmitter {
             await this.connection.close();
             this.connectionStatus = { connected: false };
             this.currentPort = null;
-            throw new ConnectionError('FC not responding to MSP commands. Please disconnect and reconnect the FC.', error);
+            throw new ConnectionError(
+              'FC not responding to MSP commands. Please disconnect and reconnect the FC.',
+              error
+            );
           }
 
           // Retry - try to reset FC state
@@ -135,7 +151,7 @@ export class MSPClient extends EventEmitter {
       this.connectionStatus = {
         connected: true,
         portPath,
-        fcInfo
+        fcInfo,
       };
 
       logger.info('Connected to FC:', fcInfo);
@@ -164,7 +180,7 @@ export class MSPClient extends EventEmitter {
 
       // Wait a bit for the port to fully release
       // This prevents "FC not responding" errors when reconnecting immediately
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       this.connectionStatus = { connected: false };
       this.currentPort = null;
@@ -201,8 +217,10 @@ export class MSPClient extends EventEmitter {
     const { major, minor } = apiVersion;
     const { MIN_API_VERSION, MIN_VERSION } = BETAFLIGHT;
 
-    if (major < MIN_API_VERSION.major ||
-        (major === MIN_API_VERSION.major && minor < MIN_API_VERSION.minor)) {
+    if (
+      major < MIN_API_VERSION.major ||
+      (major === MIN_API_VERSION.major && minor < MIN_API_VERSION.minor)
+    ) {
       // Close the port before throwing — we don't want to leave it open
       this.connection.close().catch(() => {});
       this.connectionStatus = { connected: false };
@@ -210,8 +228,8 @@ export class MSPClient extends EventEmitter {
 
       throw new UnsupportedVersionError(
         `Betaflight ${version} (API ${major}.${minor}) is not supported. ` +
-        `Minimum required: Betaflight ${MIN_VERSION} (API ${MIN_API_VERSION.major}.${MIN_API_VERSION.minor}). ` +
-        `Please update your firmware.`,
+          `Minimum required: Betaflight ${MIN_VERSION} (API ${MIN_API_VERSION.major}.${MIN_API_VERSION.minor}). ` +
+          `Please update your firmware.`,
         version,
         { major, minor }
       );
@@ -238,7 +256,7 @@ export class MSPClient extends EventEmitter {
     return {
       protocol: response.data[0],
       major: response.data[1],
-      minor: response.data[2]
+      minor: response.data[2],
     };
   }
 
@@ -336,7 +354,7 @@ export class MSPClient extends EventEmitter {
       manufacturerId,
       signature,
       mcuTypeId,
-      configurationState
+      configurationState,
     };
   }
 
@@ -349,7 +367,7 @@ export class MSPClient extends EventEmitter {
 
     // Convert UID bytes to hex string
     const uid = Array.from(response.data.slice(0, 12))
-      .map(byte => byte.toString(16).padStart(2, '0').toUpperCase())
+      .map((byte) => byte.toString(16).padStart(2, '0').toUpperCase())
       .join('');
 
     return uid;
@@ -360,7 +378,7 @@ export class MSPClient extends EventEmitter {
       this.getApiVersion(),
       this.getFCVariant(),
       this.getFCVersion(),
-      this.getBoardInfo()
+      this.getBoardInfo(),
     ]);
 
     return {
@@ -368,7 +386,7 @@ export class MSPClient extends EventEmitter {
       version,
       target: boardInfo.targetName,
       boardName: boardInfo.boardName,
-      apiVersion
+      apiVersion,
     };
   }
 
@@ -426,6 +444,7 @@ export class MSPClient extends EventEmitter {
 
   async saveAndReboot(): Promise<void> {
     try {
+      this._rebootPending = true;
       await this.connection.enterCLI();
       // Use writeCLIRaw instead of sendCLICommand because `save` causes
       // FC to reboot — the CLI prompt never comes back, so waiting for
@@ -435,10 +454,11 @@ export class MSPClient extends EventEmitter {
       // Clear flag so close() doesn't send redundant 'exit'.
       this.connection.clearFCRebootedFromCLI();
       // Give FC a moment to process the save command before we update state
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       this.connectionStatus = { connected: false };
       this.emit('connection-changed', this.connectionStatus);
     } catch (error) {
+      this._rebootPending = false;
       logger.error('Failed to save and reboot:', error);
       throw error;
     }
@@ -461,18 +481,18 @@ export class MSPClient extends EventEmitter {
       roll: {
         P: response.data[0],
         I: response.data[1],
-        D: response.data[2]
+        D: response.data[2],
       },
       pitch: {
         P: response.data[3],
         I: response.data[4],
-        D: response.data[5]
+        D: response.data[5],
       },
       yaw: {
         P: response.data[6],
         I: response.data[7],
-        D: response.data[8]
-      }
+        D: response.data[8],
+      },
     };
 
     logger.info('PID configuration read:', config);
@@ -683,7 +703,14 @@ export class MSPClient extends EventEmitter {
 
       const supported = (flags & 0x01) !== 0;
 
-      logger.debug('SD card parsed:', { flags, state, lastError, freeSizeKB, totalSizeKB, supported });
+      logger.debug('SD card parsed:', {
+        flags,
+        state,
+        lastError,
+        freeSizeKB,
+        totalSizeKB,
+        supported,
+      });
 
       return { supported, state, lastError, freeSizeKB, totalSizeKB };
     } catch (error) {
@@ -708,7 +735,7 @@ export class MSPClient extends EventEmitter {
       usedSize: 0,
       hasLogs: false,
       freeSize: 0,
-      usagePercent: 0
+      usagePercent: 0,
     };
 
     // --- Try dataflash first ---
@@ -739,7 +766,7 @@ export class MSPClient extends EventEmitter {
             usedSize,
             hasLogs: usedSize > 0,
             freeSize,
-            usagePercent
+            usagePercent,
           };
 
           this._lastStorageType = 'sdcard';
@@ -748,7 +775,9 @@ export class MSPClient extends EventEmitter {
         }
 
         // SD card supported but not ready
-        logger.warn(`SD card supported but not ready (state=${sdInfo.state}, error=${sdInfo.lastError})`);
+        logger.warn(
+          `SD card supported but not ready (state=${sdInfo.state}, error=${sdInfo.lastError})`
+        );
         this._lastStorageType = 'sdcard';
         return {
           supported: true,
@@ -757,7 +786,7 @@ export class MSPClient extends EventEmitter {
           usedSize: 0,
           hasLogs: false,
           freeSize: 0,
-          usagePercent: 0
+          usagePercent: 0,
         };
       }
     } catch (error) {
@@ -780,7 +809,7 @@ export class MSPClient extends EventEmitter {
       usedSize: 0,
       hasLogs: false,
       freeSize: 0,
-      usagePercent: 0
+      usagePercent: 0,
     };
 
     const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_SUMMARY);
@@ -788,7 +817,7 @@ export class MSPClient extends EventEmitter {
     logger.debug('Blackbox response:', {
       error: response.error,
       dataLength: response.data.length,
-      dataHex: response.data.toString('hex')
+      dataHex: response.data.toString('hex'),
     });
 
     if (response.error || response.data.length < 13) {
@@ -833,7 +862,7 @@ export class MSPClient extends EventEmitter {
       usedSize,
       hasLogs,
       freeSize,
-      usagePercent
+      usagePercent,
     };
 
     logger.info('Blackbox info:', info);
@@ -857,7 +886,9 @@ export class MSPClient extends EventEmitter {
     const payload = Buffer.alloc(1);
     payload.writeUInt8(rebootType, 0);
 
-    logger.info(`Sending MSP_REBOOT with type=${rebootType} (MSC${rebootType === 3 ? '_UTC' : ''})`);
+    logger.info(
+      `Sending MSP_REBOOT with type=${rebootType} (MSC${rebootType === 3 ? '_UTC' : ''})`
+    );
 
     // Set flag BEFORE sending — FC reboots immediately and may disconnect
     // before we can process a response. The disconnect handler checks this
@@ -889,6 +920,13 @@ export class MSPClient extends EventEmitter {
   }
 
   /**
+   * Clear reboot pending flag after FC reconnects from save reboot.
+   */
+  clearRebootPending(): void {
+    this._rebootPending = false;
+  }
+
+  /**
    * Test if FC supports MSP_DATAFLASH_READ by attempting minimal read
    * @returns Object with success status and diagnostic info
    */
@@ -908,14 +946,20 @@ export class MSPClient extends EventEmitter {
       logger.debug(`Test request hex: ${request.toString('hex')}`);
 
       // Short timeout for test (5 seconds)
-      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 5000);
+      const response = await this.connection.sendCommand(
+        MSPCommand.MSP_DATAFLASH_READ,
+        request,
+        5000
+      );
 
-      logger.info(`Test SUCCESS! Received ${response.data.length} bytes: ${response.data.toString('hex')}`);
+      logger.info(
+        `Test SUCCESS! Received ${response.data.length} bytes: ${response.data.toString('hex')}`
+      );
 
       return {
         success: true,
         message: `FC responded with ${response.data.length} bytes`,
-        data: response.data.toString('hex')
+        data: response.data.toString('hex'),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -923,7 +967,7 @@ export class MSPClient extends EventEmitter {
 
       return {
         success: false,
-        message: `Test failed: ${message}`
+        message: `Test failed: ${message}`,
       };
     }
   }
@@ -957,14 +1001,20 @@ export class MSPClient extends EventEmitter {
       request.writeUInt16LE(size, 4);
 
       // Use 5 second timeout - fail fast so adaptive chunking can adjust quickly
-      const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_READ, request, 5000);
+      const response = await this.connection.sendCommand(
+        MSPCommand.MSP_DATAFLASH_READ,
+        request,
+        5000
+      );
 
       // Strip MSP_DATAFLASH_READ response header to return only flash data.
       // Without this, downloadBlackboxLog would use chunk.length (which includes
       // the header) as the flash address offset, skipping bytes on every read.
       return MSPClient.extractFlashPayload(response.data);
     } catch (error) {
-      logger.error(`Failed to read Blackbox chunk at ${address}: ${error instanceof Error ? error.message : error}`);
+      logger.error(
+        `Failed to read Blackbox chunk at ${address}: ${error instanceof Error ? error.message : error}`
+      );
       throw error;
     }
   }
@@ -991,7 +1041,9 @@ export class MSPClient extends EventEmitter {
     if (responseData.length === 7 + dataSize && responseData.length >= 7) {
       const isCompressed = responseData[6];
       if (isCompressed) {
-        logger.warn('Compressed dataflash response detected — compression not yet supported, data may be corrupted');
+        logger.warn(
+          'Compressed dataflash response detected — compression not yet supported, data may be corrupted'
+        );
       }
       return responseData.subarray(7, 7 + dataSize);
     }
@@ -1001,7 +1053,9 @@ export class MSPClient extends EventEmitter {
     }
 
     // Unknown format — return everything after minimum 6-byte header
-    logger.warn(`Unexpected dataflash response size: ${responseData.length} bytes, expected ${6 + dataSize} or ${7 + dataSize}`);
+    logger.warn(
+      `Unexpected dataflash response size: ${responseData.length} bytes, expected ${6 + dataSize} or ${7 + dataSize}`
+    );
     return responseData.subarray(6);
   }
 
@@ -1046,7 +1100,9 @@ export class MSPClient extends EventEmitter {
 
           // Guard against 0-byte responses (FC returned empty data) — would cause infinite loop
           if (chunk.length === 0) {
-            logger.warn(`FC returned 0 bytes at address ${bytesRead}, skipping ${requestSize} bytes`);
+            logger.warn(
+              `FC returned 0 bytes at address ${bytesRead}, skipping ${requestSize} bytes`
+            );
             bytesRead += requestSize;
             continue;
           }
@@ -1071,12 +1127,14 @@ export class MSPClient extends EventEmitter {
 
             // Log only at 5% intervals to reduce overhead
             if (progress % 5 === 0 && progress > 0) {
-              logger.info(`Downloaded ${bytesRead}/${info.usedSize} bytes (${progress}%) - chunk size: ${currentChunkSize}B`);
+              logger.info(
+                `Downloaded ${bytesRead}/${info.usedSize} bytes (${progress}%) - chunk size: ${currentChunkSize}B`
+              );
             }
           }
 
           // Tiny delay to keep FC stable
-          await new Promise(resolve => setTimeout(resolve, 5));
+          await new Promise((resolve) => setTimeout(resolve, 5));
         } catch (error) {
           // Chunk failed - reduce size and retry with recovery delay
           consecutiveFailures++;
@@ -1084,17 +1142,21 @@ export class MSPClient extends EventEmitter {
 
           if (consecutiveFailures > 5) {
             // Too many failures, abort
-            logger.error(`Too many consecutive failures (${consecutiveFailures}) at chunk size ${currentChunkSize}, aborting`);
+            logger.error(
+              `Too many consecutive failures (${consecutiveFailures}) at chunk size ${currentChunkSize}, aborting`
+            );
             throw error;
           }
 
           // Reduce chunk size more conservatively
           const newSize = Math.max(Math.floor(currentChunkSize * 0.8), minChunkSize);
-          logger.warn(`Chunk failed at size ${currentChunkSize} (failure ${consecutiveFailures}/5), reducing to ${newSize} bytes and retrying`);
+          logger.warn(
+            `Chunk failed at size ${currentChunkSize} (failure ${consecutiveFailures}/5), reducing to ${newSize} bytes and retrying`
+          );
           currentChunkSize = newSize;
 
           // Give FC time to recover after timeout (critical!)
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
           // Don't increment bytesRead - retry same address
           continue;
@@ -1102,7 +1164,9 @@ export class MSPClient extends EventEmitter {
       }
 
       const fullLog = Buffer.concat(chunks);
-      logger.info(`Blackbox download complete: ${fullLog.length} bytes (final chunk size: ${currentChunkSize}B)`);
+      logger.info(
+        `Blackbox download complete: ${fullLog.length} bytes (final chunk size: ${currentChunkSize}B)`
+      );
 
       return fullLog;
     } catch (error) {
@@ -1127,7 +1191,11 @@ export class MSPClient extends EventEmitter {
       // others block until done (can take 30-60s). We catch timeout and
       // poll MSP_DATAFLASH_SUMMARY to confirm erase completion.
       try {
-        const response = await this.connection.sendCommand(MSPCommand.MSP_DATAFLASH_ERASE, Buffer.alloc(0), 5000);
+        const response = await this.connection.sendCommand(
+          MSPCommand.MSP_DATAFLASH_ERASE,
+          Buffer.alloc(0),
+          5000
+        );
         if (response.error) {
           throw new MSPError('FC rejected erase command');
         }
@@ -1146,7 +1214,7 @@ export class MSPClient extends EventEmitter {
       const start = Date.now();
 
       while (Date.now() - start < MAX_POLL_TIME) {
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
 
         if (!this.isConnected()) {
           throw new ConnectionError('FC disconnected during erase');
@@ -1176,7 +1244,7 @@ export class MSPClient extends EventEmitter {
     // Remove CLI prompt characters and clean up
     return output
       .split('\n')
-      .filter(line => {
+      .filter((line) => {
         const trimmed = line.trim();
         return trimmed.length > 0 && !trimmed.startsWith('#') && trimmed !== '#';
       })
@@ -1185,6 +1253,6 @@ export class MSPClient extends EventEmitter {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

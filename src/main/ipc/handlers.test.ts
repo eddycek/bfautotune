@@ -131,16 +131,14 @@ function createMockMSPClient(connected = true) {
     getFeedforwardConfiguration: vi
       .fn()
       .mockResolvedValue({ feedforwardTransition: 0, feedforwardAveraging: 0 }),
-    getBlackboxInfo: vi
-      .fn()
-      .mockResolvedValue({
-        supported: true,
-        totalSize: 2048000,
-        usedSize: 1024000,
-        hasLogs: true,
-        freeSize: 1024000,
-        usagePercent: 50,
-      }),
+    getBlackboxInfo: vi.fn().mockResolvedValue({
+      supported: true,
+      totalSize: 2048000,
+      usedSize: 1024000,
+      hasLogs: true,
+      freeSize: 1024000,
+      usagePercent: 50,
+    }),
     downloadBlackboxLog: vi.fn().mockResolvedValue(Buffer.from('fake-log-data')),
     eraseBlackboxFlash: vi.fn().mockResolvedValue(undefined),
     testBlackboxRead: vi.fn().mockResolvedValue({ success: true, message: 'OK' }),
@@ -151,6 +149,7 @@ function createMockMSPClient(connected = true) {
     connection: {
       enterCLI: vi.fn().mockResolvedValue(undefined),
       sendCLICommand: vi.fn().mockResolvedValue(''),
+      isInCLI: vi.fn().mockReturnValue(false),
     },
   };
 }
@@ -1174,11 +1173,15 @@ describe('IPC Handlers', () => {
       createSnapshot: true,
     };
 
-    it('applies PID via MSP then filters via CLI in correct order', async () => {
+    it('applies PID via MSP then snapshot then filters via CLI in correct order', async () => {
       const { event } = createMockEvent();
       const callOrder: string[] = [];
       mockMSP.setPIDConfiguration.mockImplementation(async () => {
         callOrder.push('setPID');
+      });
+      mockSnapshotMgr.createSnapshot.mockImplementation(async () => {
+        callOrder.push('snapshot');
+        return { id: 'snap-new', label: 'Pre-apply (auto)', type: 'auto' as const };
       });
       mockMSP.connection.enterCLI.mockImplementation(async () => {
         callOrder.push('enterCLI');
@@ -1194,8 +1197,8 @@ describe('IPC Handlers', () => {
       const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
       expect(res.success).toBe(true);
 
-      // Order: PID via MSP → CLI → save (no snapshot creation in Apply)
-      expect(callOrder).toEqual(['setPID', 'enterCLI', 'sendCLI', 'save']);
+      // Order: PID via MSP → snapshot → CLI → save
+      expect(callOrder).toEqual(['setPID', 'snapshot', 'enterCLI', 'sendCLI', 'save']);
     });
 
     it('clamps PID values to 0-255', async () => {
@@ -1274,6 +1277,43 @@ describe('IPC Handlers', () => {
       const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, input);
       expect(res.success).toBe(true);
       expect(res.data.snapshotId).toBeUndefined();
+      expect(mockSnapshotMgr.createSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('creates pre-apply snapshot when createSnapshot is true', async () => {
+      const { event } = createMockEvent();
+      const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
+      expect(res.success).toBe(true);
+      expect(res.data.snapshotId).toBe('snap-new');
+      expect(mockSnapshotMgr.createSnapshot).toHaveBeenCalledWith('Pre-apply (auto)', 'auto');
+    });
+
+    it('continues if snapshot creation fails', async () => {
+      mockSnapshotMgr.createSnapshot.mockRejectedValue(new Error('CLI export failed'));
+      const { event } = createMockEvent();
+      const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
+      expect(res.success).toBe(true);
+      expect(res.data.snapshotId).toBeUndefined();
+      expect(res.data.appliedFilters).toBe(1);
+    });
+
+    it('skips enterCLI when already in CLI from snapshot creation', async () => {
+      // After snapshot creation, FC is left in CLI mode
+      mockMSP.connection.isInCLI.mockReturnValue(true);
+      const { event } = createMockEvent();
+      const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
+      expect(res.success).toBe(true);
+      expect(mockMSP.connection.enterCLI).not.toHaveBeenCalled();
+    });
+
+    it('reports snapshot progress stage', async () => {
+      const { event } = createMockEvent();
+      await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
+      const progressCalls = event.sender.send.mock.calls.filter(
+        (c: any[]) => c[0] === IPCChannel.EVENT_TUNING_APPLY_PROGRESS
+      );
+      const stages = progressCalls.map((c: any[]) => c[1].stage);
+      expect(stages).toContain('snapshot');
     });
 
     it('applies feedforward recommendations via CLI', async () => {

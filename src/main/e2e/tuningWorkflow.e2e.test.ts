@@ -108,9 +108,11 @@ import type { PIDConfiguration } from '@shared/types/pid.types';
 function createMockMSPClient(connected = true) {
   return {
     isConnected: vi.fn().mockReturnValue(connected),
-    listPorts: vi.fn().mockResolvedValue([
-      { path: '/dev/ttyUSB0', manufacturer: 'STM', vendorId: '0483', productId: '5740' },
-    ]),
+    listPorts: vi
+      .fn()
+      .mockResolvedValue([
+        { path: '/dev/ttyUSB0', manufacturer: 'STM', vendorId: '0483', productId: '5740' },
+      ]),
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn().mockResolvedValue(undefined),
     getConnectionStatus: vi.fn().mockReturnValue({ connected: true, port: '/dev/ttyUSB0' }),
@@ -151,10 +153,12 @@ function createMockMSPClient(connected = true) {
       device: 'FLASH',
       hasLogs: false,
     }),
-    exportCLIDiff: vi.fn().mockResolvedValue(
-      'set gyro_lpf1_static_hz = 250\nset dterm_lpf1_static_hz = 150\n' +
-        'set debug_mode = GYRO_SCALED\nset blackbox_sample_rate = 1'
-    ),
+    exportCLIDiff: vi
+      .fn()
+      .mockResolvedValue(
+        'set gyro_lpf1_static_hz = 250\nset dterm_lpf1_static_hz = 150\n' +
+          'set debug_mode = GYRO_SCALED\nset blackbox_sample_rate = 1'
+      ),
     downloadBlackboxLog: vi.fn(),
     eraseBlackboxFlash: vi.fn().mockResolvedValue(undefined),
     saveAndReboot: vi.fn().mockResolvedValue(undefined),
@@ -165,6 +169,7 @@ function createMockMSPClient(connected = true) {
       sendCLICommand: vi.fn().mockResolvedValue(''),
       exitCLI: vi.fn(),
       clearFCRebootedFromCLI: vi.fn(),
+      isInCLI: vi.fn().mockReturnValue(false),
     },
   };
 }
@@ -233,7 +238,10 @@ describe('E2E Tuning Workflow', () => {
     registeredHandlers.clear();
 
     // Create unique temp directory for each test
-    tempBase = join(tmpdir(), `bfautotune-e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    tempBase = join(
+      tmpdir(),
+      `bfautotune-e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
     await fs.mkdir(tempBase, { recursive: true });
 
     const profilesDir = join(tempBase, 'profiles');
@@ -667,8 +675,16 @@ describe('E2E Tuning Workflow', () => {
             index: 0,
             header: { rawHeaders: new Map() },
             flightData: {
-              gyro: { roll: new Float64Array(100), pitch: new Float64Array(100), yaw: new Float64Array(100) },
-              setpoint: { roll: new Float64Array(100), pitch: new Float64Array(100), yaw: new Float64Array(100) },
+              gyro: {
+                roll: new Float64Array(100),
+                pitch: new Float64Array(100),
+                yaw: new Float64Array(100),
+              },
+              setpoint: {
+                roll: new Float64Array(100),
+                pitch: new Float64Array(100),
+                yaw: new Float64Array(100),
+              },
               timeUs: new Float64Array(100),
             },
           },
@@ -731,11 +747,7 @@ describe('E2E Tuning Workflow', () => {
       };
 
       const { event } = createMockEvent();
-      const res = await invokeWithEvent(
-        IPCChannel.TUNING_APPLY_RECOMMENDATIONS,
-        event,
-        input
-      );
+      const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, input);
       expect(res.success).toBe(true);
       expect(res.data.appliedPIDs).toBe(1);
       expect(res.data.appliedFilters).toBe(1);
@@ -772,11 +784,7 @@ describe('E2E Tuning Workflow', () => {
       };
 
       const { event } = createMockEvent();
-      const res = await invokeWithEvent(
-        IPCChannel.TUNING_APPLY_RECOMMENDATIONS,
-        event,
-        input
-      );
+      const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, input);
       expect(res.success).toBe(true);
       expect(res.data.appliedPIDs).toBe(2);
       expect(res.data.appliedFilters).toBe(0);
@@ -883,17 +891,15 @@ describe('E2E Tuning Workflow', () => {
 
     it('concurrent blackbox download rejected', async () => {
       // Create a profile first (required for download)
-      await invoke(
-        IPCChannel.PROFILE_CREATE,
-        makeProfileInput('SN-ERR-001', 'Error Test Quad')
-      );
+      await invoke(IPCChannel.PROFILE_CREATE, makeProfileInput('SN-ERR-001', 'Error Test Quad'));
 
       // First download hangs
       let resolveDownload: (value: Buffer) => void;
       mockMSP.downloadBlackboxLog.mockImplementation(
-        () => new Promise<Buffer>((resolve) => {
-          resolveDownload = resolve;
-        })
+        () =>
+          new Promise<Buffer>((resolve) => {
+            resolveDownload = resolve;
+          })
       );
 
       const { event: e1 } = createMockEvent();
@@ -1048,10 +1054,7 @@ describe('E2E Tuning Workflow', () => {
 
     it('snapshot restore with backup creates safety net then applies commands', async () => {
       // Create a profile
-      await invoke(
-        IPCChannel.PROFILE_CREATE,
-        makeProfileInput('SN-RESTORE-001', 'Restore Test')
-      );
+      await invoke(IPCChannel.PROFILE_CREATE, makeProfileInput('SN-RESTORE-001', 'Restore Test'));
 
       // Create a snapshot to restore
       mockMSP.exportCLIDiff.mockResolvedValue(
