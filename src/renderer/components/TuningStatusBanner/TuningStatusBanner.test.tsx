@@ -392,4 +392,12 @@ describe('TuningStatusBanner', () => {
     expect(screen.getByText('Download Log')).toBeInTheDocument();
     expect(screen.queryByText('View Flight Guide')).not.toBeInTheDocument();
   });
+
+  it('shows Download Log when flashErased is stale but flash has data', () => {
+    // erasedForPhase persists across reconnect — flash data overrides
+    renderBanner({ ...baseSession, phase: 'verification_pending' }, true, { flashUsedSize: 8000 });
+
+    expect(screen.getByText('Download Log')).toBeInTheDocument();
+    expect(screen.queryByText('View Flight Guide')).not.toBeInTheDocument();
+  });
 });
