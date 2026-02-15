@@ -199,11 +199,12 @@ async function initialize(): Promise<void> {
                 sendTuningSessionChanged(updated);
 
                 // Snapshot creation left FC in CLI mode (via exportCLIDiff).
-                // Only way to exit CLI is reboot — save+reboot to exit cleanly.
-                // FC will reconnect again; dedup guard prevents infinite loop.
-                logger.info('Saving and rebooting to exit CLI after post-apply snapshot');
-                await mspClient.saveAndReboot();
-                // Stop processing — FC is rebooting, will reconnect
+                // close() will send 'exit' (rebooting FC out of CLI).
+                // Set rebootPending so disconnect handler keeps the profile.
+                logger.info('Disconnecting to reboot FC out of CLI after post-apply snapshot');
+                mspClient.setRebootPending();
+                await mspClient.disconnect();
+                // FC will reconnect; dedup guard prevents infinite loop.
                 return;
               }
             }
