@@ -110,4 +110,28 @@ describe('NoiseComparisonChart', () => {
     expect(screen.getByText(/pitch:/i)).toBeInTheDocument();
     expect(screen.getByText(/yaw:/i)).toBeInTheDocument();
   });
+
+  it('hides delta pill when noise floor has sentinel -240 dB value', () => {
+    const before = makeMetrics(-40, makeSpectrum(0));
+    const after = makeMetrics(-240, makeSpectrum(-12));
+
+    render(<NoiseComparisonChart before={before} after={after} />);
+
+    expect(screen.queryByText(/improvement/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/regression/)).not.toBeInTheDocument();
+  });
+
+  it('shows dash for invalid noise floor in per-axis display', () => {
+    const before = makeMetrics(-40, makeSpectrum(0));
+    const after = makeMetrics(-240, makeSpectrum(-12));
+
+    render(<NoiseComparisonChart before={before} after={after} />);
+
+    // After metrics have -240 sentinel → should show '—' instead of -240
+    const floorItems = screen.getAllByText(/→/);
+    for (const item of floorItems) {
+      expect(item.textContent).toContain('—');
+      expect(item.textContent).not.toContain('-240');
+    }
+  });
 });

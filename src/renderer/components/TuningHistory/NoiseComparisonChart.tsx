@@ -54,12 +54,29 @@ function buildChartData(before: CompactSpectrum, after: CompactSpectrum): Compar
   return data;
 }
 
-function computeDelta(before: FilterMetricsSummary, after: FilterMetricsSummary, axis: Axis): number {
-  return after[axis].noiseFloorDb - before[axis].noiseFloorDb;
+/** Noise floor below this threshold is treated as "no data" (sentinel -240 dB) */
+const NOISE_FLOOR_VALID_MIN = -100;
+
+function isValidNoiseFloor(db: number): boolean {
+  return db > NOISE_FLOOR_VALID_MIN;
 }
 
-function avgNoiseFloor(metrics: FilterMetricsSummary): number {
-  return (metrics.roll.noiseFloorDb + metrics.pitch.noiseFloorDb + metrics.yaw.noiseFloorDb) / 3;
+function computeDelta(
+  before: FilterMetricsSummary,
+  after: FilterMetricsSummary,
+  axis: Axis
+): number | null {
+  const bDb = before[axis].noiseFloorDb;
+  const aDb = after[axis].noiseFloorDb;
+  if (!isValidNoiseFloor(bDb) || !isValidNoiseFloor(aDb)) return null;
+  return aDb - bDb;
+}
+
+function avgNoiseFloor(metrics: FilterMetricsSummary): number | null {
+  const vals = [metrics.roll.noiseFloorDb, metrics.pitch.noiseFloorDb, metrics.yaw.noiseFloorDb];
+  const valid = vals.filter(isValidNoiseFloor);
+  if (valid.length === 0) return null;
+  return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
 
 export function NoiseComparisonChart({ before, after }: NoiseComparisonChartProps) {
@@ -76,7 +93,14 @@ export function NoiseComparisonChart({ before, after }: NoiseComparisonChartProp
     let yMax = -Infinity;
 
     for (const p of raw) {
-      const vals = [p.beforeRoll, p.beforePitch, p.beforeYaw, p.afterRoll, p.afterPitch, p.afterYaw];
+      const vals = [
+        p.beforeRoll,
+        p.beforePitch,
+        p.beforeYaw,
+        p.afterRoll,
+        p.afterPitch,
+        p.afterYaw,
+      ];
       for (const v of vals) {
         if (v !== undefined && v > DB_FLOOR) {
           if (v < yMin) yMin = v;
@@ -96,28 +120,28 @@ export function NoiseComparisonChart({ before, after }: NoiseComparisonChartProp
     };
   }, [before, after]);
 
-  const delta = Math.round(avgNoiseFloor(after) - avgNoiseFloor(before));
+  const avgBefore = avgNoiseFloor(before);
+  const avgAfter = avgNoiseFloor(after);
+  const hasDelta = avgBefore !== null && avgAfter !== null;
+  const delta = hasDelta ? Math.round(avgAfter - avgBefore) : 0;
   const improved = delta < 0;
 
-  const visibleAxes: Axis[] = selectedAxis === 'all'
-    ? ['roll', 'pitch', 'yaw']
-    : [selectedAxis];
+  const visibleAxes: Axis[] = selectedAxis === 'all' ? ['roll', 'pitch', 'yaw'] : [selectedAxis];
 
   if (data.length === 0) {
-    return (
-      <div className="noise-comparison-empty">
-        No spectrum data available for comparison.
-      </div>
-    );
+    return <div className="noise-comparison-empty">No spectrum data available for comparison.</div>;
   }
 
   return (
     <div className="noise-comparison-chart">
       <div className="noise-comparison-header">
         <h4>Noise Comparison</h4>
-        <span className={`noise-delta-pill ${improved ? 'improved' : 'regressed'}`}>
-          {improved ? '\u2193' : '\u2191'} {Math.abs(delta)} dB {improved ? 'improvement' : 'regression'}
-        </span>
+        {hasDelta && (
+          <span className={`noise-delta-pill ${improved ? 'improved' : 'regressed'}`}>
+            {improved ? '\u2193' : '\u2191'} {Math.abs(delta)} dB{' '}
+            {improved ? 'improvement' : 'regression'}
+          </span>
+        )}
       </div>
 
       <AxisTabs selected={selectedAxis} onChange={setSelectedAxis} />
@@ -130,24 +154,46 @@ export function NoiseComparisonChart({ before, after }: NoiseComparisonChartProp
               dataKey="frequency"
               type="number"
               tick={{ fontSize: 11, fill: '#aaa' }}
-              label={{ value: 'Frequency (Hz)', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: '#888' } }}
+              label={{
+                value: 'Frequency (Hz)',
+                position: 'insideBottom',
+                offset: -2,
+                style: { fontSize: 11, fill: '#888' },
+              }}
             />
             <YAxis
               domain={yDomain}
               allowDataOverflow
               tick={{ fontSize: 11, fill: '#aaa' }}
-              label={{ value: 'Noise (dB)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#888' } }}
+              label={{
+                value: 'Noise (dB)',
+                angle: -90,
+                position: 'insideLeft',
+                style: { fontSize: 11, fill: '#888' },
+              }}
             />
             <Tooltip
-              contentStyle={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: 4, fontSize: 12 }}
+              contentStyle={{
+                background: '#1a1a1a',
+                border: '1px solid #444',
+                borderRadius: 4,
+                fontSize: 12,
+              }}
               labelFormatter={(val) => `${val} Hz`}
-              formatter={((value: number | undefined, name: string) => [`${(value ?? 0).toFixed(1)} dB`, name]) as any}
+              formatter={
+                ((value: number | undefined, name: string) => [
+                  `${(value ?? 0).toFixed(1)} dB`,
+                  name,
+                ]) as any
+              }
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
 
-            {visibleAxes.map(axis => {
-              const beforeKey = `before${axis[0].toUpperCase()}${axis.slice(1)}` as keyof ComparisonDataPoint;
-              const afterKey = `after${axis[0].toUpperCase()}${axis.slice(1)}` as keyof ComparisonDataPoint;
+            {visibleAxes.map((axis) => {
+              const beforeKey =
+                `before${axis[0].toUpperCase()}${axis.slice(1)}` as keyof ComparisonDataPoint;
+              const afterKey =
+                `after${axis[0].toUpperCase()}${axis.slice(1)}` as keyof ComparisonDataPoint;
 
               return (
                 <React.Fragment key={axis}>
@@ -178,12 +224,16 @@ export function NoiseComparisonChart({ before, after }: NoiseComparisonChartProp
       </div>
 
       <div className="noise-comparison-floors">
-        {(['roll', 'pitch', 'yaw'] as const).map(axis => {
+        {(['roll', 'pitch', 'yaw'] as const).map((axis) => {
+          const bValid = isValidNoiseFloor(before[axis].noiseFloorDb);
+          const aValid = isValidNoiseFloor(after[axis].noiseFloorDb);
           const d = computeDelta(before, after, axis);
           return (
             <span key={axis} className="noise-floor-item" style={{ color: AXIS_COLORS[axis] }}>
-              {axis}: {before[axis].noiseFloorDb.toFixed(0)}{'\u2192'}{after[axis].noiseFloorDb.toFixed(0)} dB
-              ({d < 0 ? '\u2193' : '\u2191'}{Math.abs(Math.round(d))})
+              {axis}: {bValid ? before[axis].noiseFloorDb.toFixed(0) : '—'}
+              {'\u2192'}
+              {aValid ? after[axis].noiseFloorDb.toFixed(0) : '—'} dB
+              {d !== null && ` (${d < 0 ? '\u2193' : '\u2191'}${Math.abs(Math.round(d))})`}
             </span>
           );
         })}
