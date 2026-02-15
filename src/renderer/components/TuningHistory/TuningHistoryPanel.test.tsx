@@ -122,6 +122,19 @@ describe('TuningHistoryPanel', () => {
     expect(screen.getByText('filter_setting_0')).toBeInTheDocument();
   });
 
+  it('shows duration and flight count in expanded detail', async () => {
+    const user = userEvent.setup();
+    const record = makeRecord('r1', '2026-01-01T01:30:00Z');
+    record.filterLogId = 'log-f';
+    record.pidLogId = 'log-p';
+    render(<TuningHistoryPanel history={[record]} loading={false} />);
+
+    await user.click(screen.getByRole('button', { name: /Jan 1, 2026/ }));
+
+    expect(screen.getByText(/Duration: 90 min/)).toBeInTheDocument();
+    expect(screen.getByText(/2 flights/)).toBeInTheDocument();
+  });
+
   it('only expands one card at a time', async () => {
     const user = userEvent.setup();
     const records = [
