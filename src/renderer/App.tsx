@@ -43,13 +43,16 @@ function AppContent() {
   const [showWorkflowHelp, setShowWorkflowHelp] = useState(false);
   const [showFlightGuideMode, setShowFlightGuideMode] = useState<TuningMode | null>(null);
   const [erasedForPhase, setErasedForPhase] = useState<string | null>(null);
+  const [flashUsedSize, setFlashUsedSize] = useState<number | null>(null);
   const [erasing, setErasing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [bbSettings, setBbSettings] = useState<BlackboxSettings | null>(null);
   const [fixingSettings, setFixingSettings] = useState(false);
   const [showBannerFixConfirm, setShowBannerFixConfirm] = useState(false);
   const [fcVersion, setFcVersion] = useState('');
   const [analyzingVerification, setAnalyzingVerification] = useState(false);
+  const [bbRefreshKey, setBbRefreshKey] = useState(0);
   const { createProfile, createProfileFromPreset, updateProfile, currentProfile } = useProfiles();
   const tuning = useTuningSession();
   const tuningHistory = useTuningHistory();
@@ -73,6 +76,14 @@ function AppContent() {
     const unsubscribeConnection = window.betaflight.onConnectionChanged((status) => {
       setIsConnected(status.connected);
       fetchBBSettings(status);
+      if (status.connected) {
+        window.betaflight
+          .getBlackboxInfo()
+          .then((info) => setFlashUsedSize(info.usedSize))
+          .catch(() => setFlashUsedSize(null));
+      } else {
+        setFlashUsedSize(null);
+      }
     });
 
     // Listen for new FC detection
@@ -135,6 +146,8 @@ function AppContent() {
               ? 'pid_flight_pending'
               : (tuning.session?.phase ?? null);
           setErasedForPhase(phaseForErase);
+          setFlashUsedSize(0);
+          setBbRefreshKey((k) => k + 1);
           toast.success('Flash memory erased');
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to erase flash');
@@ -145,7 +158,10 @@ function AppContent() {
       case 'download_log':
         try {
           setDownloading(true);
-          const metadata = await window.betaflight.downloadBlackboxLog();
+          setDownloadProgress(0);
+          const metadata = await window.betaflight.downloadBlackboxLog((progress) => {
+            setDownloadProgress(progress);
+          });
           toast.success(`Log downloaded: ${metadata.filename}`);
 
           // Transition session to *_analysis phase and store the log ID
@@ -162,6 +178,7 @@ function AppContent() {
           toast.error(err instanceof Error ? err.message : 'Failed to download log');
         } finally {
           setDownloading(false);
+          setDownloadProgress(0);
         }
         break;
       case 'open_filter_wizard': {
@@ -205,6 +222,8 @@ function AppContent() {
           setErasing(true);
           await tuning.updatePhase('verification_pending');
           await window.betaflight.eraseBlackboxFlash();
+          setFlashUsedSize(0);
+          setBbRefreshKey((k) => k + 1);
           toast.success('Flash erased! Disconnect and fly a 30-60s hover.');
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to prepare verification');
@@ -366,8 +385,10 @@ function AppContent() {
                 <TuningStatusBanner
                   session={tuning.session}
                   flashErased={erasedForPhase === tuning.session.phase}
+                  flashUsedSize={flashUsedSize}
                   erasing={erasing}
                   downloading={downloading}
+                  downloadProgress={downloadProgress}
                   analyzingVerification={analyzingVerification}
                   bbSettingsOk={bbStatus.allOk}
                   fixingSettings={fixingSettings}
@@ -406,7 +427,11 @@ function AppContent() {
             )}
             {isConnected && <FCInfoDisplay />}
             {isConnected && (
-              <BlackboxStatus onAnalyze={handleAnalyze} readonly={!!tuning.session} />
+              <BlackboxStatus
+                onAnalyze={handleAnalyze}
+                readonly={!!tuning.session}
+                refreshKey={bbRefreshKey}
+              />
             )}
             {isConnected && currentProfile && <SnapshotManager />}
             {currentProfile && (
@@ -426,7 +451,12 @@ function AppContent() {
 
       {showWorkflowHelp && <TuningWorkflowModal onClose={() => setShowWorkflowHelp(false)} />}
 
-      {showFlightGuideMode && <TuningWorkflowModal onClose={() => setShowFlightGuideMode(null)} />}
+      {showFlightGuideMode && (
+        <TuningWorkflowModal
+          mode={showFlightGuideMode}
+          onClose={() => setShowFlightGuideMode(null)}
+        />
+      )}
 
       {showBannerFixConfirm && bbStatus.fixCommands.length > 0 && (
         <FixSettingsConfirmModal

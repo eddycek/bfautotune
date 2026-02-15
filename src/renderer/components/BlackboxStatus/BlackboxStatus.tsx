@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useBlackboxInfo } from '../../hooks/useBlackboxInfo';
 import { useBlackboxLogs } from '../../hooks/useBlackboxLogs';
 import { useToast } from '../../hooks/useToast';
@@ -8,14 +8,17 @@ const PAGE_SIZE = 20;
 let persistedLogsPage = 1;
 
 // Exported for testing — reset module-level state between tests
-export function _resetPersistedLogsPage() { persistedLogsPage = 1; }
+export function _resetPersistedLogsPage() {
+  persistedLogsPage = 1;
+}
 
 interface BlackboxStatusProps {
   onAnalyze?: (logId: string, logName: string) => void;
   readonly?: boolean;
+  refreshKey?: number;
 }
 
-export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
+export function BlackboxStatus({ onAnalyze, readonly, refreshKey }: BlackboxStatusProps) {
   const { info, loading, error, refresh: refreshInfo } = useBlackboxInfo();
   const { logs, deleteLog, openFolder, reload: reloadLogs } = useBlackboxLogs();
   const toast = useToast();
@@ -25,14 +28,30 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
   const [erasing, setErasing] = useState(false);
   const [logsPage, setLogsPage] = useState(persistedLogsPage);
 
+  // Refresh when external erase triggers a refreshKey change
+  const initialRefreshKey = useRef(true);
+  useEffect(() => {
+    if (initialRefreshKey.current) {
+      initialRefreshKey.current = false;
+      return;
+    }
+    refreshInfo();
+  }, [refreshKey]);
+
   // Keep module-level var in sync for persistence across unmounts
-  useEffect(() => { persistedLogsPage = logsPage; }, [logsPage]);
+  useEffect(() => {
+    persistedLogsPage = logsPage;
+  }, [logsPage]);
 
   // Reset page if current page exceeds available pages (e.g. profile switch)
-  const sortedLogs = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const sortedLogs = [...logs].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
   const totalLogsPages = Math.max(1, Math.ceil(sortedLogs.length / PAGE_SIZE));
   useEffect(() => {
-    if (logs.length > 0 && logsPage > totalLogsPages) { setLogsPage(totalLogsPages); }
+    if (logs.length > 0 && logsPage > totalLogsPages) {
+      setLogsPage(totalLogsPages);
+    }
   }, [logs.length, totalLogsPages]);
 
   const logsPageStart = (logsPage - 1) * PAGE_SIZE;
@@ -150,10 +169,11 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
             <span className="icon">{sdcardNotReady ? '⚠️' : 'ℹ️'}</span>
             <div>
               <strong>{sdcardNotReady ? 'SD card not ready' : 'Blackbox is supported'}</strong>
-              <p>{sdcardNotReady
-                ? 'SD card detected but not ready — check if the card is inserted correctly and reboot the FC.'
-                : 'Storage size unavailable — flash may not be configured.'
-              }</p>
+              <p>
+                {sdcardNotReady
+                  ? 'SD card detected but not ready — check if the card is inserted correctly and reboot the FC.'
+                  : 'Storage size unavailable — flash may not be configured.'}
+              </p>
             </div>
           </div>
         </div>
@@ -253,7 +273,11 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                     className="erase-flash-button"
                     onClick={() => setShowEraseConfirm(true)}
                     disabled={downloading || erasing}
-                    title={isSDCard ? 'Delete all log files from SD card' : 'Permanently erase all logs from FC flash memory'}
+                    title={
+                      isSDCard
+                        ? 'Delete all log files from SD card'
+                        : 'Permanently erase all logs from FC flash memory'
+                    }
                   >
                     {erasing ? (
                       <>
@@ -300,7 +324,9 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                 <div key={log.id} className="log-item">
                   <div className="log-info">
                     <div className="log-filename">
-                      <span className="log-number">#{sortedLogs.length - logsPageStart - index}</span>
+                      <span className="log-number">
+                        #{sortedLogs.length - logsPageStart - index}
+                      </span>
                       {log.filename}
                     </div>
                     <div className="log-meta">
@@ -308,7 +334,9 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
                       <span>•</span>
                       <span>{formatSize(log.size)}</span>
                       <span>•</span>
-                      <span>{log.fcInfo.variant} {log.fcInfo.version}</span>
+                      <span>
+                        {log.fcInfo.variant} {log.fcInfo.version}
+                      </span>
                     </div>
                   </div>
                   <div className="log-actions">
@@ -343,15 +371,17 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
               <div className="pagination-controls">
                 <button
                   className="pagination-button"
-                  onClick={() => setLogsPage(p => p - 1)}
+                  onClick={() => setLogsPage((p) => p - 1)}
                   disabled={logsPage <= 1}
                 >
                   Prev
                 </button>
-                <span className="pagination-info">Page {logsPage} of {totalLogsPages}</span>
+                <span className="pagination-info">
+                  Page {logsPage} of {totalLogsPages}
+                </span>
                 <button
                   className="pagination-button"
-                  onClick={() => setLogsPage(p => p + 1)}
+                  onClick={() => setLogsPage((p) => p + 1)}
                   disabled={logsPage >= totalLogsPages}
                 >
                   Next
@@ -373,11 +403,13 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <h3>⚠️ {isSDCard ? 'Delete Log Files?' : 'Erase Flash Memory?'}</h3>
             <p>
-              This will <strong>permanently delete ALL logs</strong> from the flight controller's {isSDCard ? 'SD card' : 'flash memory'}.
+              This will <strong>permanently delete ALL logs</strong> from the flight controller's{' '}
+              {isSDCard ? 'SD card' : 'flash memory'}.
               {isSDCard && ' The FC will reboot into mass storage mode to access the SD card.'}
             </p>
             <p className="warning-text">
-              ⚠️ This action cannot be undone! Make sure you've downloaded any logs you want to keep.
+              ⚠️ This action cannot be undone! Make sure you've downloaded any logs you want to
+              keep.
             </p>
             <div className="modal-actions">
               <button
@@ -387,11 +419,7 @@ export function BlackboxStatus({ onAnalyze, readonly }: BlackboxStatusProps) {
               >
                 Cancel
               </button>
-              <button
-                className="button-danger"
-                onClick={handleEraseFlash}
-                disabled={erasing}
-              >
+              <button className="button-danger" onClick={handleEraseFlash} disabled={erasing}>
                 {erasing ? 'Erasing...' : eraseLabel}
               </button>
             </div>

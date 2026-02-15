@@ -17,8 +17,10 @@ export type TuningAction =
 interface TuningStatusBannerProps {
   session: TuningSession;
   flashErased?: boolean;
+  flashUsedSize?: number | null;
   erasing?: boolean;
   downloading?: boolean;
+  downloadProgress?: number;
   analyzingVerification?: boolean;
   bbSettingsOk?: boolean;
   fixingSettings?: boolean;
@@ -105,10 +107,29 @@ function getVerificationUI(session: TuningSession): { stepIndex: number; text: s
   };
 }
 
-export function TuningStatusBanner({ session, flashErased, erasing, downloading, analyzingVerification, bbSettingsOk, fixingSettings, onAction, onViewGuide, onReset, onFixSettings }: TuningStatusBannerProps) {
+export function TuningStatusBanner({
+  session,
+  flashErased,
+  flashUsedSize,
+  erasing,
+  downloading,
+  downloadProgress,
+  analyzingVerification,
+  bbSettingsOk,
+  fixingSettings,
+  onAction,
+  onViewGuide,
+  onReset,
+  onFixSettings,
+}: TuningStatusBannerProps) {
+  const downloadLabel =
+    downloadProgress && downloadProgress > 0
+      ? `Downloading... ${downloadProgress}%`
+      : 'Downloading...';
   const isPidApplied = session.phase === 'pid_applied';
   const isVerification = session.phase === 'verification_pending';
-  const isFlightPending = session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending';
+  const isFlightPending =
+    session.phase === 'filter_flight_pending' || session.phase === 'pid_flight_pending';
 
   // Determine step index and text
   let stepIndex: number;
@@ -128,7 +149,7 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
     text = ui.text;
   }
 
-  const showErasedState = flashErased && isFlightPending;
+  const showErasedState = (flashErased || flashUsedSize === 0) && isFlightPending;
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
   const activeStepIndex = showErasedState ? stepIndex + 1 : stepIndex;
 
@@ -161,7 +182,9 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
                 <span className="spinner" />
                 Preparing...
               </>
-            ) : 'Erase & Verify'}
+            ) : (
+              'Erase & Verify'
+            )}
           </button>
           <button
             className="wizard-btn wizard-btn-secondary"
@@ -189,7 +212,9 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
                   <span className="spinner" />
                   Analyzing...
                 </>
-              ) : 'Analyze Verification'}
+              ) : (
+                'Analyze Verification'
+              )}
             </button>
             <button
               className="wizard-btn wizard-btn-secondary"
@@ -211,9 +236,11 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
             {downloading ? (
               <>
                 <span className="spinner" />
-                Downloading...
+                {downloadLabel}
               </>
-            ) : 'Download Log'}
+            ) : (
+              'Download Log'
+            )}
           </button>
           <button
             className="wizard-btn wizard-btn-secondary"
@@ -242,9 +269,11 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
           ) : downloading ? (
             <>
               <span className="spinner" />
-              Downloading...
+              {downloadLabel}
             </>
-          ) : ui!.buttonLabel}
+          ) : (
+            ui!.buttonLabel
+          )}
         </button>
         {ui!.guideTip && !erasing && !downloading && (
           <button
@@ -269,9 +298,7 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
             <React.Fragment key={label}>
               {i > 0 && <div className={`tuning-status-line ${isDone ? 'done' : ''}`} />}
               <div className={`tuning-status-step ${className}`}>
-                <div className="tuning-status-indicator">
-                  {isDone ? '\u2713' : i + 1}
-                </div>
+                <div className="tuning-status-indicator">{isDone ? '\u2713' : i + 1}</div>
                 <span className="tuning-status-label">{label}</span>
               </div>
             </React.Fragment>
@@ -301,10 +328,7 @@ export function TuningStatusBanner({ session, flashErased, erasing, downloading,
         </p>
         <div className="tuning-status-actions">
           {renderActions()}
-          <button
-            className="wizard-btn wizard-btn-text"
-            onClick={onReset}
-          >
+          <button className="wizard-btn wizard-btn-text" onClick={onReset}>
             Reset Session
           </button>
         </div>
