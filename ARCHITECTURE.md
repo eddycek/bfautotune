@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 15, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1761 tests, 93 files**
+**Last Updated:** February 15, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1762 tests, 93 files**
 
 ---
 
@@ -803,7 +803,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1761 tests across 93 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1762 tests across 93 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|

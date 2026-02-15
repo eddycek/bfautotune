@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1761 tests across 93 files** (last verified: February 15, 2026)
+**Total: 1762 tests across 93 files** (last verified: February 15, 2026)
 
 ### UI Components
 
@@ -188,7 +188,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningHistory/AppliedChangesTable.test.tsx` | 7 | Setting changes table, percent formatting, empty state, zero value handling |
 | `TuningHistory/NoiseComparisonChart.test.tsx` | 7 | Before/after spectrum overlay, delta pill, axis tabs, empty state |
 | `TuningHistory/TuningCompletionSummary.test.tsx` | 14 | Completion summary with/without verification, noise chart, changes, PID metrics, actions, quality score badge with tier label, re-analyze button |
-| `TuningHistory/TuningHistoryPanel.test.tsx` | 15 | History list, expand/collapse, detail view, empty/loading states, quality score badge with tier label, trend chart, re-analyze verification visibility and callback |
+| `TuningHistory/TuningHistoryPanel.test.tsx` | 16 | History list, expand/collapse, detail view with duration/flights, empty/loading states, quality score badge with tier label, trend chart, re-analyze verification visibility and callback |
 | `TuningHistory/VerificationSessionModal.test.tsx` | 7 | Auto-analyze single session, multi-session picker, reverse order, cancel, error/parsing states |
 | `TuningHistory/QualityTrendChart.test.tsx` | 5 | Trend chart rendering, minimum data threshold, null score handling |
 | `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |

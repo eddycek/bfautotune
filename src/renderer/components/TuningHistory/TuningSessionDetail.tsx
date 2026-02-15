@@ -9,6 +9,21 @@ interface TuningSessionDetailProps {
   onReanalyzeVerification?: () => void;
 }
 
+function formatDuration(startIso: string, endIso: string): string {
+  const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return 'less than a minute';
+  return `${mins} min`;
+}
+
+function flightCount(record: CompletedTuningRecord): number {
+  let count = 0;
+  if (record.filterLogId) count++;
+  if (record.pidLogId) count++;
+  if (record.verificationLogId) count++;
+  return count;
+}
+
 export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningSessionDetailProps) {
   const hasComparison = !!record.filterMetrics?.spectrum && !!record.verificationMetrics?.spectrum;
   const score = useMemo(
@@ -18,9 +33,18 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
       }),
     [record.filterMetrics, record.verificationMetrics]
   );
+  const flights = flightCount(record);
 
   return (
     <div className="session-detail">
+      <div className="completion-summary-meta">
+        <span>Duration: {formatDuration(record.startedAt, record.completedAt)}</span>
+        <span className="completion-meta-sep">{'\u2022'}</span>
+        <span>
+          {flights} flight{flights !== 1 ? 's' : ''}
+        </span>
+      </div>
+
       {score && (
         <div className="session-detail-score-breakdown">
           {score.components.map((c) => (
