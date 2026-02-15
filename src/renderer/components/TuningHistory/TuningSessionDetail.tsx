@@ -13,10 +13,10 @@ export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
   const score = useMemo(
     () =>
       computeTuneQualityScore({
-        filterMetrics: record.filterMetrics,
+        filterMetrics: record.verificationMetrics ?? record.filterMetrics,
         pidMetrics: record.pidMetrics,
       }),
-    [record.filterMetrics, record.pidMetrics]
+    [record.filterMetrics, record.pidMetrics, record.verificationMetrics]
   );
 
   return (
@@ -71,6 +71,9 @@ export function TuningSessionDetail({ record }: TuningSessionDetailProps) {
 
       {record.pidMetrics && (
         <div className="completion-pid-metrics">
+          <h4>
+            Step Response Metrics <span className="completion-pid-label">before PID changes</span>
+          </h4>
           <div className="completion-pid-stats">
             <span>{record.pidMetrics.stepsDetected} steps detected</span>
           </div>

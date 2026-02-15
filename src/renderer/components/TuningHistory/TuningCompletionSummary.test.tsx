@@ -166,7 +166,8 @@ describe('TuningCompletionSummary', () => {
       />
     );
 
-    expect(screen.getByText('Step Response Metrics')).toBeInTheDocument();
+    expect(screen.getByText(/Step Response Metrics/)).toBeInTheDocument();
+    expect(screen.getByText(/before PID changes/)).toBeInTheDocument();
     expect(screen.getByText('12 steps detected')).toBeInTheDocument();
     expect(screen.getByText(/Overshoot: 5.0%/)).toBeInTheDocument();
   });

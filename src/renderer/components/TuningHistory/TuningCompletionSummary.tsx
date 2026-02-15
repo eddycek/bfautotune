@@ -119,7 +119,9 @@ export function TuningCompletionSummary({
 
       {session.pidMetrics && (
         <div className="completion-pid-metrics">
-          <h4>Step Response Metrics</h4>
+          <h4>
+            Step Response Metrics <span className="completion-pid-label">before PID changes</span>
+          </h4>
           <div className="completion-pid-stats">
             <span>{session.pidMetrics.stepsDetected} steps detected</span>
           </div>
