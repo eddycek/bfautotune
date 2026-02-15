@@ -13,20 +13,20 @@ describe('WizardProgress', () => {
     expect(screen.getByText('Summary')).toBeInTheDocument();
   });
 
-  it('renders 4 steps in filter mode (no PIDs)', () => {
+  it('renders 3 steps in filter mode (no PIDs, no Flight Guide)', () => {
     render(<WizardProgress currentStep="session" mode="filter" />);
 
-    expect(screen.getByText('Flight Guide')).toBeInTheDocument();
+    expect(screen.queryByText('Flight Guide')).not.toBeInTheDocument();
     expect(screen.getByText('Session')).toBeInTheDocument();
     expect(screen.getByText('Filters')).toBeInTheDocument();
     expect(screen.queryByText('PIDs')).not.toBeInTheDocument();
     expect(screen.getByText('Summary')).toBeInTheDocument();
   });
 
-  it('renders 4 steps in pid mode (no Filters)', () => {
+  it('renders 3 steps in pid mode (no Filters, no Flight Guide)', () => {
     render(<WizardProgress currentStep="session" mode="pid" />);
 
-    expect(screen.getByText('Flight Guide')).toBeInTheDocument();
+    expect(screen.queryByText('Flight Guide')).not.toBeInTheDocument();
     expect(screen.getByText('Session')).toBeInTheDocument();
     expect(screen.queryByText('Filters')).not.toBeInTheDocument();
     expect(screen.getByText('PIDs')).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('WizardProgress', () => {
     expect(upcomingSteps.length).toBeGreaterThan(0);
 
     // Filter step should be numbered (3)
-    const filterStep = Array.from(upcomingSteps).find(step =>
+    const filterStep = Array.from(upcomingSteps).find((step) =>
       step.textContent?.includes('Filters')
     );
     expect(filterStep?.querySelector('.wizard-progress-indicator')?.textContent).toBe('3');

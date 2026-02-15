@@ -18,9 +18,9 @@ const ALL_STEPS: { key: WizardStep; label: string }[] = [
 function getStepsForMode(mode: TuningMode): { key: WizardStep; label: string }[] {
   switch (mode) {
     case 'filter':
-      return ALL_STEPS.filter(s => s.key !== 'pid');
+      return ALL_STEPS.filter((s) => s.key !== 'pid' && s.key !== 'guide');
     case 'pid':
-      return ALL_STEPS.filter(s => s.key !== 'filter');
+      return ALL_STEPS.filter((s) => s.key !== 'filter' && s.key !== 'guide');
     default:
       return ALL_STEPS;
   }
@@ -28,7 +28,7 @@ function getStepsForMode(mode: TuningMode): { key: WizardStep; label: string }[]
 
 export function WizardProgress({ currentStep, mode = 'full' }: WizardProgressProps) {
   const steps = getStepsForMode(mode);
-  const currentIndex = steps.findIndex(s => s.key === currentStep);
+  const currentIndex = steps.findIndex((s) => s.key === currentStep);
 
   return (
     <div className="wizard-progress">
@@ -41,9 +41,7 @@ export function WizardProgress({ currentStep, mode = 'full' }: WizardProgressPro
           <React.Fragment key={s.key}>
             {i > 0 && <div className={`wizard-progress-line ${isDone ? 'done' : ''}`} />}
             <div className={`wizard-progress-step ${className}`}>
-              <div className="wizard-progress-indicator">
-                {isDone ? '\u2713' : i + 1}
-              </div>
+              <div className="wizard-progress-indicator">{isDone ? '\u2713' : i + 1}</div>
               <span className="wizard-progress-label">{s.label}</span>
             </div>
           </React.Fragment>

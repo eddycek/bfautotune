@@ -56,7 +56,8 @@ export interface UseTuningWizardReturn {
 }
 
 export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTuningWizardReturn {
-  const [step, setStep] = useState<WizardStep>('guide');
+  // Skip guide for filter/pid modes — wizard opens from tuning session where flight is already done
+  const [step, setStep] = useState<WizardStep>(mode === 'full' ? 'guide' : 'session');
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessions, setSessions] = useState<BlackboxLogSession[] | null>(null);
 

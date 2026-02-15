@@ -28,13 +28,8 @@ export function registerProfileHandlers(deps: HandlerDependencies): void {
 
         const profile = await deps.profileManager.createProfile(input);
 
-        // Notify UI of the new profile
-        const window = getMainWindow();
-        if (window) {
-          sendProfileChanged(window, profile);
-        }
-
-        // Create baseline snapshot for new profile
+        // Create baseline snapshot for new profile BEFORE notifying UI
+        // so snapshots are available when renderer reloads
         logger.info('Creating baseline snapshot for new profile...');
         try {
           await deps.snapshotManager.createBaselineIfMissing();
@@ -42,6 +37,12 @@ export function registerProfileHandlers(deps: HandlerDependencies): void {
         } catch (err) {
           logger.error('Failed to create baseline snapshot:', err);
           // Don't fail profile creation if baseline fails
+        }
+
+        // Notify UI of the new profile (after baseline is ready)
+        const window = getMainWindow();
+        if (window) {
+          sendProfileChanged(window, profile);
         }
 
         return createResponse<DroneProfile>(profile);
@@ -78,13 +79,8 @@ export function registerProfileHandlers(deps: HandlerDependencies): void {
           customName
         );
 
-        // Notify UI of the new profile
-        const window = getMainWindow();
-        if (window) {
-          sendProfileChanged(window, profile);
-        }
-
-        // Create baseline snapshot for new profile from preset
+        // Create baseline snapshot for new profile from preset BEFORE notifying UI
+        // so snapshots are available when renderer reloads
         logger.info('Creating baseline snapshot for new profile from preset...');
         try {
           await deps.snapshotManager.createBaselineIfMissing();
@@ -92,6 +88,12 @@ export function registerProfileHandlers(deps: HandlerDependencies): void {
         } catch (err) {
           logger.error('Failed to create baseline snapshot:', err);
           // Don't fail profile creation if baseline fails
+        }
+
+        // Notify UI of the new profile (after baseline is ready)
+        const window = getMainWindow();
+        if (window) {
+          sendProfileChanged(window, profile);
         }
 
         return createResponse<DroneProfile>(profile);
