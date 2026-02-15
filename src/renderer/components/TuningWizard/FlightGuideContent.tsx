@@ -8,6 +8,7 @@ import {
   PID_FLIGHT_PHASES,
   PID_FLIGHT_TIPS,
 } from '@shared/constants/flightGuide';
+import { PhaseIllustration } from './PhaseIllustration';
 import './FlightGuideContent.css';
 
 interface FlightGuideContentProps {
@@ -25,15 +26,13 @@ function shouldHideGyroScaledTip(version?: string): boolean {
 }
 
 export function FlightGuideContent({ mode = 'full', fcVersion }: FlightGuideContentProps) {
-  const phases = mode === 'filter' ? FILTER_FLIGHT_PHASES
-    : mode === 'pid' ? PID_FLIGHT_PHASES
-    : FLIGHT_PHASES;
+  const phases =
+    mode === 'filter' ? FILTER_FLIGHT_PHASES : mode === 'pid' ? PID_FLIGHT_PHASES : FLIGHT_PHASES;
 
   const hideGyroTip = shouldHideGyroScaledTip(fcVersion);
-  const allTips = mode === 'filter' ? FILTER_FLIGHT_TIPS
-    : mode === 'pid' ? PID_FLIGHT_TIPS
-    : FLIGHT_TIPS;
-  const tips = hideGyroTip ? allTips.filter(t => !t.includes('GYRO_SCALED')) : allTips;
+  const allTips =
+    mode === 'filter' ? FILTER_FLIGHT_TIPS : mode === 'pid' ? PID_FLIGHT_TIPS : FLIGHT_TIPS;
+  const tips = hideGyroTip ? allTips.filter((t) => !t.includes('GYRO_SCALED')) : allTips;
 
   return (
     <>
@@ -45,13 +44,12 @@ export function FlightGuideContent({ mode = 'full', fcVersion }: FlightGuideCont
               <div className="flight-guide-phase-header">
                 <strong>{phase.title}</strong>
                 {phase.duration && (
-                  <span className="flight-guide-phase-duration">
-                    {phase.duration}
-                  </span>
+                  <span className="flight-guide-phase-duration">{phase.duration}</span>
                 )}
               </div>
               <span className="flight-guide-phase-desc">{phase.description}</span>
             </div>
+            <PhaseIllustration title={phase.title} />
           </div>
         ))}
       </div>
@@ -60,7 +58,9 @@ export function FlightGuideContent({ mode = 'full', fcVersion }: FlightGuideCont
         <strong>Tips</strong>
         <ul>
           {tips.map((tip, i) => (
-            <li key={i} className="flight-guide-tip">{tip}</li>
+            <li key={i} className="flight-guide-tip">
+              {tip}
+            </li>
           ))}
         </ul>
       </div>

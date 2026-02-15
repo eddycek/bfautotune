@@ -60,6 +60,12 @@
   line-height: 1.4;
 }
 
+.flight-guide-phase-illustration {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 .flight-guide-tips {
   background: var(--bg-tertiary, #333);
   border-radius: 8px;

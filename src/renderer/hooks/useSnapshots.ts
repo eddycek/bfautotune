@@ -22,61 +22,70 @@ export function useSnapshots() {
     }
   }, []);
 
-  const createSnapshot = useCallback(async (label?: string): Promise<ConfigurationSnapshot | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const snapshot = await window.betaflight.createSnapshot(label);
-      await loadSnapshots(); // Refresh list
-      if (label) {
-        toast.success(`Snapshot '${label}' created`);
-      } else {
-        toast.success('Snapshot created');
+  const createSnapshot = useCallback(
+    async (label?: string): Promise<ConfigurationSnapshot | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const snapshot = await window.betaflight.createSnapshot(label);
+        await loadSnapshots(); // Refresh list
+        if (label) {
+          toast.success(`Snapshot '${label}' created`);
+        } else {
+          toast.success('Snapshot created');
+        }
+        return snapshot;
+      } catch (err: any) {
+        const message = err.message || 'Failed to create snapshot';
+        setError(message);
+        toast.error(`Failed to create snapshot: ${message}`);
+        return null;
+      } finally {
+        setLoading(false);
       }
-      return snapshot;
-    } catch (err: any) {
-      const message = err.message || 'Failed to create snapshot';
-      setError(message);
-      toast.error(`Failed to create snapshot: ${message}`);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [loadSnapshots]); // toast is stable
+    },
+    [loadSnapshots]
+  ); // toast is stable
 
-  const deleteSnapshot = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await window.betaflight.deleteSnapshot(id);
-      await loadSnapshots(); // Refresh list
-      toast.success('Snapshot deleted');
-    } catch (err: any) {
-      const message = err.message || 'Failed to delete snapshot';
-      setError(message);
-      toast.error(`Failed to delete snapshot: ${message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [loadSnapshots]); // toast is stable
+  const deleteSnapshot = useCallback(
+    async (id: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        await window.betaflight.deleteSnapshot(id);
+        await loadSnapshots(); // Refresh list
+        toast.success('Snapshot deleted');
+      } catch (err: any) {
+        const message = err.message || 'Failed to delete snapshot';
+        setError(message);
+        toast.error(`Failed to delete snapshot: ${message}`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadSnapshots]
+  ); // toast is stable
 
-  const restoreSnapshot = useCallback(async (id: string, createBackup: boolean): Promise<SnapshotRestoreResult | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await window.betaflight.restoreSnapshot(id, createBackup);
-      toast.success(`Snapshot restored (${result.appliedCommands} settings applied)`);
-      await loadSnapshots(); // Refresh list (backup snapshot may have been created)
-      return result;
-    } catch (err: any) {
-      const message = err.message || 'Failed to restore snapshot';
-      setError(message);
-      toast.error(`Failed to restore snapshot: ${message}`);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [loadSnapshots]); // toast is stable
+  const restoreSnapshot = useCallback(
+    async (id: string, createBackup: boolean): Promise<SnapshotRestoreResult | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await window.betaflight.restoreSnapshot(id, createBackup);
+        toast.success(`Snapshot restored (${result.appliedCommands} settings applied)`);
+        await loadSnapshots(); // Refresh list (backup snapshot may have been created)
+        return result;
+      } catch (err: any) {
+        const message = err.message || 'Failed to restore snapshot';
+        setError(message);
+        toast.error(`Failed to restore snapshot: ${message}`);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadSnapshots]
+  ); // toast is stable
 
   const loadSnapshot = useCallback(async (id: string): Promise<ConfigurationSnapshot | null> => {
     setLoading(true);
@@ -117,10 +126,7 @@ export function useSnapshots() {
   useEffect(() => {
     const unsubscribe = window.betaflight.onProfileChanged((profile) => {
       if (profile) {
-        // Profile changed, reload snapshots for new profile
-        setTimeout(() => {
-          loadSnapshots();
-        }, 500);
+        loadSnapshots();
       } else {
         // No profile, clear snapshots
         setSnapshots([]);
@@ -138,6 +144,6 @@ export function useSnapshots() {
     deleteSnapshot,
     restoreSnapshot,
     loadSnapshot,
-    refreshSnapshots: loadSnapshots
+    refreshSnapshots: loadSnapshots,
   };
 }
