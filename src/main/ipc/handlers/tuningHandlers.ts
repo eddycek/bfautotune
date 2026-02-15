@@ -7,7 +7,7 @@ import {
   IPCResponse,
 } from '@shared/types/ipc.types';
 import { TuningSession, TuningPhase } from '@shared/types/tuning.types';
-import { CompletedTuningRecord } from '@shared/types/tuning-history.types';
+import { CompletedTuningRecord, FilterMetricsSummary } from '@shared/types/tuning-history.types';
 import { PIDConfiguration } from '@shared/types/pid.types';
 import { HandlerDependencies, createResponse } from './types';
 import { sendTuningSessionChanged } from './events';
@@ -312,6 +312,41 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
       return createResponse<void>(undefined, getErrorMessage(error));
     }
   });
+
+  // Update verification metrics on active session + latest history record (no duplicate archive)
+  ipcMain.handle(
+    IPCChannel.TUNING_UPDATE_VERIFICATION,
+    async (
+      _event,
+      verificationMetrics: FilterMetricsSummary
+    ): Promise<IPCResponse<TuningSession>> => {
+      try {
+        if (!tuningSessionManager || !profileManager) {
+          return createResponse<TuningSession>(undefined, 'Tuning session manager not initialized');
+        }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<TuningSession>(undefined, 'No active profile');
+        }
+
+        // Update the active session's verification metrics (keep phase as 'completed')
+        const updated = await tuningSessionManager.updatePhase(profileId, 'completed', {
+          verificationMetrics,
+        });
+
+        // Update the latest history record (no new archive entry)
+        if (tuningHistoryManager) {
+          await tuningHistoryManager.updateLatestVerification(profileId, verificationMetrics);
+        }
+
+        sendTuningSessionChanged(updated);
+        return createResponse<TuningSession>(updated);
+      } catch (error) {
+        logger.error('Failed to update verification metrics:', error);
+        return createResponse<TuningSession>(undefined, getErrorMessage(error));
+      }
+    }
+  );
 
   logger.info('Tuning IPC handlers registered');
 }

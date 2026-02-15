@@ -129,7 +129,7 @@ IPC handlers are split into domain modules under `src/main/ipc/handlers/`:
 | `pidHandlers.ts` | 3 | PID get/set/save |
 | `blackboxHandlers.ts` | 8 | Info, download, list, delete, erase, folder, test, parse |
 | `analysisHandlers.ts` | 2 | Filter and PID analysis |
-| `tuningHandlers.ts` | 6 | Apply, session CRUD, history |
+| `tuningHandlers.ts` | 7 | Apply, session CRUD, history, update verification |
 | `index.ts` | — | DI container, `registerIPCHandlers()` |
 
 **Request-Response Pattern**:

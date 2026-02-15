@@ -9,7 +9,10 @@ import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import type { TuningSession } from '@shared/types/tuning.types';
-import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
+import type {
+  CompletedTuningRecord,
+  FilterMetricsSummary,
+} from '@shared/types/tuning-history.types';
 import { logger } from '../utils/logger';
 
 export class TuningHistoryManager {
@@ -69,6 +72,24 @@ export class TuningHistoryManager {
   async getHistory(profileId: string): Promise<CompletedTuningRecord[]> {
     const records = await this.loadRecords(profileId);
     return records.reverse(); // Stored oldest-first, return newest-first
+  }
+
+  /**
+   * Update verification metrics on the most recent history record for a profile.
+   * Returns true if a record was updated, false if no history exists.
+   */
+  async updateLatestVerification(
+    profileId: string,
+    verificationMetrics: FilterMetricsSummary
+  ): Promise<boolean> {
+    const records = await this.loadRecords(profileId);
+    if (records.length === 0) return false;
+
+    // Records stored oldest-first — last element is the most recent
+    records[records.length - 1].verificationMetrics = verificationMetrics;
+    await this.saveRecords(profileId, records);
+    logger.info(`Updated verification metrics on latest history record for profile ${profileId}`);
+    return true;
   }
 
   /**

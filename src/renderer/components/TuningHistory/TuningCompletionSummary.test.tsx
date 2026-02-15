@@ -199,6 +199,47 @@ describe('TuningCompletionSummary', () => {
     expect(onStartNew).toHaveBeenCalled();
   });
 
+  it('shows re-analyze button when verification data and callback available', () => {
+    const onReanalyze = vi.fn();
+    const session = { ...baseSession, verificationMetrics, verificationLogId: 'log-ver' };
+    render(
+      <TuningCompletionSummary
+        session={session}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+        onReanalyzeVerification={onReanalyze}
+      />
+    );
+
+    expect(screen.getByText('Re-analyze with different session')).toBeInTheDocument();
+  });
+
+  it('calls onReanalyzeVerification when re-analyze clicked', async () => {
+    const user = userEvent.setup();
+    const onReanalyze = vi.fn();
+    const session = { ...baseSession, verificationMetrics, verificationLogId: 'log-ver' };
+    render(
+      <TuningCompletionSummary
+        session={session}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+        onReanalyzeVerification={onReanalyze}
+      />
+    );
+
+    await user.click(screen.getByText('Re-analyze with different session'));
+    expect(onReanalyze).toHaveBeenCalled();
+  });
+
+  it('does not show re-analyze button without callback', () => {
+    const session = { ...baseSession, verificationMetrics, verificationLogId: 'log-ver' };
+    render(
+      <TuningCompletionSummary session={session} onDismiss={onDismiss} onStartNew={onStartNew} />
+    );
+
+    expect(screen.queryByText('Re-analyze with different session')).not.toBeInTheDocument();
+  });
+
   it('handles session with no changes gracefully', () => {
     const session: TuningSession = {
       ...baseSession,
@@ -213,7 +254,7 @@ describe('TuningCompletionSummary', () => {
     expect(screen.queryByText(/PID Changes/)).not.toBeInTheDocument();
   });
 
-  it('shows quality score badge next to title', () => {
+  it('shows quality score badge with tier label next to title', () => {
     const { container } = render(
       <TuningCompletionSummary
         session={baseSession}
@@ -224,5 +265,6 @@ describe('TuningCompletionSummary', () => {
 
     const badge = container.querySelector('.quality-score-badge');
     expect(badge).not.toBeNull();
+    expect(badge!.textContent).toMatch(/\d+\s+(Excellent|Good|Fair|Poor)/);
   });
 });

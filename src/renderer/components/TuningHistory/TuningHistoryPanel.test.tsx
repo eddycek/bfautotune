@@ -146,7 +146,7 @@ describe('TuningHistoryPanel', () => {
     expect(screen.getByText(/Noise: low/)).toBeInTheDocument();
   });
 
-  it('shows quality score badge in card header', () => {
+  it('shows quality score badge with tier label in card header', () => {
     const record = makeRecord('r1', '2026-02-10T00:00:00Z');
     // Add PID metrics so score can be computed
     record.pidMetrics = {
@@ -183,6 +183,7 @@ describe('TuningHistoryPanel', () => {
 
     const badge = container.querySelector('.quality-score-badge');
     expect(badge).not.toBeNull();
+    expect(badge!.textContent).toMatch(/\d+\s+(Excellent|Good|Fair|Poor)/);
   });
 
   it('renders trend chart with 2+ records', () => {

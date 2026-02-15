@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1740 tests across 92 files** (last verified: February 15, 2026)
+**Total: 1753 tests across 93 files** (last verified: February 15, 2026)
 
 ### UI Components
 
@@ -187,8 +187,9 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/charts/AxisTabs.test.tsx` | 6 | Tab rendering, selection, aria-selected, onChange callback |
 | `TuningHistory/AppliedChangesTable.test.tsx` | 7 | Setting changes table, percent formatting, empty state, zero value handling |
 | `TuningHistory/NoiseComparisonChart.test.tsx` | 7 | Before/after spectrum overlay, delta pill, axis tabs, empty state |
-| `TuningHistory/TuningCompletionSummary.test.tsx` | 11 | Completion summary with/without verification, noise chart, changes, PID metrics, actions, quality score badge |
-| `TuningHistory/TuningHistoryPanel.test.tsx` | 10 | History list, expand/collapse, detail view, empty/loading states, quality score badge, trend chart |
+| `TuningHistory/TuningCompletionSummary.test.tsx` | 14 | Completion summary with/without verification, noise chart, changes, PID metrics, actions, quality score badge with tier label, re-analyze button |
+| `TuningHistory/TuningHistoryPanel.test.tsx` | 11 | History list, expand/collapse, detail view, empty/loading states, quality score badge with tier label, trend chart |
+| `TuningHistory/VerificationSessionModal.test.tsx` | 7 | Auto-analyze single session, multi-session picker, reverse order, cancel, error/parsing states |
 | `TuningHistory/QualityTrendChart.test.tsx` | 5 | Trend chart rendering, minimum data threshold, null score handling |
 | `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |
 | `ProfileCard.test.tsx` | 17 | Profile card rendering, badges (Active/Recent), relative time, click handlers, locked state, CSS classes |
@@ -258,7 +259,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `storage/SnapshotManager.test.ts` | 16 | Snapshot creation via MSP, baseline management, server-side filtering, delete protection |
 | `storage/BlackboxManager.test.ts` | 18 | Log save/list/get/delete/export, profile filtering, soft delete, initialization |
 | `storage/TuningSessionManager.test.ts` | 15 | Session CRUD, phase transitions, per-profile persistence |
-| `storage/TuningHistoryManager.test.ts` | 14 | History archive, retrieval ordering, corrupted data handling, per-profile isolation, delete |
+| `storage/TuningHistoryManager.test.ts` | 17 | History archive, retrieval ordering, corrupted data handling, per-profile isolation, delete, updateLatestVerification |
 
 ### Blackbox Parser
 
@@ -312,7 +313,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `shared/utils/metricsExtract.test.ts` | 13 | Spectrum downsampling, filter/PID metrics extraction, boundary handling, trackingErrorRMS extraction |
-| `shared/utils/tuneQualityScore.test.ts` | 14 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping |
+| `shared/utils/tuneQualityScore.test.ts` | 15 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping, TIER_LABELS |
 | `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
 | `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |
 

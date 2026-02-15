@@ -5,20 +5,42 @@ import type {
   FCInfo,
   ConfigurationSnapshot,
   SnapshotMetadata,
-  ConnectionStatus
+  ConnectionStatus,
 } from '@shared/types/common.types';
 import type {
   DroneProfile,
   DroneProfileMetadata,
   ProfileCreationInput,
-  ProfileUpdateInput
+  ProfileUpdateInput,
 } from '@shared/types/profile.types';
 import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
-import type { BlackboxInfo, BlackboxLogMetadata, BlackboxParseResult, BlackboxParseProgress, BlackboxSettings } from '@shared/types/blackbox.types';
-import type { FilterAnalysisResult, PIDAnalysisResult, AnalysisProgress, CurrentFilterSettings } from '@shared/types/analysis.types';
-import type { ApplyRecommendationsInput, ApplyRecommendationsResult, ApplyRecommendationsProgress, SnapshotRestoreResult, SnapshotRestoreProgress, FixBlackboxSettingsInput, FixBlackboxSettingsResult } from '@shared/types/ipc.types';
+import type {
+  BlackboxInfo,
+  BlackboxLogMetadata,
+  BlackboxParseResult,
+  BlackboxParseProgress,
+  BlackboxSettings,
+} from '@shared/types/blackbox.types';
+import type {
+  FilterAnalysisResult,
+  PIDAnalysisResult,
+  AnalysisProgress,
+  CurrentFilterSettings,
+} from '@shared/types/analysis.types';
+import type {
+  ApplyRecommendationsInput,
+  ApplyRecommendationsResult,
+  ApplyRecommendationsProgress,
+  SnapshotRestoreResult,
+  SnapshotRestoreProgress,
+  FixBlackboxSettingsInput,
+  FixBlackboxSettingsResult,
+} from '@shared/types/ipc.types';
 import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
-import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
+import type {
+  CompletedTuningRecord,
+  FilterMetricsSummary,
+} from '@shared/types/tuning-history.types';
 
 const betaflightAPI: BetaflightAPI = {
   // Connection
@@ -150,7 +172,11 @@ const betaflightAPI: BetaflightAPI = {
   },
 
   async createProfileFromPreset(presetId: string, customName?: string): Promise<DroneProfile> {
-    const response = await ipcRenderer.invoke(IPCChannel.PROFILE_CREATE_FROM_PRESET, presetId, customName);
+    const response = await ipcRenderer.invoke(
+      IPCChannel.PROFILE_CREATE_FROM_PRESET,
+      presetId,
+      customName
+    );
     if (!response.success) {
       throw new Error(response.error);
     }
@@ -343,7 +369,10 @@ const betaflightAPI: BetaflightAPI = {
     return response.data;
   },
 
-  async parseBlackboxLog(logId: string, onProgress?: (progress: BlackboxParseProgress) => void): Promise<BlackboxParseResult> {
+  async parseBlackboxLog(
+    logId: string,
+    onProgress?: (progress: BlackboxParseProgress) => void
+  ): Promise<BlackboxParseResult> {
     let progressListener: ((event: any, progress: BlackboxParseProgress) => void) | null = null;
     if (onProgress) {
       progressListener = (_event: any, progress: BlackboxParseProgress) => onProgress(progress);
@@ -450,7 +479,9 @@ const betaflightAPI: BetaflightAPI = {
   },
 
   // Tuning
-  async applyRecommendations(input: ApplyRecommendationsInput): Promise<ApplyRecommendationsResult> {
+  async applyRecommendations(
+    input: ApplyRecommendationsInput
+  ): Promise<ApplyRecommendationsResult> {
     const response = await ipcRenderer.invoke(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, input);
     if (!response.success) {
       throw new Error(response.error || 'Failed to apply recommendations');
@@ -491,7 +522,10 @@ const betaflightAPI: BetaflightAPI = {
     return response.data;
   },
 
-  async updateTuningPhase(phase: TuningPhase, data?: Partial<TuningSession>): Promise<TuningSession> {
+  async updateTuningPhase(
+    phase: TuningPhase,
+    data?: Partial<TuningSession>
+  ): Promise<TuningSession> {
     const response = await ipcRenderer.invoke(IPCChannel.TUNING_UPDATE_PHASE, phase, data);
     if (!response.success) {
       throw new Error(response.error || 'Failed to update tuning phase');
@@ -519,6 +553,19 @@ const betaflightAPI: BetaflightAPI = {
     const response = await ipcRenderer.invoke(IPCChannel.TUNING_GET_HISTORY);
     if (!response.success) {
       throw new Error(response.error || 'Failed to get tuning history');
+    }
+    return response.data;
+  },
+
+  async updateVerificationMetrics(
+    verificationMetrics: FilterMetricsSummary
+  ): Promise<TuningSession> {
+    const response = await ipcRenderer.invoke(
+      IPCChannel.TUNING_UPDATE_VERIFICATION,
+      verificationMetrics
+    );
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update verification metrics');
     }
     return response.data;
   },

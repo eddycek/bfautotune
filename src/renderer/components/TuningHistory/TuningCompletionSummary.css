@@ -247,3 +247,18 @@
   font-size: 11px;
   flex-shrink: 0;
 }
+
+.completion-reanalyze-link {
+  background: none;
+  border: none;
+  color: #4dabf7;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 4px;
+}
+
+.completion-reanalyze-link:hover {
+  text-decoration: underline;
+  color: #74c0fc;
+}

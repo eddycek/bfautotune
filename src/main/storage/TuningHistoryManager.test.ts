@@ -5,7 +5,10 @@ import { tmpdir } from 'os';
 import { TuningHistoryManager } from './TuningHistoryManager';
 import type { TuningSession } from '@shared/types/tuning.types';
 
-function makeCompletedSession(profileId: string, overrides?: Partial<TuningSession>): TuningSession {
+function makeCompletedSession(
+  profileId: string,
+  overrides?: Partial<TuningSession>
+): TuningSession {
   return {
     profileId,
     phase: 'completed',
@@ -122,7 +125,9 @@ describe('TuningHistoryManager', () => {
         updatedAt: '2026-01-15T11:00:00.000Z',
       };
 
-      await expect(manager.archiveSession(session)).rejects.toThrow('Cannot archive non-completed session');
+      await expect(manager.archiveSession(session)).rejects.toThrow(
+        'Cannot archive non-completed session'
+      );
     });
 
     it('generates unique IDs for each record', async () => {
@@ -140,15 +145,24 @@ describe('TuningHistoryManager', () => {
     });
 
     it('returns newest-first ordering', async () => {
-      await manager.archiveSession(makeCompletedSession('profile-1', {
-        startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T01:00:00Z',
-      }));
-      await manager.archiveSession(makeCompletedSession('profile-1', {
-        startedAt: '2026-02-01T00:00:00Z', updatedAt: '2026-02-01T01:00:00Z',
-      }));
-      await manager.archiveSession(makeCompletedSession('profile-1', {
-        startedAt: '2026-03-01T00:00:00Z', updatedAt: '2026-03-01T01:00:00Z',
-      }));
+      await manager.archiveSession(
+        makeCompletedSession('profile-1', {
+          startedAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T01:00:00Z',
+        })
+      );
+      await manager.archiveSession(
+        makeCompletedSession('profile-1', {
+          startedAt: '2026-02-01T00:00:00Z',
+          updatedAt: '2026-02-01T01:00:00Z',
+        })
+      );
+      await manager.archiveSession(
+        makeCompletedSession('profile-1', {
+          startedAt: '2026-03-01T00:00:00Z',
+          updatedAt: '2026-03-01T01:00:00Z',
+        })
+      );
 
       const history = await manager.getHistory('profile-1');
       expect(history).toHaveLength(3);
@@ -172,6 +186,54 @@ describe('TuningHistoryManager', () => {
       const historyB = await manager.getHistory('profile-b');
       expect(historyA).toHaveLength(1);
       expect(historyB).toHaveLength(2);
+    });
+  });
+
+  describe('updateLatestVerification', () => {
+    const verificationMetrics = {
+      noiseLevel: 'low' as const,
+      roll: { noiseFloorDb: -50, peakCount: 0 },
+      pitch: { noiseFloorDb: -48, peakCount: 0 },
+      yaw: { noiseFloorDb: -52, peakCount: 0 },
+      segmentsUsed: 2,
+      summary: 'Improved noise',
+    };
+
+    it('updates the most recent record', async () => {
+      await manager.archiveSession(
+        makeCompletedSession('profile-1', {
+          startedAt: '2026-01-10T00:00:00Z',
+          updatedAt: '2026-01-10T01:00:00Z',
+        })
+      );
+      await manager.archiveSession(
+        makeCompletedSession('profile-1', {
+          startedAt: '2026-01-20T00:00:00Z',
+          updatedAt: '2026-01-20T01:00:00Z',
+        })
+      );
+
+      const result = await manager.updateLatestVerification('profile-1', verificationMetrics);
+      expect(result).toBe(true);
+
+      const history = await manager.getHistory('profile-1');
+      // Newest first — index 0 should have verification
+      expect(history[0].verificationMetrics).toEqual(verificationMetrics);
+      // Older record should NOT have verification
+      expect(history[1].verificationMetrics).toBeNull();
+    });
+
+    it('returns false for empty history', async () => {
+      const result = await manager.updateLatestVerification('nonexistent', verificationMetrics);
+      expect(result).toBe(false);
+    });
+
+    it('does not create a new record', async () => {
+      await manager.archiveSession(makeCompletedSession('profile-1'));
+      await manager.updateLatestVerification('profile-1', verificationMetrics);
+
+      const history = await manager.getHistory('profile-1');
+      expect(history).toHaveLength(1);
     });
   });
 

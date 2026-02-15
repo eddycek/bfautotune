@@ -12,6 +12,13 @@ import type {
   TuneQualityComponent,
 } from '../types/tuning-history.types';
 
+export const TIER_LABELS: Record<TuneQualityScore['tier'], string> = {
+  excellent: 'Excellent',
+  good: 'Good',
+  fair: 'Fair',
+  poor: 'Poor',
+};
+
 const BASE_POINTS = 25;
 
 interface ComponentDef {
