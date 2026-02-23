@@ -491,14 +491,59 @@ The filter tuning pipeline analyzes gyro noise to determine optimal lowpass filt
    - Electrical noise (>500 Hz)
 4. **Filter recommendation** — Maps the measured noise floor (dB) to a target cutoff frequency (Hz) via linear interpolation between safety bounds
 
-| Filter | Min Cutoff | Max Cutoff | Noise-Based Targeting |
-|--------|-----------|-----------|----------------------|
-| Gyro LPF1 | 75 Hz | 300 Hz (500 Hz with RPM) | -10 dB → 75 Hz, -70 dB → max |
-| D-term LPF1 | 70 Hz | 200 Hz (300 Hz with RPM) | -10 dB → 70 Hz, -70 dB → max |
+#### Filter Safety Bounds
 
-Changes are only recommended when the difference from the current setting exceeds a 5 Hz dead zone, preventing unnecessary micro-adjustments.
+| Filter | Min Cutoff | Max Cutoff (no RPM) | Max Cutoff (with RPM) | Source |
+|--------|-----------|--------------------|-----------------------|--------|
+| Gyro LPF1 | 75 Hz | 300 Hz | 500 Hz | [BF Tuning Guide](https://www.betaflight.com/docs/wiki/guides/current/PID-Tuning-Guide): 50 Hz = "very noisy", 80 Hz = "slightly noisy"; 75 Hz is a conservative midpoint |
+| D-term LPF1 | 70 Hz | 200 Hz | 300 Hz | [BF Filtering Wiki](https://github.com/betaflight/betaflight/wiki/Gyro-&-Dterm-filtering-recommendations): "70–90 Hz range" for D-term |
+
+The **minimum cutoffs** are derived from the official Betaflight guides. The **maximum cutoffs** represent the point where further relaxation provides negligible latency benefit. With RPM filter active, maximums are raised because 36 per-motor notch filters already handle motor noise, so the lowpass can afford to be more relaxed.
+
+#### Noise-Based Targeting (Linear Interpolation)
+
+The cutoff target is computed from the **worst-case noise floor** across roll and pitch axes (dB), mapped linearly to the cutoff range:
+
+```
+t = (noiseFloorDb - (-10)) / ((-70) - (-10))
+targetHz = minHz + t × (maxHz - minHz)
+```
+
+| Noise Floor (dB) | Meaning | Gyro LPF1 Target | D-term LPF1 Target |
+|-------------------|---------|-------------------|---------------------|
+| **-10 dB** (very noisy) | Extreme vibration/noise | 75 Hz (min) | 70 Hz (min) |
+| **-40 dB** (moderate) | Typical mid-range quad | ~188 Hz | ~135 Hz |
+| **-70 dB** (very clean) | Pristine signal | 300 Hz (max) | 200 Hz (max) |
+
+The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs across various frame sizes (3"–7"). This is our own interpolation method — not a community standard — designed to produce **convergent** (idempotent) recommendations: same noise data always produces the same target, regardless of current settings.
+
+#### Filter Decision Table
+
+| Rule | Trigger Condition | Action | Confidence | Source / Rationale |
+|------|-------------------|--------|------------|---------------------|
+| **Noise floor → lowpass** | Overall noise = high or low | Set gyro/D-term LPF1 to noise-based target | High (noisy) / Medium (clean) | Linear interpolation from BF guide bounds (see above) |
+| **Dead zone** | \|target − current\| ≤ 5 Hz | No change recommended | — | Prevents micro-adjustments that add no real benefit |
+| **Resonance peak → cutoff** | Peak ≥ 12 dB above local floor AND below current cutoff | Lower cutoff to peakFreq − 20 Hz (clamped to bounds) | High | Strong resonance passing through the filter must be blocked |
+| **Disabled gyro LPF + resonance** | gyro_lpf1 = 0 (disabled) AND resonance peak detected | Enable gyro LPF1 at peakFreq − 20 Hz | High | Common BF 4.4+ config with RPM filter; re-enable when needed |
+| **Dynamic notch range** | Peak below `dyn_notch_min_hz` | Lower dyn_notch_min to peakFreq − 20 Hz (floor: 50 Hz) | Medium | Notch can't track peaks outside its configured range |
+| **Dynamic notch range** | Peak above `dyn_notch_max_hz` | Raise dyn_notch_max to peakFreq + 20 Hz (ceiling: 1000 Hz) | Medium | Same as above, upper bound |
+| **RPM → notch count** | RPM filter active AND dyn_notch_count > 1 | Reduce dyn_notch_count to 1 | High | Motor noise handled by RPM notches; fewer dynamic notches = less CPU + latency |
+| **RPM → notch Q** | RPM filter active AND dyn_notch_q < 500 | Raise dyn_notch_q to 500 | High | Only frame resonances remain; narrower notch = less signal distortion |
+| **RPM motor diagnostic** | RPM filter active AND motor harmonics still detected (≥ 12 dB) | Warning: check motor_poles / ESC telemetry | Medium | Motor harmonics should not exist with working RPM filter |
+| **Deduplication** | Multiple rules target same setting | Keep more aggressive value, upgrade confidence | — | Ensures a single coherent recommendation per setting |
 
 **RPM filter awareness:** When the RPM filter is active (detected via MSP or BBL headers), the recommender widens safety bounds because motor noise is already handled by the 36 narrow notch filters tracking motor frequencies. It also recommends dynamic notch optimization (count 3→1, Q 300→500) since only frame resonances remain. If motor harmonics are still detected with RPM active, a diagnostic warns about possible `motor_poles` misconfiguration or ESC telemetry issues.
+
+#### Filter Methodology Sources
+
+| Source | What We Use From It |
+|--------|---------------------|
+| [Betaflight PID Tuning Guide](https://www.betaflight.com/docs/wiki/guides/current/PID-Tuning-Guide) | Gyro LPF1 cutoff range (50–80 Hz for noisy quads), general filtering philosophy |
+| [BF Filtering Wiki](https://github.com/betaflight/betaflight/wiki/Gyro-&-Dterm-filtering-recommendations) | D-term LPF1 "70–90 Hz" recommendation, dynamic notch configuration |
+| [BF Configurator](https://github.com/betaflight/betaflight-configurator) | RPM-aware max cutoffs (verified against Configurator auto-adjust behavior) |
+| [Oscar Liang: PID Filter Tuning](https://oscarliang.com/pid-filter-tuning-blackbox/) | Blackbox-based filter tuning workflow, noise floor interpretation |
+| [PIDtoolbox](https://pidtoolbox.com/home) | Spectral analysis methodology, noise floor percentile approach |
+| Real Blackbox logs (3"–7" quads) | Calibration of -10 dB / -70 dB noise anchor points |
 
 ### PID Tuning (Step Response Analysis)
 
