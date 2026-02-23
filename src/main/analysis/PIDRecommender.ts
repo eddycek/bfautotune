@@ -5,15 +5,13 @@
  * beginner-friendly PID tuning recommendations with safety bounds.
  */
 import type { PIDConfiguration } from '@shared/types/pid.types';
-import type { AxisStepProfile, FeedforwardContext, PIDRecommendation } from '@shared/types/analysis.types';
+import type {
+  AxisStepProfile,
+  FeedforwardContext,
+  PIDRecommendation,
+} from '@shared/types/analysis.types';
 import type { FlightStyle } from '@shared/types/profile.types';
-import {
-  PID_STYLE_THRESHOLDS,
-  P_GAIN_MIN,
-  P_GAIN_MAX,
-  D_GAIN_MIN,
-  D_GAIN_MAX,
-} from './constants';
+import { PID_STYLE_THRESHOLDS, P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
 
 const AXIS_NAMES = ['roll', 'pitch', 'yaw'] as const;
 
@@ -52,8 +50,8 @@ export function recommendPID(
     if (profile.responses.length === 0) continue;
 
     // Check if overshoot on this axis is FF-dominated (majority of steps)
-    const ffClassified = profile.responses.filter(r => r.ffDominated !== undefined);
-    const ffDominatedCount = ffClassified.filter(r => r.ffDominated === true).length;
+    const ffClassified = profile.responses.filter((r) => r.ffDominated !== undefined);
+    const ffDominatedCount = ffClassified.filter((r) => r.ffDominated === true).length;
     const axisFFDominated = ffClassified.length > 0 && ffDominatedCount > ffClassified.length / 2;
 
     // Yaw is analyzed with relaxed thresholds
@@ -66,7 +64,7 @@ export function recommendPID(
     if (axisFFDominated && profile.meanOvershoot > moderateOvershoot) {
       const boost = feedforwardContext?.boost;
       // Only emit feedforward_boost recommendation once (not per-axis)
-      const existingFFRec = recommendations.find(r => r.setting === 'feedforward_boost');
+      const existingFFRec = recommendations.find((r) => r.setting === 'feedforward_boost');
       if (!existingFFRec && boost !== undefined && boost > 0) {
         const targetBoost = Math.max(0, boost - 5);
         recommendations.push({
@@ -82,8 +80,10 @@ export function recommendPID(
       // Still check ringing and settling which are PID-related
     } else if (profile.meanOvershoot > overshootThreshold) {
       // Rule 1: Severe overshoot → D-first strategy (non-FF case)
-      // Always increase D first (anchored to flight PIDs)
-      const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
+      // Scale D step with overshoot severity for faster convergence
+      const severity = profile.meanOvershoot / overshootThreshold;
+      const dStep = severity > 4 ? 15 : severity > 2 ? 10 : 5;
+      const targetD = clamp(base.D + dStep, D_GAIN_MIN, D_GAIN_MAX);
       if (targetD !== pids.D) {
         recommendations.push({
           setting: `pid_${axisName}_d`,
@@ -94,15 +94,16 @@ export function recommendPID(
           confidence: 'high',
         });
       }
-      // Only also reduce P if D is already high (≥60% of max) — D alone wasn't enough
-      if (base.D >= D_GAIN_MAX * 0.6) {
-        const targetP = clamp(base.P - 5, P_GAIN_MIN, P_GAIN_MAX);
+      // Reduce P when overshoot is extreme (>2x threshold) or D is already high
+      if (severity > 2 || base.D >= D_GAIN_MAX * 0.6) {
+        const pStep = severity > 4 ? 10 : 5;
+        const targetP = clamp(base.P - pStep, P_GAIN_MIN, P_GAIN_MAX);
         if (targetP !== pids.P) {
           recommendations.push({
             setting: `pid_${axisName}_p`,
             currentValue: pids.P,
             recommendedValue: targetP,
-            reason: `Significant overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%) and D-term is already high. Reducing P-term helps prevent the quad from overshooting its target.`,
+            reason: `${severity > 4 ? 'Extreme' : 'Significant'} overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%). Reducing P-term helps prevent the quad from overshooting its target.`,
             impact: 'both',
             confidence: 'high',
           });
@@ -124,7 +125,10 @@ export function recommendPID(
     }
 
     // Rule 2: Sluggish response (low overshoot + slow rise) → increase P by 5 (FPVSIM guidance)
-    if (profile.meanOvershoot < thresholds.overshootIdeal && profile.meanRiseTimeMs > sluggishRiseMs) {
+    if (
+      profile.meanOvershoot < thresholds.overshootIdeal &&
+      profile.meanRiseTimeMs > sluggishRiseMs
+    ) {
       const targetP = clamp(base.P + 5, P_GAIN_MIN, P_GAIN_MAX);
       if (targetP !== pids.P) {
         recommendations.push({
@@ -139,12 +143,12 @@ export function recommendPID(
     }
 
     // Rule 3: Excessive ringing → increase D (BF: any visible bounce-back should be addressed)
-    const maxRinging = Math.max(...profile.responses.map(r => r.ringingCount));
+    const maxRinging = Math.max(...profile.responses.map((r) => r.ringingCount));
     if (maxRinging > thresholds.ringingMax) {
       const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
       if (targetD !== pids.D) {
         // Don't duplicate if we already recommended D increase for overshoot
-        const existingDRec = recommendations.find(r => r.setting === `pid_${axisName}_d`);
+        const existingDRec = recommendations.find((r) => r.setting === `pid_${axisName}_d`);
         if (!existingDRec) {
           recommendations.push({
             setting: `pid_${axisName}_d`,
@@ -159,9 +163,12 @@ export function recommendPID(
     }
 
     // Rule 4: Slow settling → might need more D or less I
-    if (profile.meanSettlingTimeMs > thresholds.settlingMax && profile.meanOvershoot < moderateOvershoot) {
+    if (
+      profile.meanSettlingTimeMs > thresholds.settlingMax &&
+      profile.meanOvershoot < moderateOvershoot
+    ) {
       // Only if overshoot isn't the problem (settling from other causes)
-      const existingDRec = recommendations.find(r => r.setting === `pid_${axisName}_d`);
+      const existingDRec = recommendations.find((r) => r.setting === `pid_${axisName}_d`);
       if (!existingDRec) {
         const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
         if (targetD !== pids.D) {
@@ -209,18 +216,22 @@ export function generatePIDSummary(
     return `Analyzed ${totalSteps} stick inputs${styleNote}. Your PID tune looks good — response is quick with minimal overshoot. No changes recommended.`;
   }
 
-  const hasOvershoot = recommendations.some(r => r.reason.includes('overshoot') || r.reason.includes('Overshoot'));
-  const hasSluggish = recommendations.some(r => r.reason.includes('sluggish') || r.reason.includes('Sluggish'));
-  const hasRinging = recommendations.some(r => r.reason.includes('scillation') || r.reason.includes('wobble'));
+  const hasOvershoot = recommendations.some(
+    (r) => r.reason.includes('overshoot') || r.reason.includes('Overshoot')
+  );
+  const hasSluggish = recommendations.some(
+    (r) => r.reason.includes('sluggish') || r.reason.includes('Sluggish')
+  );
+  const hasRinging = recommendations.some(
+    (r) => r.reason.includes('scillation') || r.reason.includes('wobble')
+  );
 
   const issues: string[] = [];
   if (hasOvershoot) issues.push('overshoot');
   if (hasSluggish) issues.push('sluggish response');
   if (hasRinging) issues.push('oscillation');
 
-  const issueText = issues.length > 0
-    ? issues.join(' and ')
-    : 'room for improvement';
+  const issueText = issues.length > 0 ? issues.join(' and ') : 'room for improvement';
 
   return `Analyzed ${totalSteps} stick inputs${styleNote} and found ${issueText}. ${recommendations.length} adjustment${recommendations.length === 1 ? '' : 's'} recommended — apply them for a tighter, more locked-in feel.`;
 }
@@ -230,9 +241,7 @@ export function generatePIDSummary(
  * Betaflight logs PIDs as "rollPID" → "P,I,D" (e.g. "45,80,30").
  * Returns undefined if any axis PID is missing from the header.
  */
-export function extractFlightPIDs(
-  rawHeaders: Map<string, string>
-): PIDConfiguration | undefined {
+export function extractFlightPIDs(rawHeaders: Map<string, string>): PIDConfiguration | undefined {
   const rollPID = rawHeaders.get('rollPID');
   const pitchPID = rawHeaders.get('pitchPID');
   const yawPID = rawHeaders.get('yawPID');
@@ -254,9 +263,7 @@ export function extractFlightPIDs(
  * FF is considered "active" when boost > 0 (BF default is 15).
  * Missing headers are treated as FF inactive (graceful fallback for older FW).
  */
-export function extractFeedforwardContext(
-  rawHeaders: Map<string, string>
-): FeedforwardContext {
+export function extractFeedforwardContext(rawHeaders: Map<string, string>): FeedforwardContext {
   const boost = parseIntOr(rawHeaders.get('feedforward_boost'));
   const maxRateLimit = parseIntOr(rawHeaders.get('feedforward_max_rate_limit'));
 

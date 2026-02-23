@@ -120,6 +120,50 @@ describe('PIDRecommender', () => {
       expect(pRec!.recommendedValue).toBeLessThan(highDPids.roll.P);
     });
 
+    it('should scale D+10 and reduce P for high overshoot (>2x threshold)', () => {
+      // 60% overshoot → severity = 60/25 = 2.4 (>2x)
+      const profile = makeProfile({ meanOvershoot: 60 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
+      expect(dRec).toBeDefined();
+      expect(dRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.D + 10); // D: 30 + 10 = 40
+      expect(pRec).toBeDefined();
+      expect(pRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.P - 5); // P: 45 - 5 = 40
+    });
+
+    it('should scale D+15 and P-10 for extreme overshoot (>4x threshold)', () => {
+      // 145% overshoot → severity = 145/25 = 5.8 (>4x)
+      const profile = makeProfile({ meanOvershoot: 145 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
+      expect(dRec).toBeDefined();
+      expect(dRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.D + 15); // D: 30 + 15 = 45
+      expect(pRec).toBeDefined();
+      expect(pRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.P - 10); // P: 45 - 10 = 35
+      expect(pRec!.reason).toContain('Extreme');
+    });
+
+    it('should clamp D to max even with extreme overshoot', () => {
+      const highDPids: PIDConfiguration = {
+        roll: { P: 45, I: 80, D: 70 }, // near max
+        pitch: { P: 47, I: 84, D: 32 },
+        yaw: { P: 45, I: 80, D: 0 },
+      };
+      const profile = makeProfile({ meanOvershoot: 145 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), highDPids);
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+      expect(dRec!.recommendedValue).toBeLessThanOrEqual(D_GAIN_MAX);
+    });
+
     it('should recommend P increase for sluggish response', () => {
       const profile = makeProfile({
         meanOvershoot: 2,
