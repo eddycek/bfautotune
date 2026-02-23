@@ -127,7 +127,7 @@ IPC handlers are split into domain modules under `src/main/ipc/handlers/`:
 | `snapshotHandlers.ts` | 6 | Snapshot CRUD, export, restore |
 | `profileHandlers.ts` | 10 | Profile CRUD, presets, FC serial |
 | `pidHandlers.ts` | 3 | PID get/set/save |
-| `blackboxHandlers.ts` | 8 | Info, download, list, delete, erase, folder, test, parse |
+| `blackboxHandlers.ts` | 9 | Info, download, list, delete, erase, folder, test, parse, import |
 | `analysisHandlers.ts` | 2 | Filter and PID analysis |
 | `tuningHandlers.ts` | 8 | Apply, session CRUD, history, update verification, update history verification |
 | `index.ts` | — | DI container, `registerIPCHandlers()` |
@@ -220,7 +220,7 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 
 - **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation
 - **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
-- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, safety bounds (P: 20-120, D: 15-80)
+- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), safety bounds (P: 20-120, D: 15-80)
 - **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 

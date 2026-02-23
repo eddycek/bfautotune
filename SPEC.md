@@ -338,7 +338,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 15, 2026 | **Tests:** 1762 across 93 files | **PRs Merged:** #1–#132
+**Last Updated:** February 23, 2026 | **Tests:** 1796 across 93 files | **PRs Merged:** #1–#137
 
 | Phase | Status | Notes |
 |-------|--------|-------|

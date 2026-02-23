@@ -88,7 +88,7 @@ Before generating any recommendations, rates input data quality 0-100 (excellent
 ### Known Algorithmic Limitations
 
 1. **Step detection requires dedicated test flights** — Stick snaps needed; general freestyle/race flights produce no PID recommendations. Wiener deconvolution (planned) would solve this.
-2. **Fixed step size (±5)** — Badly-tuned quads converge slowly; nearly-tuned quads may overshoot. Proportional scaling (planned) would address this.
+2. **Proportional step sizing (±5/±10/±15)** — Severity-based scaling implemented (PR #137). D step scales with overshoot severity; mild cases use ±5 (FPVSIM baseline), extreme cases up to ±15. All clamped to safe bounds.
 3. **Single-point FFT** — Averages across entire hover segment; doesn't capture noise vs throttle relationship. Throttle-indexed spectrograms (planned) would improve this.
 4. **No transfer function estimation** — Bandwidth, gain/phase margins unknown. No Bode plots. Wiener deconvolution (planned) would enable this.
 
@@ -139,7 +139,7 @@ Key insight: this is not an "AI tuner" or a black box. The algorithms are determ
 
 ### Who Benefits Less
 
-- **Extreme racers** — Fixed ±5 step size may not converge fast enough for aggressive tuning
+- **Extreme racers** — Proportional scaling (PR #137) now handles extreme overshoot faster, but still uses discrete tiers rather than continuous scaling
 - **Perfectionist tuners** — No Bode plots, no ARX system identification (yet)
 
 ---
