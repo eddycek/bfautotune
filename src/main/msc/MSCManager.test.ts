@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MSCManager } from './MSCManager';
 import type { MSCProgress } from './MSCManager';
 
-const { mockSnapshotVolumes, mockDetectNewDrive, mockFindLogFiles, mockEjectDrive } = vi.hoisted(() => ({
-  mockSnapshotVolumes: vi.fn(),
-  mockDetectNewDrive: vi.fn(),
-  mockFindLogFiles: vi.fn(),
-  mockEjectDrive: vi.fn(),
-}));
+const { mockSnapshotVolumes, mockDetectNewDrive, mockFindLogFiles, mockEjectDrive } = vi.hoisted(
+  () => ({
+    mockSnapshotVolumes: vi.fn(),
+    mockDetectNewDrive: vi.fn(),
+    mockFindLogFiles: vi.fn(),
+    mockEjectDrive: vi.fn(),
+  })
+);
 
 const { mockStat, mockMkdir, mockCopyFile, mockUnlink } = vi.hoisted(() => ({
   mockStat: vi.fn(),
@@ -82,7 +84,7 @@ describe('MSCManager', () => {
       expect(result[0].destPath).toBe('/tmp/logs/BTFL_001.BBL');
 
       // Verify progress stages
-      const stages = progressCalls.map(p => p.stage);
+      const stages = progressCalls.map((p) => p.stage);
       expect(stages).toContain('entering_msc');
       expect(stages).toContain('waiting_mount');
       expect(stages).toContain('copying');
@@ -104,9 +106,7 @@ describe('MSCManager', () => {
       mspClient.rebootToMSC.mockResolvedValue(true);
       mockDetectNewDrive.mockRejectedValue(new Error('SD card not detected within 30s'));
 
-      await expect(manager.downloadLogs('/tmp/logs')).rejects.toThrow(
-        /Failed to detect SD card/
-      );
+      await expect(manager.downloadLogs('/tmp/logs')).rejects.toThrow(/Failed to detect SD card/);
     });
 
     it('returns empty array and ejects when no log files found', async () => {
@@ -177,7 +177,7 @@ describe('MSCManager', () => {
       expect(mockUnlink).toHaveBeenCalledTimes(2);
       expect(mockEjectDrive).toHaveBeenCalled();
 
-      const stages = progressCalls.map(p => p.stage);
+      const stages = progressCalls.map((p) => p.stage);
       expect(stages).toContain('erasing');
       expect(stages).toContain('ejecting');
     });
@@ -207,6 +207,39 @@ describe('MSCManager', () => {
 
       expect(mockUnlink).toHaveBeenCalledTimes(2);
       expect(mockEjectDrive).toHaveBeenCalled();
+    });
+
+    it('passes requireLogFiles: false to detectNewDrive', async () => {
+      mockSnapshotVolumes.mockResolvedValue(new Set(['/Volumes/Macintosh HD']));
+      mspClient.rebootToMSC.mockResolvedValue(true);
+      mockDetectNewDrive.mockResolvedValue({ mountPath: '/Volumes/BLACKBOX', label: 'BLACKBOX' });
+      mockFindLogFiles.mockResolvedValue([]);
+      mockEjectDrive.mockResolvedValue(undefined);
+
+      await manager.eraseLogs();
+
+      expect(mockDetectNewDrive).toHaveBeenCalledWith(
+        new Set(['/Volumes/Macintosh HD']),
+        30000,
+        1000,
+        { requireLogFiles: false }
+      );
+    });
+
+    it('completes erase on empty SD card (no log files)', async () => {
+      mockSnapshotVolumes.mockResolvedValue(new Set());
+      mspClient.rebootToMSC.mockResolvedValue(true);
+      mockDetectNewDrive.mockResolvedValue({ mountPath: '/Volumes/BLACKBOX', label: 'BLACKBOX' });
+      mockFindLogFiles.mockResolvedValue([]);
+      mockEjectDrive.mockResolvedValue(undefined);
+
+      const progressCalls: MSCProgress[] = [];
+      await manager.eraseLogs((p) => progressCalls.push(p));
+
+      expect(mockUnlink).not.toHaveBeenCalled();
+      expect(mockEjectDrive).toHaveBeenCalledWith('/Volumes/BLACKBOX');
+      const stages = progressCalls.map((p) => p.stage);
+      expect(stages).toContain('ejecting');
     });
 
     it('throws on cancel during erase', async () => {

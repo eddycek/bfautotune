@@ -182,6 +182,77 @@ describe('TuningStatusBanner', () => {
     expect(onViewGuide).toHaveBeenCalledWith('pid');
   });
 
+  it('shows Skip Erase button for filter_flight_pending', async () => {
+    const user = userEvent.setup();
+    renderBanner();
+
+    expect(screen.getByText('Skip Erase')).toBeInTheDocument();
+    await user.click(screen.getByText('Skip Erase'));
+    expect(onAction).toHaveBeenCalledWith('skip_erase');
+  });
+
+  it('shows Skip Erase button for pid_flight_pending', () => {
+    renderBanner({ ...baseSession, phase: 'pid_flight_pending' });
+
+    expect(screen.getByText('Skip Erase')).toBeInTheDocument();
+  });
+
+  it('shows Skip Erase button for filter_applied (Continue)', () => {
+    renderBanner({ ...baseSession, phase: 'filter_applied' });
+
+    expect(screen.getByText('Continue')).toBeInTheDocument();
+    expect(screen.getByText('Skip Erase')).toBeInTheDocument();
+  });
+
+  it('shows erased state when session.eraseSkipped is true even with flash data', () => {
+    renderBanner({ ...baseSession, eraseSkipped: true }, false, { flashUsedSize: 26000000 });
+
+    expect(
+      screen.getByText(/Flash erased! Disconnect your drone and fly the filter test flight/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Erase Flash')).not.toBeInTheDocument();
+    expect(screen.getByText('View Flight Guide')).toBeInTheDocument();
+  });
+
+  it('shows erased state for pid_flight_pending with eraseSkipped', () => {
+    renderBanner({ ...baseSession, phase: 'pid_flight_pending', eraseSkipped: true }, false, {
+      flashUsedSize: 26000000,
+    });
+
+    expect(
+      screen.getByText(/Flash erased! Disconnect your drone and fly the PID test flight/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Erase Flash')).not.toBeInTheDocument();
+  });
+
+  it('does not show erased state for eraseSkipped in non-flight-pending phase', () => {
+    renderBanner({ ...baseSession, phase: 'filter_analysis', eraseSkipped: true }, false);
+
+    expect(screen.queryByText(/Flash erased!/)).not.toBeInTheDocument();
+    expect(screen.getByText('Open Filter Wizard')).toBeInTheDocument();
+  });
+
+  it('does not show Skip Erase for non-erase phases', () => {
+    renderBanner({ ...baseSession, phase: 'filter_analysis' });
+
+    expect(screen.queryByText('Skip Erase')).not.toBeInTheDocument();
+  });
+
+  it('hides Skip Erase during erase operation', () => {
+    render(
+      <TuningStatusBanner
+        session={baseSession}
+        onAction={onAction}
+        onViewGuide={onViewGuide}
+        onReset={onReset}
+        erasing
+      />
+    );
+
+    expect(screen.queryByText('Skip Erase')).not.toBeInTheDocument();
+    expect(screen.getByText('Erasing...')).toBeInTheDocument();
+  });
+
   it('does not show flash erased state when flashErased is false', () => {
     renderBanner(baseSession, false);
 
@@ -399,5 +470,50 @@ describe('TuningStatusBanner', () => {
 
     expect(screen.getByText('Download Log')).toBeInTheDocument();
     expect(screen.queryByText('View Flight Guide')).not.toBeInTheDocument();
+  });
+
+  // Import File button tests
+  it('shows Import File button in filter_log_ready phase', () => {
+    renderBanner({ ...baseSession, phase: 'filter_log_ready' });
+
+    expect(screen.getByText('Download Log')).toBeInTheDocument();
+    expect(screen.getByText('Import File')).toBeInTheDocument();
+  });
+
+  it('shows Import File button in pid_log_ready phase', () => {
+    renderBanner({ ...baseSession, phase: 'pid_log_ready' });
+
+    expect(screen.getByText('Download Log')).toBeInTheDocument();
+    expect(screen.getByText('Import File')).toBeInTheDocument();
+  });
+
+  it('shows Import File button in verification_pending without log', () => {
+    renderBanner({ ...baseSession, phase: 'verification_pending' }, false, { flashUsedSize: 1000 });
+
+    expect(screen.getByText('Download Log')).toBeInTheDocument();
+    expect(screen.getByText('Import File')).toBeInTheDocument();
+    expect(screen.getByText('Skip & Complete')).toBeInTheDocument();
+  });
+
+  it('fires import_log action when Import File is clicked', async () => {
+    const user = userEvent.setup();
+    renderBanner({ ...baseSession, phase: 'filter_log_ready' });
+
+    await user.click(screen.getByText('Import File'));
+    expect(onAction).toHaveBeenCalledWith('import_log');
+  });
+
+  it('does not show Import File button in erase phases', () => {
+    renderBanner({ ...baseSession, phase: 'filter_flight_pending' });
+
+    expect(screen.getByText('Erase Flash')).toBeInTheDocument();
+    expect(screen.queryByText('Import File')).not.toBeInTheDocument();
+  });
+
+  it('does not show Import File button in analysis phases', () => {
+    renderBanner({ ...baseSession, phase: 'filter_analysis' });
+
+    expect(screen.getByText('Open Filter Wizard')).toBeInTheDocument();
+    expect(screen.queryByText('Import File')).not.toBeInTheDocument();
   });
 });

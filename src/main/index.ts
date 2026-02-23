@@ -162,6 +162,19 @@ async function initialize(): Promise<void> {
                   nextPhase
                 );
                 sendTuningSessionChanged(updated);
+              } else if (bbInfo.storageType === 'sdcard' && session.eraseSkipped) {
+                // User skipped erase — treat reconnect as "flew and came back"
+                const nextPhase =
+                  session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
+                logger.info(
+                  `Smart reconnect: SD card + eraseSkipped, transitioning ${session.phase} → ${nextPhase}`
+                );
+                const updated = await tuningSessionManager.updatePhase(
+                  existingProfile.id,
+                  nextPhase,
+                  { eraseSkipped: undefined }
+                );
+                sendTuningSessionChanged(updated);
               } else if (bbInfo.storageType === 'sdcard') {
                 logger.info(
                   'Smart reconnect: SD card detected — skipping auto-transition (user must confirm)'

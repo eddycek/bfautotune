@@ -85,4 +85,7 @@ export interface TuningSession {
 
   /** Compact verification flight metrics (saved for history) */
   verificationMetrics?: FilterMetricsSummary;
+
+  /** True when user skipped erase (e.g. formatted SD card manually) — persists across restart */
+  eraseSkipped?: boolean;
 }

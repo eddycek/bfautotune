@@ -76,12 +76,18 @@ export function registerAnalysisHandlers(deps: HandlerDependencies): void {
 
         const session = parseResult.sessions[idx];
 
-        // Enrich filter settings with RPM data from BBL headers as fallback
-        if (currentSettings && currentSettings.rpm_filter_harmonics === undefined) {
+        // Enrich filter settings with data from BBL headers as fallback
+        // Runs when any key field is missing (RPM data, dyn_notch_count/q)
+        if (
+          currentSettings &&
+          (currentSettings.rpm_filter_harmonics === undefined ||
+            currentSettings.dyn_notch_count === undefined ||
+            currentSettings.dyn_notch_q === undefined)
+        ) {
           const enriched = enrichSettingsFromBBLHeaders(currentSettings, session.header.rawHeaders);
           if (enriched) {
             currentSettings = enriched;
-            logger.info('Enriched filter settings with RPM data from BBL headers');
+            logger.info('Enriched filter settings from BBL headers');
           }
         } else if (!currentSettings) {
           // No FC connected and no settings provided — try to build from BBL headers

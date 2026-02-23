@@ -392,6 +392,14 @@ const betaflightAPI: BetaflightAPI = {
     }
   },
 
+  async importBlackboxLog(): Promise<BlackboxLogMetadata | null> {
+    const response = await ipcRenderer.invoke(IPCChannel.BLACKBOX_IMPORT_LOG);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to import Blackbox log');
+    }
+    return response.data;
+  },
+
   onBlackboxParseProgress(callback: (progress: BlackboxParseProgress) => void): () => void {
     const listener = (_: any, progress: BlackboxParseProgress) => callback(progress);
     ipcRenderer.on(IPCChannel.EVENT_BLACKBOX_PARSE_PROGRESS, listener);

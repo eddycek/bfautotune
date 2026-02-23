@@ -39,19 +39,30 @@ export async function snapshotVolumes(): Promise<Set<string>> {
  * Detect a new volume that appeared since the snapshot.
  * Polls until a new volume with BF log files is found, or timeout.
  *
+ * On macOS, also monitors for unmounted external disks via diskutil and
+ * attempts to mount them automatically (handles FCs that enumerate as USB
+ * mass storage but macOS doesn't auto-mount).
+ *
  * @param before - Volume snapshot taken before MSC reboot
  * @param timeoutMs - Max wait time (default 30s)
  * @param pollIntervalMs - Poll interval (default 1s)
+ * @param options.requireLogFiles - If false, accept any new volume even without BF logs (default true)
  */
 export async function detectNewDrive(
   before: Set<string>,
   timeoutMs: number = 30000,
-  pollIntervalMs: number = 1000
+  pollIntervalMs: number = 1000,
+  options?: { requireLogFiles?: boolean }
 ): Promise<DetectedDrive> {
+  const requireLogFiles = options?.requireLogFiles ?? true;
   const start = Date.now();
 
+  // macOS: snapshot external disks to detect unmounted drives
+  const disksBefore = process.platform === 'darwin' ? await getExternalDisksDarwin() : null;
+  const mountAttempted = new Set<string>();
+
   while (Date.now() - start < timeoutMs) {
-    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
 
     const current = await snapshotVolumes();
 
@@ -63,17 +74,39 @@ export async function detectNewDrive(
       }
     }
 
-    if (newVolumes.length === 0) continue;
+    if (newVolumes.length === 0) {
+      // macOS: check for unmounted external disks and try to mount them
+      if (disksBefore) {
+        const disksNow = await getExternalDisksDarwin();
+        for (const disk of disksNow) {
+          if (!disksBefore.has(disk) && !mountAttempted.has(disk)) {
+            logger.info(`New unmounted external disk detected: ${disk} — attempting mount`);
+            mountAttempted.add(disk);
+            await mountDiskDarwin(disk);
+            // Volume will appear in /Volumes/ on next poll iteration
+          }
+        }
+      }
+      continue;
+    }
 
     logger.info(`New volumes detected: ${newVolumes.join(', ')}`);
 
-    // Check each new volume for BF log files
+    // Check each new volume for BF log files — prefer volumes with logs
     for (const vol of newVolumes) {
       if (await hasBFLogFiles(vol)) {
         const label = vol.split('/').pop() || vol;
         logger.info(`BF log files found on ${vol}`);
         return { mountPath: vol, label };
       }
+    }
+
+    // No BF logs on any new volume — accept first one if log files not required
+    if (!requireLogFiles) {
+      const vol = newVolumes[0];
+      const label = vol.split('/').pop() || vol;
+      logger.info(`Accepting new volume without BF logs (requireLogFiles=false): ${vol}`);
+      return { mountPath: vol, label };
     }
 
     // New volumes appeared but none have BF logs — keep waiting
@@ -83,7 +116,7 @@ export async function detectNewDrive(
 
   throw new Error(
     `SD card not detected within ${timeoutMs / 1000}s. ` +
-    'Make sure the FC is connected via USB and supports mass storage mode.'
+      'Make sure the FC is connected via USB and supports mass storage mode.'
   );
 }
 
@@ -100,7 +133,7 @@ export async function findLogFiles(mountPath: string): Promise<string[]> {
     try {
       const entries = await fs.readdir(searchPath);
       for (const entry of entries) {
-        if (BF_LOG_PATTERNS.some(p => p.test(entry))) {
+        if (BF_LOG_PATTERNS.some((p) => p.test(entry))) {
           logFiles.push(`${searchPath}/${entry}`);
         }
       }
@@ -142,9 +175,40 @@ export async function ejectDrive(mountPath: string): Promise<void> {
 async function snapshotVolumesDarwin(): Promise<Set<string>> {
   try {
     const entries = await fs.readdir('/Volumes');
-    return new Set(entries.map(e => `/Volumes/${e}`));
+    return new Set(entries.map((e) => `/Volumes/${e}`));
   } catch {
     return new Set();
+  }
+}
+
+/**
+ * Get external disk identifiers on macOS (e.g., /dev/disk4).
+ * Used to detect USB devices that macOS doesn't auto-mount.
+ */
+export async function getExternalDisksDarwin(): Promise<Set<string>> {
+  try {
+    const { stdout } = await execAsync('diskutil list external');
+    const disks = new Set<string>();
+    for (const line of stdout.split('\n')) {
+      const match = line.match(/^(\/dev\/disk\d+)/);
+      if (match) disks.add(match[1]);
+    }
+    return disks;
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Try to mount all volumes on an external disk.
+ * Safe to call — if the disk is already mounted or can't be mounted, it just logs.
+ */
+export async function mountDiskDarwin(diskId: string): Promise<void> {
+  try {
+    const { stdout } = await execAsync(`diskutil mountDisk "${diskId}"`);
+    logger.info(`diskutil mountDisk ${diskId}: ${stdout.trim()}`);
+  } catch (error) {
+    logger.debug(`Failed to mount ${diskId}: ${error}`);
   }
 }
 
@@ -160,7 +224,11 @@ async function snapshotVolumesWin32(): Promise<Set<string>> {
     const { stdout } = await execAsync(
       'powershell -Command "Get-Volume | Where-Object { $_.DriveLetter } | ForEach-Object { $_.DriveLetter }"'
     );
-    const drives = stdout.trim().split('\n').filter(Boolean).map(d => `${d.trim()}:\\`);
+    const drives = stdout
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((d) => `${d.trim()}:\\`);
     return new Set(drives);
   } catch {
     return new Set();
@@ -172,8 +240,8 @@ async function ejectWin32(mountPath: string): Promise<void> {
   const driveLetter = mountPath.charAt(0);
   await execAsync(
     `powershell -Command "$vol = Get-Volume -DriveLetter '${driveLetter}'; ` +
-    `$eject = New-Object -ComObject Shell.Application; ` +
-    `$eject.Namespace(17).ParseName('${driveLetter}:').InvokeVerb('Eject')"`
+      `$eject = New-Object -ComObject Shell.Application; ` +
+      `$eject.Namespace(17).ParseName('${driveLetter}:').InvokeVerb('Eject')"`
   );
 }
 
@@ -182,7 +250,7 @@ async function ejectWin32(mountPath: string): Promise<void> {
 async function snapshotVolumesLinux(): Promise<Set<string>> {
   const mediaDirs = [
     `/media/${process.env.USER || 'root'}`,
-    `/run/media/${process.env.USER || 'root'}`
+    `/run/media/${process.env.USER || 'root'}`,
   ];
 
   const volumes = new Set<string>();
@@ -226,7 +294,7 @@ async function hasBFLogFiles(volumePath: string): Promise<boolean> {
     const searchPath = subdir ? `${volumePath}/${subdir}` : volumePath;
     try {
       const entries = await fs.readdir(searchPath);
-      if (entries.some(entry => BF_LOG_PATTERNS.some(p => p.test(entry)))) {
+      if (entries.some((entry) => BF_LOG_PATTERNS.some((p) => p.test(entry)))) {
         return true;
       }
     } catch {

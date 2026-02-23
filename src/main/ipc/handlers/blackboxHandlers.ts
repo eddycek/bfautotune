@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain, shell, dialog } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { IPCChannel } from '@shared/types/ipc.types';
@@ -96,10 +96,10 @@ export function registerBlackboxHandlers(deps: HandlerDependencies): void {
               file.originalName,
               file.size,
               currentProfile.id,
-              currentProfile.fcSerial,
+              currentProfile.fcSerialNumber,
               {
                 variant: fcInfo.variant,
-                version: fcInfo.firmwareVersion,
+                version: fcInfo.version,
                 target: fcInfo.target,
               }
             );
@@ -126,10 +126,10 @@ export function registerBlackboxHandlers(deps: HandlerDependencies): void {
           const metadata = await deps.blackboxManager.saveLog(
             logData,
             currentProfile.id,
-            currentProfile.fcSerial,
+            currentProfile.fcSerialNumber,
             {
               variant: fcInfo.variant,
-              version: fcInfo.firmwareVersion,
+              version: fcInfo.version,
               target: fcInfo.target,
             }
           );
@@ -254,6 +254,62 @@ export function registerBlackboxHandlers(deps: HandlerDependencies): void {
     } catch (error) {
       logger.error('Failed to erase Blackbox storage:', error);
       return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
+  // Blackbox import handler — user picks a .bbl/.bfl file from disk
+  ipcMain.handle(IPCChannel.BLACKBOX_IMPORT_LOG, async () => {
+    try {
+      if (!deps.blackboxManager) {
+        return createResponse<BlackboxLogMetadata>(undefined, 'BlackboxManager not initialized');
+      }
+      if (!deps.profileManager) {
+        return createResponse<BlackboxLogMetadata>(undefined, 'ProfileManager not initialized');
+      }
+
+      const currentProfile = await deps.profileManager.getCurrentProfile();
+      if (!currentProfile) {
+        return createResponse<BlackboxLogMetadata>(undefined, 'No active profile selected');
+      }
+
+      const result = await dialog.showOpenDialog({
+        title: 'Import Blackbox Log',
+        filters: [{ name: 'Blackbox Logs', extensions: ['bbl', 'bfl'] }],
+        properties: ['openFile'],
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        // User cancelled — not an error
+        return createResponse<BlackboxLogMetadata | null>(null);
+      }
+
+      const sourcePath = result.filePaths[0];
+      const data = await fs.readFile(sourcePath);
+
+      const fcInfo = currentProfile.fcInfo || {
+        variant: 'BTFL',
+        version: 'unknown',
+        target: 'unknown',
+      };
+
+      const metadata = await deps.blackboxManager.saveLog(
+        data,
+        currentProfile.id,
+        currentProfile.fcSerialNumber,
+        {
+          variant: fcInfo.variant,
+          version: fcInfo.version || 'unknown',
+          target: fcInfo.target,
+        }
+      );
+
+      logger.info(
+        `Imported Blackbox log: ${path.basename(sourcePath)} → ${metadata.filename} (${metadata.size} bytes)`
+      );
+      return createResponse<BlackboxLogMetadata>(metadata);
+    } catch (error) {
+      logger.error('Failed to import Blackbox log:', error);
+      return createResponse<BlackboxLogMetadata>(undefined, getErrorMessage(error));
     }
   });
 

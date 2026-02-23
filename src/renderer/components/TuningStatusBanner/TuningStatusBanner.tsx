@@ -9,7 +9,9 @@ import './TuningStatusBanner.css';
 
 export type TuningAction =
   | 'erase_flash'
+  | 'skip_erase'
   | 'download_log'
+  | 'import_log'
   | 'open_filter_wizard'
   | 'open_pid_wizard'
   | 'start_new_cycle'
@@ -156,7 +158,10 @@ export function TuningStatusBanner({
 
   const flashHasData = flashUsedSize != null && flashUsedSize > 0;
   const showErasedState =
-    !flashHasData && (flashErased || flashUsedSize === 0) && (isFlightPending || isVerification);
+    ((isFlightPending || isVerification) &&
+      !flashHasData &&
+      (flashErased || flashUsedSize === 0)) ||
+    (isFlightPending && !!session.eraseSkipped);
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
   const activeStepIndex = showErasedState && isFlightPending ? stepIndex + 1 : stepIndex;
 
@@ -259,6 +264,13 @@ export function TuningStatusBanner({
           </button>
           <button
             className="wizard-btn wizard-btn-secondary"
+            onClick={() => onAction('import_log')}
+            disabled={downloading}
+          >
+            Import File
+          </button>
+          <button
+            className="wizard-btn wizard-btn-secondary"
             onClick={() => onAction('skip_verification')}
             disabled={downloading}
           >
@@ -269,6 +281,8 @@ export function TuningStatusBanner({
     }
 
     // Default: static PHASE_UI action
+    const isEraseAction = ui!.action === 'erase_flash';
+    const isDownloadAction = ui!.action === 'download_log';
     return (
       <>
         <button
@@ -290,6 +304,22 @@ export function TuningStatusBanner({
             ui!.buttonLabel
           )}
         </button>
+        {isDownloadAction && !downloading && (
+          <button
+            className="wizard-btn wizard-btn-secondary"
+            onClick={() => onAction('import_log')}
+          >
+            Import File
+          </button>
+        )}
+        {isEraseAction && !erasing && !downloading && (
+          <button
+            className="wizard-btn wizard-btn-secondary"
+            onClick={() => onAction('skip_erase')}
+          >
+            Skip Erase
+          </button>
+        )}
         {ui!.guideTip && !erasing && !downloading && (
           <button
             className="wizard-btn wizard-btn-secondary"

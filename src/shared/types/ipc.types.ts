@@ -130,6 +130,7 @@ export enum IPCChannel {
   BLACKBOX_OPEN_FOLDER = 'blackbox:open-folder',
   BLACKBOX_TEST_READ = 'blackbox:test-read',
   BLACKBOX_PARSE_LOG = 'blackbox:parse-log',
+  BLACKBOX_IMPORT_LOG = 'blackbox:import-log',
 
   // Analysis
   ANALYSIS_RUN_FILTER = 'analysis:run-filter',
@@ -220,6 +221,7 @@ export interface BetaflightAPI {
     logId: string,
     onProgress?: (progress: BlackboxParseProgress) => void
   ): Promise<BlackboxParseResult>;
+  importBlackboxLog(): Promise<BlackboxLogMetadata | null>;
   onBlackboxParseProgress(callback: (progress: BlackboxParseProgress) => void): () => void;
 
   // Analysis
