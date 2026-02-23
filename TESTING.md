@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1762 tests across 93 files** (last verified: February 15, 2026)
+**Total: 1796 tests across 93 files** (last verified: February 23, 2026)
 
 ### UI Components
 
@@ -171,7 +171,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
-| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 40 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow, flashUsedSize-based erased state |
+| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 54 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow, flashUsedSize-based erased state, import file, skip erase |
 | `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete with metrics, FF warning, RPM status, flight style display |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
@@ -292,7 +292,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
 | `analysis/StepMetrics.test.ts` | 27 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS computation and aggregation |
-| `analysis/PIDRecommender.test.ts` | 40 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds |
+| `analysis/PIDRecommender.test.ts` | 43 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling |
 | `analysis/PIDAnalyzer.test.ts` | 19 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring |
 | `analysis/AnalysisPipeline.realdata.test.ts` | 20 | End-to-end filter+PID analysis with bf45-reference fixture and real_flight.bbl, safety bounds, determinism, performance |
 
@@ -321,4 +321,4 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `analysis/headerValidation.test.ts` | 20 | GYRO_SCALED check, logging rate validation, BF version-aware debug mode, BBL header RPM enrichment |
+| `analysis/headerValidation.test.ts` | 24 | GYRO_SCALED check, logging rate validation, BF version-aware debug mode, BBL header RPM enrichment, independent field enrichment |

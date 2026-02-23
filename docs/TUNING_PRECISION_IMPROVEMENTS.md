@@ -10,7 +10,7 @@ Research-based analysis of techniques to improve tuning recommendation accuracy.
 
 The current tuning pipeline uses:
 - **Filter tuning**: FFT (Welch's method, Hanning window) on hover segments, prominence-based peak detection, absolute noise-based filter cutoff targets
-- **PID tuning**: Time-domain step detection from stick snaps, per-step overshoot/rise-time/settling metrics, heuristic P/D recommendations with fixed +/-5 step size
+- **PID tuning**: Time-domain step detection from stick snaps, per-step overshoot/rise-time/settling metrics, heuristic P/D recommendations with proportional severity-based step sizing
 - **FF tuning**: `feedforward_boost` reduction when FF-dominated overshoot detected
 
 This document catalogs improvements that would make recommendations more precise and robust.
@@ -76,24 +76,19 @@ This produces a Bode plot (magnitude + phase vs frequency) from which bandwidth,
 
 ---
 
-### 3. Proportional PID Adjustment Scaling
+### 3. Proportional PID Adjustment Scaling — ✅ Implemented (PR #137)
 
-**Problem**: Current PIDRecommender uses fixed +/-5 step for P and D regardless of metric severity. A quad with 50% overshoot gets the same D increase as one with 20% overshoot. This makes convergence slow for badly-tuned quads and potentially overshoots for nearly-tuned ones.
+**Problem**: PIDRecommender used fixed +/-5 step for P and D regardless of metric severity. A quad with 50% overshoot got the same D increase as one with 20% overshoot. This made convergence slow for badly-tuned quads.
 
-**Solution**: Scale adjustment magnitude based on metric deviation from target:
+**Solution**: D step scales with overshoot severity (ratio of measured overshoot to threshold):
+- Severity 1–2×: D +5 (baseline, consistent with FPVSIM guidance)
+- Severity 2–4×: D +10, P -5
+- Severity > 4×: D +15, P -10
 
-```typescript
-// Example: D gain adjustment for overshoot
-const overshootExcess = meanOvershoot - targetOvershoot; // e.g., 35% - 15% = 20%
-const dStep = Math.round(clamp(overshootExcess * 0.5, 3, 15)); // 3-15 range
-// 20% excess → +10 D, 5% excess → +3 D
-```
-
-Same for P (rise time deviation), with configurable scaling factors per flight style.
+P reduction now triggers at severity > 2× OR when D ≥ 60% of max (was D-only gating before). All changes clamped to safety bounds (P: 20–120, D: 15–80). Convergence property preserved.
 
 **Modified files**:
-- `src/main/analysis/PIDRecommender.ts` — replace fixed step with proportional scaling
-- `src/main/analysis/constants.ts` — scaling factors per flight style
+- `src/main/analysis/PIDRecommender.ts` — severity-based step scaling in Rule 1
 
 ---
 

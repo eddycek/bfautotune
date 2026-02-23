@@ -150,7 +150,7 @@ This will:
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Test suite:** 1762 tests across 93 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Test suite:** 1796 tests across 93 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
 ```bash
 # Run tests in watch mode
@@ -553,8 +553,10 @@ The thresholds below show the **Balanced** (default) values. These adapt based o
 
 | Condition | Action | Step Size | Confidence | Rationale |
 |-----------|--------|-----------|------------|-----------|
-| Overshoot > 25% | Increase D | +5 | High | D-term dampens bounce-back (Betaflight guide) |
-| Overshoot > 25% AND D ≥ 60% of max | Also decrease P | -5 | High | D alone insufficient at high values |
+| Overshoot > 25% (severity 1–2×) | Increase D | +5 | High | D-term dampens bounce-back (Betaflight guide) |
+| Overshoot > 25% (severity 2–4×) | Increase D | +10 | High | Proportional step for faster convergence |
+| Overshoot > 25% (severity > 4×) | Increase D | +15 | High | Extreme overshoot needs aggressive dampening |
+| Overshoot > 25% AND (severity > 2× OR D ≥ 60% of max) | Also decrease P | -5 / -10 | High | D alone insufficient at extreme overshoot |
 | Overshoot 15–25% | Increase D | +5 | Medium | Moderate overshoot, D-first strategy |
 | Overshoot < 10% AND rise time > 80 ms | Increase P | +5 | Medium | Sluggish response needs more authority (FPVSIM) |
 | Ringing > 2 cycles | Increase D | +5 | Medium | Oscillation = underdamped response |
@@ -572,8 +574,8 @@ The thresholds below show the **Balanced** (default) values. These adapt based o
 
 **Key design decisions:**
 
-- **D-first strategy for overshoot** — Increasing D (dampening) is prioritized over decreasing P (reducing authority). This is safer for beginners because lowering P too aggressively can make the drone feel unresponsive and harder to control.
-- **Step size of ±5** — Consistent with FPVSIM tuning guidance ("lower P incrementally by ~5 units"). Small incremental changes allow iterative refinement across multiple flights.
+- **D-first strategy for overshoot** — Increasing D (dampening) is always the first action. P is only reduced as a supplement when overshoot is extreme (>2× threshold) or D is already near its ceiling (≥60% of max). This is safer for beginners because lowering P too aggressively can make the drone feel unresponsive.
+- **Proportional step sizing** — Step sizes scale with overshoot severity: ±5 for mild issues (baseline, consistent with FPVSIM guidance), ±10 for significant overshoot (2–4× threshold), and ±15 for extreme cases (>4× threshold). This reduces the number of tuning flights needed while staying within safety bounds. All changes are clamped to safe min/max ranges (P: 20–120, D: 15–80).
 - **Flight-PID anchoring** — Recommendations target values relative to the PIDs recorded in the Blackbox header, not the FC's current values. This prevents recommendation drift when PIDs are changed between flights and log analysis.
 - **Feedforward awareness** — The recommender detects whether feedforward is active from BBL headers (`feedforward_boost > 0`). At each step's overshoot peak, it compares `|pidF|` vs `|pidP|` magnitude. When overshoot is FF-dominated (FF contributes more than P), the engine skips P/D changes and instead recommends reducing `feedforward_boost`. This prevents misattributing FF-caused overshoot to P/D imbalance.
 - **Flight style adaptation** — PID thresholds adjust based on the user's profile flight style. Smooth (cinematic) pilots get tighter overshoot tolerances and accept slower response. Aggressive (racing) pilots tolerate more overshoot in exchange for maximum snap. The Balanced default matches the standard thresholds. Style is set per-profile and preset profiles include sensible defaults (e.g., 5" Race → Aggressive).

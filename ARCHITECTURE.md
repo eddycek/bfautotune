@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 15, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1762 tests, 93 files**
+**Last Updated:** February 23, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1796 tests, 93 files**
 
 ---
 
@@ -803,22 +803,22 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1762 tests across 93 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1796 tests across 93 files**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
 | FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response (+ Real-data) | 5 | 122 |
-| Header Validation + Constants | 2 | 27 |
+| Step Response (+ Real-data) | 5 | 125 |
+| Header Validation + Constants | 2 | 31 |
 | MSP Protocol & Client | 3 | 140 |
 | MSC (Mass Storage) | 2 | 32 |
 | Storage Managers | 7 | 115 |
 | IPC Handlers | 1 | 105 |
-| UI Components | 36 | 533 |
+| UI Components | 36 | 549 |
 | Contexts | 1 | 10 |
 | React Hooks | 12 | 146 |
-| Charts | 3 | 35 |
+| Charts | 3 | 41 |
 | Shared Constants & Utils | 4 | 39 |
 | E2E Workflows | 1 | 30 |
 
