@@ -88,48 +88,68 @@ export function validateBBLHeader(header: BBLLogHeader): AnalysisWarning[] {
 }
 
 /**
- * Enrich CurrentFilterSettings with RPM filter data from BBL raw headers.
+ * Enrich CurrentFilterSettings with data from BBL raw headers.
  *
  * Used as a fallback when the FC is not connected or the MSP response
- * doesn't include RPM data. BBL headers contain `dshot_bidir` and
- * `rpm_filter_harmonics` which are sufficient to detect RPM filter state.
+ * doesn't include all fields. BBL headers may contain `rpm_filter_harmonics`,
+ * `dyn_notch_count`, `dyn_notch_q`, etc.
  *
- * @param settings - Current filter settings (may lack RPM fields)
+ * Only overwrites fields that are currently undefined in the settings.
+ *
+ * @param settings - Current filter settings (may lack some fields)
  * @param rawHeaders - BBL raw header key-value pairs
- * @returns Enriched settings if RPM data found in headers, null otherwise
+ * @returns Enriched settings if any field was filled, null otherwise
  */
 export function enrichSettingsFromBBLHeaders(
   settings: CurrentFilterSettings,
   rawHeaders: Map<string, string>
 ): CurrentFilterSettings | null {
-  const harmonicsStr = rawHeaders.get('rpm_filter_harmonics');
-  if (harmonicsStr === undefined) return null;
+  const enriched: CurrentFilterSettings = { ...settings };
+  let changed = false;
 
-  const harmonics = parseInt(harmonicsStr, 10);
-  if (isNaN(harmonics)) return null;
-
-  const enriched: CurrentFilterSettings = {
-    ...settings,
-    rpm_filter_harmonics: harmonics,
-  };
-
-  const minHzStr = rawHeaders.get('rpm_filter_min_hz');
-  if (minHzStr !== undefined) {
-    const minHz = parseInt(minHzStr, 10);
-    if (!isNaN(minHz)) enriched.rpm_filter_min_hz = minHz;
+  if (enriched.rpm_filter_harmonics === undefined) {
+    const harmonicsStr = rawHeaders.get('rpm_filter_harmonics');
+    if (harmonicsStr !== undefined) {
+      const harmonics = parseInt(harmonicsStr, 10);
+      if (!isNaN(harmonics)) {
+        enriched.rpm_filter_harmonics = harmonics;
+        changed = true;
+      }
+    }
   }
 
-  const dynCountStr = rawHeaders.get('dyn_notch_count');
-  if (dynCountStr !== undefined) {
-    const dynCount = parseInt(dynCountStr, 10);
-    if (!isNaN(dynCount)) enriched.dyn_notch_count = dynCount;
+  if (enriched.rpm_filter_min_hz === undefined) {
+    const minHzStr = rawHeaders.get('rpm_filter_min_hz');
+    if (minHzStr !== undefined) {
+      const minHz = parseInt(minHzStr, 10);
+      if (!isNaN(minHz)) {
+        enriched.rpm_filter_min_hz = minHz;
+        changed = true;
+      }
+    }
   }
 
-  const dynQStr = rawHeaders.get('dyn_notch_q');
-  if (dynQStr !== undefined) {
-    const dynQ = parseInt(dynQStr, 10);
-    if (!isNaN(dynQ)) enriched.dyn_notch_q = dynQ;
+  if (enriched.dyn_notch_count === undefined) {
+    const dynCountStr = rawHeaders.get('dyn_notch_count');
+    if (dynCountStr !== undefined) {
+      const dynCount = parseInt(dynCountStr, 10);
+      if (!isNaN(dynCount)) {
+        enriched.dyn_notch_count = dynCount;
+        changed = true;
+      }
+    }
   }
 
-  return enriched;
+  if (enriched.dyn_notch_q === undefined) {
+    const dynQStr = rawHeaders.get('dyn_notch_q');
+    if (dynQStr !== undefined) {
+      const dynQ = parseInt(dynQStr, 10);
+      if (!isNaN(dynQ)) {
+        enriched.dyn_notch_q = dynQ;
+        changed = true;
+      }
+    }
+  }
+
+  return changed ? enriched : null;
 }

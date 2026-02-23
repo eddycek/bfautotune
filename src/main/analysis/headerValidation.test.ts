@@ -205,4 +205,49 @@ describe('enrichSettingsFromBBLHeaders', () => {
     expect(result).not.toBeNull();
     expect(result!.rpm_filter_harmonics).toBe(0);
   });
+
+  it('enriches only dyn_notch_count when RPM is already set from MSP', () => {
+    const headers = new Map<string, string>([['dyn_notch_count', '3']]);
+    const settings = { ...DEFAULT_FILTER_SETTINGS, rpm_filter_harmonics: 3 };
+
+    const result = enrichSettingsFromBBLHeaders(settings, headers);
+    expect(result).not.toBeNull();
+    expect(result!.rpm_filter_harmonics).toBe(3); // preserved
+    expect(result!.dyn_notch_count).toBe(3);
+  });
+
+  it('does not overwrite existing dyn_notch_count from MSP', () => {
+    const headers = new Map<string, string>([['dyn_notch_count', '5']]);
+    const settings = { ...DEFAULT_FILTER_SETTINGS, rpm_filter_harmonics: 3, dyn_notch_count: 1 };
+
+    const result = enrichSettingsFromBBLHeaders(settings, headers);
+    // dyn_notch_count already defined → not overwritten → no change → null
+    expect(result).toBeNull();
+  });
+
+  it('enriches dyn_notch_q from headers when missing from MSP', () => {
+    const headers = new Map<string, string>([['dyn_notch_q', '400']]);
+    const settings = { ...DEFAULT_FILTER_SETTINGS, rpm_filter_harmonics: 3, dyn_notch_count: 1 };
+
+    const result = enrichSettingsFromBBLHeaders(settings, headers);
+    expect(result).not.toBeNull();
+    expect(result!.dyn_notch_q).toBe(400);
+  });
+
+  it('returns null when all fields already defined (nothing to enrich)', () => {
+    const headers = new Map<string, string>([
+      ['rpm_filter_harmonics', '99'],
+      ['dyn_notch_count', '99'],
+    ]);
+    const settings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      rpm_filter_min_hz: 100,
+      dyn_notch_count: 1,
+      dyn_notch_q: 500,
+    };
+
+    const result = enrichSettingsFromBBLHeaders(settings, headers);
+    expect(result).toBeNull(); // nothing to fill
+  });
 });

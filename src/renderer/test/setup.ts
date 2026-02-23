@@ -63,6 +63,7 @@ global.window.betaflight = {
   openBlackboxFolder: vi.fn(),
   testBlackboxRead: vi.fn(),
   parseBlackboxLog: vi.fn(),
+  importBlackboxLog: vi.fn().mockResolvedValue(null),
   onBlackboxParseProgress: vi.fn(() => () => {}),
 
   // PID

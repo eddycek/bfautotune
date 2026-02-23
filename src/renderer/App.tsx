@@ -178,6 +178,37 @@ function AppContent() {
           setErasing(false);
         }
         break;
+      case 'skip_erase': {
+        // User already erased/formatted SD card manually — persist flag to survive restart
+        const currentPhaseSkip = tuning.session?.phase;
+        if (currentPhaseSkip === 'filter_applied') {
+          await tuning.updatePhase('pid_flight_pending', { eraseSkipped: true });
+        } else {
+          await tuning.updatePhase(tuning.session!.phase, { eraseSkipped: true });
+        }
+        setBbRefreshKey((k) => k + 1);
+        break;
+      }
+      case 'import_log':
+        try {
+          const imported = await window.betaflight.importBlackboxLog();
+          if (!imported) break; // User cancelled file dialog
+
+          toast.success(`Log imported: ${imported.filename}`);
+
+          // Transition session to *_analysis phase and store the log ID
+          const importPhase = tuning.session?.phase;
+          if (importPhase === 'filter_log_ready') {
+            await tuning.updatePhase('filter_analysis', { filterLogId: imported.id });
+          } else if (importPhase === 'pid_log_ready') {
+            await tuning.updatePhase('pid_analysis', { pidLogId: imported.id });
+          } else if (importPhase === 'verification_pending') {
+            await tuning.updatePhase('verification_pending', { verificationLogId: imported.id });
+          }
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to import log');
+        }
+        break;
       case 'download_log':
         try {
           setDownloading(true);

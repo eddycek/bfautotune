@@ -1,11 +1,23 @@
 import fs from 'fs/promises';
 import { basename, join } from 'path';
 import { logger } from '../utils/logger';
-import { snapshotVolumes, detectNewDrive, findLogFiles, ejectDrive, DetectedDrive } from './driveDetector';
+import {
+  snapshotVolumes,
+  detectNewDrive,
+  findLogFiles,
+  ejectDrive,
+  DetectedDrive,
+} from './driveDetector';
 import type { MSPClient } from '../msp/MSPClient';
 
 export interface MSCProgress {
-  stage: 'entering_msc' | 'waiting_mount' | 'copying' | 'erasing' | 'ejecting' | 'waiting_reconnect';
+  stage:
+    | 'entering_msc'
+    | 'waiting_mount'
+    | 'copying'
+    | 'erasing'
+    | 'ejecting'
+    | 'waiting_reconnect';
   message: string;
   percent: number;
 }
@@ -57,7 +69,11 @@ export class MSCManager {
     const volumesBefore = await snapshotVolumes();
 
     // Step 2: Send MSC reboot command
-    onProgress?.({ stage: 'entering_msc', message: 'Rebooting FC into mass storage mode...', percent: 2 });
+    onProgress?.({
+      stage: 'entering_msc',
+      message: 'Rebooting FC into mass storage mode...',
+      percent: 2,
+    });
     const accepted = await this.mspClient.rebootToMSC();
     if (!accepted) {
       throw new Error('FC rejected mass storage mode — SD card may not be ready');
@@ -65,15 +81,19 @@ export class MSCManager {
 
     this.checkCancelled();
 
-    // Step 3: Wait for SD card to mount as USB drive
-    onProgress?.({ stage: 'waiting_mount', message: 'Waiting for SD card to mount...', percent: 3 });
+    // Step 3: Wait for SD card to mount as USB drive (don't require BF log files — card may be empty)
+    onProgress?.({
+      stage: 'waiting_mount',
+      message: 'Waiting for SD card to mount...',
+      percent: 3,
+    });
     let drive: DetectedDrive;
     try {
-      drive = await detectNewDrive(volumesBefore, 30000, 1000);
+      drive = await detectNewDrive(volumesBefore, 30000, 1000, { requireLogFiles: false });
     } catch (error) {
       throw new Error(
         `Failed to detect SD card: ${error instanceof Error ? error.message : error}. ` +
-        'The FC may need a physical button press or power cycle to exit MSC mode.'
+          'The FC may need a physical button press or power cycle to exit MSC mode.'
       );
     }
 
@@ -86,9 +106,17 @@ export class MSCManager {
 
     if (logFiles.length === 0) {
       // No log files — still need to eject
-      onProgress?.({ stage: 'ejecting', message: 'No log files found. Ejecting SD card...', percent: 93 });
+      onProgress?.({
+        stage: 'ejecting',
+        message: 'No log files found. Ejecting SD card...',
+        percent: 93,
+      });
       await this.safeEject(drive.mountPath);
-      onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 95 });
+      onProgress?.({
+        stage: 'waiting_reconnect',
+        message: 'Waiting for FC to reconnect...',
+        percent: 95,
+      });
       return [];
     }
 
@@ -106,7 +134,7 @@ export class MSCManager {
       onProgress?.({
         stage: 'copying',
         message: `Copying ${filename} (${i + 1}/${logFiles.length})...`,
-        percent: progressPercent
+        percent: progressPercent,
       });
 
       const stat = await fs.stat(srcPath);
@@ -115,7 +143,7 @@ export class MSCManager {
       copiedFiles.push({
         originalName: filename,
         destPath,
-        size: stat.size
+        size: stat.size,
       });
 
       logger.info(`Copied ${filename} (${stat.size} bytes)`);
@@ -128,7 +156,11 @@ export class MSCManager {
     await this.safeEject(drive.mountPath);
 
     // Step 6: Signal waiting for reconnect (actual reconnect handled by caller)
-    onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 95 });
+    onProgress?.({
+      stage: 'waiting_reconnect',
+      message: 'Waiting for FC to reconnect...',
+      percent: 95,
+    });
 
     logger.info(`MSC download complete: ${copiedFiles.length} files copied`);
     return copiedFiles;
@@ -147,7 +179,11 @@ export class MSCManager {
     const volumesBefore = await snapshotVolumes();
 
     // Step 2: MSC reboot
-    onProgress?.({ stage: 'entering_msc', message: 'Rebooting FC into mass storage mode...', percent: 2 });
+    onProgress?.({
+      stage: 'entering_msc',
+      message: 'Rebooting FC into mass storage mode...',
+      percent: 2,
+    });
     const accepted = await this.mspClient.rebootToMSC();
     if (!accepted) {
       throw new Error('FC rejected mass storage mode — SD card may not be ready');
@@ -155,15 +191,19 @@ export class MSCManager {
 
     this.checkCancelled();
 
-    // Step 3: Wait for mount
-    onProgress?.({ stage: 'waiting_mount', message: 'Waiting for SD card to mount...', percent: 3 });
+    // Step 3: Wait for mount (don't require BF log files — card may be empty)
+    onProgress?.({
+      stage: 'waiting_mount',
+      message: 'Waiting for SD card to mount...',
+      percent: 3,
+    });
     let drive: DetectedDrive;
     try {
-      drive = await detectNewDrive(volumesBefore, 30000, 1000);
+      drive = await detectNewDrive(volumesBefore, 30000, 1000, { requireLogFiles: false });
     } catch (error) {
       throw new Error(
         `Failed to detect SD card: ${error instanceof Error ? error.message : error}. ` +
-        'The FC may need a physical button press or power cycle to exit MSC mode.'
+          'The FC may need a physical button press or power cycle to exit MSC mode.'
       );
     }
 
@@ -192,7 +232,11 @@ export class MSCManager {
     await this.safeEject(drive.mountPath);
 
     // Step 6: Wait for reconnect
-    onProgress?.({ stage: 'waiting_reconnect', message: 'Waiting for FC to reconnect...', percent: 95 });
+    onProgress?.({
+      stage: 'waiting_reconnect',
+      message: 'Waiting for FC to reconnect...',
+      percent: 95,
+    });
   }
 
   /**
@@ -216,7 +260,7 @@ export class MSCManager {
       logger.error('Failed to eject drive:', error);
       throw new Error(
         `Failed to eject SD card: ${error instanceof Error ? error.message : error}. ` +
-        'Please safely remove the drive manually and power cycle the FC.'
+          'Please safely remove the drive manually and power cycle the FC.'
       );
     }
   }

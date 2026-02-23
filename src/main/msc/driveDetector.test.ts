@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import { exec } from 'child_process';
-import { snapshotVolumes, detectNewDrive, findLogFiles, ejectDrive } from './driveDetector';
+import {
+  snapshotVolumes,
+  detectNewDrive,
+  findLogFiles,
+  ejectDrive,
+  getExternalDisksDarwin,
+  mountDiskDarwin,
+} from './driveDetector';
 
 const { mockReaddir, mockStat, mockExecFn } = vi.hoisted(() => ({
   mockReaddir: vi.fn(),
@@ -138,7 +145,13 @@ describe('driveDetector', () => {
 
     it('finds BBL files matching BF patterns in root', async () => {
       mockReaddirForPath({
-        '/Volumes/BLACKBOX': ['BTFL_001.BBL', 'BTFL_002.BBL', 'LOG00001.TXT', 'README.txt', 'config.txt'],
+        '/Volumes/BLACKBOX': [
+          'BTFL_001.BBL',
+          'BTFL_002.BBL',
+          'LOG00001.TXT',
+          'README.txt',
+          'config.txt',
+        ],
       });
 
       const result = await findLogFiles('/Volumes/BLACKBOX');
@@ -281,6 +294,179 @@ describe('driveDetector', () => {
       });
 
       await expect(detectNewDrive(before, 300, 50)).rejects.toThrow(/not detected within/);
+    });
+
+    it('accepts new volume without BF logs when requireLogFiles is false', async () => {
+      setPlatform('darwin');
+
+      const before = new Set(['/Volumes/Macintosh HD']);
+
+      vi.mocked(fs.readdir).mockImplementation(async (path: any) => {
+        if (path === '/Volumes') {
+          return ['Macintosh HD', 'BLACKBOX'] as any;
+        }
+        // BLACKBOX has no BF log files (empty card)
+        if (path === '/Volumes/BLACKBOX') {
+          return ['config.txt'] as any;
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = await detectNewDrive(before, 5000, 50, { requireLogFiles: false });
+
+      expect(result.mountPath).toBe('/Volumes/BLACKBOX');
+      expect(result.label).toBe('BLACKBOX');
+    });
+
+    it('still prefers volume with BF logs even when requireLogFiles is false', async () => {
+      setPlatform('darwin');
+
+      const before = new Set(['/Volumes/Macintosh HD']);
+
+      vi.mocked(fs.readdir).mockImplementation(async (path: any) => {
+        if (path === '/Volumes') {
+          return ['Macintosh HD', 'THUMB_DRIVE', 'BLACKBOX'] as any;
+        }
+        // THUMB_DRIVE has no BF logs
+        if (path === '/Volumes/THUMB_DRIVE') {
+          return ['photo.jpg'] as any;
+        }
+        // BLACKBOX has BF logs
+        if (path === '/Volumes/BLACKBOX') {
+          return ['BTFL_001.BBL'] as any;
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = await detectNewDrive(before, 5000, 50, { requireLogFiles: false });
+
+      expect(result.mountPath).toBe('/Volumes/BLACKBOX');
+      expect(result.label).toBe('BLACKBOX');
+    });
+
+    it('auto-mounts unmounted external disk on macOS when no new volume appears', async () => {
+      setPlatform('darwin');
+
+      const before = new Set(['/Volumes/Macintosh HD']);
+
+      // diskutil list external: initially no disks, then new disk appears
+      let diskutilCallCount = 0;
+      let pollCount = 0;
+
+      vi.mocked(exec).mockImplementation((cmd: string, callback: any) => {
+        if (typeof cmd === 'string' && cmd.includes('diskutil list external')) {
+          diskutilCallCount++;
+          if (diskutilCallCount <= 1) {
+            // Initial snapshot: no external disks
+            callback(null, { stdout: '(No disks found)\n', stderr: '' });
+          } else {
+            // After MSC reboot: new external disk
+            callback(null, {
+              stdout:
+                '/dev/disk4 (external, physical):\n   #:  TYPE NAME  SIZE  IDENTIFIER\n   0:  FDisk_partition_scheme  *31.9 GB  disk4\n',
+              stderr: '',
+            });
+          }
+        } else if (typeof cmd === 'string' && cmd.includes('diskutil mountDisk')) {
+          // Auto-mount succeeds
+          callback(null, { stdout: 'Volume BLACKBOX on /dev/disk4s1 mounted\n', stderr: '' });
+        } else {
+          callback(null, { stdout: '', stderr: '' });
+        }
+        return {} as any;
+      });
+
+      vi.mocked(fs.readdir).mockImplementation(async (path: any) => {
+        if (path === '/Volumes') {
+          pollCount++;
+          // First polls: no new volume. After mountDisk: BLACKBOX appears
+          if (pollCount <= 3) return ['Macintosh HD'] as any;
+          return ['Macintosh HD', 'BLACKBOX'] as any;
+        }
+        if (path === '/Volumes/BLACKBOX') {
+          return ['BTFL_001.BBL'] as any;
+        }
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      });
+
+      const result = await detectNewDrive(before, 5000, 50, { requireLogFiles: false });
+
+      expect(result.mountPath).toBe('/Volumes/BLACKBOX');
+      // Verify diskutil mountDisk was called
+      const mountCalls = vi
+        .mocked(exec)
+        .mock.calls.filter((c) => typeof c[0] === 'string' && c[0].includes('diskutil mountDisk'));
+      expect(mountCalls.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('getExternalDisksDarwin', () => {
+    it('parses disk identifiers from diskutil output', async () => {
+      setPlatform('darwin');
+      mockExec(
+        '/dev/disk4 (external, physical):\n' +
+          '   #:  TYPE NAME  SIZE  IDENTIFIER\n' +
+          '   0:  FDisk_partition_scheme  *31.9 GB  disk4\n' +
+          '   1:  Windows_FAT_32 BLACKBOX  31.9 GB  disk4s1\n'
+      );
+
+      const result = await getExternalDisksDarwin();
+
+      expect(result).toEqual(new Set(['/dev/disk4']));
+    });
+
+    it('parses multiple external disks', async () => {
+      mockExec(
+        '/dev/disk4 (external, physical):\n' +
+          '   ...\n' +
+          '/dev/disk5 (external, physical):\n' +
+          '   ...\n'
+      );
+
+      const result = await getExternalDisksDarwin();
+
+      expect(result).toEqual(new Set(['/dev/disk4', '/dev/disk5']));
+    });
+
+    it('returns empty set when no external disks', async () => {
+      mockExec('(No disks found)\n');
+
+      const result = await getExternalDisksDarwin();
+
+      expect(result).toEqual(new Set());
+    });
+
+    it('returns empty set on diskutil failure', async () => {
+      vi.mocked(exec).mockImplementation((_cmd: string, callback: any) => {
+        callback(new Error('diskutil not found'), { stdout: '', stderr: '' });
+        return {} as any;
+      });
+
+      const result = await getExternalDisksDarwin();
+
+      expect(result).toEqual(new Set());
+    });
+  });
+
+  describe('mountDiskDarwin', () => {
+    it('calls diskutil mountDisk with the disk identifier', async () => {
+      mockExec('Volume BLACKBOX on /dev/disk4s1 mounted');
+
+      await mountDiskDarwin('/dev/disk4');
+
+      const execCall = vi.mocked(exec).mock.calls[0][0];
+      expect(execCall).toContain('diskutil mountDisk');
+      expect(execCall).toContain('/dev/disk4');
+    });
+
+    it('does not throw on mount failure', async () => {
+      vi.mocked(exec).mockImplementation((_cmd: string, callback: any) => {
+        callback(new Error('mount failed'), { stdout: '', stderr: '' });
+        return {} as any;
+      });
+
+      // Should not throw
+      await mountDiskDarwin('/dev/disk4');
     });
   });
 
