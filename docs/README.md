@@ -18,6 +18,7 @@ Overview of all design documents in this directory. Each document starts as a de
 | [SD_CARD_BLACKBOX_SUPPORT](./SD_CARD_BLACKBOX_SUPPORT.md) | **Complete** | #105 | SD card blackbox storage support via MSC (Mass Storage Class) mode |
 | [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Active** | #119–#120, #137 | Research-based tuning accuracy improvements: Wiener deconvolution, throttle spectrograms, ~~proportional PID scaling~~ (done), ~~data quality scoring~~ (done), ~~flight quality score~~ (done), chirp analysis |
 | [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (4/7 done, rest are future work) |
+| [OFFLINE_UX_TESTING](./OFFLINE_UX_TESTING.md) | **Active** | — | Demo mode (`--demo` flag) for offline UX testing without real FC hardware |
 
 ## Status Legend
 

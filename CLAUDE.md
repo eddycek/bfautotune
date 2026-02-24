@@ -33,6 +33,13 @@ npm run build
 npm run rebuild
 ```
 
+### Demo Mode (Offline UX Testing)
+```bash
+# Start with simulated FC — no hardware needed
+npm run dev:demo
+```
+Boots the app with a mock flight controller that auto-connects on startup. Generates realistic BBL data, allows full tuning workflow testing (all 10 phases), and runs real analysis (FFT, step response). See `docs/OFFLINE_UX_TESTING.md` for details.
+
 ### After Native Module Changes
 If serialport or other native modules fail:
 ```bash

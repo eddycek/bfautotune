@@ -23,8 +23,13 @@ import {
 } from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
+import { MockMSPClient } from './demo/MockMSPClient';
+import { generateFilterDemoBBL } from './demo/DemoDataGenerator';
 
-let mspClient: MSPClient;
+/** Whether the app is running in demo mode (--demo flag) */
+const isDemoMode = process.argv.includes('--demo');
+
+let mspClient: MSPClient | MockMSPClient;
 let snapshotManager: SnapshotManager;
 let profileManager: ProfileManager;
 let blackboxManager: BlackboxManager;
@@ -32,8 +37,18 @@ let tuningSessionManager: TuningSessionManager;
 let tuningHistoryManager: TuningHistoryManager;
 
 async function initialize(): Promise<void> {
-  // Create MSP client
-  mspClient = new MSPClient();
+  // Create MSP client (real or mock depending on demo mode)
+  if (isDemoMode) {
+    logger.info('=== DEMO MODE ACTIVE ===');
+    const mockClient = new MockMSPClient();
+    // Pre-generate demo BBL data
+    const demoBBL = generateFilterDemoBBL();
+    mockClient.setDemoBBLData(demoBBL);
+    mockClient.setFlashHasData(true);
+    mspClient = mockClient;
+  } else {
+    mspClient = new MSPClient();
+  }
 
   // Create profile manager
   const profileStoragePath = join(app.getPath('userData'), PROFILE.STORAGE_DIR);
@@ -42,7 +57,9 @@ async function initialize(): Promise<void> {
 
   // Create snapshot manager
   const snapshotStoragePath = join(app.getPath('userData'), SNAPSHOT.STORAGE_DIR);
-  snapshotManager = new SnapshotManager(snapshotStoragePath, mspClient);
+  // Cast needed: in demo mode, MockMSPClient implements the same interface
+  // that SnapshotManager uses (getFCInfo, exportCLIDiff, isConnected)
+  snapshotManager = new SnapshotManager(snapshotStoragePath, mspClient as any);
   await snapshotManager.initialize();
 
   // Link profile manager to snapshot manager
@@ -277,6 +294,14 @@ async function initialize(): Promise<void> {
 app.whenReady().then(async () => {
   await initialize();
   createWindow();
+
+  // In demo mode, auto-connect after window is ready
+  if (isDemoMode && mspClient instanceof MockMSPClient) {
+    setTimeout(() => {
+      logger.info('[DEMO] Auto-connecting demo FC...');
+      (mspClient as MockMSPClient).simulateConnect();
+    }, 1500);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -153,7 +153,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1796 tests across 93 files** (last verified: February 23, 2026)
+**Total: 1831 tests across 95 files** (last verified: February 24, 2026)
 
 ### UI Components
 
@@ -322,3 +322,10 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `analysis/headerValidation.test.ts` | 24 | GYRO_SCALED check, logging rate validation, BF version-aware debug mode, BBL header RPM enrichment, independent field enrichment |
+
+### Demo Mode (Offline UX Testing)
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `demo/MockMSPClient.test.ts` | 22 | Mock FC connection, state management, FC info, PID/filter/FF config, blackbox, CLI, save/reboot, flags |
+| `demo/DemoDataGenerator.test.ts` | 13 | BBL generation for filter/PID analysis, multi-session, header metadata, step inputs, throttle sweeps |
