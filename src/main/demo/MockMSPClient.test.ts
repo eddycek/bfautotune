@@ -1,11 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MockMSPClient, DEMO_FC_SERIAL, DEMO_CLI_DIFF } from './MockMSPClient';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { MockMSPClient, DEMO_FC_SERIAL, DEMO_CLI_DIFF, DEMO_FC_INFO } from './MockMSPClient';
 
 describe('MockMSPClient', () => {
   let client: MockMSPClient;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     client = new MockMSPClient();
+  });
+
+  afterEach(() => {
+    client.cancelAutoFlight();
+    vi.useRealTimers();
   });
 
   describe('connection state', () => {
@@ -24,7 +30,9 @@ describe('MockMSPClient', () => {
       client.on('connected', connectedHandler);
       client.on('connection-changed', connectionChangedHandler);
 
-      await client.simulateConnect();
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
 
       expect(client.isConnected()).toBe(true);
       expect(connectedHandler).toHaveBeenCalled();
@@ -33,8 +41,22 @@ describe('MockMSPClient', () => {
       );
     });
 
+    it('simulateConnect does not reset flash state', async () => {
+      client.setFlashHasData(true);
+
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
+
+      const info = await client.getBlackboxInfo();
+      expect(info.hasLogs).toBe(true);
+    });
+
     it('disconnect sets disconnected state and emits events', async () => {
-      await client.simulateConnect();
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
+
       const disconnectedHandler = vi.fn();
       client.on('disconnected', disconnectedHandler);
 
@@ -45,9 +67,11 @@ describe('MockMSPClient', () => {
     });
 
     it('getConnectionStatus returns FC info when connected', async () => {
-      await client.simulateConnect();
-      const status = client.getConnectionStatus();
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
 
+      const status = client.getConnectionStatus();
       expect(status.connected).toBe(true);
       expect(status.portPath).toBe('/dev/demo');
       expect(status.fcInfo).toBeDefined();
@@ -167,7 +191,10 @@ describe('MockMSPClient', () => {
       client.setDemoBBLData(demoData);
 
       const progressCalls: number[] = [];
-      const result = await client.downloadBlackboxLog((p) => progressCalls.push(p));
+      const downloadPromise = client.downloadBlackboxLog((p) => progressCalls.push(p));
+      // 21 chunks × 50ms each
+      await vi.advanceTimersByTimeAsync(21 * 50);
+      const result = await downloadPromise;
 
       expect(result).toBe(demoData);
       expect(progressCalls.length).toBeGreaterThan(0);
@@ -176,28 +203,220 @@ describe('MockMSPClient', () => {
   });
 
   describe('erase flash', () => {
-    it('resets flash state', async () => {
+    it('resets flash state immediately', async () => {
       client.setFlashHasData(true);
-      await client.eraseBlackboxFlash();
+
+      // Start erase, then advance timers to resolve internal 500ms delay
+      const erasePromise = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erasePromise;
 
       const info = await client.getBlackboxInfo();
       expect(info.hasLogs).toBe(false);
+    });
+
+    it('schedules auto-flight after 3s', async () => {
+      const erasePromise = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erasePromise;
+
+      // Immediately after erase: flash is empty
+      let info = await client.getBlackboxInfo();
+      expect(info.hasLogs).toBe(false);
+
+      // After 3s: auto-flight populates flash
+      vi.advanceTimersByTime(3000);
+      info = await client.getBlackboxInfo();
+      expect(info.hasLogs).toBe(true);
+    });
+
+    it('auto-flight emits disconnect then reconnect', async () => {
+      const events: string[] = [];
+      client.on('disconnected', () => events.push('disconnected'));
+      client.on('connected', () => events.push('connected'));
+
+      const erasePromise = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erasePromise;
+
+      // Advance past auto-flight (3s)
+      vi.advanceTimersByTime(3000);
+      expect(events).toContain('disconnected');
+      expect(client.isConnected()).toBe(false);
+
+      // Advance past reconnect delay (1.5s)
+      vi.advanceTimersByTime(1500);
+      expect(events).toContain('connected');
+      expect(client.isConnected()).toBe(true);
+    });
+
+    it('alternates flight type: filter → pid → filter', async () => {
+      // Initial state: next flight is filter
+      expect(client._nextFlightType).toBe('filter');
+
+      // 1st erase → generates filter BBL, next becomes pid
+      const erase1 = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erase1;
+      vi.advanceTimersByTime(3000); // auto-flight fires
+      expect(client._nextFlightType).toBe('pid');
+
+      vi.advanceTimersByTime(1500); // reconnect
+
+      // 2nd erase → generates PID BBL, next becomes filter
+      const erase2 = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erase2;
+      vi.advanceTimersByTime(3000);
+      expect(client._nextFlightType).toBe('filter');
+
+      vi.advanceTimersByTime(1500);
+
+      // 3rd erase → generates filter BBL, next becomes pid again
+      const erase3 = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erase3;
+      vi.advanceTimersByTime(3000);
+      expect(client._nextFlightType).toBe('pid');
     });
   });
 
   describe('save and reboot', () => {
     it('emits disconnect then reconnect', async () => {
-      await client.simulateConnect();
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
 
       const events: string[] = [];
       client.on('disconnected', () => events.push('disconnected'));
       client.on('connected', () => events.push('connected'));
 
-      await client.saveAndReboot();
+      const rebootPromise = client.saveAndReboot();
+      await vi.advanceTimersByTimeAsync(2000);
+      await rebootPromise;
 
       expect(events).toContain('disconnected');
       expect(events).toContain('connected');
       expect(client.isConnected()).toBe(true);
+    });
+
+    it('keeps rebootPending true through reconnect', async () => {
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
+
+      const rebootPromise = client.saveAndReboot();
+      // After disconnect, before reconnect
+      expect(client.rebootPending).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(2000);
+      await rebootPromise;
+
+      // rebootPending remains true after reconnect (caller clears it)
+      expect(client.rebootPending).toBe(true);
+      expect(client.isConnected()).toBe(true);
+    });
+  });
+
+  describe('disconnect with auto-reconnect', () => {
+    it('auto-reconnects when rebootPending is true', async () => {
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
+
+      client.setRebootPending();
+
+      const events: string[] = [];
+      client.on('disconnected', () => events.push('disconnected'));
+      client.on('connected', () => events.push('connected'));
+      client.on('connection-changed', (status) => events.push(`changed:${status.connected}`));
+
+      await client.disconnect();
+      expect(client.isConnected()).toBe(false);
+      expect(events).toContain('disconnected');
+
+      // After 1.5s: auto-reconnect
+      vi.advanceTimersByTime(1500);
+      expect(client.isConnected()).toBe(true);
+      expect(events).toContain('connected');
+    });
+
+    it('does not auto-reconnect when rebootPending is false', async () => {
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
+
+      const connectedHandler = vi.fn();
+      client.on('connected', connectedHandler);
+
+      await client.disconnect();
+      vi.advanceTimersByTime(2000);
+
+      expect(client.isConnected()).toBe(false);
+      expect(connectedHandler).not.toHaveBeenCalled();
+    });
+
+    it('disconnect emits connection-changed with FC info on reconnect', async () => {
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
+
+      client.setRebootPending();
+
+      const connectionStatuses: any[] = [];
+      client.on('connection-changed', (status) => connectionStatuses.push(status));
+
+      await client.disconnect();
+      vi.advanceTimersByTime(1500);
+
+      // First: disconnected status, second: reconnected with FC info
+      expect(connectionStatuses).toHaveLength(2);
+      expect(connectionStatuses[0]).toEqual({ connected: false });
+      expect(connectionStatuses[1]).toEqual(
+        expect.objectContaining({
+          connected: true,
+          portPath: '/dev/demo',
+          fcInfo: DEMO_FC_INFO,
+        })
+      );
+    });
+  });
+
+  describe('cancelAutoFlight', () => {
+    it('cancels pending auto-flight timer', async () => {
+      const erasePromise = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erasePromise;
+
+      // Cancel before the 3s auto-flight fires
+      client.cancelAutoFlight();
+      vi.advanceTimersByTime(5000);
+
+      // Flash should still be empty
+      const info = await client.getBlackboxInfo();
+      expect(info.hasLogs).toBe(false);
+    });
+
+    it('disconnect cancels pending auto-flight', async () => {
+      const connectPromise = client.simulateConnect();
+      await vi.advanceTimersByTimeAsync(500);
+      await connectPromise;
+
+      const erasePromise = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erasePromise;
+
+      // Disconnect cancels the auto-flight timer
+      await client.disconnect();
+      vi.advanceTimersByTime(5000);
+
+      // Flash should still be empty (timer was cancelled)
+      const info = await client.getBlackboxInfo();
+      expect(info.hasLogs).toBe(false);
+    });
+
+    it('is safe to call when no timer is pending', () => {
+      expect(() => client.cancelAutoFlight()).not.toThrow();
     });
   });
 

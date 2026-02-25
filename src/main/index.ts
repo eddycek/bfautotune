@@ -26,8 +26,8 @@ import { SNAPSHOT, PROFILE } from '@shared/constants';
 import { MockMSPClient, DEMO_FC_SERIAL } from './demo/MockMSPClient';
 import { generateFilterDemoBBL } from './demo/DemoDataGenerator';
 
-/** Whether the app is running in demo mode (--demo flag) */
-const isDemoMode = process.argv.includes('--demo');
+/** Whether the app is running in demo mode (DEMO_MODE env var or --demo flag) */
+const isDemoMode = process.env.DEMO_MODE === 'true' || process.argv.includes('--demo');
 
 let mspClient: MSPClient | MockMSPClient;
 let snapshotManager: SnapshotManager;
@@ -41,9 +41,11 @@ async function initialize(): Promise<void> {
   if (isDemoMode) {
     logger.info('=== DEMO MODE ACTIVE ===');
     const mockClient = new MockMSPClient();
-    // Pre-generate demo BBL data
+    // Pre-generate demo BBL data for standalone analysis (outside tuning session)
     const demoBBL = generateFilterDemoBBL();
     mockClient.setDemoBBLData(demoBBL);
+    // Flash starts with data (simulated previous flight) so "Erase Flash" button is visible
+    // Without this, flashUsedSize===0 triggers showErasedState immediately in TuningStatusBanner
     mockClient.setFlashHasData(true);
     mspClient = mockClient;
   } else {

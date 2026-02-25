@@ -5,6 +5,7 @@ import {
   generateCombinedDemoBBL,
 } from './DemoDataGenerator';
 import { BlackboxParser } from '../blackbox/BlackboxParser';
+import { detectSteps } from '../analysis/StepDetector';
 
 describe('DemoDataGenerator', () => {
   describe('generateFilterDemoBBL', () => {
@@ -96,6 +97,36 @@ describe('DemoDataGenerator', () => {
         }
       }
       expect(hasSteps).toBe(true);
+    });
+
+    it('produces steps detectable by StepDetector', async () => {
+      const buffer = generatePIDDemoBBL();
+      const result = await BlackboxParser.parse(buffer);
+      const session = result.sessions[0];
+
+      const steps = detectSteps(session.flightData);
+      // Should detect 10+ steps across all axes
+      expect(steps.length).toBeGreaterThanOrEqual(10);
+
+      // All 3 axes should have at least one step
+      const axesWithSteps = new Set(steps.map((s) => s.axis));
+      expect(axesWithSteps.size).toBe(3);
+    });
+
+    it('produces gyro response to step inputs (non-zero overshoot)', async () => {
+      const buffer = generatePIDDemoBBL();
+      const result = await BlackboxParser.parse(buffer);
+      const session = result.sessions[0];
+
+      const steps = detectSteps(session.flightData);
+      expect(steps.length).toBeGreaterThan(0);
+
+      // During a step, gyro should track toward setpoint (not stay at 0)
+      const firstStep = steps[0];
+      const gyro = session.flightData.gyro[firstStep.axis].values;
+      const midIdx = Math.floor((firstStep.startIndex + firstStep.endIndex) / 2);
+      // Gyro at midpoint of step should be significantly non-zero
+      expect(Math.abs(gyro[midIdx])).toBeGreaterThan(20);
     });
   });
 

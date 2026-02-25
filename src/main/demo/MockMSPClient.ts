@@ -2,7 +2,7 @@
  * Mock MSP client for offline UX testing (demo mode).
  *
  * Simulates a connected flight controller with realistic responses.
- * Activated via `--demo` CLI flag. No real serial port needed.
+ * Activated via DEMO_MODE=true env var (dev) or --demo CLI flag (production).
  */
 
 import { EventEmitter } from 'events';
@@ -10,6 +10,7 @@ import type { PortInfo, FCInfo, ConnectionStatus } from '@shared/types/common.ty
 import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { BlackboxInfo } from '@shared/types/blackbox.types';
+import { generateFilterDemoBBL, generatePIDDemoBBL } from './DemoDataGenerator';
 import { logger } from '../utils/logger';
 
 /** Demo FC serial number — used for profile matching */
@@ -53,8 +54,8 @@ set d_yaw = 0
 set f_yaw = 80
 `;
 
-/** Demo FC info matching BF 4.5.1 on STM32F405 */
-const DEMO_FC_INFO: FCInfo = {
+/** Demo FC info matching BF 4.5.1 on STM32F405 — exported for test assertions */
+export const DEMO_FC_INFO: FCInfo = {
   variant: 'BTFL',
   version: '4.5.1',
   target: 'STM32F405',
@@ -146,6 +147,10 @@ export class MockMSPClient extends EventEmitter {
   private _flashHasData = false;
   /** Pre-generated demo BBL data (set by DemoDataGenerator) */
   private _demoBBLData: Buffer | null = null;
+  /** Which BBL type the next auto-flight will generate (exposed for testing) */
+  _nextFlightType: 'filter' | 'pid' = 'filter';
+  /** Timer handle for auto-flight scheduling (for cleanup) */
+  private _autoFlightTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     super();
@@ -198,7 +203,6 @@ export class MockMSPClient extends EventEmitter {
   async simulateConnect(): Promise<void> {
     logger.info('[DEMO] Simulating FC connection...');
     this._connected = true;
-    this._flashHasData = false;
 
     // Small delay to let the window initialize
     await new Promise((r) => setTimeout(r, 500));
@@ -230,10 +234,27 @@ export class MockMSPClient extends EventEmitter {
   }
 
   async disconnect(): Promise<void> {
-    logger.info('[DEMO] Disconnecting...');
+    const shouldAutoReconnect = this._rebootPending;
+    logger.info(
+      `[DEMO] Disconnecting...${shouldAutoReconnect ? ' (reboot pending — will auto-reconnect)' : ''}`
+    );
+    this.cancelAutoFlight();
     this._connected = false;
     this.emit('disconnected');
     this.emit('connection-changed', { connected: false });
+
+    if (shouldAutoReconnect) {
+      setTimeout(() => {
+        logger.info('[DEMO] Auto-reconnecting after reboot...');
+        this._connected = true;
+        this.emit('connected');
+        this.emit('connection-changed', {
+          connected: true,
+          portPath: '/dev/demo',
+          fcInfo: DEMO_FC_INFO,
+        });
+      }, 1500);
+    }
   }
 
   async reconnect(): Promise<void> {
@@ -319,8 +340,20 @@ export class MockMSPClient extends EventEmitter {
   async eraseBlackboxFlash(): Promise<void> {
     logger.info('[DEMO] Flash erased (simulated)');
     this._flashHasData = false;
+    this.cancelAutoFlight();
+
     // Simulate erase delay
     await new Promise((r) => setTimeout(r, 500));
+
+    // Schedule simulated flight after 3s
+    this._autoFlightTimer = setTimeout(() => {
+      logger.info(`[DEMO] Auto-flight complete (${this._nextFlightType} data generated)`);
+      this._flashHasData = true;
+      this._demoBBLData =
+        this._nextFlightType === 'filter' ? generateFilterDemoBBL() : generatePIDDemoBBL();
+      this._nextFlightType = this._nextFlightType === 'filter' ? 'pid' : 'filter';
+      this.simulateFlightAndReconnect();
+    }, 3000);
   }
 
   async saveAndReboot(): Promise<void> {
@@ -334,8 +367,8 @@ export class MockMSPClient extends EventEmitter {
 
     await new Promise((r) => setTimeout(r, 2000));
 
-    // Reconnect
-    this._rebootPending = false;
+    // Reconnect — rebootPending stays true so connected handler in index.ts
+    // knows this is a reboot (clears it after processing)
     this._connected = true;
     this.emit('connected');
     this.emit('connection-changed', {
@@ -357,6 +390,40 @@ export class MockMSPClient extends EventEmitter {
   async rebootToMSC(): Promise<boolean> {
     logger.info('[DEMO] MSC mode not supported in demo');
     return false;
+  }
+
+  // ── Auto-flight simulation ─────────────────────────────────────────
+
+  /**
+   * Simulate a completed flight: disconnect → delay → reconnect with flash data.
+   * Smart reconnect in index.ts will detect flash data and advance the tuning phase.
+   */
+  private simulateFlightAndReconnect(): void {
+    this._rebootPending = true; // Prevent profile clear on disconnect
+    this._connected = false;
+    this.emit('disconnected');
+    this.emit('connection-changed', { connected: false });
+    logger.info('[DEMO] Simulated flight disconnect — reconnecting in 1.5s...');
+
+    setTimeout(() => {
+      this._connected = true;
+      this.emit('connected');
+      this.emit('connection-changed', {
+        connected: true,
+        portPath: '/dev/demo',
+        fcInfo: DEMO_FC_INFO,
+      });
+      logger.info('[DEMO] Reconnected with flight data on flash');
+    }, 1500);
+  }
+
+  /** Cancel any pending auto-flight timer (cleanup on disconnect) */
+  cancelAutoFlight(): void {
+    if (this._autoFlightTimer) {
+      clearTimeout(this._autoFlightTimer);
+      this._autoFlightTimer = null;
+      logger.info('[DEMO] Auto-flight timer cancelled');
+    }
   }
 
   // ── State management (same as real MSPClient) ──────────────────────

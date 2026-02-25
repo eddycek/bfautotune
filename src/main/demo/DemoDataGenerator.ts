@@ -7,6 +7,11 @@
  * - Produces meaningful results from PIDAnalyzer (step responses)
  *
  * Uses the same VB encoding functions as bf45-reference.ts fixture.
+ *
+ * IMPORTANT: iInterval must produce a sample rate matching the P interval header.
+ * The parser computes sampleRateHz = 1e6 / (looptime * pInterval * pDenom).
+ * With P interval:1/2 and looptime:125 → sampleRateHz = 4000 Hz → iInterval must be 2.
+ * A mismatch causes StepDetector timing calculations to reject all steps.
  */
 
 import { logger } from '../utils/logger';
@@ -63,8 +68,16 @@ interface DemoSessionConfig {
   electricalNoiseAmplitude: number;
   /** Whether to inject step inputs into setpoint data (for PID analysis) */
   injectSteps: boolean;
-  /** I-frame interval (samples between I-frames, default 32) */
+  /** I-frame interval — must match P interval header for correct sample rate (default 2) */
   iInterval?: number;
+}
+
+/** Step event for gyro response simulation */
+interface StepEvent {
+  startFrame: number;
+  endFrame: number;
+  axis: 0 | 1 | 2; // roll, pitch, yaw
+  magnitude: number; // deg/s
 }
 
 /**
@@ -73,6 +86,10 @@ interface DemoSessionConfig {
  * This generates only I-frames (no P-frames) for simplicity — the parser
  * handles I-only logs just fine, and the analysis engines work on the
  * extracted TimeSeries data regardless of frame type.
+ *
+ * The iInterval MUST match pDiv (pInterval * pDenom from the P interval header)
+ * so that BlackboxParser.sampleRateHz equals the actual data rate.
+ * Default: iInterval=2 with "P interval:1/2" → pDiv=2 → 4000 Hz.
  */
 function buildDemoSession(config: DemoSessionConfig): Buffer {
   const {
@@ -84,7 +101,7 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
     electricalNoiseHz,
     electricalNoiseAmplitude,
     injectSteps,
-    iInterval = 32,
+    iInterval = 2,
   } = config;
 
   const parts: Buffer[] = [];
@@ -140,19 +157,32 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
   // ── Step input schedule ─────────────────────────────────────────
   // Generate step events spread across the session for PID analysis.
   // Each step: sudden setpoint change → hold for ~200ms → return to 0.
-  interface StepEvent {
-    startFrame: number;
-    endFrame: number;
-    axis: 0 | 1 | 2; // roll, pitch, yaw
-    magnitude: number; // deg/s
-  }
-
+  // 18 steps total (6 per axis) for robust PID analysis.
   const steps: StepEvent[] = [];
   if (injectSteps) {
     const holdFrames = Math.round(0.2 * sampleRateHz); // 200ms hold
-    const cooldownFrames = Math.round(0.5 * sampleRateHz); // 500ms between steps
-    const stepMagnitudes = [200, -300, 250, -200, 350, -250];
-    let nextStart = Math.round(1.0 * sampleRateHz); // Start 1s into the session
+    const cooldownFrames = Math.round(0.3 * sampleRateHz); // 300ms between steps (well above 100ms detector threshold)
+    const stepMagnitudes = [
+      200,
+      -300,
+      250, // roll, pitch, yaw
+      -250,
+      300,
+      -200, // roll, pitch, yaw
+      350,
+      -200,
+      300, // roll, pitch, yaw
+      -300,
+      250,
+      -350, // roll, pitch, yaw
+      200,
+      -350,
+      250, // roll, pitch, yaw
+      -250,
+      300,
+      -200, // roll, pitch, yaw
+    ];
+    let nextStart = Math.round(0.5 * sampleRateHz); // Start 0.5s into the session
 
     for (let i = 0; i < stepMagnitudes.length && nextStart + holdFrames < frameCount - 10; i++) {
       const axis = (i % 3) as 0 | 1 | 2; // Cycle through roll, pitch, yaw
@@ -198,12 +228,42 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
       value +=
         electricalNoiseAmplitude * Math.sin(2 * Math.PI * electricalNoiseHz * timeSec + axis * 1.3);
 
-      gyroValues.push(Math.round(value));
+      gyroValues.push(value);
     }
 
-    frame.push(...encodeSVB(gyroValues[0]));
-    frame.push(...encodeSVB(gyroValues[1]));
-    frame.push(...encodeSVB(gyroValues[2]));
+    // --- Simulated gyro response to step inputs ---
+    // Model: latency → exponential rise → damped overshoot → settling
+    if (injectSteps) {
+      for (const step of steps) {
+        const framesIn = f - step.startFrame;
+        if (framesIn < 0) continue;
+        // Stop contributing well after the step ends (decay is negligible)
+        if (framesIn > step.endFrame - step.startFrame + Math.round(0.15 * sampleRateHz)) continue;
+
+        const latencyFrames = Math.round(0.012 * sampleRateHz); // 12ms latency
+        if (framesIn < latencyFrames) continue;
+
+        const t = (framesIn - latencyFrames) / sampleRateHz; // seconds after latency
+        // Exponential rise with damped sinusoidal overshoot
+        const rise = 1 - Math.exp(-t * 80); // fast rise (~12ms to 63%)
+        const overshoot = 0.12 * Math.exp(-t * 35) * Math.sin(t * 180);
+
+        if (f < step.endFrame) {
+          // During step hold: tracking toward target
+          gyroValues[step.axis] += step.magnitude * (rise + overshoot);
+        } else {
+          // After step ends: decay back to 0
+          const tAfterEnd = (f - step.endFrame) / sampleRateHz;
+          const decayFactor = Math.exp(-tAfterEnd * 60);
+          gyroValues[step.axis] += step.magnitude * decayFactor;
+        }
+      }
+    }
+
+    // Round gyro values after all contributions
+    frame.push(...encodeSVB(Math.round(gyroValues[0])));
+    frame.push(...encodeSVB(Math.round(gyroValues[1])));
+    frame.push(...encodeSVB(Math.round(gyroValues[2])));
 
     // --- Setpoint: hover + step inputs ---
     const setpoints = [0, 0, 0]; // roll, pitch, yaw
@@ -236,16 +296,16 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
  * Generate a demo BBL buffer for filter analysis.
  *
  * Contains one session with:
- * - ~10 seconds of flight data at 250 Hz (I-frame only)
+ * - ~5 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
  * - Broadband noise floor
- * - Motor harmonic at ~160 Hz
+ * - Motor harmonic at ~160 Hz with 2nd harmonic at ~320 Hz
  * - Electrical noise at ~600 Hz
  * - Throttle sweeps for segment detection
  */
 export function generateFilterDemoBBL(): Buffer {
   logger.info('[DEMO] Generating filter analysis demo BBL...');
   return buildDemoSession({
-    frameCount: 2500, // ~10s at 250 Hz sample rate
+    frameCount: 20000, // 5s at 4000 Hz
     gyroBase: [2, -1, 0],
     noiseAmplitude: 15,
     motorHarmonicHz: 160,
@@ -253,7 +313,7 @@ export function generateFilterDemoBBL(): Buffer {
     electricalNoiseHz: 600,
     electricalNoiseAmplitude: 8,
     injectSteps: false,
-    iInterval: 32,
+    iInterval: 2,
   });
 }
 
@@ -261,15 +321,16 @@ export function generateFilterDemoBBL(): Buffer {
  * Generate a demo BBL buffer for PID analysis.
  *
  * Contains one session with:
- * - ~10 seconds of flight data at 250 Hz (I-frame only)
+ * - ~5 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
  * - Moderate noise floor
- * - Step inputs on all 3 axes (for step response detection)
+ * - 18 step inputs across all 3 axes (for step response detection)
+ * - Simulated gyro response (12ms latency, ~12% overshoot, ~80ms settling)
  * - Lower motor harmonic (cleaner for PID analysis)
  */
 export function generatePIDDemoBBL(): Buffer {
   logger.info('[DEMO] Generating PID analysis demo BBL...');
   return buildDemoSession({
-    frameCount: 2500,
+    frameCount: 32000, // 8s at 4000 Hz — fits 15 step inputs (5 per axis)
     gyroBase: [0, 0, 0],
     noiseAmplitude: 8,
     motorHarmonicHz: 160,
@@ -277,7 +338,7 @@ export function generatePIDDemoBBL(): Buffer {
     electricalNoiseHz: 600,
     electricalNoiseAmplitude: 3,
     injectSteps: true,
-    iInterval: 32,
+    iInterval: 2,
   });
 }
 
@@ -290,7 +351,7 @@ export function generateCombinedDemoBBL(): Buffer {
   logger.info('[DEMO] Generating combined demo BBL (filter + PID sessions)...');
 
   const filterSession = buildDemoSession({
-    frameCount: 2500,
+    frameCount: 20000,
     gyroBase: [2, -1, 0],
     noiseAmplitude: 15,
     motorHarmonicHz: 160,
@@ -298,7 +359,7 @@ export function generateCombinedDemoBBL(): Buffer {
     electricalNoiseHz: 600,
     electricalNoiseAmplitude: 8,
     injectSteps: false,
-    iInterval: 32,
+    iInterval: 2,
   });
 
   // 50 bytes of garbage between sessions (normal in multi-session BBL files)
@@ -308,7 +369,7 @@ export function generateCombinedDemoBBL(): Buffer {
   }
 
   const pidSession = buildDemoSession({
-    frameCount: 2500,
+    frameCount: 32000,
     gyroBase: [0, 0, 0],
     noiseAmplitude: 8,
     motorHarmonicHz: 160,
@@ -316,7 +377,7 @@ export function generateCombinedDemoBBL(): Buffer {
     electricalNoiseHz: 600,
     electricalNoiseAmplitude: 3,
     injectSteps: true,
-    iInterval: 32,
+    iInterval: 2,
   });
 
   return Buffer.concat([filterSession, garbage, pidSession]);

@@ -14,7 +14,7 @@ This makes it impossible to test UX changes while offline (e.g., traveling witho
 
 ## Solution: Demo Mode
 
-A `--demo` command-line flag that boots the app with a simulated flight controller and pre-populated demo data. The real Electron app runs normally — only the MSP layer is replaced with a mock that returns realistic responses, and demo blackbox logs are generated from the existing `bf45-reference` fixture.
+A `DEMO_MODE=true` environment variable that boots the app with a simulated flight controller and pre-populated demo data. The real Electron app runs normally — only the MSP layer is replaced with a mock that returns realistic responses, and demo blackbox logs are generated for realistic analysis.
 
 ### What Demo Mode Provides
 
@@ -38,11 +38,11 @@ A `--demo` command-line flag that boots the app with a simulated flight controll
 ### Entry Point
 
 ```
-npm run dev -- --demo    # Development
-./app --demo             # Production
+npm run dev:demo         # Development (sets DEMO_MODE=true env var)
+./app --demo             # Production (CLI flag fallback)
 ```
 
-The `--demo` flag is read in `src/main/index.ts` via `process.argv.includes('--demo')`.
+Demo mode is detected in `src/main/index.ts` via `process.env.DEMO_MODE === 'true'` (dev) or `process.argv.includes('--demo')` (production fallback). The env var approach is required because `vite-plugin-electron` does not forward CLI args to the Electron process.
 
 ### MockMSPClient
 
@@ -86,7 +86,7 @@ In `src/main/index.ts`, the `initialize()` function checks for demo mode:
 
 ```typescript
 async function initialize(): Promise<void> {
-  const isDemoMode = process.argv.includes('--demo');
+  const isDemoMode = process.env.DEMO_MODE === 'true' || process.argv.includes('--demo');
 
   if (isDemoMode) {
     mspClient = new MockMSPClient() as any;
@@ -109,7 +109,7 @@ async function initialize(): Promise<void> {
 ```json
 {
   "scripts": {
-    "dev:demo": "npm run dev -- --demo"
+    "dev:demo": "DEMO_MODE=true vite"
   }
 }
 ```
@@ -130,7 +130,7 @@ async function initialize(): Promise<void> {
 - Save demo BBL to BlackboxManager on first demo boot
 
 ### Task 3: Integration in index.ts
-- Read `--demo` flag from `process.argv`
+- Detect demo mode via `DEMO_MODE` env var or `--demo` CLI flag
 - Swap MSPClient with MockMSPClient when demo mode active
 - Auto-connect after window ready
 - Add `dev:demo` script to package.json
@@ -148,7 +148,7 @@ async function initialize(): Promise<void> {
 ## Risk Assessment
 
 **Low risk** — Demo mode is completely isolated:
-- Only activated by explicit `--demo` CLI flag
+- Only activated by explicit `DEMO_MODE=true` env var or `--demo` CLI flag
 - No changes to production code paths (just an `if` branch in `initialize()`)
 - All new code in `src/main/demo/` directory
 - Real storage managers used (data persists between demo sessions in separate location if needed)
