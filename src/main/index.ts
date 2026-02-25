@@ -23,7 +23,7 @@ import {
 } from './ipc/handlers';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE } from '@shared/constants';
-import { MockMSPClient } from './demo/MockMSPClient';
+import { MockMSPClient, DEMO_FC_SERIAL } from './demo/MockMSPClient';
 import { generateFilterDemoBBL } from './demo/DemoDataGenerator';
 
 /** Whether the app is running in demo mode (--demo flag) */
@@ -288,7 +288,46 @@ async function initialize(): Promise<void> {
     }
   });
 
+  // In demo mode, pre-create demo profile so ProfileWizard is skipped on connect
+  if (isDemoMode) {
+    await ensureDemoProfile();
+  }
+
   logger.info('Application initialized');
+}
+
+/**
+ * Create the demo profile if it doesn't already exist.
+ * This ensures the 'connected' event handler finds an existing profile
+ * and skips the ProfileWizard modal entirely.
+ */
+async function ensureDemoProfile(): Promise<void> {
+  const existing = await profileManager.findProfileBySerial(DEMO_FC_SERIAL);
+  if (existing) {
+    logger.info(`[DEMO] Demo profile already exists: ${existing.name} (${existing.id})`);
+    return;
+  }
+
+  logger.info('[DEMO] Creating demo profile...');
+  await profileManager.createProfile({
+    fcSerialNumber: DEMO_FC_SERIAL,
+    fcInfo: {
+      variant: 'BTFL',
+      version: '4.5.1',
+      target: 'STM32F405',
+      boardName: 'OMNIBUSF4SD',
+      apiVersion: { protocol: 0, major: 1, minor: 46 },
+    },
+    name: 'Demo Quad (5" Freestyle)',
+    size: '5"',
+    battery: '4S',
+    propSize: '5.1"',
+    weight: 650,
+    motorKV: 2400,
+    flightStyle: 'balanced',
+    notes: 'Auto-created demo profile for offline UX testing',
+  });
+  logger.info('[DEMO] Demo profile created');
 }
 
 app.whenReady().then(async () => {
@@ -300,7 +339,7 @@ app.whenReady().then(async () => {
     setTimeout(() => {
       logger.info('[DEMO] Auto-connecting demo FC...');
       (mspClient as MockMSPClient).simulateConnect();
-    }, 1500);
+    }, 1000);
   }
 
   app.on('activate', () => {
