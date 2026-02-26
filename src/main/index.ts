@@ -30,6 +30,11 @@ import { generateFilterDemoBBL } from './demo/DemoDataGenerator';
 /** Whether the app is running in demo mode (DEMO_MODE env var or --demo flag) */
 const isDemoMode = process.env.DEMO_MODE === 'true' || process.argv.includes('--demo');
 
+// Allow overriding userData path (used by E2E tests for isolation)
+if (process.env.E2E_USER_DATA_DIR) {
+  app.setPath('userData', process.env.E2E_USER_DATA_DIR);
+}
+
 let mspClient: MSPClient | MockMSPClient;
 let snapshotManager: SnapshotManager;
 let profileManager: ProfileManager;

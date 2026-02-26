@@ -10,7 +10,7 @@ export default defineConfig({
     testTimeout: 15000,
     setupFiles: ['./src/renderer/test/setup.ts'],
     include: ['**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', 'dist', 'release'],
+    exclude: ['node_modules', 'dist', 'release', 'e2e'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
