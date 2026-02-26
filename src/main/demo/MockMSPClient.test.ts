@@ -275,6 +275,22 @@ describe('MockMSPClient', () => {
       expect(client.isConnected()).toBe(true);
     });
 
+    it('increments tuning cycle after verification flight', async () => {
+      expect(client._tuningCycle).toBe(0);
+
+      // Complete one full cycle: filter → pid → verification
+      for (let i = 0; i < 3; i++) {
+        const eraseP = client.eraseBlackboxFlash();
+        await vi.advanceTimersByTimeAsync(500);
+        await eraseP;
+        vi.advanceTimersByTime(3000); // auto-flight fires
+        vi.advanceTimersByTime(1500); // reconnect
+      }
+
+      // After completing filter+pid+verification, cycle increments to 1
+      expect(client._tuningCycle).toBe(1);
+    });
+
     it('cycles flight type: filter → pid → verification → filter', async () => {
       // Initial state: next flight is filter
       expect(client._nextFlightType).toBe('filter');

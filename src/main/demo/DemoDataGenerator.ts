@@ -347,6 +347,28 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
   return Buffer.concat(parts);
 }
 
+// ── Progressive noise reduction ────────────────────────────────────
+
+/**
+ * Compute a progressive attenuation factor based on tuning cycle.
+ *
+ * 5 discrete steps from noisy baseline to fully optimized:
+ *   Cycle 0 → 1.00 (untuned baseline)
+ *   Cycle 1 → 0.55 (first tuning pass — big improvement)
+ *   Cycle 2 → 0.35 (second pass — diminishing returns)
+ *   Cycle 3 → 0.22 (fine-tuning)
+ *   Cycle 4 → 0.15 (near-optimal)
+ *   Cycle 5+ → 0.10 (fully optimized — minimal achievable noise)
+ *
+ * Models real-world tuning: big gains on first iteration, cap at 5th cycle.
+ */
+export function progressiveFactor(cycle: number): number {
+  if (cycle <= 0) return 1.0;
+  if (cycle >= 5) return 0.1;
+  // Smooth exponential curve: 1.0 → 0.55 → 0.35 → 0.22 → 0.15 → 0.10
+  return 0.1 + 0.9 * Math.exp(-0.6 * cycle);
+}
+
 // ── Public API ─────────────────────────────────────────────────────
 
 /**
@@ -354,21 +376,26 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
  *
  * Contains one session with:
  * - ~10 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
- * - High noise floor (~-35 dB) — untuned filters
+ * - Noise floor dependent on cycle (high on first, lower after tuning)
  * - Motor harmonic at ~160 Hz with 2nd harmonic at ~320 Hz
  * - Electrical noise at ~600 Hz
  * - Multi-phase throttle profile for segment detection (4 segments, 45% range)
+ *
+ * @param cycle - Tuning cycle number (0 = first, higher = progressively cleaner)
  */
-export function generateFilterDemoBBL(): Buffer {
-  logger.info('[DEMO] Generating filter analysis demo BBL...');
+export function generateFilterDemoBBL(cycle = 0): Buffer {
+  const f = progressiveFactor(cycle);
+  logger.info(
+    `[DEMO] Generating filter analysis demo BBL (cycle ${cycle}, factor ${f.toFixed(2)})...`
+  );
   return buildDemoSession({
     frameCount: 40000, // 10s at 4000 Hz
     gyroBase: [2, -1, 0],
-    noiseAmplitude: 15,
+    noiseAmplitude: 15 * f,
     motorHarmonicHz: 160,
-    motorHarmonicAmplitude: 40,
+    motorHarmonicAmplitude: 40 * f,
     electricalNoiseHz: 600,
-    electricalNoiseAmplitude: 8,
+    electricalNoiseAmplitude: 8 * f,
     injectSteps: false,
     iInterval: 2,
   });
@@ -384,17 +411,22 @@ export function generateFilterDemoBBL(): Buffer {
  * - Second-order step response model (~18% overshoot roll, ~16% pitch, ~7% yaw)
  * - 12ms transport latency per axis
  * - 400ms step hold ensures correct overshoot measurement
+ *
+ * @param cycle - Tuning cycle number (0 = first, higher = progressively cleaner)
  */
-export function generatePIDDemoBBL(): Buffer {
-  logger.info('[DEMO] Generating PID analysis demo BBL...');
+export function generatePIDDemoBBL(cycle = 0): Buffer {
+  const f = progressiveFactor(cycle);
+  logger.info(
+    `[DEMO] Generating PID analysis demo BBL (cycle ${cycle}, factor ${f.toFixed(2)})...`
+  );
   return buildDemoSession({
     frameCount: 56000, // 14s at 4000 Hz — fits 18 steps × (400ms hold + 300ms cool) + 0.5s lead
     gyroBase: [0, 0, 0],
-    noiseAmplitude: 8,
+    noiseAmplitude: 8 * f,
     motorHarmonicHz: 160,
-    motorHarmonicAmplitude: 15,
+    motorHarmonicAmplitude: 15 * f,
     electricalNoiseHz: 600,
-    electricalNoiseAmplitude: 3,
+    electricalNoiseAmplitude: 3 * f,
     injectSteps: true,
     iInterval: 2,
   });
@@ -409,21 +441,25 @@ export function generatePIDDemoBBL(): Buffer {
  * - No step inputs (hover only, same structure as filter flight)
  * - Multi-phase throttle profile for segment detection
  *
- * Noise levels are significantly lower than filter flight:
- * - noiseAmplitude: 5 (vs 15 for filter) → ~-55 dB noise floor
- * - motorHarmonicAmplitude: 10 (vs 40 for filter) → ~-15 to -20 dB delta
- * - electricalNoiseAmplitude: 1.5 (vs 8 for filter)
+ * Verification noise is always significantly lower than the corresponding filter flight:
+ * - Base: noiseAmplitude=3, motorHarmonicAmplitude=5, electricalNoise=0.8
+ * - Progressive: further reduced with each cycle
+ *
+ * @param cycle - Tuning cycle number (0 = first, higher = progressively cleaner)
  */
-export function generateVerificationDemoBBL(): Buffer {
-  logger.info('[DEMO] Generating verification demo BBL...');
+export function generateVerificationDemoBBL(cycle = 0): Buffer {
+  const f = progressiveFactor(cycle);
+  logger.info(
+    `[DEMO] Generating verification demo BBL (cycle ${cycle}, factor ${f.toFixed(2)})...`
+  );
   return buildDemoSession({
     frameCount: 40000, // 10s at 4000 Hz
     gyroBase: [2, -1, 0],
-    noiseAmplitude: 5,
+    noiseAmplitude: 3 * f,
     motorHarmonicHz: 160,
-    motorHarmonicAmplitude: 10,
+    motorHarmonicAmplitude: 5 * f,
     electricalNoiseHz: 600,
-    electricalNoiseAmplitude: 1.5,
+    electricalNoiseAmplitude: 0.8 * f,
     injectSteps: false,
     iInterval: 2,
   });
@@ -433,18 +469,21 @@ export function generateVerificationDemoBBL(): Buffer {
  * Generate a combined demo BBL with both filter-suitable and PID-suitable sessions.
  * Session 1: hover + noise (for filter analysis)
  * Session 2: stick snaps (for PID analysis)
+ *
+ * @param cycle - Tuning cycle number (0 = first, higher = progressively cleaner)
  */
-export function generateCombinedDemoBBL(): Buffer {
-  logger.info('[DEMO] Generating combined demo BBL (filter + PID sessions)...');
+export function generateCombinedDemoBBL(cycle = 0): Buffer {
+  const f = progressiveFactor(cycle);
+  logger.info(`[DEMO] Generating combined demo BBL (cycle ${cycle}, factor ${f.toFixed(2)})...`);
 
   const filterSession = buildDemoSession({
     frameCount: 40000,
     gyroBase: [2, -1, 0],
-    noiseAmplitude: 15,
+    noiseAmplitude: 15 * f,
     motorHarmonicHz: 160,
-    motorHarmonicAmplitude: 40,
+    motorHarmonicAmplitude: 40 * f,
     electricalNoiseHz: 600,
-    electricalNoiseAmplitude: 8,
+    electricalNoiseAmplitude: 8 * f,
     injectSteps: false,
     iInterval: 2,
   });
@@ -458,11 +497,11 @@ export function generateCombinedDemoBBL(): Buffer {
   const pidSession = buildDemoSession({
     frameCount: 56000,
     gyroBase: [0, 0, 0],
-    noiseAmplitude: 8,
+    noiseAmplitude: 8 * f,
     motorHarmonicHz: 160,
-    motorHarmonicAmplitude: 15,
+    motorHarmonicAmplitude: 15 * f,
     electricalNoiseHz: 600,
-    electricalNoiseAmplitude: 3,
+    electricalNoiseAmplitude: 3 * f,
     injectSteps: true,
     iInterval: 2,
   });

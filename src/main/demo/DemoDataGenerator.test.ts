@@ -4,6 +4,7 @@ import {
   generatePIDDemoBBL,
   generateVerificationDemoBBL,
   generateCombinedDemoBBL,
+  progressiveFactor,
 } from './DemoDataGenerator';
 import { BlackboxParser } from '../blackbox/BlackboxParser';
 import { detectSteps } from '../analysis/StepDetector';
@@ -259,6 +260,47 @@ describe('DemoDataGenerator', () => {
         const meanOvershoot = overshoots.reduce((a, b) => a + b, 0) / overshoots.length;
         // Yaw with ζ=0.65 should produce <15% overshoot
         expect(meanOvershoot).toBeLessThan(15);
+      }
+    });
+  });
+
+  describe('progressive noise reduction', () => {
+    it('progressiveFactor returns 1.0 for cycle 0', () => {
+      expect(progressiveFactor(0)).toBe(1.0);
+    });
+
+    it('progressiveFactor decreases with each cycle', () => {
+      const f0 = progressiveFactor(0);
+      const f1 = progressiveFactor(1);
+      const f2 = progressiveFactor(2);
+      const f3 = progressiveFactor(3);
+      expect(f1).toBeLessThan(f0);
+      expect(f2).toBeLessThan(f1);
+      expect(f3).toBeLessThan(f2);
+    });
+
+    it('progressiveFactor caps at 0.10 after cycle 5', () => {
+      expect(progressiveFactor(5)).toBeCloseTo(0.1, 2);
+      expect(progressiveFactor(6)).toBeCloseTo(0.1, 2);
+      expect(progressiveFactor(10)).toBeCloseTo(0.1, 2);
+    });
+
+    it('cycle 1 filter data has lower noise than cycle 0', async () => {
+      const buf0 = generateFilterDemoBBL(0);
+      const buf1 = generateFilterDemoBBL(1);
+
+      const res0 = await BlackboxParser.parse(buf0);
+      const res1 = await BlackboxParser.parse(buf1);
+
+      // Compare max absolute gyro values — cycle 1 should be lower
+      for (let axis = 0; axis < 3; axis++) {
+        const max0 = Math.max(
+          ...Array.from(res0.sessions[0].flightData.gyro[axis].values).map(Math.abs)
+        );
+        const max1 = Math.max(
+          ...Array.from(res1.sessions[0].flightData.gyro[axis].values).map(Math.abs)
+        );
+        expect(max1).toBeLessThan(max0);
       }
     });
   });

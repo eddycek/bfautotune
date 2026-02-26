@@ -160,6 +160,9 @@ export class MockMSPClient extends EventEmitter {
   private _demoBBLData: Buffer | null = null;
   /** Which BBL type the next auto-flight will generate (exposed for testing) */
   _nextFlightType: 'filter' | 'pid' | 'verification' = 'filter';
+  /** Current tuning cycle (0-based). Increments each time a new session starts.
+   *  Used for progressive noise reduction in demo data generation. */
+  _tuningCycle = 0;
   /** Timer handle for auto-flight scheduling (for cleanup) */
   private _autoFlightTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -422,22 +425,27 @@ export class MockMSPClient extends EventEmitter {
 
     // Schedule simulated flight after 3s
     this._autoFlightTimer = setTimeout(() => {
-      logger.info(`[DEMO] Auto-flight complete (${this._nextFlightType} data generated)`);
+      const c = this._tuningCycle;
+      logger.info(`[DEMO] Auto-flight complete (${this._nextFlightType} cycle ${c})`);
       this._flashHasData = true;
 
-      const generators: Record<typeof this._nextFlightType, () => Buffer> = {
+      const generators: Record<typeof this._nextFlightType, (cycle: number) => Buffer> = {
         filter: generateFilterDemoBBL,
         pid: generatePIDDemoBBL,
         verification: generateVerificationDemoBBL,
       };
-      this._demoBBLData = generators[this._nextFlightType]();
+      this._demoBBLData = generators[this._nextFlightType](c);
 
-      const cycle: Record<string, 'filter' | 'pid' | 'verification'> = {
+      const nextType: Record<string, 'filter' | 'pid' | 'verification'> = {
         filter: 'pid',
         pid: 'verification',
         verification: 'filter',
       };
-      this._nextFlightType = cycle[this._nextFlightType];
+      // After verification completes a full cycle — increment for next round
+      if (this._nextFlightType === 'verification') {
+        this._tuningCycle++;
+      }
+      this._nextFlightType = nextType[this._nextFlightType];
 
       this.simulateFlightAndReconnect();
     }, 3000);
