@@ -13,6 +13,7 @@ import { HandlerDependencies, createResponse } from './types';
 import { sendTuningSessionChanged } from './events';
 import { logger } from '../../utils/logger';
 import { getErrorMessage } from '../../utils/errors';
+import { MockMSPClient } from '../../demo/MockMSPClient';
 
 export function registerTuningHandlers(deps: HandlerDependencies): void {
   const { mspClient, snapshotManager, profileManager, tuningSessionManager, tuningHistoryManager } =
@@ -251,6 +252,11 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         // Archive session to history before completing
         if (phase === 'completed' && tuningHistoryManager) {
           try {
+            // In demo mode, advance past skipped verification so flight type cycle stays in sync
+            if (deps.isDemoMode && mspClient instanceof MockMSPClient) {
+              mspClient.advancePastVerification();
+            }
+
             // First update the phase to 'completed' so the session has the final data
             const completedSession = await tuningSessionManager.updatePhase(profileId, phase, data);
             await tuningHistoryManager.archiveSession(completedSession);

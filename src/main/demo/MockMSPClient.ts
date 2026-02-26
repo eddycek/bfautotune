@@ -244,6 +244,21 @@ export class MockMSPClient extends EventEmitter {
     logger.info('[DEMO] Demo state reset — starting from cycle 0');
   }
 
+  /**
+   * Advance past a skipped verification flight.
+   * Called when user clicks "Skip & Complete" instead of doing the verification flight.
+   * Ensures the flight type cycle stays in sync for the next tuning session.
+   */
+  advancePastVerification(): void {
+    if (this._nextFlightType === 'verification') {
+      this._tuningCycle++;
+      this._nextFlightType = 'filter';
+      logger.info(
+        `[DEMO] Skipped verification — advanced to cycle ${this._tuningCycle}, next flight: filter`
+      );
+    }
+  }
+
   // ── MSPClient interface implementation ──────────────────────────────
 
   async listPorts(): Promise<PortInfo[]> {

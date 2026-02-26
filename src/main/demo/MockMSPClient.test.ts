@@ -531,6 +531,34 @@ describe('MockMSPClient', () => {
     });
   });
 
+  describe('advancePastVerification', () => {
+    it('advances from verification to filter and increments cycle', async () => {
+      // Advance to verification flight type: filter → pid → verification
+      for (let i = 0; i < 2; i++) {
+        const eraseP = client.eraseBlackboxFlash();
+        await vi.advanceTimersByTimeAsync(500);
+        await eraseP;
+        vi.advanceTimersByTime(3000);
+        vi.advanceTimersByTime(1500);
+      }
+      expect(client._nextFlightType).toBe('verification');
+      expect(client._tuningCycle).toBe(0);
+
+      client.advancePastVerification();
+      expect(client._nextFlightType).toBe('filter');
+      expect(client._tuningCycle).toBe(1);
+    });
+
+    it('does nothing when not at verification', async () => {
+      expect(client._nextFlightType).toBe('filter');
+      expect(client._tuningCycle).toBe(0);
+
+      client.advancePastVerification();
+      expect(client._nextFlightType).toBe('filter');
+      expect(client._tuningCycle).toBe(0);
+    });
+  });
+
   describe('state flags', () => {
     it('manages rebootPending flag', () => {
       expect(client.rebootPending).toBe(false);
