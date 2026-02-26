@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FCInfoDisplay } from './FCInfoDisplay';
+import { _resetDemoModeCache } from '../../hooks/useDemoMode';
 import type { FCInfo } from '@shared/types/common.types';
 
 describe('FCInfoDisplay', () => {
@@ -13,18 +14,20 @@ describe('FCInfoDisplay', () => {
     apiVersion: {
       protocol: 0,
       major: 1,
-      minor: 45
-    }
+      minor: 45,
+    },
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetDemoModeCache();
 
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(false);
     vi.mocked(window.betaflight.getConnectionStatus).mockImplementation(() =>
       Promise.resolve({
         connected: true,
         portPath: '/dev/ttyUSB0',
-        fcInfo: mockFCInfo
+        fcInfo: mockFCInfo,
       })
     );
     vi.mocked(window.betaflight.onConnectionChanged).mockReturnValue(() => {});
@@ -43,7 +46,7 @@ describe('FCInfoDisplay', () => {
     vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
       debugMode: 'GYRO_SCALED',
       sampleRate: 1,
-      loggingRateHz: 4000
+      loggingRateHz: 4000,
     });
 
     // Default: FF config not available (most tests don't need it)
@@ -52,7 +55,7 @@ describe('FCInfoDisplay', () => {
 
   it('renders nothing when not connected', () => {
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
-      connected: false
+      connected: false,
     });
 
     const { container } = render(<FCInfoDisplay />);
@@ -100,8 +103,8 @@ describe('FCInfoDisplay', () => {
       portPath: '/dev/ttyUSB0',
       fcInfo: {
         ...mockFCInfo,
-        boardName: 'Custom Board Name'
-      }
+        boardName: 'Custom Board Name',
+      },
     });
 
     render(<FCInfoDisplay />);
@@ -126,9 +129,12 @@ describe('FCInfoDisplay', () => {
 
     render(<FCInfoDisplay />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Export CLI Diff')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Export CLI Diff')).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
 
     const diffButton = screen.getByText('Export CLI Diff');
     await user.click(diffButton);
@@ -143,9 +149,12 @@ describe('FCInfoDisplay', () => {
 
     render(<FCInfoDisplay />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Export CLI Dump')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Export CLI Dump')).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
 
     const dumpButton = screen.getByText('Export CLI Dump');
     await user.click(dumpButton);
@@ -158,10 +167,10 @@ describe('FCInfoDisplay', () => {
   it('shows loading state', async () => {
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
-      portPath: '/dev/ttyUSB0'
+      portPath: '/dev/ttyUSB0',
     });
     vi.mocked(window.betaflight.getFCInfo).mockImplementation(
-      () => new Promise(resolve => setTimeout(() => resolve(mockFCInfo), 100))
+      () => new Promise((resolve) => setTimeout(() => resolve(mockFCInfo), 100))
     );
 
     render(<FCInfoDisplay />);
@@ -175,7 +184,7 @@ describe('FCInfoDisplay', () => {
     const errorMessage = 'Failed to get FC info';
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
-      portPath: '/dev/ttyUSB0'
+      portPath: '/dev/ttyUSB0',
     });
     vi.mocked(window.betaflight.getFCInfo).mockRejectedValue(new Error(errorMessage));
 
@@ -189,7 +198,7 @@ describe('FCInfoDisplay', () => {
   it('fetches FC info when connected without fcInfo in status', async () => {
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
-      portPath: '/dev/ttyUSB0'
+      portPath: '/dev/ttyUSB0',
     });
 
     render(<FCInfoDisplay />);
@@ -245,7 +254,7 @@ describe('FCInfoDisplay', () => {
     vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
       debugMode: 'NONE',
       sampleRate: 0,
-      loggingRateHz: 8000
+      loggingRateHz: 8000,
     });
 
     render(<FCInfoDisplay />);
@@ -260,7 +269,7 @@ describe('FCInfoDisplay', () => {
     vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
       debugMode: 'GYRO_SCALED',
       sampleRate: 3,
-      loggingRateHz: 1000
+      loggingRateHz: 1000,
     });
 
     render(<FCInfoDisplay />);
@@ -283,12 +292,12 @@ describe('FCInfoDisplay', () => {
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
       portPath: '/dev/ttyUSB0',
-      fcInfo: { ...mockFCInfo, version: '4.6.0' }
+      fcInfo: { ...mockFCInfo, version: '4.6.0' },
     });
     vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
       debugMode: 'NONE',
       sampleRate: 0,
-      loggingRateHz: 4000
+      loggingRateHz: 4000,
     });
 
     render(<FCInfoDisplay />);
@@ -307,12 +316,12 @@ describe('FCInfoDisplay', () => {
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
       portPath: '/dev/ttyUSB0',
-      fcInfo: { ...mockFCInfo, version: '4.5.1' }
+      fcInfo: { ...mockFCInfo, version: '4.5.1' },
     });
     vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
       debugMode: 'NONE',
       sampleRate: 0,
-      loggingRateHz: 4000
+      loggingRateHz: 4000,
     });
 
     render(<FCInfoDisplay />);
@@ -564,5 +573,42 @@ describe('FCInfoDisplay', () => {
         commands: ['set debug_mode = NONE'],
       });
     });
+  });
+
+  // Demo mode tests
+
+  it('disables Fix Settings button in demo mode', async () => {
+    _resetDemoModeCache();
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(true);
+    vi.mocked(window.betaflight.getBlackboxSettings).mockResolvedValue({
+      debugMode: 'NONE',
+      sampleRate: 0,
+      loggingRateHz: 4000,
+    });
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Fix Settings')).toBeInTheDocument();
+    });
+
+    const fixBtn = screen.getByText('Fix Settings');
+    expect(fixBtn).toBeDisabled();
+    expect(fixBtn.title).toBe('Not available in demo mode');
+  });
+
+  it('disables Reset button in demo mode', async () => {
+    _resetDemoModeCache();
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(true);
+
+    render(<FCInfoDisplay />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Reset')).toBeInTheDocument();
+    });
+
+    const resetBtn = screen.getByText('Reset');
+    expect(resetBtn).toBeDisabled();
+    expect(resetBtn.title).toBe('Not available in demo mode');
   });
 });

@@ -250,7 +250,7 @@ describe('MockMSPClient', () => {
       expect(client.isConnected()).toBe(true);
     });
 
-    it('alternates flight type: filter → pid → filter', async () => {
+    it('cycles flight type: filter → pid → verification → filter', async () => {
       // Initial state: next flight is filter
       expect(client._nextFlightType).toBe('filter');
 
@@ -263,19 +263,28 @@ describe('MockMSPClient', () => {
 
       vi.advanceTimersByTime(1500); // reconnect
 
-      // 2nd erase → generates PID BBL, next becomes filter
+      // 2nd erase → generates PID BBL, next becomes verification
       const erase2 = client.eraseBlackboxFlash();
       await vi.advanceTimersByTimeAsync(500);
       await erase2;
+      vi.advanceTimersByTime(3000);
+      expect(client._nextFlightType).toBe('verification');
+
+      vi.advanceTimersByTime(1500);
+
+      // 3rd erase → generates verification BBL, next becomes filter
+      const erase3 = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erase3;
       vi.advanceTimersByTime(3000);
       expect(client._nextFlightType).toBe('filter');
 
       vi.advanceTimersByTime(1500);
 
-      // 3rd erase → generates filter BBL, next becomes pid again
-      const erase3 = client.eraseBlackboxFlash();
+      // 4th erase → generates filter BBL, next becomes pid again
+      const erase4 = client.eraseBlackboxFlash();
       await vi.advanceTimersByTimeAsync(500);
-      await erase3;
+      await erase4;
       vi.advanceTimersByTime(3000);
       expect(client._nextFlightType).toBe('pid');
     });

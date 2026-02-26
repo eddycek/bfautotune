@@ -15,6 +15,7 @@ import {
   setBlackboxManager,
   setTuningSessionManager,
   setTuningHistoryManager,
+  setDemoMode,
   sendConnectionChanged,
   sendProfileChanged,
   sendNewFCDetected,
@@ -95,6 +96,7 @@ async function initialize(): Promise<void> {
   setBlackboxManager(blackboxManager);
   setTuningSessionManager(tuningSessionManager);
   setTuningHistoryManager(tuningHistoryManager);
+  setDemoMode(isDemoMode);
   registerIPCHandlers();
 
   // Listen for connection changes

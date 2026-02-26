@@ -84,6 +84,9 @@ export interface ApplyRecommendationsResult {
 }
 
 export enum IPCChannel {
+  // App
+  APP_IS_DEMO_MODE = 'app:is-demo-mode',
+
   // Connection
   CONNECTION_LIST_PORTS = 'connection:list-ports',
   CONNECTION_CONNECT = 'connection:connect',
@@ -171,6 +174,9 @@ export interface IPCResponse<T = any> {
 }
 
 export interface BetaflightAPI {
+  // App
+  isDemoMode(): Promise<boolean>;
+
   // Connection
   listPorts(): Promise<PortInfo[]>;
   connect(portPath: string): Promise<void>;

@@ -43,6 +43,7 @@ const deps: HandlerDependencies = {
   mscManager: null,
   isDownloadingBlackbox: false,
   pendingSettingsSnapshot: false,
+  isDemoMode: false,
 };
 
 // ── Setter functions (called from src/main/index.ts) ─────────────────
@@ -69,6 +70,10 @@ export function setTuningSessionManager(manager: any): void {
 
 export function setTuningHistoryManager(manager: any): void {
   deps.tuningHistoryManager = manager;
+}
+
+export function setDemoMode(value: boolean): void {
+  deps.isDemoMode = value;
 }
 
 /** Returns true if a settings fix/reset was applied and a clean snapshot is needed on reconnect. */

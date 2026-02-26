@@ -10,7 +10,11 @@ import type { PortInfo, FCInfo, ConnectionStatus } from '@shared/types/common.ty
 import type { PIDConfiguration, FeedforwardConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { BlackboxInfo } from '@shared/types/blackbox.types';
-import { generateFilterDemoBBL, generatePIDDemoBBL } from './DemoDataGenerator';
+import {
+  generateFilterDemoBBL,
+  generatePIDDemoBBL,
+  generateVerificationDemoBBL,
+} from './DemoDataGenerator';
 import { logger } from '../utils/logger';
 
 /** Demo FC serial number — used for profile matching */
@@ -148,7 +152,7 @@ export class MockMSPClient extends EventEmitter {
   /** Pre-generated demo BBL data (set by DemoDataGenerator) */
   private _demoBBLData: Buffer | null = null;
   /** Which BBL type the next auto-flight will generate (exposed for testing) */
-  _nextFlightType: 'filter' | 'pid' = 'filter';
+  _nextFlightType: 'filter' | 'pid' | 'verification' = 'filter';
   /** Timer handle for auto-flight scheduling (for cleanup) */
   private _autoFlightTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -349,9 +353,21 @@ export class MockMSPClient extends EventEmitter {
     this._autoFlightTimer = setTimeout(() => {
       logger.info(`[DEMO] Auto-flight complete (${this._nextFlightType} data generated)`);
       this._flashHasData = true;
-      this._demoBBLData =
-        this._nextFlightType === 'filter' ? generateFilterDemoBBL() : generatePIDDemoBBL();
-      this._nextFlightType = this._nextFlightType === 'filter' ? 'pid' : 'filter';
+
+      const generators: Record<typeof this._nextFlightType, () => Buffer> = {
+        filter: generateFilterDemoBBL,
+        pid: generatePIDDemoBBL,
+        verification: generateVerificationDemoBBL,
+      };
+      this._demoBBLData = generators[this._nextFlightType]();
+
+      const cycle: Record<string, 'filter' | 'pid' | 'verification'> = {
+        filter: 'pid',
+        pid: 'verification',
+        verification: 'filter',
+      };
+      this._nextFlightType = cycle[this._nextFlightType];
+
       this.simulateFlightAndReconnect();
     }, 3000);
   }

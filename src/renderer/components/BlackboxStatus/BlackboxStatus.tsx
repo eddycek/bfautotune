@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBlackboxInfo } from '../../hooks/useBlackboxInfo';
 import { useBlackboxLogs } from '../../hooks/useBlackboxLogs';
 import { useToast } from '../../hooks/useToast';
+import { useDemoMode } from '../../hooks/useDemoMode';
 import './BlackboxStatus.css';
 
 const PAGE_SIZE = 20;
@@ -19,6 +20,7 @@ interface BlackboxStatusProps {
 }
 
 export function BlackboxStatus({ onAnalyze, readonly, refreshKey }: BlackboxStatusProps) {
+  const { isDemoMode } = useDemoMode();
   const { info, loading, error, refresh: refreshInfo } = useBlackboxInfo();
   const { logs, deleteLog, openFolder, reload: reloadLogs } = useBlackboxLogs();
   const toast = useToast();
@@ -243,7 +245,12 @@ export function BlackboxStatus({ onAnalyze, readonly, refreshKey }: BlackboxStat
                   <button
                     className="test-read-button"
                     onClick={handleTestRead}
-                    title="Test if FC supports MSP_DATAFLASH_READ (reads 10 bytes)"
+                    disabled={isDemoMode}
+                    title={
+                      isDemoMode
+                        ? 'Not available in demo mode'
+                        : 'Test if FC supports MSP_DATAFLASH_READ (reads 10 bytes)'
+                    }
                   >
                     <span className="icon">🔬</span>
                     <span>Test Read (Debug)</span>

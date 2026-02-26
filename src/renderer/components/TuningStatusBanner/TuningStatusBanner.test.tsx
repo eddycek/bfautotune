@@ -22,7 +22,12 @@ describe('TuningStatusBanner', () => {
   function renderBanner(
     session: TuningSession = baseSession,
     flashErased?: boolean,
-    overrides?: { bbSettingsOk?: boolean; fixingSettings?: boolean; flashUsedSize?: number | null }
+    overrides?: {
+      bbSettingsOk?: boolean;
+      fixingSettings?: boolean;
+      flashUsedSize?: number | null;
+      isDemoMode?: boolean;
+    }
   ) {
     return render(
       <TuningStatusBanner
@@ -31,6 +36,7 @@ describe('TuningStatusBanner', () => {
         flashUsedSize={overrides?.flashUsedSize}
         bbSettingsOk={overrides?.bbSettingsOk}
         fixingSettings={overrides?.fixingSettings}
+        isDemoMode={overrides?.isDemoMode}
         onAction={onAction}
         onViewGuide={onViewGuide}
         onReset={onReset}
@@ -515,5 +521,14 @@ describe('TuningStatusBanner', () => {
 
     expect(screen.getByText('Open Filter Wizard')).toBeInTheDocument();
     expect(screen.queryByText('Import File')).not.toBeInTheDocument();
+  });
+
+  // Demo mode tests
+
+  it('hides BB warning in demo mode even with bbSettingsOk=false', () => {
+    renderBanner(baseSession, false, { bbSettingsOk: false, isDemoMode: true });
+
+    expect(screen.queryByText(/Blackbox settings need to be fixed/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Fix Settings')).not.toBeInTheDocument();
   });
 });

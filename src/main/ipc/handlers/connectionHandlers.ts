@@ -11,6 +11,10 @@ import { getErrorMessage } from '../../utils/errors';
  * Handles port listing, connect/disconnect operations, and connection status.
  */
 export function registerConnectionHandlers(deps: HandlerDependencies): void {
+  ipcMain.handle(IPCChannel.APP_IS_DEMO_MODE, async (): Promise<IPCResponse<boolean>> => {
+    return createResponse<boolean>(deps.isDemoMode);
+  });
+
   ipcMain.handle(IPCChannel.CONNECTION_LIST_PORTS, async (): Promise<IPCResponse<PortInfo[]>> => {
     try {
       if (!deps.mspClient) {

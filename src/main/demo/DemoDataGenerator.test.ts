@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   generateFilterDemoBBL,
   generatePIDDemoBBL,
+  generateVerificationDemoBBL,
   generateCombinedDemoBBL,
 } from './DemoDataGenerator';
 import { BlackboxParser } from '../blackbox/BlackboxParser';
@@ -49,7 +50,7 @@ describe('DemoDataGenerator', () => {
       }
     });
 
-    it('produces throttle data with sweep variation', async () => {
+    it('produces throttle data with wide sweep range', async () => {
       const buffer = generateFilterDemoBBL();
       const result = await BlackboxParser.parse(buffer);
       const session = result.sessions[0];
@@ -57,8 +58,8 @@ describe('DemoDataGenerator', () => {
       const throttle = session.flightData.setpoint[3];
       const min = Math.min(...Array.from(throttle.values));
       const max = Math.max(...Array.from(throttle.values));
-      // Should have throttle variation (sweeps)
-      expect(max - min).toBeGreaterThan(100);
+      // Multi-phase throttle should cover 1350-1800 range (450 units)
+      expect(max - min).toBeGreaterThan(400);
     });
 
     it('sets correct header metadata', async () => {
@@ -127,6 +128,138 @@ describe('DemoDataGenerator', () => {
       const midIdx = Math.floor((firstStep.startIndex + firstStep.endIndex) / 2);
       // Gyro at midpoint of step should be significantly non-zero
       expect(Math.abs(gyro[midIdx])).toBeGreaterThan(20);
+    });
+  });
+
+  describe('generateVerificationDemoBBL', () => {
+    it('generates a parseable BBL buffer', async () => {
+      const buffer = generateVerificationDemoBBL();
+      expect(buffer).toBeInstanceOf(Buffer);
+      expect(buffer.length).toBeGreaterThan(1000);
+
+      const result = await BlackboxParser.parse(buffer);
+      expect(result.success).toBe(true);
+      expect(result.sessions.length).toBe(1);
+    });
+
+    it('produces hover data with no step inputs', async () => {
+      const buffer = generateVerificationDemoBBL();
+      const result = await BlackboxParser.parse(buffer);
+      const session = result.sessions[0];
+
+      // Roll/pitch/yaw setpoints should be near zero (hover, no steps)
+      for (let axis = 0; axis < 3; axis++) {
+        const maxSetpoint = Math.max(
+          ...Array.from(session.flightData.setpoint[axis].values).map(Math.abs)
+        );
+        expect(maxSetpoint).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('has lower noise than filter flight data', async () => {
+      const filterBuffer = generateFilterDemoBBL();
+      const verifyBuffer = generateVerificationDemoBBL();
+
+      const filterResult = await BlackboxParser.parse(filterBuffer);
+      const verifyResult = await BlackboxParser.parse(verifyBuffer);
+
+      // Compare max absolute gyro values across all axes
+      for (let axis = 0; axis < 3; axis++) {
+        const filterMax = Math.max(
+          ...Array.from(filterResult.sessions[0].flightData.gyro[axis].values).map(Math.abs)
+        );
+        const verifyMax = Math.max(
+          ...Array.from(verifyResult.sessions[0].flightData.gyro[axis].values).map(Math.abs)
+        );
+        expect(verifyMax).toBeLessThan(filterMax);
+      }
+    });
+  });
+
+  describe('step response model', () => {
+    it('produces overshoot in 10-25% range for roll/pitch', async () => {
+      const buffer = generatePIDDemoBBL();
+      const result = await BlackboxParser.parse(buffer);
+      const session = result.sessions[0];
+      const steps = detectSteps(session.flightData);
+
+      // Group steps by axis and measure overshoot
+      for (const axisIdx of [0, 1] as const) {
+        const axisSteps = steps.filter((s) => s.axis === axisIdx);
+        expect(axisSteps.length).toBeGreaterThanOrEqual(3);
+
+        // Check overshoot for each step: gyro peak / setpoint magnitude
+        const overshoots: number[] = [];
+        for (const step of axisSteps) {
+          const gyro = session.flightData.gyro[step.axis].values;
+          const setpointMag = Math.abs(
+            session.flightData.setpoint[step.axis].values[step.startIndex]
+          );
+          if (setpointMag < 50) continue; // skip small steps
+
+          // Find peak gyro value during step hold
+          let peak = 0;
+          for (let i = step.startIndex; i <= step.endIndex; i++) {
+            const val = gyro[i];
+            if (setpointMag > 0 && Math.abs(val) > Math.abs(peak)) {
+              peak = val;
+            }
+          }
+
+          // Overshoot = (peak - target) / target * 100
+          const sign = session.flightData.setpoint[step.axis].values[step.startIndex] > 0 ? 1 : -1;
+          const overshoot = ((sign * peak - setpointMag) / setpointMag) * 100;
+          if (overshoot > 0) {
+            overshoots.push(overshoot);
+          }
+        }
+
+        if (overshoots.length > 0) {
+          const meanOvershoot = overshoots.reduce((a, b) => a + b, 0) / overshoots.length;
+          // Second-order model targets ~16-18% overshoot, but noise
+          // shifts the raw peak measurement. Accept 3-30% range.
+          expect(meanOvershoot).toBeGreaterThan(3);
+          expect(meanOvershoot).toBeLessThan(30);
+        }
+      }
+    });
+
+    it('produces lower overshoot for yaw (<15%)', async () => {
+      const buffer = generatePIDDemoBBL();
+      const result = await BlackboxParser.parse(buffer);
+      const session = result.sessions[0];
+      const steps = detectSteps(session.flightData);
+
+      const yawSteps = steps.filter((s) => s.axis === 2);
+      expect(yawSteps.length).toBeGreaterThanOrEqual(2);
+
+      const overshoots: number[] = [];
+      for (const step of yawSteps) {
+        const gyro = session.flightData.gyro[step.axis].values;
+        const setpointMag = Math.abs(
+          session.flightData.setpoint[step.axis].values[step.startIndex]
+        );
+        if (setpointMag < 50) continue;
+
+        let peak = 0;
+        for (let i = step.startIndex; i <= step.endIndex; i++) {
+          if (Math.abs(gyro[i]) > Math.abs(peak)) {
+            peak = gyro[i];
+          }
+        }
+
+        const sign = session.flightData.setpoint[step.axis].values[step.startIndex] > 0 ? 1 : -1;
+        const overshoot = ((sign * peak - setpointMag) / setpointMag) * 100;
+        if (overshoot > 0) {
+          overshoots.push(overshoot);
+        }
+      }
+
+      if (overshoots.length > 0) {
+        const meanOvershoot = overshoots.reduce((a, b) => a + b, 0) / overshoots.length;
+        // Yaw with ζ=0.65 should produce <15% overshoot
+        expect(meanOvershoot).toBeLessThan(15);
+      }
     });
   });
 

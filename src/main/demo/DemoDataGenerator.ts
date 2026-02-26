@@ -81,6 +81,60 @@ interface StepEvent {
 }
 
 /**
+ * Second-order system parameters per axis for realistic step response.
+ *
+ * Model: G(s) = ωn² / (s² + 2ζωn·s + ωn²)
+ * Step response: y(t) = 1 - (e^(-ζωnt) / √(1-ζ²)) · sin(ωd·t + φ)
+ * where ωd = ωn·√(1-ζ²), φ = arccos(ζ)
+ */
+interface AxisResponseParams {
+  /** Damping ratio (0 < ζ < 1 for underdamped) */
+  zeta: number;
+  /** Natural frequency in rad/s */
+  wn: number;
+  /** Transport + computation latency in seconds */
+  latencyS: number;
+}
+
+/** Per-axis step response parameters tuned for PIDRecommender balanced thresholds */
+const AXIS_RESPONSE_PARAMS: [AxisResponseParams, AxisResponseParams, AxisResponseParams] = [
+  // Roll: ζ=0.48, ωn=85 → ~18% overshoot, ~35ms rise, ~120ms settling
+  { zeta: 0.48, wn: 85, latencyS: 0.012 },
+  // Pitch: ζ=0.50, ωn=80 → ~16% overshoot, ~38ms rise, ~110ms settling
+  { zeta: 0.5, wn: 80, latencyS: 0.012 },
+  // Yaw: ζ=0.65, ωn=50 → ~7% overshoot, ~55ms rise, ~90ms settling
+  { zeta: 0.65, wn: 50, latencyS: 0.012 },
+];
+
+/**
+ * Multi-phase throttle profile for realistic segment detection.
+ *
+ * Profile (as proportion of total duration):
+ *   0-20%:  Low hover at 1350 (35%)
+ *  20-50%:  Linear ramp 1350→1800 (35%→80%) — sweep segment
+ *  50-70%:  High hover at 1800 (80%)
+ *  70-100%: Linear ramp 1800→1350 (80%→35%) — sweep segment
+ *
+ * Result: 2 sweep segments + 2 hover segments = 4 segments, 45% throttle coverage.
+ */
+function computeThrottle(timeSec: number, durationSec: number): number {
+  const t = timeSec / durationSec; // Normalized 0..1
+  if (t < 0.2) {
+    return 1350;
+  } else if (t < 0.5) {
+    // Ramp from 1350 to 1800
+    const rampProgress = (t - 0.2) / 0.3;
+    return 1350 + rampProgress * 450;
+  } else if (t < 0.7) {
+    return 1800;
+  } else {
+    // Ramp from 1800 to 1350
+    const rampProgress = (t - 0.7) / 0.3;
+    return 1800 - rampProgress * 450;
+  }
+}
+
+/**
  * Build a single BBL session with realistic noise and optional step inputs.
  *
  * This generates only I-frames (no P-frames) for simplicity — the parser
@@ -156,11 +210,13 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
 
   // ── Step input schedule ─────────────────────────────────────────
   // Generate step events spread across the session for PID analysis.
-  // Each step: sudden setpoint change → hold for ~200ms → return to 0.
+  // Each step: sudden setpoint change → hold for ~400ms → return to 0.
+  // 400ms hold ensures StepMetrics tail measurement (last 20% of 300ms window)
+  // falls within the hold period, producing correct overshoot values.
   // 18 steps total (6 per axis) for robust PID analysis.
   const steps: StepEvent[] = [];
   if (injectSteps) {
-    const holdFrames = Math.round(0.2 * sampleRateHz); // 200ms hold
+    const holdFrames = Math.round(0.4 * sampleRateHz); // 400ms hold
     const cooldownFrames = Math.round(0.3 * sampleRateHz); // 300ms between steps (well above 100ms detector threshold)
     const stepMagnitudes = [
       200,
@@ -232,7 +288,7 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
     }
 
     // --- Simulated gyro response to step inputs ---
-    // Model: latency → exponential rise → damped overshoot → settling
+    // Second-order system model: y(t) = 1 - (e^(-ζωnt) / √(1-ζ²)) · sin(ωd·t + φ)
     if (injectSteps) {
       for (const step of steps) {
         const framesIn = f - step.startFrame;
@@ -240,17 +296,19 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
         // Stop contributing well after the step ends (decay is negligible)
         if (framesIn > step.endFrame - step.startFrame + Math.round(0.15 * sampleRateHz)) continue;
 
-        const latencyFrames = Math.round(0.012 * sampleRateHz); // 12ms latency
+        const { zeta, wn, latencyS } = AXIS_RESPONSE_PARAMS[step.axis];
+        const latencyFrames = Math.round(latencyS * sampleRateHz);
         if (framesIn < latencyFrames) continue;
 
+        const wd = wn * Math.sqrt(1 - zeta * zeta);
+        const phi = Math.acos(zeta);
         const t = (framesIn - latencyFrames) / sampleRateHz; // seconds after latency
-        // Exponential rise with damped sinusoidal overshoot
-        const rise = 1 - Math.exp(-t * 80); // fast rise (~12ms to 63%)
-        const overshoot = 0.12 * Math.exp(-t * 35) * Math.sin(t * 180);
+        const envelope = Math.exp(-zeta * wn * t) / Math.sqrt(1 - zeta * zeta);
+        const response = 1 - envelope * Math.sin(wd * t + phi);
 
         if (f < step.endFrame) {
-          // During step hold: tracking toward target
-          gyroValues[step.axis] += step.magnitude * (rise + overshoot);
+          // During step hold: tracking toward target via second-order dynamics
+          gyroValues[step.axis] += step.magnitude * response;
         } else {
           // After step ends: decay back to 0
           const tAfterEnd = (f - step.endFrame) / sampleRateHz;
@@ -276,10 +334,9 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
     frame.push(...encodeSVB(setpoints[1])); // pitch setpoint
     frame.push(...encodeSVB(setpoints[2])); // yaw setpoint
 
-    // Throttle: hover ~1500 with slight variation (sweep simulation)
-    const throttleBase = 1500;
-    const throttleVariation = 200 * Math.sin(2 * Math.PI * 0.1 * timeSec); // Slow sweep
-    frame.push(...encodeSVB(Math.round(throttleBase + throttleVariation)));
+    // Throttle: multi-phase profile for realistic segment detection
+    const durationSec = frameCount / sampleRateHz;
+    frame.push(...encodeSVB(Math.round(computeThrottle(timeSec, durationSec))));
 
     parts.push(Buffer.from(frame));
   }
@@ -293,19 +350,19 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
 // ── Public API ─────────────────────────────────────────────────────
 
 /**
- * Generate a demo BBL buffer for filter analysis.
+ * Generate a demo BBL buffer for filter analysis (pre-tuning flight).
  *
  * Contains one session with:
- * - ~5 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
- * - Broadband noise floor
+ * - ~10 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
+ * - High noise floor (~-35 dB) — untuned filters
  * - Motor harmonic at ~160 Hz with 2nd harmonic at ~320 Hz
  * - Electrical noise at ~600 Hz
- * - Throttle sweeps for segment detection
+ * - Multi-phase throttle profile for segment detection (4 segments, 45% range)
  */
 export function generateFilterDemoBBL(): Buffer {
   logger.info('[DEMO] Generating filter analysis demo BBL...');
   return buildDemoSession({
-    frameCount: 20000, // 5s at 4000 Hz
+    frameCount: 40000, // 10s at 4000 Hz
     gyroBase: [2, -1, 0],
     noiseAmplitude: 15,
     motorHarmonicHz: 160,
@@ -318,19 +375,20 @@ export function generateFilterDemoBBL(): Buffer {
 }
 
 /**
- * Generate a demo BBL buffer for PID analysis.
+ * Generate a demo BBL buffer for PID analysis (post-filter flight).
  *
  * Contains one session with:
- * - ~5 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
- * - Moderate noise floor
+ * - ~14 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
+ * - Reduced noise floor (simulates applied filter tuning)
  * - 18 step inputs across all 3 axes (for step response detection)
- * - Simulated gyro response (12ms latency, ~12% overshoot, ~80ms settling)
- * - Lower motor harmonic (cleaner for PID analysis)
+ * - Second-order step response model (~18% overshoot roll, ~16% pitch, ~7% yaw)
+ * - 12ms transport latency per axis
+ * - 400ms step hold ensures correct overshoot measurement
  */
 export function generatePIDDemoBBL(): Buffer {
   logger.info('[DEMO] Generating PID analysis demo BBL...');
   return buildDemoSession({
-    frameCount: 32000, // 8s at 4000 Hz — fits 15 step inputs (5 per axis)
+    frameCount: 56000, // 14s at 4000 Hz — fits 18 steps × (400ms hold + 300ms cool) + 0.5s lead
     gyroBase: [0, 0, 0],
     noiseAmplitude: 8,
     motorHarmonicHz: 160,
@@ -338,6 +396,35 @@ export function generatePIDDemoBBL(): Buffer {
     electricalNoiseHz: 600,
     electricalNoiseAmplitude: 3,
     injectSteps: true,
+    iInterval: 2,
+  });
+}
+
+/**
+ * Generate a demo BBL buffer for verification flight (post-all tuning).
+ *
+ * Contains one session with:
+ * - ~10 seconds of hover data at 4000 Hz (I-frame only, iInterval=2)
+ * - Low noise floor (simulates effect of applied filters + PID tuning)
+ * - No step inputs (hover only, same structure as filter flight)
+ * - Multi-phase throttle profile for segment detection
+ *
+ * Noise levels are significantly lower than filter flight:
+ * - noiseAmplitude: 5 (vs 15 for filter) → ~-55 dB noise floor
+ * - motorHarmonicAmplitude: 10 (vs 40 for filter) → ~-15 to -20 dB delta
+ * - electricalNoiseAmplitude: 1.5 (vs 8 for filter)
+ */
+export function generateVerificationDemoBBL(): Buffer {
+  logger.info('[DEMO] Generating verification demo BBL...');
+  return buildDemoSession({
+    frameCount: 40000, // 10s at 4000 Hz
+    gyroBase: [2, -1, 0],
+    noiseAmplitude: 5,
+    motorHarmonicHz: 160,
+    motorHarmonicAmplitude: 10,
+    electricalNoiseHz: 600,
+    electricalNoiseAmplitude: 1.5,
+    injectSteps: false,
     iInterval: 2,
   });
 }
@@ -351,7 +438,7 @@ export function generateCombinedDemoBBL(): Buffer {
   logger.info('[DEMO] Generating combined demo BBL (filter + PID sessions)...');
 
   const filterSession = buildDemoSession({
-    frameCount: 20000,
+    frameCount: 40000,
     gyroBase: [2, -1, 0],
     noiseAmplitude: 15,
     motorHarmonicHz: 160,
@@ -369,7 +456,7 @@ export function generateCombinedDemoBBL(): Buffer {
   }
 
   const pidSession = buildDemoSession({
-    frameCount: 32000,
+    frameCount: 56000,
     gyroBase: [0, 0, 0],
     noiseAmplitude: 8,
     motorHarmonicHz: 160,

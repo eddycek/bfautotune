@@ -43,6 +43,15 @@ import type {
 } from '@shared/types/tuning-history.types';
 
 const betaflightAPI: BetaflightAPI = {
+  // App
+  async isDemoMode(): Promise<boolean> {
+    const response = await ipcRenderer.invoke(IPCChannel.APP_IS_DEMO_MODE);
+    if (!response.success) {
+      return false;
+    }
+    return response.data;
+  },
+
   // Connection
   async listPorts(): Promise<PortInfo[]> {
     const response = await ipcRenderer.invoke(IPCChannel.CONNECTION_LIST_PORTS);

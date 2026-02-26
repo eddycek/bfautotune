@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useConnection } from '../../hooks/useConnection';
 import { useSnapshots } from '../../hooks/useSnapshots';
 import { useToast } from '../../hooks/useToast';
+import { useDemoMode } from '../../hooks/useDemoMode';
 import { SnapshotDiffModal } from './SnapshotDiffModal';
 import type { ConfigurationSnapshot } from '@shared/types/common.types';
 import type { SnapshotRestoreProgress } from '@shared/types/ipc.types';
@@ -11,7 +12,9 @@ const PAGE_SIZE = 20;
 let persistedSnapshotsPage = 1;
 
 // Exported for testing — reset module-level state between tests
-export function _resetPersistedSnapshotsPage() { persistedSnapshotsPage = 1; }
+export function _resetPersistedSnapshotsPage() {
+  persistedSnapshotsPage = 1;
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -23,7 +26,16 @@ function formatBytes(bytes: number): string {
 
 export function SnapshotManager() {
   const { status } = useConnection();
-  const { snapshots, loading, error, createSnapshot, deleteSnapshot, restoreSnapshot, loadSnapshot } = useSnapshots();
+  const {
+    snapshots,
+    loading,
+    error,
+    createSnapshot,
+    deleteSnapshot,
+    restoreSnapshot,
+    loadSnapshot,
+  } = useSnapshots();
+  const { isDemoMode } = useDemoMode();
   const toast = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [snapshotLabel, setSnapshotLabel] = useState('');
@@ -32,17 +44,24 @@ export function SnapshotManager() {
   const [restoreBackup, setRestoreBackup] = useState(true);
   const [restoring, setRestoring] = useState(false);
   const [restoreProgress, setRestoreProgress] = useState<SnapshotRestoreProgress | null>(null);
-  const [diffSnapshots, setDiffSnapshots] = useState<{ before: ConfigurationSnapshot; after: ConfigurationSnapshot } | null>(null);
+  const [diffSnapshots, setDiffSnapshots] = useState<{
+    before: ConfigurationSnapshot;
+    after: ConfigurationSnapshot;
+  } | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [snapshotsPage, setSnapshotsPage] = useState(persistedSnapshotsPage);
 
   // Keep module-level var in sync for persistence across unmounts
-  useEffect(() => { persistedSnapshotsPage = snapshotsPage; }, [snapshotsPage]);
+  useEffect(() => {
+    persistedSnapshotsPage = snapshotsPage;
+  }, [snapshotsPage]);
 
   // Reset page if current page exceeds available pages (only when data is loaded)
   const totalSnapshotsPages = Math.max(1, Math.ceil(snapshots.length / PAGE_SIZE));
   useEffect(() => {
-    if (snapshots.length > 0 && snapshotsPage > totalSnapshotsPages) { setSnapshotsPage(totalSnapshotsPages); }
+    if (snapshots.length > 0 && snapshotsPage > totalSnapshotsPages) {
+      setSnapshotsPage(totalSnapshotsPages);
+    }
   }, [snapshots.length, totalSnapshotsPages]);
 
   const snapshotsPageStart = (snapshotsPage - 1) * PAGE_SIZE;
@@ -216,7 +235,9 @@ export function SnapshotManager() {
         {loading && <div>Loading snapshots...</div>}
 
         {snapshots.length === 0 && !loading && (
-          <div className="no-snapshots">No snapshots yet. Create one to save your configuration.</div>
+          <div className="no-snapshots">
+            No snapshots yet. Create one to save your configuration.
+          </div>
         )}
 
         {pageSnapshots.map((snapshot, index) => {
@@ -232,7 +253,9 @@ export function SnapshotManager() {
                 <div className="snapshot-meta">
                   <span>{new Date(snapshot.timestamp).toLocaleString()}</span>
                   <span>•</span>
-                  <span>{snapshot.fcInfo.variant} {snapshot.fcInfo.version}</span>
+                  <span>
+                    {snapshot.fcInfo.variant} {snapshot.fcInfo.version}
+                  </span>
                   <span>•</span>
                   <span>{formatBytes(snapshot.sizeBytes)}</span>
                 </div>
@@ -248,7 +271,8 @@ export function SnapshotManager() {
                 <button
                   className="secondary"
                   onClick={() => handleRestoreClick(snapshot.id)}
-                  disabled={!status.connected || loading || restoring}
+                  disabled={!status.connected || loading || restoring || isDemoMode}
+                  title={isDemoMode ? 'Not available in demo mode' : undefined}
                 >
                   {restoring ? 'Restoring...' : 'Restore'}
                 </button>
@@ -270,15 +294,17 @@ export function SnapshotManager() {
         <div className="pagination-controls">
           <button
             className="pagination-button"
-            onClick={() => setSnapshotsPage(p => p - 1)}
+            onClick={() => setSnapshotsPage((p) => p - 1)}
             disabled={snapshotsPage <= 1}
           >
             Prev
           </button>
-          <span className="pagination-info">Page {snapshotsPage} of {totalSnapshotsPages}</span>
+          <span className="pagination-info">
+            Page {snapshotsPage} of {totalSnapshotsPages}
+          </span>
           <button
             className="pagination-button"
-            onClick={() => setSnapshotsPage(p => p + 1)}
+            onClick={() => setSnapshotsPage((p) => p + 1)}
             disabled={snapshotsPage >= totalSnapshotsPages}
           >
             Next
