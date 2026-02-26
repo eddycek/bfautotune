@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useConnection, markIntentionalDisconnect } from '../../hooks/useConnection';
 import { useFCInfo } from '../../hooks/useFCInfo';
+import { useDemoMode } from '../../hooks/useDemoMode';
 import { computeBBSettingsStatus } from '../../utils/bbSettingsUtils';
 import { FixSettingsConfirmModal } from './FixSettingsConfirmModal';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
@@ -10,6 +11,7 @@ import './FCInfoDisplay.css';
 export function FCInfoDisplay() {
   const { status } = useConnection();
   const { fcInfo, loading, error, fetchFCInfo, exportCLI } = useFCInfo();
+  const { isDemoMode } = useDemoMode();
   const [bbSettings, setBbSettings] = useState<BlackboxSettings | null>(null);
   const [bbLoading, setBbLoading] = useState(false);
   const [ffConfig, setFfConfig] = useState<FeedforwardConfiguration | null>(null);
@@ -28,13 +30,15 @@ export function FCInfoDisplay() {
   useEffect(() => {
     if (status.connected) {
       setBbLoading(true);
-      window.betaflight.getBlackboxSettings()
-        .then(settings => setBbSettings(settings))
+      window.betaflight
+        .getBlackboxSettings()
+        .then((settings) => setBbSettings(settings))
         .catch(() => setBbSettings(null))
         .finally(() => setBbLoading(false));
 
-      window.betaflight.getFeedforwardConfig()
-        .then(config => setFfConfig(config))
+      window.betaflight
+        .getFeedforwardConfig()
+        .then((config) => setFfConfig(config))
         .catch(() => setFfConfig(null));
     } else {
       setBbSettings(null);
@@ -116,13 +120,17 @@ export function FCInfoDisplay() {
               <div className="fc-bb-settings">
                 {!bbStatus.gyroScaledNotNeeded && (
                   <div className={`fc-bb-setting ${bbStatus.debugModeOk ? 'ok' : 'warn'}`}>
-                    <span className="fc-bb-indicator">{bbStatus.debugModeOk ? '\u2713' : '\u26A0'}</span>
+                    <span className="fc-bb-indicator">
+                      {bbStatus.debugModeOk ? '\u2713' : '\u26A0'}
+                    </span>
                     <span className="fc-bb-label">Debug Mode:</span>
                     <span className="fc-bb-value">{bbSettings.debugMode}</span>
                     {bbStatus.resetCommands.length > 0 && !fixing && (
                       <button
                         className="fc-bb-reset-btn"
                         onClick={() => setShowResetConfirm(true)}
+                        disabled={isDemoMode}
+                        title={isDemoMode ? 'Not available in demo mode' : undefined}
                       >
                         Reset
                       </button>
@@ -130,12 +138,16 @@ export function FCInfoDisplay() {
                   </div>
                 )}
                 <div className={`fc-bb-setting ${bbStatus.loggingRateOk ? 'ok' : 'warn'}`}>
-                  <span className="fc-bb-indicator">{bbStatus.loggingRateOk ? '\u2713' : '\u26A0'}</span>
+                  <span className="fc-bb-indicator">
+                    {bbStatus.loggingRateOk ? '\u2713' : '\u26A0'}
+                  </span>
                   <span className="fc-bb-label">Logging Rate:</span>
                   <span className="fc-bb-value">{formatRate(bbSettings.loggingRateHz)}</span>
                 </div>
                 {!bbStatus.debugModeOk && !bbStatus.gyroScaledNotNeeded && (
-                  <div className="fc-bb-hint">Set <code>debug_mode = GYRO_SCALED</code> for noise analysis (BF 4.3–4.5)</div>
+                  <div className="fc-bb-hint">
+                    Set <code>debug_mode = GYRO_SCALED</code> for noise analysis (BF 4.3–4.5)
+                  </div>
                 )}
                 {!bbStatus.loggingRateOk && (
                   <div className="fc-bb-hint">Increase logging rate to 2 kHz or higher</div>
@@ -144,13 +156,13 @@ export function FCInfoDisplay() {
                   <button
                     className="fc-bb-fix-btn"
                     onClick={() => setShowFixConfirm(true)}
+                    disabled={isDemoMode}
+                    title={isDemoMode ? 'Not available in demo mode' : undefined}
                   >
                     Fix Settings
                   </button>
                 )}
-                {fixing && (
-                  <span className="fc-bb-fixing">Fixing settings...</span>
-                )}
+                {fixing && <span className="fc-bb-fixing">Fixing settings...</span>}
               </div>
             )}
             {bbLoading && (
@@ -167,7 +179,9 @@ export function FCInfoDisplay() {
                 <span className="fc-ff-label">Boost:</span>
                 <span className="fc-ff-value">{ffConfig.boost}</span>
                 <span className="fc-ff-label">Gains (R/P/Y):</span>
-                <span className="fc-ff-value">{ffConfig.rollGain} / {ffConfig.pitchGain} / {ffConfig.yawGain}</span>
+                <span className="fc-ff-value">
+                  {ffConfig.rollGain} / {ffConfig.pitchGain} / {ffConfig.yawGain}
+                </span>
                 <span className="fc-ff-label">Smoothing:</span>
                 <span className="fc-ff-value">{ffConfig.smoothFactor}</span>
                 <span className="fc-ff-label">Jitter Factor:</span>

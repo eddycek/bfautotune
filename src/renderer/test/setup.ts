@@ -19,6 +19,10 @@ vi.mock('../hooks/useToast', () => ({
 
 // Mock window.betaflight API
 global.window.betaflight = {
+  // App
+  isDemoMode: vi.fn().mockResolvedValue(false),
+  resetDemo: vi.fn().mockResolvedValue(undefined),
+
   // Connection
   listPorts: vi.fn(),
   connect: vi.fn(),

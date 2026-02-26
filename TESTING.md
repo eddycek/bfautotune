@@ -13,6 +13,7 @@ This project uses **Vitest** and **React Testing Library** for testing. All UI c
 - **@testing-library/jest-dom** - Custom matchers for DOM assertions
 - **@testing-library/user-event** - User interaction simulation
 - **jsdom** - DOM implementation for Node.js
+- **Playwright** - Electron E2E testing (demo mode)
 
 ## Running Tests
 
@@ -28,6 +29,15 @@ npm run test:ui
 
 # Coverage report
 npm run test:coverage
+
+# E2E tests (requires build first)
+npm run test:e2e
+
+# E2E with Playwright UI
+npm run test:e2e:ui
+
+# Generate 5 tuning sessions for demo history (slow, ~2 min)
+npm run demo:generate-history
 ```
 
 ## Pre-commit Hook
@@ -153,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1796 tests across 93 files** (last verified: February 23, 2026)
+**Total: 1877 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 26, 2026)
 
 ### UI Components
 
@@ -322,3 +332,26 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `analysis/headerValidation.test.ts` | 24 | GYRO_SCALED check, logging rate validation, BF version-aware debug mode, BBL header RPM enrichment, independent field enrichment |
+
+### Demo Mode (Offline UX Testing)
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `demo/MockMSPClient.test.ts` | 47 | Mock FC connection, state management, FC info, PID/filter/FF config, blackbox, CLI, save/reboot, flags, flight type cycling, advancePastVerification |
+| `demo/DemoDataGenerator.test.ts` | 22 | BBL generation for filter/PID analysis, multi-session, header metadata, step inputs, throttle sweeps, progressive noise reduction |
+
+### Playwright E2E Tests (Demo Mode)
+
+End-to-end tests that launch the real Electron app in demo mode and walk through the UI using Playwright. Requires a build before running (`npm run build:e2e`).
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `e2e/demo-smoke.spec.ts` | 4 | App launch, auto-connect, dashboard elements (blackbox, start tuning, reset demo) |
+| `e2e/demo-tuning-cycle.spec.ts` | 11 | Full tuning cycle: start → erase → download → filter wizard → apply → PID wizard → apply → skip verify → complete → dismiss → check history |
+| `e2e/demo-generate-history.spec.ts` | 1 | Generates 5 completed tuning sessions (excluded from normal `test:e2e` runs, run via `npm run demo:generate-history`) |
+
+**E2E infrastructure:**
+- `e2e/electron-app.ts` — Shared fixture with `launchDemoApp()`, screenshot helpers, button/text wait utilities
+- `playwright.config.ts` — Config: 1 worker, 60s timeout, trace on failure
+- `.e2e-userdata/` — Isolated user data directory (wiped before each test file for clean state)
+- `E2E_USER_DATA_DIR` env var — Overrides Electron `userData` path for test isolation

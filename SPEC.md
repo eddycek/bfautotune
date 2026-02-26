@@ -315,9 +315,21 @@ Automated build pipeline producing installable applications for all platforms.
 - Code signing (macOS notarization, Windows Authenticode)
 - Auto-update mechanism (electron-updater)
 
-### Phase 7: E2E Tests on Real Flight Controller :x:
-**Status:** Not started
+### Phase 7: E2E Tests :construction:
+**Status:** Demo mode E2E complete. Real FC E2E not started.
 
+#### 7a: Demo Mode E2E (Playwright) :white_check_mark:
+Automated Playwright E2E tests that launch the real Electron app in demo mode (mock FC) and walk through the full tuning workflow. No hardware required.
+
+**Completed:**
+- Playwright E2E infrastructure: `e2e/electron-app.ts` fixture with `launchDemoApp()`, screenshot helpers, isolated `E2E_USER_DATA_DIR`
+- 4 smoke tests: app launch, auto-connect, dashboard elements
+- 11 tuning cycle tests: complete filter + PID cycle with wizard, apply, skip verification, dismiss, history check
+- 5-cycle history generator: `npm run demo:generate-history` for populating tuning history with progressive quality scores
+- `advancePastVerification()` fix: keeps mock FC flight type cycle in sync when verification is skipped across multiple cycles
+- Total: 16 Playwright E2E tests (15 in normal runs + 1 generator)
+
+#### 7b: Real FC E2E :x:
 Automated end-to-end tests running in CI pipeline against a real FC connected to a dedicated machine.
 
 **Goals:**
@@ -338,7 +350,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 23, 2026 | **Tests:** 1796 across 93 files | **PRs Merged:** #1–#137
+**Last Updated:** February 26, 2026 | **Tests:** 1877 unit tests across 96 files + 16 Playwright E2E tests | **PRs Merged:** #1–#137
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -349,7 +361,8 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 | Phase 4: Two-Flight Workflow | **100%** :white_check_mark: | Session state machine, smart reconnect, status banner, verification flight, tuning history |
 | Phase 5: Manual Testing & UX Polish | **0%** :x: | Next up |
 | Phase 6: CI/CD & Releases | **100%** :white_check_mark: | CI pipeline, cross-platform releases, ESLint/Prettier, ErrorBoundary, handler split, data quality, flight quality score |
-| Phase 7: E2E on Real FC | **0%** :x: | After Phase 5 |
+| Phase 7a: Demo E2E (Playwright) | **100%** :white_check_mark: | 16 Playwright tests (demo mode, no hardware) |
+| Phase 7b: Real FC E2E | **0%** :x: | After Phase 5 |
 
 ### Remaining Spec Items (deferred to future iterations)
 

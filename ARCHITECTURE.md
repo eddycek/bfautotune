@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 23, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1796 tests, 93 files**
+**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1877 unit tests, 96 files + 16 Playwright E2E tests**
 
 ---
 
@@ -803,7 +803,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1796 tests across 93 files**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1877 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -821,5 +821,9 @@ Hardware error (FC timeout, USB disconnect)
 | Charts | 3 | 41 |
 | Shared Constants & Utils | 4 | 39 |
 | E2E Workflows | 1 | 30 |
+| Demo Mode (Vitest) | 2 | 69 |
+| **Playwright E2E** | **3** | **16** |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
+
+**Playwright E2E** (demo mode): Launches real Electron app with mock FC, clicks through full tuning workflow. Run via `npm run test:e2e` (15 tests) or `npm run demo:generate-history` (5-cycle generator). See `e2e/` directory and [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).

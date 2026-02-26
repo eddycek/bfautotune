@@ -17,6 +17,8 @@ export interface HandlerDependencies {
   isDownloadingBlackbox: boolean;
   /** Set after fix/reset — triggers clean snapshot on reconnect */
   pendingSettingsSnapshot: boolean;
+  /** Whether the app is running in demo mode */
+  isDemoMode: boolean;
 }
 
 export function createResponse<T>(data: T | undefined, error?: string): IPCResponse<T> {

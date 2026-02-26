@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BlackboxStatus, _resetPersistedLogsPage } from './BlackboxStatus';
+import { _resetDemoModeCache } from '../../hooks/useDemoMode';
 import type { BlackboxInfo } from '@shared/types/blackbox.types';
 
 function makeMockLog(index: number) {
@@ -73,6 +74,8 @@ describe('BlackboxStatus', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     _resetPersistedLogsPage();
+    _resetDemoModeCache();
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(false);
   });
 
   it('renders loading state initially', () => {
@@ -567,6 +570,24 @@ describe('BlackboxStatus', () => {
       });
 
       expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('demo mode', () => {
+    it('disables Test Read button in demo mode', async () => {
+      _resetDemoModeCache();
+      vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(true);
+      vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfoSupported);
+
+      render(<BlackboxStatus />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Read (Debug)')).toBeInTheDocument();
+      });
+
+      const testReadBtn = screen.getByText('Test Read (Debug)').closest('button')!;
+      expect(testReadBtn).toBeDisabled();
+      expect(testReadBtn.title).toBe('Not available in demo mode');
     });
   });
 });

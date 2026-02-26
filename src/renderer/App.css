@@ -44,6 +44,29 @@
   gap: 12px;
 }
 
+.demo-reset-btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid #d97706;
+  background: rgba(217, 119, 6, 0.15);
+  color: #fbbf24;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.demo-reset-btn:hover {
+  background: rgba(217, 119, 6, 0.3);
+  border-color: #fbbf24;
+  color: #fff;
+}
+
+.demo-reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .app-help-button {
   padding: 7px 16px;
   border-radius: 6px;

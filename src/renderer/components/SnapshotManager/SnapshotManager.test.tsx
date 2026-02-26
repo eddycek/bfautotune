@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SnapshotManager, _resetPersistedSnapshotsPage } from './SnapshotManager';
+import { _resetDemoModeCache } from '../../hooks/useDemoMode';
 import type { SnapshotMetadata, ConfigurationSnapshot } from '@shared/types/common.types';
 import type { SnapshotRestoreResult } from '@shared/types/ipc.types';
 
@@ -29,8 +30,8 @@ describe('SnapshotManager', () => {
       fcInfo: {
         variant: 'BTFL',
         version: '4.4.0',
-        boardName: 'MATEKF405'
-      }
+        boardName: 'MATEKF405',
+      },
     },
     {
       id: 'snapshot-2',
@@ -41,9 +42,9 @@ describe('SnapshotManager', () => {
       fcInfo: {
         variant: 'BTFL',
         version: '4.4.0',
-        boardName: 'MATEKF405'
-      }
-    }
+        boardName: 'MATEKF405',
+      },
+    },
   ];
 
   const mockFullSnapshot: ConfigurationSnapshot = {
@@ -56,35 +57,37 @@ describe('SnapshotManager', () => {
       version: '4.4.0',
       target: 'MATEKF405',
       boardName: 'MATEKF405',
-      apiVersion: { protocol: 1, major: 12, minor: 0 }
+      apiVersion: { protocol: 1, major: 12, minor: 0 },
     },
     configuration: {
-      cliDiff: 'set motor_pwm_protocol = DSHOT600'
+      cliDiff: 'set motor_pwm_protocol = DSHOT600',
     },
     metadata: {
       appVersion: '0.1.0',
-      createdBy: 'user'
-    }
+      createdBy: 'user',
+    },
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     _resetPersistedSnapshotsPage();
+    _resetDemoModeCache();
 
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(false);
     vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(mockSnapshots);
     vi.mocked(window.betaflight.createSnapshot).mockResolvedValue(mockFullSnapshot);
     vi.mocked(window.betaflight.loadSnapshot).mockResolvedValue(mockFullSnapshot);
     vi.mocked(window.betaflight.deleteSnapshot).mockResolvedValue(undefined);
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
       connected: true,
-      portPath: '/dev/ttyUSB0'
+      portPath: '/dev/ttyUSB0',
     });
     vi.mocked(window.betaflight.onConnectionChanged).mockReturnValue(() => {});
     vi.mocked(window.betaflight.restoreSnapshot).mockResolvedValue({
       success: true,
       backupSnapshotId: 'backup-1',
       appliedCommands: 3,
-      rebooted: true
+      rebooted: true,
     } as SnapshotRestoreResult);
     vi.mocked(window.betaflight.onRestoreProgress).mockReturnValue(() => {});
 
@@ -135,7 +138,7 @@ describe('SnapshotManager', () => {
 
   it('shows loading state', async () => {
     vi.mocked(window.betaflight.listSnapshots).mockImplementation(
-      () => new Promise(resolve => setTimeout(() => resolve(mockSnapshots), 100))
+      () => new Promise((resolve) => setTimeout(() => resolve(mockSnapshots), 100))
     );
 
     render(<SnapshotManager />);
@@ -145,7 +148,7 @@ describe('SnapshotManager', () => {
 
   it('disables create button when not connected', () => {
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
-      connected: false
+      connected: false,
     });
 
     render(<SnapshotManager />);
@@ -371,14 +374,14 @@ describe('SnapshotManager', () => {
 
   it('disables restore buttons when not connected', async () => {
     vi.mocked(window.betaflight.getConnectionStatus).mockResolvedValue({
-      connected: false
+      connected: false,
     });
 
     render(<SnapshotManager />);
 
     await waitFor(() => {
       const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
-      restoreButtons.forEach(btn => expect(btn).toBeDisabled());
+      restoreButtons.forEach((btn) => expect(btn).toBeDisabled());
     });
   });
 
@@ -424,7 +427,9 @@ describe('SnapshotManager', () => {
     await user.click(restoreButtons[0]);
 
     // Find the dialog by its heading and get the confirm button within it
-    const dialog = screen.getByRole('heading', { name: 'Restore Snapshot' }).closest('.create-dialog')!;
+    const dialog = screen
+      .getByRole('heading', { name: 'Restore Snapshot' })
+      .closest('.create-dialog')!;
     const confirmButton = within(dialog as HTMLElement).getByRole('button', { name: /^restore$/i });
     await user.click(confirmButton);
 
@@ -447,7 +452,9 @@ describe('SnapshotManager', () => {
     const checkbox = screen.getByRole('checkbox');
     await user.click(checkbox);
 
-    const dialog = screen.getByRole('heading', { name: 'Restore Snapshot' }).closest('.create-dialog')!;
+    const dialog = screen
+      .getByRole('heading', { name: 'Restore Snapshot' })
+      .closest('.create-dialog')!;
     const confirmButton = within(dialog as HTMLElement).getByRole('button', { name: /^restore$/i });
     await user.click(confirmButton);
 
@@ -492,7 +499,9 @@ describe('SnapshotManager', () => {
     const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
     await user.click(restoreButtons[0]);
 
-    const dialog = screen.getByRole('heading', { name: 'Restore Snapshot' }).closest('.create-dialog')!;
+    const dialog = screen
+      .getByRole('heading', { name: 'Restore Snapshot' })
+      .closest('.create-dialog')!;
     const confirmButton = within(dialog as HTMLElement).getByRole('button', { name: /^restore$/i });
     await user.click(confirmButton);
 
@@ -807,6 +816,23 @@ describe('SnapshotManager', () => {
       });
 
       expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+    });
+  });
+
+  // Demo mode tests
+
+  it('disables Restore buttons in demo mode', async () => {
+    _resetDemoModeCache();
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(true);
+
+    render(<SnapshotManager />);
+
+    await waitFor(() => {
+      const restoreButtons = screen.getAllByRole('button', { name: /^restore$/i });
+      restoreButtons.forEach((btn) => {
+        expect(btn).toBeDisabled();
+        expect(btn.title).toBe('Not available in demo mode');
+      });
     });
   });
 });

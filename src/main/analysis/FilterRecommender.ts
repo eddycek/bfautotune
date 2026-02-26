@@ -76,9 +76,15 @@ export function recommend(
  * Linear interpolation: VERY_NOISY_DB → minHz, VERY_CLEAN_DB → maxHz.
  * Result is clamped to [minHz, maxHz] and rounded.
  */
-export function computeNoiseBasedTarget(worstNoiseFloorDb: number, minHz: number, maxHz: number): number {
+export function computeNoiseBasedTarget(
+  worstNoiseFloorDb: number,
+  minHz: number,
+  maxHz: number
+): number {
   // Linear interpolation: noisyDb maps to minHz, cleanDb maps to maxHz
-  const t = (worstNoiseFloorDb - NOISE_FLOOR_VERY_NOISY_DB) / (NOISE_FLOOR_VERY_CLEAN_DB - NOISE_FLOOR_VERY_NOISY_DB);
+  const t =
+    (worstNoiseFloorDb - NOISE_FLOOR_VERY_NOISY_DB) /
+    (NOISE_FLOOR_VERY_CLEAN_DB - NOISE_FLOOR_VERY_NOISY_DB);
   const target = minHz + t * (maxHz - minHz);
   return Math.round(clamp(target, minHz, maxHz));
 }
@@ -119,14 +125,18 @@ function recommendNoiseFloorAdjustments(
 
   if (overallLevel === 'high') {
     // High noise → recommend noise-based targets (typically lower cutoffs)
-    if (!gyroLpfDisabled && Math.abs(targetGyroLpf1 - current.gyro_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ) {
+    if (
+      !gyroLpfDisabled &&
+      Math.abs(targetGyroLpf1 - current.gyro_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ
+    ) {
       out.push({
         setting: 'gyro_lpf1_static_hz',
         currentValue: current.gyro_lpf1_static_hz,
         recommendedValue: targetGyroLpf1,
         reason:
           'Your gyro data has a lot of noise. Adjusting the gyro lowpass filter will clean up the signal, ' +
-          'which helps your flight controller respond to real movement instead of vibrations.' + rpmNote,
+          'which helps your flight controller respond to real movement instead of vibrations.' +
+          rpmNote,
         impact: 'both',
         confidence: 'high',
       });
@@ -139,21 +149,26 @@ function recommendNoiseFloorAdjustments(
         recommendedValue: targetDtermLpf1,
         reason:
           'High noise is reaching the D-term (derivative) calculation. Adjusting this filter reduces motor ' +
-          'heating and oscillation caused by noisy D-term output.' + rpmNote,
+          'heating and oscillation caused by noisy D-term output.' +
+          rpmNote,
         impact: 'both',
         confidence: 'high',
       });
     }
   } else if (overallLevel === 'low') {
     // Low noise → recommend noise-based targets (typically higher cutoffs = less latency)
-    if (!gyroLpfDisabled && Math.abs(targetGyroLpf1 - current.gyro_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ) {
+    if (
+      !gyroLpfDisabled &&
+      Math.abs(targetGyroLpf1 - current.gyro_lpf1_static_hz) > NOISE_TARGET_DEADZONE_HZ
+    ) {
       out.push({
         setting: 'gyro_lpf1_static_hz',
         currentValue: current.gyro_lpf1_static_hz,
         recommendedValue: targetGyroLpf1,
         reason:
           'Your quad is very clean with minimal vibrations. Adjusting the gyro filter cutoff will give you ' +
-          'faster response and sharper control with almost no downside.' + rpmNote,
+          'faster response and sharper control with almost no downside.' +
+          rpmNote,
         impact: 'latency',
         confidence: 'medium',
       });
@@ -166,7 +181,8 @@ function recommendNoiseFloorAdjustments(
         recommendedValue: targetDtermLpf1,
         reason:
           'Low noise means the D-term filter can be relaxed for sharper stick response. ' +
-          'This makes your quad feel more locked-in during fast moves.' + rpmNote,
+          'This makes your quad feel more locked-in during fast moves.' +
+          rpmNote,
         impact: 'latency',
         confidence: 'medium',
       });
@@ -205,19 +221,22 @@ function recommendResonanceFixes(
   // If the gyro LPF is disabled (0) or the peak is below the cutoff, the filter isn't catching it
   const gyroLpfDisabled = current.gyro_lpf1_static_hz === 0;
   if (gyroLpfDisabled || lowestPeakFreq < current.gyro_lpf1_static_hz) {
-    const targetCutoff = clamp(
-      lowestPeakFreq - RESONANCE_CUTOFF_MARGIN_HZ,
-      GYRO_LPF1_MIN_HZ,
-      gyroMaxHz
+    const targetCutoff = Math.round(
+      clamp(lowestPeakFreq - RESONANCE_CUTOFF_MARGIN_HZ, GYRO_LPF1_MIN_HZ, gyroMaxHz)
     );
 
     // When disabled, always recommend enabling; otherwise check it's lower than current
     if (gyroLpfDisabled || targetCutoff < current.gyro_lpf1_static_hz) {
-      const peakType = significantPeaks.find((p) => p.frequency === lowestPeakFreq)?.type || 'unknown';
-      const typeLabel = peakType === 'frame_resonance' ? 'frame resonance'
-        : peakType === 'motor_harmonic' ? 'motor harmonic'
-        : peakType === 'electrical' ? 'electrical noise'
-        : 'noise spike';
+      const peakType =
+        significantPeaks.find((p) => p.frequency === lowestPeakFreq)?.type || 'unknown';
+      const typeLabel =
+        peakType === 'frame_resonance'
+          ? 'frame resonance'
+          : peakType === 'motor_harmonic'
+            ? 'motor harmonic'
+            : peakType === 'electrical'
+              ? 'electrical noise'
+              : 'noise spike';
 
       const reasonText = gyroLpfDisabled
         ? `A strong ${typeLabel} was detected at ${Math.round(lowestPeakFreq)} Hz, but your gyro lowpass filter is disabled. ` +
@@ -238,10 +257,8 @@ function recommendResonanceFixes(
 
   // Check D-term LPF similarly
   if (lowestPeakFreq < current.dterm_lpf1_static_hz) {
-    const targetCutoff = clamp(
-      lowestPeakFreq - RESONANCE_CUTOFF_MARGIN_HZ,
-      DTERM_LPF1_MIN_HZ,
-      dtermMaxHz
+    const targetCutoff = Math.round(
+      clamp(lowestPeakFreq - RESONANCE_CUTOFF_MARGIN_HZ, DTERM_LPF1_MIN_HZ, dtermMaxHz)
     );
 
     if (targetCutoff < current.dterm_lpf1_static_hz) {
@@ -365,15 +382,8 @@ function recommendDynamicNotchForRPM(
  * add a diagnostic warning — likely indicates motor_poles misconfiguration
  * or ESC telemetry issues.
  */
-function recommendMotorHarmonicDiagnostic(
-  noise: NoiseProfile,
-  out: FilterRecommendation[]
-): void {
-  const allPeaks = [
-    ...noise.roll.peaks,
-    ...noise.pitch.peaks,
-    ...noise.yaw.peaks,
-  ];
+function recommendMotorHarmonicDiagnostic(noise: NoiseProfile, out: FilterRecommendation[]): void {
+  const allPeaks = [...noise.roll.peaks, ...noise.pitch.peaks, ...noise.yaw.peaks];
 
   const motorHarmonics = allPeaks.filter(
     (p) => p.type === 'motor_harmonic' && p.amplitude >= RESONANCE_ACTION_THRESHOLD_DB
@@ -415,7 +425,8 @@ function deduplicateRecommendations(recs: FilterRecommendation[]): FilterRecomme
         // Merge: keep the more aggressive value but upgrade confidence
         byKey.set(rec.setting, {
           ...rec,
-          confidence: existing.confidence === 'high' || rec.confidence === 'high' ? 'high' : 'medium',
+          confidence:
+            existing.confidence === 'high' || rec.confidence === 'high' ? 'high' : 'medium',
         });
       }
     } else {
@@ -423,7 +434,8 @@ function deduplicateRecommendations(recs: FilterRecommendation[]): FilterRecomme
       if (rec.recommendedValue > existing.recommendedValue) {
         byKey.set(rec.setting, {
           ...rec,
-          confidence: existing.confidence === 'high' || rec.confidence === 'high' ? 'high' : 'medium',
+          confidence:
+            existing.confidence === 'high' || rec.confidence === 'high' ? 'high' : 'medium',
         });
       }
     }
@@ -470,7 +482,9 @@ export function generateSummary(
   if (recommendations.length === 0) {
     parts.push('Current filter settings look good — no changes needed.');
   } else {
-    parts.push(`${recommendations.length} filter change${recommendations.length > 1 ? 's' : ''} recommended.`);
+    parts.push(
+      `${recommendations.length} filter change${recommendations.length > 1 ? 's' : ''} recommended.`
+    );
   }
 
   return parts.join(' ');

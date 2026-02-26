@@ -30,8 +30,9 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
     () =>
       computeTuneQualityScore({
         filterMetrics: record.verificationMetrics ?? record.filterMetrics,
+        pidMetrics: record.pidMetrics,
       }),
-    [record.filterMetrics, record.verificationMetrics]
+    [record.filterMetrics, record.verificationMetrics, record.pidMetrics]
   );
   const flights = flightCount(record);
 

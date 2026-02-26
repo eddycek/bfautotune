@@ -43,6 +43,22 @@ import type {
 } from '@shared/types/tuning-history.types';
 
 const betaflightAPI: BetaflightAPI = {
+  // App
+  async isDemoMode(): Promise<boolean> {
+    const response = await ipcRenderer.invoke(IPCChannel.APP_IS_DEMO_MODE);
+    if (!response.success) {
+      return false;
+    }
+    return response.data;
+  },
+
+  async resetDemo(): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.APP_RESET_DEMO);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to reset demo');
+    }
+  },
+
   // Connection
   async listPorts(): Promise<PortInfo[]> {
     const response = await ipcRenderer.invoke(IPCChannel.CONNECTION_LIST_PORTS);

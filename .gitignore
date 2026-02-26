@@ -44,6 +44,14 @@ coverage/
 .nyc_output/
 *.test.ts.snap
 
+# E2E test artifacts
+e2e-results/
+e2e-report/
+e2e-screenshots/
+.e2e-userdata/
+playwright-report/
+test-results/
+
 # Real flight BBL fixtures (large binary files, not for git)
 src/main/blackbox/__fixtures__/*.bbl
 src/main/blackbox/__fixtures__/*.bfl

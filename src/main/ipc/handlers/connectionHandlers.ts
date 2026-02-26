@@ -3,14 +3,76 @@ import { IPCChannel, IPCResponse } from '@shared/types/ipc.types';
 import type { PortInfo, ConnectionStatus } from '@shared/types/common.types';
 import type { HandlerDependencies } from './types';
 import { createResponse } from './types';
+import { sendTuningSessionChanged, sendProfileChanged } from './events';
 import { logger } from '../../utils/logger';
 import { getErrorMessage } from '../../utils/errors';
+import { getMainWindow } from '../../window';
+import { MockMSPClient } from '../../demo/MockMSPClient';
 
 /**
  * Registers all connection-related IPC handlers.
  * Handles port listing, connect/disconnect operations, and connection status.
  */
 export function registerConnectionHandlers(deps: HandlerDependencies): void {
+  ipcMain.handle(IPCChannel.APP_IS_DEMO_MODE, async (): Promise<IPCResponse<boolean>> => {
+    return createResponse<boolean>(deps.isDemoMode);
+  });
+
+  ipcMain.handle(IPCChannel.APP_RESET_DEMO, async (): Promise<IPCResponse<void>> => {
+    try {
+      if (!deps.isDemoMode) {
+        return createResponse<void>(undefined, 'Reset is only available in demo mode');
+      }
+
+      const profileId = deps.profileManager?.getCurrentProfileId();
+      if (!profileId) {
+        return createResponse<void>(undefined, 'No active profile');
+      }
+
+      // Reset MockMSPClient state (tuning cycle, flight type, applied settings, flash)
+      (deps.mspClient as MockMSPClient).resetDemoState();
+
+      // Delete tuning session
+      await deps.tuningSessionManager?.deleteSession(profileId);
+      sendTuningSessionChanged(null);
+
+      // Delete tuning history
+      await deps.tuningHistoryManager?.deleteHistory(profileId);
+
+      // Delete blackbox logs
+      await deps.blackboxManager?.deleteLogsForProfile(profileId);
+
+      // Delete non-baseline snapshots
+      const profile = await deps.profileManager.getProfile(profileId);
+      if (profile) {
+        const snapshotIds = [...profile.snapshotIds];
+        for (const snapId of snapshotIds) {
+          if (snapId === profile.baselineSnapshotId) continue;
+          try {
+            await deps.snapshotManager.deleteSnapshot(snapId);
+          } catch {
+            // Ignore errors (e.g. baseline guard)
+          }
+        }
+      }
+
+      // Broadcast profile changed to force full UI refresh
+      // (snapshots, blackbox logs, tuning history, profiles)
+      const mainWindow = getMainWindow();
+      if (mainWindow && profile) {
+        // Re-read profile after snapshot deletion (snapshotIds may have changed)
+        const refreshedProfile = await deps.profileManager.getProfile(profileId);
+        sendProfileChanged(mainWindow, refreshedProfile);
+      }
+
+      logger.info('[DEMO] Demo reset complete — ready for cycle 0');
+      return createResponse<void>(undefined);
+    } catch (error) {
+      logger.error('Failed to reset demo:', error);
+      return createResponse<void>(undefined, getErrorMessage(error));
+    }
+  });
+
   ipcMain.handle(IPCChannel.CONNECTION_LIST_PORTS, async (): Promise<IPCResponse<PortInfo[]>> => {
     try {
       if (!deps.mspClient) {

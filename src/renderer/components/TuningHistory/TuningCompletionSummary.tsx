@@ -51,8 +51,9 @@ export function TuningCompletionSummary({
     () =>
       computeTuneQualityScore({
         filterMetrics: session.verificationMetrics ?? session.filterMetrics,
+        pidMetrics: session.pidMetrics,
       }),
-    [session.filterMetrics, session.verificationMetrics]
+    [session.filterMetrics, session.verificationMetrics, session.pidMetrics]
   );
 
   return (

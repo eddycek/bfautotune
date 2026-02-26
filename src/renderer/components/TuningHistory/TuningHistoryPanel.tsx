@@ -48,6 +48,7 @@ export function TuningHistoryPanel({
         record.id,
         computeTuneQualityScore({
           filterMetrics: record.verificationMetrics ?? record.filterMetrics,
+          pidMetrics: record.pidMetrics,
         })
       );
     }

@@ -17,14 +17,17 @@ Betaflight PID AutoTune is an Electron-based desktop application for managing FP
 # Start development with hot reload
 npm run dev
 
-# Run tests (watch mode)
+# Run unit tests (watch mode)
 npm test
 
-# Run tests once (pre-commit)
+# Run unit tests once (pre-commit)
 npm run test:run
 
 # Interactive test UI
 npm run test:ui
+
+# Run Playwright E2E tests (builds app first)
+npm run test:e2e
 
 # Build for production
 npm run build
@@ -32,6 +35,13 @@ npm run build
 # Rebuild native modules (serialport)
 npm run rebuild
 ```
+
+### Demo Mode (Offline UX Testing)
+```bash
+# Start with simulated FC — no hardware needed
+npm run dev:demo
+```
+Boots the app with a mock flight controller that auto-connects on startup. Generates realistic BBL data, allows full tuning workflow testing (all 10 phases), and runs real analysis (FFT, step response). See `docs/OFFLINE_UX_TESTING.md` for details.
 
 ### After Native Module Changes
 If serialport or other native modules fail:
@@ -363,6 +373,24 @@ Completed tuning sessions are archived with self-contained metrics for compariso
 **Mandatory**: All UI changes require tests. Pre-commit hook enforces this.
 
 **Important**: After adding or removing tests, update the test inventory in `TESTING.md`. Keep counts and file lists accurate.
+
+### Playwright E2E Tests (Demo Mode)
+
+E2E tests launch the real Electron app in demo mode via Playwright's `_electron.launch()`.
+
+```bash
+npm run test:e2e              # Build + run 15 E2E tests
+npm run test:e2e:ui           # Build + Playwright UI
+npm run demo:generate-history # Build + generate 5 tuning sessions (~2 min)
+```
+
+**Architecture:**
+- `e2e/electron-app.ts` — Shared fixture: `launchDemoApp()`, isolated `.e2e-userdata/` dir, screenshot helpers
+- `E2E_USER_DATA_DIR` env var → `app.setPath('userData', ...)` in `src/main/index.ts` for test isolation
+- Clean state: `.e2e-userdata/` is wiped before each test file
+- `test:e2e` uses `--grep-invert 'generate 5'` to exclude slow generator
+- `vitest.config.ts` excludes `e2e/` to prevent Vitest from picking up Playwright specs
+- `advancePastVerification()` in MockMSPClient keeps flight type cycling correct when verification is skipped
 
 ### Test Coverage
 - See `TESTING.md` for the authoritative test inventory (counts per file, descriptions)

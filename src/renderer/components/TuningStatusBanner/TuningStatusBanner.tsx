@@ -31,6 +31,7 @@ interface TuningStatusBannerProps {
   analyzingVerification?: boolean;
   bbSettingsOk?: boolean;
   fixingSettings?: boolean;
+  isDemoMode?: boolean;
   onAction: (action: TuningAction) => void;
   onViewGuide: (mode: FlightGuideMode) => void;
   onReset: () => void;
@@ -124,6 +125,7 @@ export function TuningStatusBanner({
   analyzingVerification,
   bbSettingsOk,
   fixingSettings,
+  isDemoMode,
   onAction,
   onViewGuide,
   onReset,
@@ -165,7 +167,8 @@ export function TuningStatusBanner({
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
   const activeStepIndex = showErasedState && isFlightPending ? stepIndex + 1 : stepIndex;
 
-  const showBBWarning = isFlightPending && !showErasedState && bbSettingsOk === false;
+  const showBBWarning =
+    isFlightPending && !showErasedState && bbSettingsOk === false && !isDemoMode;
 
   const renderActions = () => {
     // Flash erased state for flight pending / verification phases — show flight guide
