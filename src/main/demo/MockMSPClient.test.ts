@@ -172,11 +172,36 @@ describe('MockMSPClient', () => {
   });
 
   describe('CLI operations', () => {
-    it('exportCLIDiff returns realistic diff', async () => {
+    it('exportCLIDiff returns base diff when no changes applied', async () => {
       const diff = await client.exportCLIDiff();
       expect(diff).toBe(DEMO_CLI_DIFF);
       expect(diff).toContain('set gyro_lpf1_static_hz');
       expect(diff).toContain('set p_pitch');
+    });
+
+    it('exportCLIDiff reflects applied CLI changes', async () => {
+      await client.connection.sendCLICommand('set gyro_lpf1_static_hz = 180');
+      const diff = await client.exportCLIDiff();
+      expect(diff).toContain('set gyro_lpf1_static_hz = 180');
+      expect(diff).not.toContain('set gyro_lpf1_static_hz = 250');
+    });
+
+    it('exportCLIDiff reflects PID changes from setPIDConfiguration', async () => {
+      await client.setPIDConfiguration({
+        roll: { P: 60, I: 90, D: 50 },
+        pitch: { P: 55, I: 95, D: 52 },
+        yaw: { P: 48, I: 92, D: 5 },
+      });
+      const diff = await client.exportCLIDiff();
+      expect(diff).toContain('set p_roll = 60');
+      expect(diff).toContain('set d_pitch = 52');
+      expect(diff).toContain('set p_yaw = 48');
+    });
+
+    it('exportCLIDiff adds new settings not in base diff', async () => {
+      await client.connection.sendCLICommand('set rpm_filter_min_hz = 80');
+      const diff = await client.exportCLIDiff();
+      expect(diff).toContain('set rpm_filter_min_hz = 80');
     });
   });
 
@@ -457,6 +482,16 @@ describe('MockMSPClient', () => {
     it('sendCLICommand returns response', async () => {
       const response = await client.connection.sendCLICommand('set gyro_lpf1_static_hz = 200');
       expect(response).toContain('set gyro_lpf1_static_hz');
+    });
+
+    it('sendCLICommand tracks set commands in appliedSettings', async () => {
+      await client.connection.sendCLICommand('set gyro_lpf1_static_hz = 180');
+      await client.connection.sendCLICommand('set dterm_lpf1_static_hz = 120');
+      await client.connection.sendCLICommand('save'); // non-set command — should not be tracked
+
+      expect(client.connection.appliedSettings.get('gyro_lpf1_static_hz')).toBe('180');
+      expect(client.connection.appliedSettings.get('dterm_lpf1_static_hz')).toBe('120');
+      expect(client.connection.appliedSettings.size).toBe(2);
     });
   });
 });

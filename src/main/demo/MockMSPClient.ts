@@ -105,6 +105,8 @@ const DEMO_FF_CONFIG: FeedforwardConfiguration = {
  */
 class MockMSPConnection extends EventEmitter {
   private _cliMode = false;
+  /** Tracks `set key = value` CLI commands for dynamic diff generation */
+  readonly appliedSettings = new Map<string, string>();
 
   isInCLI(): boolean {
     return this._cliMode;
@@ -117,6 +119,11 @@ class MockMSPConnection extends EventEmitter {
 
   async sendCLICommand(cmd: string): Promise<string> {
     logger.info(`[DEMO] CLI command: ${cmd}`);
+    // Parse "set key = value" and track the change
+    const match = cmd.match(/^set\s+(\S+)\s*=\s*(.+)$/);
+    if (match) {
+      this.appliedSettings.set(match[1], match[2].trim());
+    }
     return `${cmd}\n# `;
   }
 
@@ -302,7 +309,19 @@ export class MockMSPClient extends EventEmitter {
   }
 
   async setPIDConfiguration(config: PIDConfiguration): Promise<void> {
-    logger.info('[DEMO] PID config set (no-op):', JSON.stringify(config));
+    logger.info('[DEMO] PID config set:', JSON.stringify(config));
+    // Track PID changes as CLI settings for diff generation
+    const pidMap: Record<string, { P: string; I: string; D: string; F: string }> = {
+      roll: { P: 'p_roll', I: 'i_roll', D: 'd_roll', F: 'f_roll' },
+      pitch: { P: 'p_pitch', I: 'i_pitch', D: 'd_pitch', F: 'f_pitch' },
+      yaw: { P: 'p_yaw', I: 'i_yaw', D: 'd_yaw', F: 'f_yaw' },
+    };
+    for (const axis of ['roll', 'pitch', 'yaw'] as const) {
+      const vals = config[axis];
+      this.connection.appliedSettings.set(pidMap[axis].P, String(vals.P));
+      this.connection.appliedSettings.set(pidMap[axis].I, String(vals.I));
+      this.connection.appliedSettings.set(pidMap[axis].D, String(vals.D));
+    }
   }
 
   async getFeedforwardConfiguration(): Promise<FeedforwardConfiguration> {
@@ -318,11 +337,63 @@ export class MockMSPClient extends EventEmitter {
     if (!this.connection.isInCLI()) {
       await this.connection.enterCLI();
     }
-    return DEMO_CLI_DIFF;
+    return this.buildCurrentDiff();
   }
 
   async exportCLIDump(): Promise<string> {
-    return DEMO_CLI_DIFF; // Simplified — diff is enough for demo
+    return this.buildCurrentDiff();
+  }
+
+  /**
+   * Build CLI diff reflecting any applied tuning changes.
+   * Starts from the base DEMO_CLI_DIFF and overlays appliedSettings.
+   */
+  private buildCurrentDiff(): string {
+    if (this.connection.appliedSettings.size === 0) {
+      return DEMO_CLI_DIFF;
+    }
+
+    // Parse base diff into key-value map preserving order
+    const lines = DEMO_CLI_DIFF.split('\n');
+    const settingsMap = new Map<string, string>();
+    const orderedKeys: string[] = [];
+    const headerLines: string[] = [];
+
+    for (const line of lines) {
+      const match = line.match(/^set\s+(\S+)\s*=\s*(.+)$/);
+      if (match) {
+        settingsMap.set(match[1], match[2].trim());
+        orderedKeys.push(match[1]);
+      } else if (line.trim()) {
+        headerLines.push(line);
+      }
+    }
+
+    // Overlay applied changes
+    for (const [key, value] of this.connection.appliedSettings) {
+      if (!settingsMap.has(key)) {
+        orderedKeys.push(key);
+      }
+      settingsMap.set(key, value);
+    }
+
+    // Rebuild diff — split master and profile sections
+    const masterKeys = orderedKeys.filter((k) => !k.match(/^[pidf]_(roll|pitch|yaw)$/));
+    const profileKeys = orderedKeys.filter((k) => k.match(/^[pidf]_(roll|pitch|yaw)$/));
+
+    const result: string[] = ['# diff all', '', '# master'];
+    for (const key of masterKeys) {
+      result.push(`set ${key} = ${settingsMap.get(key)}`);
+    }
+    if (profileKeys.length > 0) {
+      result.push('', '# profile 0');
+      for (const key of profileKeys) {
+        result.push(`set ${key} = ${settingsMap.get(key)}`);
+      }
+    }
+    result.push('');
+
+    return result.join('\n');
   }
 
   async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<Buffer> {

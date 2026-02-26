@@ -34,6 +34,7 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
       const record = history[i];
       const score = computeTuneQualityScore({
         filterMetrics: record.verificationMetrics ?? record.filterMetrics,
+        pidMetrics: record.pidMetrics,
       });
       if (score) {
         points.push({
@@ -52,7 +53,7 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
       <h4 className="quality-trend-title">Tune Quality Trend</h4>
       <div className="quality-trend-container">
         <ResponsiveContainer width="100%" height={180}>
-          <LineChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+          <LineChart data={data} margin={{ top: 8, right: 56, left: 8, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#aaa' }} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#aaa' }} width={32} />
@@ -65,9 +66,45 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
               }}
               formatter={((value: number | undefined) => [`${value ?? 0}`, 'Score']) as any}
             />
-            <ReferenceLine y={80} stroke="#51cf66" strokeDasharray="4 3" strokeOpacity={0.4} />
-            <ReferenceLine y={60} stroke="#ffd43b" strokeDasharray="4 3" strokeOpacity={0.4} />
-            <ReferenceLine y={40} stroke="#ff6b6b" strokeDasharray="4 3" strokeOpacity={0.4} />
+            <ReferenceLine
+              y={80}
+              stroke="#51cf66"
+              strokeDasharray="4 3"
+              strokeOpacity={0.4}
+              label={{
+                value: 'Excellent',
+                position: 'right',
+                fill: '#51cf66',
+                fontSize: 10,
+                opacity: 0.6,
+              }}
+            />
+            <ReferenceLine
+              y={60}
+              stroke="#ffd43b"
+              strokeDasharray="4 3"
+              strokeOpacity={0.4}
+              label={{
+                value: 'Good',
+                position: 'right',
+                fill: '#ffd43b',
+                fontSize: 10,
+                opacity: 0.6,
+              }}
+            />
+            <ReferenceLine
+              y={40}
+              stroke="#ff6b6b"
+              strokeDasharray="4 3"
+              strokeOpacity={0.4}
+              label={{
+                value: 'Fair',
+                position: 'right',
+                fill: '#ff6b6b',
+                fontSize: 10,
+                opacity: 0.6,
+              }}
+            />
             <Line
               type="monotone"
               dataKey="score"

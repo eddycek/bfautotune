@@ -525,7 +525,7 @@ function AppContent() {
               />
             )}
             {isConnected && currentProfile && <SnapshotManager />}
-            {currentProfile && (
+            {isConnected && currentProfile && (
               <TuningHistoryPanel
                 history={tuningHistory.history}
                 loading={tuningHistory.loading}

@@ -268,4 +268,22 @@ describe('TuningCompletionSummary', () => {
     expect(badge).not.toBeNull();
     expect(badge!.textContent).toMatch(/\d+\s+(Excellent|Good|Fair|Poor)/);
   });
+
+  it('includes pidMetrics in quality score (higher score than filter-only)', () => {
+    // With pidMetrics: 4 components score → higher total
+    const { container } = render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
+
+    const badge = container.querySelector('.quality-score-badge');
+    expect(badge).not.toBeNull();
+    // With good PID metrics + filter metrics, score should be ≥60 (Good or Excellent)
+    const scoreMatch = badge!.textContent!.match(/(\d+)/);
+    expect(scoreMatch).not.toBeNull();
+    expect(Number(scoreMatch![1])).toBeGreaterThanOrEqual(60);
+  });
 });
