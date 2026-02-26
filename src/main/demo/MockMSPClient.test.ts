@@ -470,6 +470,67 @@ describe('MockMSPClient', () => {
     });
   });
 
+  describe('resetDemoState', () => {
+    it('resets tuning cycle to 0', async () => {
+      // Advance through one full cycle to increment tuning cycle
+      for (let i = 0; i < 3; i++) {
+        const eraseP = client.eraseBlackboxFlash();
+        await vi.advanceTimersByTimeAsync(500);
+        await eraseP;
+        vi.advanceTimersByTime(3000);
+        vi.advanceTimersByTime(1500);
+      }
+      expect(client._tuningCycle).toBe(1);
+
+      client.resetDemoState();
+      expect(client._tuningCycle).toBe(0);
+    });
+
+    it('clears applied settings', async () => {
+      await client.connection.sendCLICommand('set gyro_lpf1_static_hz = 180');
+      expect(client.connection.appliedSettings.size).toBe(1);
+
+      client.resetDemoState();
+      expect(client.connection.appliedSettings.size).toBe(0);
+    });
+
+    it('resets flight type to filter', async () => {
+      // Advance to pid flight type
+      const eraseP = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await eraseP;
+      vi.advanceTimersByTime(3000);
+      expect(client._nextFlightType).toBe('pid');
+
+      client.resetDemoState();
+      expect(client._nextFlightType).toBe('filter');
+    });
+
+    it('clears flash data and BBL data', () => {
+      client.setFlashHasData(true);
+      client.setDemoBBLData(Buffer.from('test'));
+
+      client.resetDemoState();
+
+      expect(client['_flashHasData']).toBe(false);
+      expect(client['_demoBBLData']).toBeNull();
+    });
+
+    it('cancels pending auto-flight timer', async () => {
+      const erasePromise = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await erasePromise;
+
+      // Auto-flight timer is pending (3s)
+      client.resetDemoState();
+
+      // Advance past the auto-flight delay — timer should have been cancelled
+      vi.advanceTimersByTime(5000);
+      const info = await client.getBlackboxInfo();
+      expect(info.hasLogs).toBe(false);
+    });
+  });
+
   describe('state flags', () => {
     it('manages rebootPending flag', () => {
       expect(client.rebootPending).toBe(false);

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import App from './App';
+import { _resetDemoModeCache } from './hooks/useDemoMode';
 
 // Mock all hooks used in AppContent
 vi.mock('./hooks/useProfiles', () => ({
@@ -27,10 +29,12 @@ vi.mock('./hooks/useTuningSession', () => ({
   })),
 }));
 
+const mockReload = vi.fn().mockResolvedValue(undefined);
 vi.mock('./hooks/useTuningHistory', () => ({
   useTuningHistory: vi.fn(() => ({
     history: [],
     loading: false,
+    reload: mockReload,
   })),
 }));
 
@@ -86,6 +90,53 @@ describe('App', () => {
     render(<App />);
     const helpButton = screen.getByRole('button', { name: /how to tune/i });
     expect(helpButton).toBeInTheDocument();
+  });
+});
+
+describe('Reset Demo button', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _resetDemoModeCache();
+  });
+
+  it('shows Reset Demo button in demo mode', async () => {
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(true);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reset demo/i })).toBeInTheDocument();
+    });
+  });
+
+  it('hides Reset Demo button when not in demo mode', async () => {
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(false);
+
+    render(<App />);
+
+    // Wait for async isDemoMode to resolve, then verify no button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /how to tune/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /reset demo/i })).not.toBeInTheDocument();
+  });
+
+  it('calls resetDemo API and refreshes state on click', async () => {
+    vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(true);
+    vi.mocked(window.betaflight.resetDemo).mockResolvedValue(undefined);
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reset demo/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /reset demo/i }));
+
+    await waitFor(() => {
+      expect(window.betaflight.resetDemo).toHaveBeenCalled();
+    });
   });
 });
 

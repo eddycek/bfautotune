@@ -178,8 +178,8 @@ describe('DemoDataGenerator', () => {
   });
 
   describe('step response model', () => {
-    it('produces overshoot in 10-25% range for roll/pitch', async () => {
-      const buffer = generatePIDDemoBBL();
+    it('produces detectable overshoot for cycle 0 (poorly tuned)', async () => {
+      const buffer = generatePIDDemoBBL(0);
       const result = await BlackboxParser.parse(buffer);
       const session = result.sessions[0];
       const steps = detectSteps(session.flightData);
@@ -189,16 +189,14 @@ describe('DemoDataGenerator', () => {
         const axisSteps = steps.filter((s) => s.axis === axisIdx);
         expect(axisSteps.length).toBeGreaterThanOrEqual(3);
 
-        // Check overshoot for each step: gyro peak / setpoint magnitude
         const overshoots: number[] = [];
         for (const step of axisSteps) {
           const gyro = session.flightData.gyro[step.axis].values;
           const setpointMag = Math.abs(
             session.flightData.setpoint[step.axis].values[step.startIndex]
           );
-          if (setpointMag < 50) continue; // skip small steps
+          if (setpointMag < 50) continue;
 
-          // Find peak gyro value during step hold
           let peak = 0;
           for (let i = step.startIndex; i <= step.endIndex; i++) {
             const val = gyro[i];
@@ -207,7 +205,6 @@ describe('DemoDataGenerator', () => {
             }
           }
 
-          // Overshoot = (peak - target) / target * 100
           const sign = session.flightData.setpoint[step.axis].values[step.startIndex] > 0 ? 1 : -1;
           const overshoot = ((sign * peak - setpointMag) / setpointMag) * 100;
           if (overshoot > 0) {
@@ -217,50 +214,50 @@ describe('DemoDataGenerator', () => {
 
         if (overshoots.length > 0) {
           const meanOvershoot = overshoots.reduce((a, b) => a + b, 0) / overshoots.length;
-          // Second-order model targets ~16-18% overshoot, but noise
-          // shifts the raw peak measurement. Accept 3-30% range.
-          expect(meanOvershoot).toBeGreaterThan(3);
-          expect(meanOvershoot).toBeLessThan(30);
+          // Cycle 0 is poorly tuned (ζ≈0.32) — overshoot is present but noise
+          // makes raw measurement imprecise. Accept wide 1-50% range.
+          expect(meanOvershoot).toBeGreaterThan(1);
+          expect(meanOvershoot).toBeLessThan(50);
         }
       }
     });
 
-    it('produces lower overshoot for yaw (<15%)', async () => {
-      const buffer = generatePIDDemoBBL();
-      const result = await BlackboxParser.parse(buffer);
-      const session = result.sessions[0];
-      const steps = detectSteps(session.flightData);
+    it('cycle 4 has lower overshoot than cycle 0', async () => {
+      const buf0 = generatePIDDemoBBL(0);
+      const buf4 = generatePIDDemoBBL(4);
 
-      const yawSteps = steps.filter((s) => s.axis === 2);
-      expect(yawSteps.length).toBeGreaterThanOrEqual(2);
+      const res0 = await BlackboxParser.parse(buf0);
+      const res4 = await BlackboxParser.parse(buf4);
 
-      const overshoots: number[] = [];
-      for (const step of yawSteps) {
-        const gyro = session.flightData.gyro[step.axis].values;
-        const setpointMag = Math.abs(
-          session.flightData.setpoint[step.axis].values[step.startIndex]
-        );
-        if (setpointMag < 50) continue;
+      const measureMeanOvershoot = (session: (typeof res0.sessions)[0]): number => {
+        const steps = detectSteps(session.flightData);
+        const overshoots: number[] = [];
+        for (const step of steps) {
+          const gyro = session.flightData.gyro[step.axis].values;
+          const setpointMag = Math.abs(
+            session.flightData.setpoint[step.axis].values[step.startIndex]
+          );
+          if (setpointMag < 50) continue;
 
-        let peak = 0;
-        for (let i = step.startIndex; i <= step.endIndex; i++) {
-          if (Math.abs(gyro[i]) > Math.abs(peak)) {
-            peak = gyro[i];
+          let peak = 0;
+          for (let i = step.startIndex; i <= step.endIndex; i++) {
+            if (Math.abs(gyro[i]) > Math.abs(peak)) peak = gyro[i];
           }
-        }
 
-        const sign = session.flightData.setpoint[step.axis].values[step.startIndex] > 0 ? 1 : -1;
-        const overshoot = ((sign * peak - setpointMag) / setpointMag) * 100;
-        if (overshoot > 0) {
-          overshoots.push(overshoot);
+          const sign = session.flightData.setpoint[step.axis].values[step.startIndex] > 0 ? 1 : -1;
+          const overshoot = ((sign * peak - setpointMag) / setpointMag) * 100;
+          if (overshoot > 0) overshoots.push(overshoot);
         }
-      }
+        return overshoots.length > 0
+          ? overshoots.reduce((a, b) => a + b, 0) / overshoots.length
+          : 0;
+      };
 
-      if (overshoots.length > 0) {
-        const meanOvershoot = overshoots.reduce((a, b) => a + b, 0) / overshoots.length;
-        // Yaw with ζ=0.65 should produce <15% overshoot
-        expect(meanOvershoot).toBeLessThan(15);
-      }
+      const os0 = measureMeanOvershoot(res0.sessions[0]);
+      const os4 = measureMeanOvershoot(res4.sessions[0]);
+
+      // Cycle 4 (well-tuned) should have noticeably lower overshoot than cycle 0 (poorly tuned)
+      expect(os4).toBeLessThan(os0);
     });
   });
 
@@ -279,10 +276,10 @@ describe('DemoDataGenerator', () => {
       expect(f3).toBeLessThan(f2);
     });
 
-    it('progressiveFactor caps at 0.10 after cycle 5', () => {
-      expect(progressiveFactor(5)).toBeCloseTo(0.1, 2);
-      expect(progressiveFactor(6)).toBeCloseTo(0.1, 2);
-      expect(progressiveFactor(10)).toBeCloseTo(0.1, 2);
+    it('progressiveFactor caps at 0.015 after cycle 5', () => {
+      expect(progressiveFactor(5)).toBeCloseTo(0.015, 3);
+      expect(progressiveFactor(6)).toBeCloseTo(0.015, 3);
+      expect(progressiveFactor(10)).toBeCloseTo(0.015, 3);
     });
 
     it('cycle 1 filter data has lower noise than cycle 0', async () => {

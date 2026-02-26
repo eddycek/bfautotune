@@ -70,6 +70,8 @@ interface DemoSessionConfig {
   injectSteps: boolean;
   /** I-frame interval — must match P interval header for correct sample rate (default 2) */
   iInterval?: number;
+  /** Per-axis step response parameters (overrides DEFAULT_RESPONSE_PARAMS) */
+  responseParams?: [AxisResponseParams, AxisResponseParams, AxisResponseParams];
 }
 
 /** Step event for gyro response simulation */
@@ -96,15 +98,44 @@ interface AxisResponseParams {
   latencyS: number;
 }
 
-/** Per-axis step response parameters tuned for PIDRecommender balanced thresholds */
-const AXIS_RESPONSE_PARAMS: [AxisResponseParams, AxisResponseParams, AxisResponseParams] = [
-  // Roll: ζ=0.48, ωn=85 → ~18% overshoot, ~35ms rise, ~120ms settling
+/** Default step response parameters (used when no cycle-specific params provided) */
+const DEFAULT_RESPONSE_PARAMS: [AxisResponseParams, AxisResponseParams, AxisResponseParams] = [
   { zeta: 0.48, wn: 85, latencyS: 0.012 },
-  // Pitch: ζ=0.50, ωn=80 → ~16% overshoot, ~38ms rise, ~110ms settling
   { zeta: 0.5, wn: 80, latencyS: 0.012 },
-  // Yaw: ζ=0.65, ωn=50 → ~7% overshoot, ~55ms rise, ~90ms settling
   { zeta: 0.65, wn: 50, latencyS: 0.012 },
 ];
+
+/**
+ * Compute cycle-dependent step response parameters.
+ *
+ * Progression from poorly tuned (cycle 0) to well tuned (cycle 4+):
+ *   Cycle 0: ζ≈0.32, ωn≈55 → ~35% overshoot, ~230ms settling (Poor)
+ *   Cycle 1: ζ≈0.53, ωn≈82 → ~14% overshoot, ~92ms settling (Fair)
+ *   Cycle 2: ζ≈0.63, ωn≈96 → ~8% overshoot, ~66ms settling (Good)
+ *   Cycle 3: ζ≈0.70, ωn≈105 → ~5% overshoot, ~55ms settling (Excellent)
+ *   Cycle 4: ζ≈0.74, ωn≈110 → ~3% overshoot, ~49ms settling (Excellent)
+ *
+ * Uses inverted progressiveFactor for consistent exponential improvement curve.
+ */
+function computeCycleResponseParams(
+  cycle: number
+): [AxisResponseParams, AxisResponseParams, AxisResponseParams] {
+  // t: 0 (untuned) → ~0.85 (fully optimized) via inverted progressive curve
+  const t = 1 - progressiveFactor(cycle);
+
+  const lerp = (a: number, b: number): number => a + (b - a) * t;
+
+  // Base (cycle 0): poorly tuned — high overshoot, slow settling
+  // Target (cycle 4+): optimally tuned — minimal overshoot, fast settling
+  return [
+    // Roll
+    { zeta: lerp(0.32, 0.78), wn: lerp(55, 115), latencyS: lerp(0.016, 0.006) },
+    // Pitch
+    { zeta: lerp(0.34, 0.8), wn: lerp(50, 110), latencyS: lerp(0.016, 0.006) },
+    // Yaw
+    { zeta: lerp(0.45, 0.88), wn: lerp(32, 75), latencyS: lerp(0.016, 0.006) },
+  ];
+}
 
 /**
  * Multi-phase throttle profile for realistic segment detection.
@@ -156,6 +187,7 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
     electricalNoiseAmplitude,
     injectSteps,
     iInterval = 2,
+    responseParams = DEFAULT_RESPONSE_PARAMS,
   } = config;
 
   const parts: Buffer[] = [];
@@ -296,7 +328,7 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
         // Stop contributing well after the step ends (decay is negligible)
         if (framesIn > step.endFrame - step.startFrame + Math.round(0.15 * sampleRateHz)) continue;
 
-        const { zeta, wn, latencyS } = AXIS_RESPONSE_PARAMS[step.axis];
+        const { zeta, wn, latencyS } = responseParams[step.axis];
         const latencyFrames = Math.round(latencyS * sampleRateHz);
         if (framesIn < latencyFrames) continue;
 
@@ -353,20 +385,22 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
  * Compute a progressive attenuation factor based on tuning cycle.
  *
  * 5 discrete steps from noisy baseline to fully optimized:
- *   Cycle 0 → 1.00 (untuned baseline)
- *   Cycle 1 → 0.55 (first tuning pass — big improvement)
- *   Cycle 2 → 0.35 (second pass — diminishing returns)
- *   Cycle 3 → 0.22 (fine-tuning)
- *   Cycle 4 → 0.15 (near-optimal)
- *   Cycle 5+ → 0.10 (fully optimized — minimal achievable noise)
+ *   Cycle 0 → 1.000 (untuned baseline)
+ *   Cycle 1 → 0.284 (first tuning pass — big improvement)
+ *   Cycle 2 → 0.088 (second pass — dramatic noise reduction)
+ *   Cycle 3 → 0.035 (fine-tuning — near-optimal)
+ *   Cycle 4 → 0.021 (fully optimized)
+ *   Cycle 5+ → 0.015 (minimal achievable noise)
  *
- * Models real-world tuning: big gains on first iteration, cap at 5th cycle.
+ * Steep exponential decay drives quality score from "poor" (~35) through
+ * "fair" → "good" → "excellent" (~85) across the 5-cycle demo progression.
+ * Noise floor improves ~35 dB, settling time drops from ~300ms to ~55ms.
  */
 export function progressiveFactor(cycle: number): number {
   if (cycle <= 0) return 1.0;
-  if (cycle >= 5) return 0.1;
-  // Smooth exponential curve: 1.0 → 0.55 → 0.35 → 0.22 → 0.15 → 0.10
-  return 0.1 + 0.9 * Math.exp(-0.6 * cycle);
+  if (cycle >= 5) return 0.015;
+  // Steep exponential: 1.0 → 0.28 → 0.09 → 0.04 → 0.02 → 0.015
+  return 0.015 + 0.985 * Math.exp(-1.3 * cycle);
 }
 
 // ── Public API ─────────────────────────────────────────────────────
@@ -408,8 +442,8 @@ export function generateFilterDemoBBL(cycle = 0): Buffer {
  * - ~14 seconds of flight data at 4000 Hz (I-frame only, iInterval=2)
  * - Reduced noise floor (simulates applied filter tuning)
  * - 18 step inputs across all 3 axes (for step response detection)
- * - Second-order step response model (~18% overshoot roll, ~16% pitch, ~7% yaw)
- * - 12ms transport latency per axis
+ * - Cycle-dependent second-order step response model (cycle 0: ~35% overshoot → cycle 4: ~3%)
+ * - Cycle-dependent latency (16ms → 6ms)
  * - 400ms step hold ensures correct overshoot measurement
  *
  * @param cycle - Tuning cycle number (0 = first, higher = progressively cleaner)
@@ -422,13 +456,14 @@ export function generatePIDDemoBBL(cycle = 0): Buffer {
   return buildDemoSession({
     frameCount: 56000, // 14s at 4000 Hz — fits 18 steps × (400ms hold + 300ms cool) + 0.5s lead
     gyroBase: [0, 0, 0],
-    noiseAmplitude: 8 * f,
+    noiseAmplitude: 5 * f,
     motorHarmonicHz: 160,
-    motorHarmonicAmplitude: 15 * f,
+    motorHarmonicAmplitude: 8 * f,
     electricalNoiseHz: 600,
-    electricalNoiseAmplitude: 3 * f,
+    electricalNoiseAmplitude: 2 * f,
     injectSteps: true,
     iInterval: 2,
+    responseParams: computeCycleResponseParams(cycle),
   });
 }
 
@@ -497,13 +532,14 @@ export function generateCombinedDemoBBL(cycle = 0): Buffer {
   const pidSession = buildDemoSession({
     frameCount: 56000,
     gyroBase: [0, 0, 0],
-    noiseAmplitude: 8 * f,
+    noiseAmplitude: 5 * f,
     motorHarmonicHz: 160,
-    motorHarmonicAmplitude: 15 * f,
+    motorHarmonicAmplitude: 8 * f,
     electricalNoiseHz: 600,
-    electricalNoiseAmplitude: 3 * f,
+    electricalNoiseAmplitude: 2 * f,
     injectSteps: true,
     iInterval: 2,
+    responseParams: computeCycleResponseParams(cycle),
   });
 
   return Buffer.concat([filterSession, garbage, pidSession]);

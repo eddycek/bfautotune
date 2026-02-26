@@ -230,6 +230,20 @@ export class MockMSPClient extends EventEmitter {
     logger.info('[DEMO] FC connected');
   }
 
+  /**
+   * Reset all demo state to initial values — used by "Reset Demo" button.
+   * Allows the user to restart the 5-cycle tuning progression from scratch.
+   */
+  resetDemoState(): void {
+    this.cancelAutoFlight();
+    this._tuningCycle = 0;
+    this._nextFlightType = 'filter';
+    this.connection.appliedSettings.clear();
+    this._flashHasData = false;
+    this._demoBBLData = null;
+    logger.info('[DEMO] Demo state reset — starting from cycle 0');
+  }
+
   // ── MSPClient interface implementation ──────────────────────────────
 
   async listPorts(): Promise<PortInfo[]> {

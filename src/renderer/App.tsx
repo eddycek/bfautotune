@@ -22,6 +22,7 @@ import { useProfiles } from './hooks/useProfiles';
 import { useTuningSession } from './hooks/useTuningSession';
 import { useTuningHistory } from './hooks/useTuningHistory';
 import { useToast } from './hooks/useToast';
+import { useDemoMode } from './hooks/useDemoMode';
 import { markIntentionalDisconnect } from './hooks/useConnection';
 import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
 import type { BlackboxSettings } from '@shared/types/blackbox.types';
@@ -66,6 +67,8 @@ function AppContent() {
   const tuning = useTuningSession();
   const tuningHistory = useTuningHistory();
   const toast = useToast();
+  const { isDemoMode } = useDemoMode();
+  const [resettingDemo, setResettingDemo] = useState(false);
 
   const refreshAvailableLogIds = () => {
     window.betaflight
@@ -381,6 +384,21 @@ function AppContent() {
     setVerificationPickerLogId(record.verificationLogId);
   };
 
+  const handleResetDemo = async () => {
+    try {
+      setResettingDemo(true);
+      await window.betaflight.resetDemo();
+      setErasedForPhase(null);
+      setBbRefreshKey((k) => k + 1);
+      await tuningHistory.reload();
+      toast.success('Demo reset — starting from cycle 0');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reset demo');
+    } finally {
+      setResettingDemo(false);
+    }
+  };
+
   const bbStatus = computeBBSettingsStatus(bbSettings, fcVersion);
 
   const handleBannerFixSettings = async () => {
@@ -425,6 +443,16 @@ function AppContent() {
         </div>
         <div className="app-header-right">
           <span className="version">v0.1.0</span>
+          {isDemoMode && (
+            <button
+              className="demo-reset-btn"
+              onClick={handleResetDemo}
+              disabled={resettingDemo}
+              title="Reset demo state to cycle 0"
+            >
+              {resettingDemo ? 'Resetting...' : 'Reset Demo'}
+            </button>
+          )}
           <button
             className="app-help-button"
             onClick={() => setShowWorkflowHelp(true)}
