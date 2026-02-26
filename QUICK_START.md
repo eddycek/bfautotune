@@ -41,8 +41,10 @@ npm run rebuild
 
 ```bash
 npm run dev       # Start dev server + Electron with hot reload
-npm test          # Run tests in watch mode
-npm run test:run  # Run tests once (same as pre-commit hook)
+npm run dev:demo  # Start with mock FC (no hardware needed)
+npm test          # Run unit tests in watch mode
+npm run test:run  # Run unit tests once (same as pre-commit hook)
+npm run test:e2e  # Run Playwright E2E tests (builds app first)
 npm run build     # Production build → release/ directory
 ```
 
@@ -60,7 +62,13 @@ All main ↔ renderer communication goes through `window.betaflight` API defined
 
 ## Testing Without Hardware
 
-The app runs without a flight controller connected:
+**Demo mode** runs the app with a simulated flight controller:
+```bash
+npm run dev:demo
+```
+Auto-connects to a virtual FC, creates a demo profile, and generates realistic blackbox data. The full tuning workflow is functional (real FFT/step analysis). See [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).
+
+**Without demo mode**, the app runs with no FC connected:
 - Port scanning shows empty list
 - Connection fails gracefully with error message
 - You can develop and test all UI components

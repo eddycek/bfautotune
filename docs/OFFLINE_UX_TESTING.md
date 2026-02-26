@@ -1,6 +1,6 @@
 # Offline UX Testing Mode
 
-> **Status**: Proposed
+> **Status**: Active (Tasks 1–5 complete, Playwright E2E tests added)
 
 ## Problem
 
@@ -116,34 +116,85 @@ async function initialize(): Promise<void> {
 
 ## Implementation Plan
 
-### Task 1: MockMSPClient
-- Create `src/main/demo/MockMSPClient.ts`
-- EventEmitter-based, same interface as MSPClient
-- Static responses for all read operations
-- Simulated delays for connect/disconnect/reboot
-- Mock `connection` object with `isInCLI()`, `enterCLI()`, `sendCLICommand()`, `exitCLI()`
+### Task 1: MockMSPClient :white_check_mark:
+- `src/main/demo/MockMSPClient.ts` — EventEmitter-based mock FC
+- Static responses for all read operations, simulated delays, mock CLI mode
+- Flight type cycling (`filter` → `pid` → `verification`), progressive noise reduction across cycles
+- `advancePastVerification()` for multi-cycle support when verification is skipped
+- 47 unit tests
 
-### Task 2: DemoDataGenerator
-- Create `src/main/demo/DemoDataGenerator.ts`
-- Enhanced BBL fixture with noise + step inputs (reuses bf45-reference encoding helpers)
-- Generate demo CLI diff string
-- Save demo BBL to BlackboxManager on first demo boot
+### Task 2: DemoDataGenerator :white_check_mark:
+- `src/main/demo/DemoDataGenerator.ts` — Enhanced BBL fixture with noise + step inputs
+- Multi-session support (filter + PID in one BBL file)
+- Progressive noise reduction across tuning cycles
+- 22 unit tests
 
-### Task 3: Integration in index.ts
-- Detect demo mode via `DEMO_MODE` env var or `--demo` CLI flag
-- Swap MSPClient with MockMSPClient when demo mode active
-- Auto-connect after window ready
-- Add `dev:demo` script to package.json
+### Task 3: Integration in index.ts :white_check_mark:
+- Demo mode via `DEMO_MODE` env var or `--demo` CLI flag
+- MockMSPClient swapped in, auto-connect after window ready
+- `E2E_USER_DATA_DIR` env var for Playwright test isolation
+- `dev:demo` npm script
 
-### Task 4: Demo Profile Auto-Setup
-- On first demo connect, auto-create "Demo Quad (5" Freestyle)" profile
-- Create baseline snapshot with demo CLI diff
-- Pre-populate blackbox log from DemoDataGenerator
+### Task 4: Demo Profile Auto-Setup :white_check_mark:
+- Auto-creates "Demo Quad (5" Freestyle)" profile on first demo connect
+- Baseline snapshot with demo CLI diff
+- Pre-populated blackbox log
 
-### Task 5: Tests
-- Unit tests for MockMSPClient
-- Unit tests for DemoDataGenerator
-- Verify demo BBL parses correctly through real BlackboxParser
+### Task 5: Unit Tests :white_check_mark:
+- MockMSPClient: 47 tests
+- DemoDataGenerator: 22 tests
+
+### Task 6: Playwright E2E Tests :white_check_mark:
+- `e2e/electron-app.ts` — Shared fixture with launchDemoApp, isolated userData
+- `demo-smoke.spec.ts` — 4 smoke tests (launch, connect, dashboard)
+- `demo-tuning-cycle.spec.ts` — 11 serial tests (complete tuning cycle)
+- `demo-generate-history.spec.ts` — 5-cycle generator for demo screenshots
+
+## Playwright E2E Tests
+
+Automated end-to-end tests that launch the real Electron app in demo mode using Playwright's Electron support.
+
+### Running E2E Tests
+
+```bash
+# Run all E2E tests (builds app first)
+npm run test:e2e
+
+# Run with Playwright UI
+npm run test:e2e:ui
+
+# Generate 5 tuning sessions for demo screenshots (~2 min)
+npm run demo:generate-history
+```
+
+### Test Architecture
+
+**Fixture** (`e2e/electron-app.ts`):
+- `launchDemoApp()` — Launches Electron with `DEMO_MODE=true` and isolated `E2E_USER_DATA_DIR`
+- Wipes `.e2e-userdata/` before each test file for clean state
+- Helpers: `waitForDemoReady()`, `clickButton()`, `waitForText()`, `screenshot()`
+
+**Test Files:**
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `demo-smoke.spec.ts` | 4 | App launch, auto-connect, dashboard elements |
+| `demo-tuning-cycle.spec.ts` | 11 | Full tuning cycle (serial test suite): start → erase → download → filter wizard → apply → PID wizard → apply → skip verify → complete → dismiss |
+| `demo-generate-history.spec.ts` | 1 | Generates 5 completed tuning sessions with progressive quality scores (excluded from `test:e2e`, run via `demo:generate-history`) |
+
+**Key Design Decisions:**
+- Tests use `test.describe.serial` — the tuning cycle tests must run in order as each step depends on the previous
+- `E2E_USER_DATA_DIR` env var overrides Electron's `app.setPath('userData', ...)` for test isolation
+- `waitForDemoReady()` waits for the "Start Tuning Session" button (most reliable full-dashboard indicator)
+- Screenshots saved to `e2e-screenshots/` for visual review
+- `--grep-invert 'generate 5'` in `test:e2e` excludes the slow generator from normal test runs
+- `advancePastVerification()` in `MockMSPClient` keeps flight type cycling correct when verification is skipped across multiple tuning cycles
+
+### MockMSPClient Flight Type Tracking
+
+The `MockMSPClient` tracks which type of blackbox data to generate: `filter` → `pid` → `verification` → (cycle repeats). When verification is skipped (the common demo path), `advancePastVerification()` must be called to advance the cycle, otherwise the next tuning session generates wrong data types.
+
+This is called automatically in `tuningHandlers.ts` when the phase transitions to `completed` in demo mode.
 
 ## Risk Assessment
 
@@ -155,10 +206,20 @@ async function initialize(): Promise<void> {
 
 ## Files
 
-| File | Action |
+| File | Status |
 |------|--------|
-| `src/main/demo/MockMSPClient.ts` | Create |
-| `src/main/demo/DemoDataGenerator.ts` | Create |
-| `src/main/index.ts` | Modify (add demo mode branch) |
-| `package.json` | Modify (add `dev:demo` script) |
-| `docs/OFFLINE_UX_TESTING.md` | Create (this doc) |
+| `src/main/demo/MockMSPClient.ts` | Created (47 tests) |
+| `src/main/demo/MockMSPClient.test.ts` | Created |
+| `src/main/demo/DemoDataGenerator.ts` | Created (22 tests) |
+| `src/main/demo/DemoDataGenerator.test.ts` | Created |
+| `src/main/index.ts` | Modified (demo mode branch + E2E_USER_DATA_DIR) |
+| `src/main/ipc/handlers/tuningHandlers.ts` | Modified (advancePastVerification on completion) |
+| `e2e/electron-app.ts` | Created (shared E2E fixture) |
+| `e2e/demo-smoke.spec.ts` | Created (4 tests) |
+| `e2e/demo-tuning-cycle.spec.ts` | Created (11 tests) |
+| `e2e/demo-generate-history.spec.ts` | Created (1 test) |
+| `playwright.config.ts` | Created |
+| `package.json` | Modified (test:e2e, demo:generate-history scripts) |
+| `vitest.config.ts` | Modified (exclude e2e/) |
+| `.gitignore` | Modified (E2E artifacts) |
+| `docs/OFFLINE_UX_TESTING.md` | Created (this doc) |

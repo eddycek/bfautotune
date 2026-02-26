@@ -146,24 +146,44 @@ This will:
 - Launch Electron with the app
 - Open DevTools automatically
 
+### Demo Mode (No Hardware Needed)
+
+Start the app with a simulated flight controller for offline UX testing:
+```bash
+npm run dev:demo
+```
+
+Demo mode auto-connects to a virtual FC, creates a demo profile, and generates realistic blackbox data. The full 10-phase tuning workflow is functional — real FFT and step response analysis runs on the simulated data. See [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md) for details.
+
 ### Testing
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Test suite:** 1796 tests across 93 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Unit tests:** 1877 tests across 96 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+
+**Playwright E2E:** 16 tests across 3 spec files — launches real Electron app in demo mode, walks through complete tuning cycles.
 
 ```bash
-# Run tests in watch mode
+# Run unit tests in watch mode
 npm test
 
-# Run tests once
+# Run unit tests once
 npm run test:run
 
-# Open interactive UI
+# Open interactive test UI
 npm run test:ui
 
 # Generate coverage report
 npm run test:coverage
+
+# Run E2E tests (builds app, then runs Playwright)
+npm run test:e2e
+
+# Run E2E with Playwright UI
+npm run test:e2e:ui
+
+# Generate 5 tuning sessions for demo screenshots (~2 min)
+npm run demo:generate-history
 ```
 
 See [TESTING.md](./TESTING.md) for complete testing guidelines, test inventory, and best practices. See [docs/COMPREHENSIVE_TESTING_PLAN.md](./docs/COMPREHENSIVE_TESTING_PLAN.md) for the full testing plan and architecture.
@@ -225,6 +245,9 @@ bfautotune/
 │   │   │   ├── TuningSessionManager.ts  # Tuning session state machine
 │   │   │   ├── TuningHistoryManager.ts # Tuning history archive
 │   │   │   └── FileStorage.ts           # Generic file storage utilities
+│   │   ├── demo/               # Demo mode (offline UX testing)
+│   │   │   ├── MockMSPClient.ts       # Simulated FC (47 tests)
+│   │   │   └── DemoDataGenerator.ts   # Realistic BBL generation (22 tests)
 │   │   ├── ipc/                 # IPC handlers
 │   │   │   ├── handlers/       # Domain-split handler modules (11 files)
 │   │   │   │   ├── index.ts            # DI container, registerIPCHandlers
@@ -296,6 +319,12 @@ bfautotune/
 │       ├── types/               # TypeScript interfaces (9 type files)
 │       ├── utils/               # Shared utilities (metrics extraction, spectrum downsampling)
 │       └── constants/           # MSP codes, presets, flight guides
+│
+├── e2e/                         # Playwright E2E tests (demo mode)
+│   ├── electron-app.ts          # Shared fixture (launchDemoApp, helpers)
+│   ├── demo-smoke.spec.ts       # 4 smoke tests
+│   ├── demo-tuning-cycle.spec.ts  # 11 tuning cycle tests
+│   └── demo-generate-history.spec.ts  # 5-cycle history generator
 │
 └── docs/                        # Design docs (see docs/README.md for full index)
     ├── BBL_PARSER_VALIDATION.md             # Parser validation against BF Explorer
@@ -672,7 +701,8 @@ The autotuning rules and thresholds are based on established FPV community pract
 - **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect, verification flight, tuning history
 - **Phase 5**: ⬜ Complete manual testing & UX polish (real hardware validation)
 - **Phase 6**: ✅ CI/CD & cross-platform releases (macOS/Windows/Linux installers)
-- **Phase 7**: ⬜ E2E tests on real FC in CI pipeline
+- **Phase 7a**: ✅ Playwright E2E tests (demo mode, 16 tests)
+- **Phase 7b**: ⬜ E2E tests on real FC in CI pipeline
 
 See [SPEC.md](./SPEC.md) for detailed requirements and phase tracking.
 
