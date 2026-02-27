@@ -27,6 +27,7 @@ describe('TuningStatusBanner', () => {
       fixingSettings?: boolean;
       flashUsedSize?: number | null;
       isDemoMode?: boolean;
+      storageType?: 'flash' | 'sdcard' | 'none';
     }
   ) {
     return render(
@@ -34,6 +35,7 @@ describe('TuningStatusBanner', () => {
         session={session}
         flashErased={flashErased}
         flashUsedSize={overrides?.flashUsedSize}
+        storageType={overrides?.storageType}
         bbSettingsOk={overrides?.bbSettingsOk}
         fixingSettings={overrides?.fixingSettings}
         isDemoMode={overrides?.isDemoMode}
@@ -60,7 +62,7 @@ describe('TuningStatusBanner', () => {
     renderBanner();
 
     expect(
-      screen.getByText(/Erase Blackbox data, then fly the filter test flight/)
+      screen.getByText(/Erase Blackbox data from flash, then fly the filter test flight/)
     ).toBeInTheDocument();
     expect(screen.getByText('Erase Flash')).toBeInTheDocument();
     expect(screen.getByText('View Flight Guide')).toBeInTheDocument();
@@ -76,7 +78,9 @@ describe('TuningStatusBanner', () => {
   it('shows pid_flight_pending UI', () => {
     renderBanner({ ...baseSession, phase: 'pid_flight_pending' });
 
-    expect(screen.getByText(/fly the PID test flight/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Erase Blackbox data from flash, then fly the PID test flight/)
+    ).toBeInTheDocument();
     expect(screen.getByText('Erase Flash')).toBeInTheDocument();
     expect(screen.getByText('View Flight Guide')).toBeInTheDocument();
   });
@@ -530,5 +534,73 @@ describe('TuningStatusBanner', () => {
 
     expect(screen.queryByText(/Blackbox settings need to be fixed/)).not.toBeInTheDocument();
     expect(screen.queryByText('Fix Settings')).not.toBeInTheDocument();
+  });
+
+  // SD card storage type tests
+
+  it('shows "Erase Logs" label for SD card in filter_flight_pending', () => {
+    renderBanner(baseSession, false, { storageType: 'sdcard' });
+
+    expect(screen.getByText('Erase Logs')).toBeInTheDocument();
+    expect(screen.queryByText('Erase Flash')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Erase Blackbox data from SD card, then fly the filter test flight/)
+    ).toBeInTheDocument();
+  });
+
+  it('shows "Erase Logs" label for SD card in pid_flight_pending', () => {
+    renderBanner({ ...baseSession, phase: 'pid_flight_pending' }, false, { storageType: 'sdcard' });
+
+    expect(screen.getByText('Erase Logs')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Erase Blackbox data from SD card, then fly the PID test flight/)
+    ).toBeInTheDocument();
+  });
+
+  it('shows "Logs erased" text for SD card after erase', () => {
+    renderBanner({ ...baseSession, eraseCompleted: true }, false, {
+      storageType: 'sdcard',
+      flashUsedSize: 32000,
+    });
+
+    expect(
+      screen.getByText(/Logs erased! Disconnect your drone and fly the filter test flight/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Erase Logs')).not.toBeInTheDocument();
+  });
+
+  it('shows erased state for SD card via eraseCompleted even with flashUsedSize > 0', () => {
+    renderBanner({ ...baseSession, eraseCompleted: true }, false, {
+      storageType: 'sdcard',
+      flashUsedSize: 65536,
+    });
+
+    expect(screen.getByText(/Logs erased!/)).toBeInTheDocument();
+    expect(screen.getByText('View Flight Guide')).toBeInTheDocument();
+  });
+
+  it('shows "Erase Logs & Verify" for SD card in pid_applied', () => {
+    renderBanner({ ...baseSession, phase: 'pid_applied' }, false, { storageType: 'sdcard' });
+
+    expect(screen.getByText('Erase Logs & Verify')).toBeInTheDocument();
+    expect(screen.queryByText('Erase & Verify')).not.toBeInTheDocument();
+  });
+
+  it('shows "Flash erased" text for flash storage (default)', () => {
+    renderBanner(baseSession, true);
+
+    expect(
+      screen.getByText(/Flash erased! Disconnect your drone and fly the filter test flight/)
+    ).toBeInTheDocument();
+  });
+
+  it('shows erased state for verification_pending via eraseCompleted (SD card)', () => {
+    renderBanner({ ...baseSession, phase: 'verification_pending', eraseCompleted: true }, false, {
+      storageType: 'sdcard',
+      flashUsedSize: 32000,
+    });
+
+    expect(screen.getByText(/Logs erased! Disconnect and fly a 30-60s hover/)).toBeInTheDocument();
+    expect(screen.getByText('View Flight Guide')).toBeInTheDocument();
   });
 });

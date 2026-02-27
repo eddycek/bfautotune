@@ -5,6 +5,7 @@ import type {
   TuningMode,
   FlightGuideMode,
 } from '@shared/types/tuning.types';
+import type { BlackboxStorageType } from '@shared/types/blackbox.types';
 import './TuningStatusBanner.css';
 
 export type TuningAction =
@@ -25,6 +26,7 @@ interface TuningStatusBannerProps {
   session: TuningSession;
   flashErased?: boolean;
   flashUsedSize?: number | null;
+  storageType?: BlackboxStorageType;
   erasing?: boolean;
   downloading?: boolean;
   downloadProgress?: number;
@@ -48,59 +50,65 @@ interface PhaseUI {
 
 const STEP_LABELS = ['Prepare', 'Filter Flight', 'Filter Tune', 'PID Flight', 'PID Tune', 'Verify'];
 
-const PHASE_UI: Record<Exclude<TuningPhase, 'pid_applied' | 'verification_pending'>, PhaseUI> = {
-  filter_flight_pending: {
-    stepIndex: 0,
-    text: 'Erase Blackbox data, then fly the filter test flight (hover + throttle sweeps).',
-    buttonLabel: 'Erase Flash',
-    action: 'erase_flash',
-    guideTip: 'filter',
-  },
-  filter_log_ready: {
-    stepIndex: 1,
-    text: 'Filter flight done! Download the Blackbox log to start analysis.',
-    buttonLabel: 'Download Log',
-    action: 'download_log',
-  },
-  filter_analysis: {
-    stepIndex: 2,
-    text: 'Log downloaded. Run the Filter Wizard to analyze noise and apply filter changes.',
-    buttonLabel: 'Open Filter Wizard',
-    action: 'open_filter_wizard',
-  },
-  filter_applied: {
-    stepIndex: 2,
-    text: 'Filters applied! Prepare for the PID test flight.',
-    buttonLabel: 'Continue',
-    action: 'erase_flash',
-    guideTip: 'pid',
-  },
-  pid_flight_pending: {
-    stepIndex: 3,
-    text: 'Erase Blackbox data, then fly the PID test flight (stick snaps on all axes).',
-    buttonLabel: 'Erase Flash',
-    action: 'erase_flash',
-    guideTip: 'pid',
-  },
-  pid_log_ready: {
-    stepIndex: 3,
-    text: 'PID flight done! Download the Blackbox log to start analysis.',
-    buttonLabel: 'Download Log',
-    action: 'download_log',
-  },
-  pid_analysis: {
-    stepIndex: 4,
-    text: 'Log downloaded. Run the PID Wizard to analyze step response and apply PID changes.',
-    buttonLabel: 'Open PID Wizard',
-    action: 'open_pid_wizard',
-  },
-  completed: {
-    stepIndex: 5,
-    text: 'Tuning complete! Your drone is dialed in.',
-    buttonLabel: 'Dismiss',
-    action: 'dismiss',
-  },
-};
+function getPhaseUI(
+  isSDCard: boolean
+): Record<Exclude<TuningPhase, 'pid_applied' | 'verification_pending'>, PhaseUI> {
+  const eraseLabel = isSDCard ? 'Erase Logs' : 'Erase Flash';
+  const storageName = isSDCard ? 'SD card' : 'flash';
+  return {
+    filter_flight_pending: {
+      stepIndex: 0,
+      text: `Erase Blackbox data from ${storageName}, then fly the filter test flight (hover + throttle sweeps).`,
+      buttonLabel: eraseLabel,
+      action: 'erase_flash',
+      guideTip: 'filter',
+    },
+    filter_log_ready: {
+      stepIndex: 1,
+      text: 'Filter flight done! Download the Blackbox log to start analysis.',
+      buttonLabel: 'Download Log',
+      action: 'download_log',
+    },
+    filter_analysis: {
+      stepIndex: 2,
+      text: 'Log downloaded. Run the Filter Wizard to analyze noise and apply filter changes.',
+      buttonLabel: 'Open Filter Wizard',
+      action: 'open_filter_wizard',
+    },
+    filter_applied: {
+      stepIndex: 2,
+      text: 'Filters applied! Prepare for the PID test flight.',
+      buttonLabel: 'Continue',
+      action: 'erase_flash',
+      guideTip: 'pid',
+    },
+    pid_flight_pending: {
+      stepIndex: 3,
+      text: `Erase Blackbox data from ${storageName}, then fly the PID test flight (stick snaps on all axes).`,
+      buttonLabel: eraseLabel,
+      action: 'erase_flash',
+      guideTip: 'pid',
+    },
+    pid_log_ready: {
+      stepIndex: 3,
+      text: 'PID flight done! Download the Blackbox log to start analysis.',
+      buttonLabel: 'Download Log',
+      action: 'download_log',
+    },
+    pid_analysis: {
+      stepIndex: 4,
+      text: 'Log downloaded. Run the PID Wizard to analyze step response and apply PID changes.',
+      buttonLabel: 'Open PID Wizard',
+      action: 'open_pid_wizard',
+    },
+    completed: {
+      stepIndex: 5,
+      text: 'Tuning complete! Your drone is dialed in.',
+      buttonLabel: 'Dismiss',
+      action: 'dismiss',
+    },
+  };
+}
 
 function getVerificationUI(session: TuningSession): { stepIndex: number; text: string } {
   if (session.verificationLogId) {
@@ -119,6 +127,7 @@ export function TuningStatusBanner({
   session,
   flashErased,
   flashUsedSize,
+  storageType,
   erasing,
   downloading,
   downloadProgress,
@@ -131,6 +140,8 @@ export function TuningStatusBanner({
   onReset,
   onFixSettings,
 }: TuningStatusBannerProps) {
+  const isSDCard = storageType === 'sdcard';
+  const PHASE_UI = getPhaseUI(isSDCard);
   const downloadLabel =
     downloadProgress && downloadProgress > 0
       ? `Downloading... ${downloadProgress}%`
@@ -159,12 +170,16 @@ export function TuningStatusBanner({
   }
 
   const flashHasData = flashUsedSize != null && flashUsedSize > 0;
+  // For SD card: flashUsedSize is always > 0 (filesystem overhead), so rely on
+  // eraseCompleted (persisted in session) or eraseSkipped instead of flashUsedSize === 0.
   const showErasedState =
     ((isFlightPending || isVerification) &&
       !flashHasData &&
       (flashErased || flashUsedSize === 0)) ||
-    (isFlightPending && !!session.eraseSkipped);
+    (isFlightPending && !!session.eraseSkipped) ||
+    ((isFlightPending || isVerification) && !!session.eraseCompleted);
   const flightType = session.phase === 'filter_flight_pending' ? 'filter' : 'PID';
+  const storageName = isSDCard ? 'SD card' : 'flash';
   const activeStepIndex = showErasedState && isFlightPending ? stepIndex + 1 : stepIndex;
 
   const showBBWarning =
@@ -205,6 +220,8 @@ export function TuningStatusBanner({
                 <span className="spinner" />
                 Preparing...
               </>
+            ) : isSDCard ? (
+              'Erase Logs & Verify'
             ) : (
               'Erase & Verify'
             )}
@@ -372,8 +389,8 @@ export function TuningStatusBanner({
         <p className="tuning-status-text">
           {showErasedState
             ? isVerification
-              ? 'Flash erased! Disconnect and fly a 30-60s hover to verify noise improvement.'
-              : `Flash erased! Disconnect your drone and fly the ${flightType} test flight.`
+              ? `${isSDCard ? 'Logs erased' : 'Flash erased'}! Disconnect and fly a 30-60s hover to verify noise improvement.`
+              : `${isSDCard ? 'Logs erased' : 'Flash erased'}! Disconnect your drone and fly the ${flightType} test flight.`
             : text}
         </p>
         <div className="tuning-status-actions">

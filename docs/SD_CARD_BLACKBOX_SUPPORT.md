@@ -1,6 +1,6 @@
 # SD Card Blackbox Storage Support
 
-> **Status**: Complete (PR #105)
+> **Status**: Active — Fixes in progress (original: PR #105, fixes: PR #TBD)
 
 ## Problem
 
@@ -206,6 +206,66 @@ Smart reconnect currently checks `bbInfo.hasLogs && bbInfo.usedSize > 0` to auto
 - `src/main/msc/driveDetector.test.ts` (new) — mock platform detection
 - `src/renderer/components/BlackboxStatus/BlackboxStatus.test.ts` — extend for storageType='sdcard'
 - `src/main/ipc/handlers.test.ts` — extend for SD card IPC paths
+
+---
+
+## Post-Implementation Fixes (Discovered during testing)
+
+The original Tasks 1–8 shipped in PR #105. Testing revealed several issues with how SD card operations interact with the tuning session workflow. These fixes are tracked below.
+
+### Fix 1: Multi-file SD card download returns incompatible type
+
+**Problem**: `BLACKBOX_DOWNLOAD_LOG` handler returns `BlackboxLogMetadata | BlackboxLogMetadata[]` for SD card. When multiple log files exist on the SD card, the preload API type `Promise<BlackboxLogMetadata>` is violated — the renderer gets an array where it expects a single object. `metadata.filename` and `metadata.id` are `undefined`.
+
+**Fix**: Always return the **last** (newest) metadata from the array. The tuning workflow needs only the most recent flight log. Keep all files saved to disk but return one to the caller.
+
+**Files**: `src/main/ipc/handlers/blackboxHandlers.ts`
+
+### Fix 2: SD-card-aware labels in TuningStatusBanner
+
+**Problem**: `PHASE_UI` hardcodes `buttonLabel: 'Erase Flash'` and text mentions "Flash" for `filter_flight_pending`, `pid_flight_pending`, `filter_applied`. SD card users see incorrect terminology.
+
+**Fix**: Pass `storageType` prop to `TuningStatusBanner`. Use "Erase Logs" and "SD card" in text when `storageType === 'sdcard'`. Update post-erase text similarly.
+
+**Files**: `src/renderer/components/TuningStatusBanner/TuningStatusBanner.tsx`, `src/renderer/App.tsx`
+
+### Fix 3: `showErasedState` broken for SD card after erase
+
+**Problem**: After MSC erase + FC reconnect, `getBlackboxInfo()` returns `usedSize > 0` (filesystem overhead on FAT). The `showErasedState` guard requires `!flashHasData` (i.e. `flashUsedSize === 0`) — which is never true for SD card. So the banner shows "Erase" button again instead of "Flash erased! Fly..."
+
+**Root cause**: `showErasedState` logic assumes flash behavior where `usedSize === 0` after erase. SD cards always report some used space.
+
+**Fix**:
+1. Add `eraseCompleted?: boolean` field to `TuningSession` (persisted)
+2. After MSC erase during tuning, update session with `eraseCompleted: true`
+3. Clear `eraseCompleted` when transitioning to the next phase (e.g. `*_log_ready`, `*_analysis`)
+4. In `showErasedState`, also check `session.eraseCompleted` as an alternative to `flashUsedSize === 0`
+
+**Files**: `src/shared/types/tuning.types.ts`, `src/renderer/App.tsx`, `src/renderer/components/TuningStatusBanner/TuningStatusBanner.tsx`, `src/main/ipc/handlers/blackboxHandlers.ts`
+
+### Fix 4: Smart reconnect after SD card MSC erase during tuning
+
+**Problem**: After MSC erase in tuning, FC reconnects. Smart reconnect for SD card currently just logs "skipping auto-transition (user must confirm)". But the user explicitly initiated erase — the session should know erase completed.
+
+**Fix**: When `session.eraseCompleted === true` and `storageType === 'sdcard'`, clear the flag (it served its purpose — the banner will show the post-erase flight guide). Don't auto-transition to `*_log_ready` (user hasn't flown yet). The existing `eraseSkipped` path handles the "flew and came back" transition.
+
+**Files**: `src/main/index.ts`
+
+### Fix 5: MSC erase during tuning — persist eraseCompleted via IPC
+
+**Problem**: The `handleTuningAction('erase_flash')` in App.tsx calls `eraseBlackboxFlash()` (which does MSC cycle for SD card), then sets `erasedForPhase` React state. But the FC disconnects during MSC — when it reconnects, the volatile `erasedForPhase` state is still set (AppContent doesn't unmount), but `flashUsedSize` gets refreshed to > 0, breaking `showErasedState`.
+
+**Fix**: After successful MSC erase, call `tuning.updatePhase(currentPhase, { eraseCompleted: true })` to persist the flag. On reconnect, the banner reads it from the session and shows the correct post-erase state regardless of `flashUsedSize`.
+
+**Files**: `src/renderer/App.tsx`
+
+### Fix 6: Verification erase for SD card
+
+**Problem**: `prepare_verification` action calls `eraseBlackboxFlash()` which triggers MSC for SD card. Same erase state issues as Fix 3/5.
+
+**Fix**: Same pattern — persist `eraseCompleted` on session after erase. The verification_pending path in `showErasedState` should also check it.
+
+**Files**: `src/renderer/App.tsx`
 
 ## Risk Assessment
 
