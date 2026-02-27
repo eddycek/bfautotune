@@ -201,6 +201,13 @@ async function initialize(): Promise<void> {
                   { eraseSkipped: undefined }
                 );
                 sendTuningSessionChanged(updated);
+              } else if (bbInfo.storageType === 'sdcard' && session.eraseCompleted) {
+                // User explicitly erased via MSC mode — don't auto-transition
+                // (they haven't flown yet), but the session already has eraseCompleted=true
+                // so the UI banner will show the post-erase flight guide.
+                logger.info(
+                  'Smart reconnect: SD card + eraseCompleted — keeping phase (post-erase UI will show)'
+                );
               } else if (bbInfo.storageType === 'sdcard') {
                 logger.info(
                   'Smart reconnect: SD card detected — skipping auto-transition (user must confirm)'

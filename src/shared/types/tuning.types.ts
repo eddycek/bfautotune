@@ -88,4 +88,7 @@ export interface TuningSession {
 
   /** True when user skipped erase (e.g. formatted SD card manually) — persists across restart */
   eraseSkipped?: boolean;
+
+  /** True after erase completed (especially for SD card MSC erase). Cleared on next phase transition. */
+  eraseCompleted?: boolean;
 }

@@ -108,11 +108,12 @@ export function registerBlackboxHandlers(deps: HandlerDependencies): void {
 
           logger.info(`SD card download complete: ${allMetadata.length} logs saved`);
 
-          // Return first log for backward compatibility (single-log callers),
-          // but include all metadata in the array form
-          return createResponse<BlackboxLogMetadata | BlackboxLogMetadata[]>(
-            allMetadata.length === 1 ? allMetadata[0] : allMetadata
-          );
+          // Always return the last (newest) metadata for API compatibility.
+          // The preload API signature is Promise<BlackboxLogMetadata> (single object).
+          // Tuning workflow needs only the most recent flight log.
+          // All files are still saved to disk.
+          const latest = allMetadata[allMetadata.length - 1];
+          return createResponse<BlackboxLogMetadata>(latest);
         } else {
           // --- Flash: existing MSP_DATAFLASH_READ path ---
           logger.info('Starting flash download via MSP...');

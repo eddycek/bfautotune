@@ -341,7 +341,8 @@ Completed tuning sessions are archived with self-contained metrics for compariso
 - `MSCManager` (`src/main/msc/`) orchestrates the full MSC download/erase cycle with progress reporting
 - `driveDetector` handles cross-platform drive mount detection (macOS/Windows/Linux)
 - MSC disconnect is expected — `mscModeActive` flag prevents profile clear on disconnect
-- Smart reconnect: for SD card, auto-transition from `*_flight_pending` is skipped (user confirms via UI)
+- Smart reconnect: for SD card, auto-transition from `*_flight_pending` is skipped (user confirms via UI). If `eraseCompleted` is set, reconnect keeps phase but UI shows post-erase guide
+- Multi-file download: SD card may have multiple .bbl files — handler always returns the latest (newest) metadata for API compatibility
 - UI: BlackboxStatus shows same interface for both storage types (transparent to user)
 - Design doc: `docs/SD_CARD_BLACKBOX_SUPPORT.md`
 
@@ -468,7 +469,9 @@ await waitFor(() => {
 ### Dashboard Layout
 - ConnectionPanel and ProfileSelector are side by side in `.top-row` flex container when connected
 - When disconnected, ConnectionPanel takes full width (ProfileSelector not rendered)
-- Post-erase UX: `erasedForPhase` pattern tracks erase per-phase, banner shows flight guide after erase
+- Post-erase UX: `erasedForPhase` (React state) tracks erase per-phase, banner shows flight guide after erase
+- SD card erase: `eraseCompleted` (persisted in TuningSession) survives MSC disconnect/reconnect. `showErasedState` in banner checks both `flashUsedSize === 0` (flash) and `eraseCompleted` (SD card)
+- SD card labels: `TuningStatusBanner` uses `storageType` prop — "Erase Logs" / "Erase Logs & Verify" instead of "Erase Flash"
 
 ### Event-Driven UI Updates
 Renderer components subscribe to events:

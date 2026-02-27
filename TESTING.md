@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1877 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 26, 2026)
+**Total: 1884 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 27, 2026)
 
 ### UI Components
 
@@ -181,7 +181,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
-| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 54 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow, flashUsedSize-based erased state, import file, skip erase |
+| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 62 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow, flashUsedSize-based erased state, import file, skip erase, SD card labels + eraseCompleted |
 | `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete with metrics, FF warning, RPM status, flight style display |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |

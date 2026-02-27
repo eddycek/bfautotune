@@ -25,9 +25,14 @@ import { useToast } from './hooks/useToast';
 import { useDemoMode } from './hooks/useDemoMode';
 import { markIntentionalDisconnect } from './hooks/useConnection';
 import type { FCInfo, ConnectionStatus } from '@shared/types/common.types';
-import type { BlackboxSettings } from '@shared/types/blackbox.types';
+import type { BlackboxSettings, BlackboxStorageType } from '@shared/types/blackbox.types';
 import type { ProfileCreationInput } from '@shared/types/profile.types';
-import type { TuningMode, FlightGuideMode, AppliedChange } from '@shared/types/tuning.types';
+import type {
+  TuningMode,
+  TuningPhase,
+  FlightGuideMode,
+  AppliedChange,
+} from '@shared/types/tuning.types';
 import type {
   CompletedTuningRecord,
   FilterMetricsSummary,
@@ -59,6 +64,7 @@ function AppContent() {
   const [fcVersion, setFcVersion] = useState('');
   const [analyzingVerification, setAnalyzingVerification] = useState(false);
   const [bbRefreshKey, setBbRefreshKey] = useState(0);
+  const [storageType, setStorageType] = useState<BlackboxStorageType>('flash');
   const [verificationPickerLogId, setVerificationPickerLogId] = useState<string | null>(null);
   const [isReanalyze, setIsReanalyze] = useState(false);
   const [reanalyzeHistoryRecordId, setReanalyzeHistoryRecordId] = useState<string | null>(null);
@@ -105,7 +111,10 @@ function AppContent() {
       if (status.connected) {
         window.betaflight
           .getBlackboxInfo()
-          .then((info) => setFlashUsedSize(info.usedSize))
+          .then((info) => {
+            setFlashUsedSize(info.usedSize);
+            setStorageType(info.storageType);
+          })
           .catch(() => setFlashUsedSize(null));
       } else {
         setFlashUsedSize(null);
@@ -174,9 +183,17 @@ function AppContent() {
           setErasedForPhase(phaseForErase);
           setFlashUsedSize(0);
           setBbRefreshKey((k) => k + 1);
-          toast.success('Flash memory erased');
+
+          // Persist eraseCompleted so the state survives MSC disconnect/reconnect.
+          // For flash this is redundant (flashUsedSize===0 works), but it's harmless
+          // and keeps the code path consistent.
+          if (phaseForErase) {
+            await tuning.updatePhase(phaseForErase as TuningPhase, { eraseCompleted: true });
+          }
+
+          toast.success(storageType === 'sdcard' ? 'Logs erased' : 'Flash memory erased');
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : 'Failed to erase flash');
+          toast.error(err instanceof Error ? err.message : 'Failed to erase');
         } finally {
           setErasing(false);
         }
@@ -221,15 +238,25 @@ function AppContent() {
           });
           toast.success(`Log downloaded: ${metadata.filename}`);
 
-          // Transition session to *_analysis phase and store the log ID
+          // Transition session to *_analysis phase and store the log ID.
+          // Clear eraseCompleted — the phase is advancing past the erase step.
           const phase = tuning.session?.phase;
           if (phase === 'filter_log_ready') {
-            await tuning.updatePhase('filter_analysis', { filterLogId: metadata.id });
+            await tuning.updatePhase('filter_analysis', {
+              filterLogId: metadata.id,
+              eraseCompleted: undefined,
+            });
           } else if (phase === 'pid_log_ready') {
-            await tuning.updatePhase('pid_analysis', { pidLogId: metadata.id });
+            await tuning.updatePhase('pid_analysis', {
+              pidLogId: metadata.id,
+              eraseCompleted: undefined,
+            });
           } else if (phase === 'verification_pending') {
             // Save verification log ID without changing phase
-            await tuning.updatePhase('verification_pending', { verificationLogId: metadata.id });
+            await tuning.updatePhase('verification_pending', {
+              verificationLogId: metadata.id,
+              eraseCompleted: undefined,
+            });
           }
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to download log');
@@ -282,7 +309,9 @@ function AppContent() {
           setErasedForPhase('verification_pending');
           setFlashUsedSize(0);
           setBbRefreshKey((k) => k + 1);
-          toast.success('Flash erased!');
+          // Persist eraseCompleted for SD card MSC disconnect survival
+          await tuning.updatePhase('verification_pending', { eraseCompleted: true });
+          toast.success(storageType === 'sdcard' ? 'Logs erased!' : 'Flash erased!');
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to prepare verification');
         } finally {
@@ -505,12 +534,14 @@ function AppContent() {
                   session={tuning.session}
                   flashErased={erasedForPhase === tuning.session.phase}
                   flashUsedSize={flashUsedSize}
+                  storageType={storageType}
                   erasing={erasing}
                   downloading={downloading}
                   downloadProgress={downloadProgress}
                   analyzingVerification={analyzingVerification}
                   bbSettingsOk={bbStatus.allOk}
                   fixingSettings={fixingSettings}
+                  isDemoMode={isDemoMode}
                   onFixSettings={() => setShowBannerFixConfirm(true)}
                   onAction={handleTuningAction}
                   onViewGuide={(mode) => setShowFlightGuideMode(mode)}
