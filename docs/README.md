@@ -15,7 +15,7 @@ Overview of all design documents in this directory. Each document starts as a de
 | [TUNING_WORKFLOW_REVISION](./TUNING_WORKFLOW_REVISION.md) | **Complete** | #31–#50 | Stateful two-flight tuning workflow design (10-phase state machine) |
 | [TUNING_WORKFLOW_FIXES](./TUNING_WORKFLOW_FIXES.md) | **Complete** | #42–#43 | Fix for download/analyze being blocked during tuning session + phase transition after apply |
 | [TUNING_HISTORY_AND_COMPARISON](./TUNING_HISTORY_AND_COMPARISON.md) | **Complete** | #96–#99 | Tuning session history + before/after comparison on completion (UX #3 + #6) |
-| [SD_CARD_BLACKBOX_SUPPORT](./SD_CARD_BLACKBOX_SUPPORT.md) | **Active** | #105, #TBD | SD card blackbox storage support via MSC mode + tuning session fixes |
+| [SD_CARD_BLACKBOX_SUPPORT](./SD_CARD_BLACKBOX_SUPPORT.md) | **Complete** | #105, #142 | SD card blackbox storage support via MSC mode + tuning session fixes |
 | [PROPWASH_AND_DTERM_DIAGNOSTICS](./PROPWASH_AND_DTERM_DIAGNOSTICS.md) | **Proposed** | — | Prop wash event detection + D-term noise-to-effectiveness ratio diagnostics |
 | [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Active** | #119–#120, #137 | Research-based tuning accuracy improvements: Wiener deconvolution, throttle spectrograms, ~~proportional PID scaling~~ (done), ~~data quality scoring~~ (done), ~~flight quality score~~ (done), chirp analysis |
 | [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (4/7 done, rest are future work) |

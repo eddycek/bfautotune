@@ -1,6 +1,6 @@
 # SD Card Blackbox Storage Support
 
-> **Status**: Active — Fixes in progress (original: PR #105, fixes: PR #TBD)
+> **Status**: Complete (PRs #105, #142)
 
 ## Problem
 
