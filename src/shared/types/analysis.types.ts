@@ -239,6 +239,8 @@ export interface StepResponse {
   ffDominated?: boolean;
   /** RMS of (setpoint−gyro)/|magnitude| over the response window (dimensionless) */
   trackingErrorRMS?: number;
+  /** Mean |setpoint−gyro|/|magnitude| during hold phase (last 20% of window), as percentage */
+  steadyStateErrorPercent?: number;
 }
 
 /** Aggregated step response metrics for one axis */
@@ -255,6 +257,8 @@ export interface AxisStepProfile {
   meanLatencyMs: number;
   /** Mean tracking error RMS across all steps (dimensionless) */
   meanTrackingErrorRMS: number;
+  /** Mean steady-state error during hold phase across all steps (percentage) */
+  meanSteadyStateError: number;
 }
 
 /** A single PID recommendation */

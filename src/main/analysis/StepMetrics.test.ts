@@ -348,6 +348,46 @@ describe('StepMetrics', () => {
       expect(result.trackingErrorRMS!).toBeLessThan(0.15);
     });
 
+    it('should compute near-zero steadyStateErrorPercent for perfect hold', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+
+      // Perfect step: gyro matches setpoint during hold
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 1200, stepMag);
+
+      const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      expect(result.steadyStateErrorPercent).toBeDefined();
+      expect(result.steadyStateErrorPercent!).toBeCloseTo(0, 1);
+    });
+
+    it('should compute non-zero steadyStateErrorPercent for drifting hold', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepEnd = stepAt + 1200;
+      const stepMag = 300;
+      const drift = 15; // 15 deg/s constant drift during hold = 5% of magnitude
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      // Gyro matches during rise, but drifts during hold phase (last 20%)
+      const holdStart = stepAt + Math.floor((stepEnd - stepAt) * 0.8);
+      const gyro = makeSeries((i) => {
+        if (i < stepAt) return 0;
+        if (i >= holdStart) return stepMag - drift;
+        return stepMag;
+      }, numSamples);
+      const step = makeStep(stepAt, stepEnd, stepMag);
+
+      const result = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      expect(result.steadyStateErrorPercent).toBeDefined();
+      // Error ≈ drift / magnitude * 100 = 15/300*100 = 5%
+      expect(result.steadyStateErrorPercent!).toBeCloseTo(5, 0);
+    });
+
     it('should return trackingErrorRMS=1.0 for near-zero magnitude', () => {
       const numSamples = 2000;
       const stepAt = 200;
@@ -468,6 +508,30 @@ describe('StepMetrics', () => {
 
       // (0 + 0.4) / 2 = 0.2
       expect(profile.meanTrackingErrorRMS).toBeCloseTo(0.2, 2);
+    });
+
+    it('should aggregate meanSteadyStateError from responses', () => {
+      const responses = [
+        { ...makeResponse(10, 20, 50, 5), steadyStateErrorPercent: 2.0 },
+        { ...makeResponse(20, 40, 100, 10), steadyStateErrorPercent: 4.0 },
+        { ...makeResponse(15, 30, 75, 7), steadyStateErrorPercent: 6.0 },
+      ];
+
+      const profile = aggregateAxisMetrics(responses);
+
+      expect(profile.meanSteadyStateError).toBeCloseTo(4.0, 1);
+    });
+
+    it('should handle missing steadyStateErrorPercent (treat as 0)', () => {
+      const responses = [
+        makeResponse(10, 20, 50, 5), // no steadyStateErrorPercent
+        { ...makeResponse(20, 40, 100, 10), steadyStateErrorPercent: 6.0 },
+      ];
+
+      const profile = aggregateAxisMetrics(responses);
+
+      // (0 + 6) / 2 = 3
+      expect(profile.meanSteadyStateError).toBeCloseTo(3.0, 1);
     });
   });
 

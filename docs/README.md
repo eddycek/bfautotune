@@ -8,7 +8,7 @@ Overview of all design documents in this directory. Each document starts as a de
 |----------|--------|-----|-------------|
 | [BBL_PARSER_VALIDATION](./BBL_PARSER_VALIDATION.md) | **Complete** | #2–#10 | Byte-exact validation of BBL parser against BF Explorer reference implementations |
 | [BF_VERSION_POLICY](./BF_VERSION_POLICY.md) | **Complete** | #79 | Betaflight version compatibility policy (min 4.3, recommended 4.5+) |
-| [COMPREHENSIVE_TESTING_PLAN](./COMPREHENSIVE_TESTING_PLAN.md) | **Complete** | #84–#88 | 9-phase testing plan: 1877 tests / 96 files |
+| [COMPREHENSIVE_TESTING_PLAN](./COMPREHENSIVE_TESTING_PLAN.md) | **Complete** | #84–#88 | 9-phase testing plan: 1901 tests / 96 files |
 | [FEEDFORWARD_AWARENESS](./FEEDFORWARD_AWARENESS.md) | **Complete** | #55–#62 | FF detection from BBL headers, FF-dominated overshoot classification, FF-aware PID recommendations, MSP read, FC info display |
 | [FLIGHT_STYLE_PROFILES](./FLIGHT_STYLE_PROFILES.md) | **Complete** | #71–#78 | Smooth/Balanced/Aggressive flight style selector, style-based PID thresholds, preset defaults |
 | [RPM_FILTER_AWARENESS](./RPM_FILTER_AWARENESS.md) | **Complete** | #63–#69 | RPM filter detection via MSP/BBL, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics |

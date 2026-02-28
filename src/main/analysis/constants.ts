@@ -186,12 +186,43 @@ export interface PIDStyleThresholds {
   ringingMax: number;
   moderateOvershoot: number;
   sluggishRise: number;
+  /** Steady-state error threshold (%) above which I is considered too low */
+  steadyStateErrorMax: number;
+  /** Steady-state error threshold (%) below which I might be safely reduced */
+  steadyStateErrorLow: number;
 }
 
 export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
-  smooth:     { overshootIdeal: 3,  overshootMax: 12, settlingMax: 250, ringingMax: 1, moderateOvershoot: 8,  sluggishRise: 120 },
-  balanced:   { overshootIdeal: 10, overshootMax: 25, settlingMax: 200, ringingMax: 2, moderateOvershoot: 15, sluggishRise: 80  },
-  aggressive: { overshootIdeal: 18, overshootMax: 35, settlingMax: 150, ringingMax: 3, moderateOvershoot: 25, sluggishRise: 50  },
+  smooth: {
+    overshootIdeal: 3,
+    overshootMax: 12,
+    settlingMax: 250,
+    ringingMax: 1,
+    moderateOvershoot: 8,
+    sluggishRise: 120,
+    steadyStateErrorMax: 8,
+    steadyStateErrorLow: 2,
+  },
+  balanced: {
+    overshootIdeal: 10,
+    overshootMax: 25,
+    settlingMax: 200,
+    ringingMax: 2,
+    moderateOvershoot: 15,
+    sluggishRise: 80,
+    steadyStateErrorMax: 5,
+    steadyStateErrorLow: 1,
+  },
+  aggressive: {
+    overshootIdeal: 18,
+    overshootMax: 35,
+    settlingMax: 150,
+    ringingMax: 3,
+    moderateOvershoot: 25,
+    sluggishRise: 50,
+    steadyStateErrorMax: 3,
+    steadyStateErrorLow: 1,
+  },
 } as const;
 
 // ---- PID Safety Bounds ----

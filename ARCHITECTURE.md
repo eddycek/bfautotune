@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** February 28, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1901 unit tests, 96 files + 16 Playwright E2E tests**
 
 ---
 
@@ -284,8 +284,8 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `FilterRecommender.ts` | 330 | 41 | Noise-based filter targets, RPM-aware bounds |
 | `FilterAnalyzer.ts` | 206 | 16 | Filter analysis orchestrator (data quality integration) |
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
-| `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
-| `PIDRecommender.ts` | 380 | 40 | Flight-PID-anchored P/D recommendations, FF-aware rules, flight style thresholds |
+| `StepMetrics.ts` | 299 | 31 | Rise time, overshoot, settling, trace, FF contribution, steady-state error |
+| `PIDRecommender.ts` | 335 | 50 | Flight-PID-anchored P/D/I recommendations, FF-aware rules, I-term tracking, flight style thresholds |
 | `PIDAnalyzer.ts` | 185 | 19 | PID analysis orchestrator (FF context wiring, flight style, data quality) |
 | `DataQualityScorer.ts` | ~200 | 22 | Flight data quality scoring (0-100), confidence adjustment |
 | `headerValidation.ts` | 94 | 20 | BB header diagnostics, version-aware debug mode, RPM enrichment |
@@ -367,7 +367,7 @@ BBL rawHeaders → extractFeedforwardContext() → FeedforwardContext
 
 Each step also stores a `StepResponseTrace { timeMs, setpoint, gyro }` (Float64Array) for chart visualization. Steps can be classified as `ffDominated: boolean` via `classifyFFContribution()`.
 
-**PIDRecommender** — flight-PID-anchored convergent recommendations (FF-aware):
+**PIDRecommender** — flight-PID-anchored convergent recommendations (P/D/I + FF-aware):
 
 ```
 extractFlightPIDs(rawHeaders) → PIDConfiguration from BBL header
@@ -379,6 +379,8 @@ Decision rules:
   Overshoot 15–25%             → increase D +5 (medium confidence)
   Overshoot < 10% AND rise > 80ms → increase P +5 (medium)
   Ringing > 2 cycles           → increase D +5 (medium)
+  Steady-state error > threshold → increase I +5/+10 (medium/high)
+  Low error + slow settling + overshoot → decrease I -5 (low)
   Yaw: relaxed thresholds (1.5× overshoot, 120ms sluggish)
 
 Safety bounds: P 20–120, D 15–80, I 30–120
@@ -389,6 +391,8 @@ FF-aware override:
     → Skip P/D overshoot rules
     → Recommend feedforward_boost reduction instead
 ```
+
+I-term rules use `steadyStateErrorPercent` — mean |setpoint−gyro|/|magnitude| during hold phase (last 20% of response window). Style-specific thresholds control sensitivity (aggressive: 3%, balanced: 5%, smooth: 8%).
 
 Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**. FF-aware classification prevents misattributing feedforward-caused overshoot to P/D imbalance.
 
@@ -803,13 +807,13 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1901 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
 | FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response (+ Real-data) | 5 | 125 |
+| Step Response (+ Real-data) | 5 | 136 |
 | Header Validation + Constants | 2 | 31 |
 | MSP Protocol & Client | 3 | 140 |
 | MSC (Mass Storage) | 2 | 32 |

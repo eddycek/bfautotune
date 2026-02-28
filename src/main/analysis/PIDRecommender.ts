@@ -11,7 +11,15 @@ import type {
   PIDRecommendation,
 } from '@shared/types/analysis.types';
 import type { FlightStyle } from '@shared/types/profile.types';
-import { PID_STYLE_THRESHOLDS, P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
+import {
+  PID_STYLE_THRESHOLDS,
+  P_GAIN_MIN,
+  P_GAIN_MAX,
+  D_GAIN_MIN,
+  D_GAIN_MAX,
+  I_GAIN_MIN,
+  I_GAIN_MAX,
+} from './constants';
 
 const AXIS_NAMES = ['roll', 'pitch', 'yaw'] as const;
 
@@ -183,6 +191,41 @@ export function recommendPID(
         }
       }
     }
+
+    // Rule 5: I-term — steady-state tracking error
+    const ssError = profile.meanSteadyStateError;
+    if (ssError > thresholds.steadyStateErrorMax) {
+      // High hold-phase error → I-term is too low (quad drifts from target)
+      const iStep = ssError > thresholds.steadyStateErrorMax * 2 ? 10 : 5;
+      const targetI = clamp(base.I + iStep, I_GAIN_MIN, I_GAIN_MAX);
+      if (targetI !== pids.I) {
+        recommendations.push({
+          setting: `pid_${axisName}_i`,
+          currentValue: pids.I,
+          recommendedValue: targetI,
+          reason: `${axisName.charAt(0).toUpperCase() + axisName.slice(1)} drifts from target during holds (${ssError.toFixed(1)}% error). Increasing I-term improves tracking accuracy and wind resistance.`,
+          impact: 'stability',
+          confidence: ssError > thresholds.steadyStateErrorMax * 2 ? 'high' : 'medium',
+        });
+      }
+    } else if (
+      ssError < thresholds.steadyStateErrorLow &&
+      profile.meanSettlingTimeMs > thresholds.settlingMax &&
+      profile.meanOvershoot > moderateOvershoot
+    ) {
+      // Low error but slow settling + overshoot → I may be causing slow oscillation
+      const targetI = clamp(base.I - 5, I_GAIN_MIN, I_GAIN_MAX);
+      if (targetI !== pids.I) {
+        recommendations.push({
+          setting: `pid_${axisName}_i`,
+          currentValue: pids.I,
+          recommendedValue: targetI,
+          reason: `${axisName.charAt(0).toUpperCase() + axisName.slice(1)} has slow settling (${Math.round(profile.meanSettlingTimeMs)}ms) with overshoot. Reducing I-term can help the quad settle faster.`,
+          impact: 'stability',
+          confidence: 'low',
+        });
+      }
+    }
   }
 
   return recommendations;
@@ -225,11 +268,15 @@ export function generatePIDSummary(
   const hasRinging = recommendations.some(
     (r) => r.reason.includes('scillation') || r.reason.includes('wobble')
   );
+  const hasTracking = recommendations.some(
+    (r) => r.reason.includes('drifts') || r.reason.includes('I-term')
+  );
 
   const issues: string[] = [];
   if (hasOvershoot) issues.push('overshoot');
   if (hasSluggish) issues.push('sluggish response');
   if (hasRinging) issues.push('oscillation');
+  if (hasTracking) issues.push('tracking drift');
 
   const issueText = issues.length > 0 ? issues.join(' and ') : 'room for improvement';
 
