@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** February 28, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1905 unit tests, 97 files + 16 Playwright E2E tests**
 
 ---
 
@@ -127,6 +127,7 @@ If tuning session exists AND phase is filter_flight_pending or pid_flight_pendin
 | `MSPClient.ts` | 969 | High-level API with retry logic |
 | `MSPConnection.ts` | 309 | Serial port handling, CLI mode |
 | `MSPProtocol.ts` | 229 | MSP v1 packet encoding/decoding |
+| `cliUtils.ts` | 30 | CLI response validation (error pattern detection) |
 | `commands.ts` | 16 | MSP command enum (21 commands) |
 | `types.ts` | 44 | MSP type definitions |
 
@@ -803,7 +804,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1905 unit tests across 97 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -811,10 +812,10 @@ Hardware error (FC timeout, USB disconnect)
 | FFT Analysis (+ Data Quality) | 6 | 151 |
 | Step Response (+ Real-data) | 5 | 125 |
 | Header Validation + Constants | 2 | 31 |
-| MSP Protocol & Client | 3 | 140 |
+| MSP Protocol & Client | 4 | 157 |
 | MSC (Mass Storage) | 2 | 32 |
 | Storage Managers | 7 | 115 |
-| IPC Handlers | 1 | 105 |
+| IPC Handlers | 1 | 109 |
 | UI Components | 36 | 549 |
 | Contexts | 1 | 10 |
 | React Hooks | 12 | 146 |

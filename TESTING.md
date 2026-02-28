@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1884 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 27, 2026)
+**Total: 1905 unit tests across 97 files + 16 Playwright E2E tests** (last verified: February 28, 2026)
 
 ### UI Components
 
@@ -242,7 +242,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `ipc/handlers.test.ts` | 105 | All 43 IPC handler channels: connection, FC info, profiles, snapshots, blackbox, PID config, analysis, tuning apply (PID+filter+FF), snapshot restore, tuning session, BB settings fix, handler registration |
+| `ipc/handlers.test.ts` | 109 | All 43 IPC handler channels: connection, FC info, profiles, snapshots, blackbox, PID config, analysis, tuning apply (PID+filter+FF), snapshot restore, tuning session, BB settings fix, CLI command rejection, handler registration |
 
 ### MSP Protocol & Client
 
@@ -251,6 +251,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `msp/MSPProtocol.test.ts` | 30 | MSPv1 encode/decode, jumbo frames, round-trip, parseBuffer, checksum validation, garbage recovery |
 | `msp/MSPConnection.test.ts` | 48 | Connection lifecycle, sendCommand, sendCommandNoResponse, timeouts, error/partial responses, CLI mode (prompt debounce, chunk-boundary, trailing CR), event forwarding |
 | `msp/MSPClient.test.ts` | 62 | FC info queries, PID/filter/FF config, board info, UID, blackbox info (flash+SD card), SD card summary, MSC reboot (fire-and-forget), set PID, CLI diff, save & reboot, connect/disconnect, version gate, listPorts |
+| `msp/cliUtils.test.ts` | 17 | CLI response validation: error pattern detection (Invalid name/value, Unknown command, Parse error, ERROR), false positive prevention (NO_ERROR), CRLF/LF handling, CLICommandError properties |
 
 ### MSC (Mass Storage Class)
 

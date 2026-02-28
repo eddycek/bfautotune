@@ -13,6 +13,7 @@ import { HandlerDependencies, createResponse } from './types';
 import { sendTuningSessionChanged } from './events';
 import { logger } from '../../utils/logger';
 import { getErrorMessage } from '../../utils/errors';
+import { validateCLIResponse } from '../../msp/cliUtils';
 import { MockMSPClient } from '../../demo/MockMSPClient';
 
 export function registerTuningHandlers(deps: HandlerDependencies): void {
@@ -111,7 +112,8 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
               message: `Setting ${rec.setting} = ${value}...`,
               percent: 50 + Math.round((appliedFilters / input.filterRecommendations.length) * 25),
             });
-            await mspClient.connection.sendCLICommand(cmd);
+            const response = await mspClient.connection.sendCLICommand(cmd);
+            validateCLIResponse(cmd, response);
             appliedFilters++;
           }
 
@@ -135,7 +137,8 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
               message: `Setting ${rec.setting} = ${value}...`,
               percent: 75 + Math.round((appliedFeedforward / ffRecs.length) * 10),
             });
-            await mspClient.connection.sendCLICommand(cmd);
+            const response = await mspClient.connection.sendCLICommand(cmd);
+            validateCLIResponse(cmd, response);
             appliedFeedforward++;
           }
 
