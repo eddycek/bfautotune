@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** February 28, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1903 unit tests, 97 files + 16 Playwright E2E tests**
 
 ---
 
@@ -285,8 +285,9 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `FilterAnalyzer.ts` | 206 | 16 | Filter analysis orchestrator (data quality integration) |
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
 | `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
-| `PIDRecommender.ts` | 380 | 40 | Flight-PID-anchored P/D recommendations, FF-aware rules, flight style thresholds |
-| `PIDAnalyzer.ts` | 185 | 19 | PID analysis orchestrator (FF context wiring, flight style, data quality) |
+| `PIDRecommender.ts` | 313 | 47 | Flight-PID-anchored P/D recommendations, FF-aware rules, D-term effectiveness gating, flight style thresholds |
+| `PIDAnalyzer.ts` | 185 | 19 | PID analysis orchestrator (FF context, flight style, D-term, data quality) |
+| `DTermAnalyzer.ts` | 110 | 9 | D-term noise-to-effectiveness ratio (functional vs noise band FFT) |
 | `DataQualityScorer.ts` | ~200 | 22 | Flight data quality scoring (0-100), confidence adjustment |
 | `headerValidation.ts` | 94 | 20 | BB header diagnostics, version-aware debug mode, RPM enrichment |
 | `constants.ts` | 177 | — | All tunable thresholds |
@@ -338,9 +339,9 @@ Recommendations are **convergent** (idempotent): re-analyzing the same log after
 #### PID Analysis Pipeline
 
 ```
-BlackboxFlightData → StepDetector → StepMetrics → PIDRecommender
-                         ↓              ↓              ↓
-                    StepDetection[]  StepResponse[] PIDRecommendation[]
+BlackboxFlightData → StepDetector → StepMetrics → PIDRecommender ← DTermAnalyzer
+                         ↓              ↓              ↓                ↓
+                    StepDetection[]  StepResponse[] PIDRecommendation[]  D-term ratio
                     (per axis)       (with traces,  (flight-PID-anchored,
                                       ffDominated)   FF-aware)
 
@@ -367,19 +368,26 @@ BBL rawHeaders → extractFeedforwardContext() → FeedforwardContext
 
 Each step also stores a `StepResponseTrace { timeMs, setpoint, gyro }` (Float64Array) for chart visualization. Steps can be classified as `ffDominated: boolean` via `classifyFFContribution()`.
 
-**PIDRecommender** — flight-PID-anchored convergent recommendations (FF-aware):
+**PIDRecommender** — flight-PID-anchored convergent recommendations (FF-aware, D-term gated):
 
 ```
 extractFlightPIDs(rawHeaders) → PIDConfiguration from BBL header
   (P[0]/I[0]/D[0] fields = PIDs active during the flight)
 
-Decision rules:
-  Overshoot > 25%              → increase D +5 (high confidence)
+Decision rules (all D increases gated by D-term effectiveness ratio):
+  Overshoot > 25%              → increase D +5 (high confidence) [gated]
   Overshoot > 25% AND D ≥ 60%  → also decrease P -5
-  Overshoot 15–25%             → increase D +5 (medium confidence)
+  Overshoot 15–25%             → increase D +5 (medium) [gated]
   Overshoot < 10% AND rise > 80ms → increase P +5 (medium)
-  Ringing > 2 cycles           → increase D +5 (medium)
+  Ringing > 2 cycles           → increase D +5 (medium) [gated]
   Yaw: relaxed thresholds (1.5× overshoot, 120ms sluggish)
+
+D-term effectiveness gate (DTermAnalyzer):
+  FFT of pidD → split into functional (20-150 Hz) and noise (>150 Hz) bands
+  ratio = functional_energy / noise_energy
+  > 3.0 (efficient) → D increase allowed
+  1.0-3.0 (balanced) → D increase allowed
+  < 1.0 (noisy) → D increase blocked, recommend P reduction + filter fix
 
 Safety bounds: P 20–120, D 15–80, I 30–120
 
@@ -390,7 +398,7 @@ FF-aware override:
     → Recommend feedforward_boost reduction instead
 ```
 
-Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**. FF-aware classification prevents misattributing feedforward-caused overshoot to P/D imbalance.
+Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**. FF-aware classification prevents misattributing feedforward-caused overshoot to P/D imbalance. D-term effectiveness gating prevents recommending D increases that would amplify noise.
 
 #### Header Validation (`headerValidation.ts`)
 
@@ -803,13 +811,13 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1903 unit tests across 97 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
 | FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response (+ Real-data) | 5 | 125 |
+| Step Response (+ D-term + Real-data) | 6 | 138 |
 | Header Validation + Constants | 2 | 31 |
 | MSP Protocol & Client | 3 | 140 |
 | MSC (Mass Storage) | 2 | 32 |

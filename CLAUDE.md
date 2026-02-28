@@ -226,12 +226,13 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 
 Analyzes step response metrics from setpoint/gyro data to produce PID tuning recommendations.
 
-**Pipeline**: StepDetector → StepMetrics → PIDRecommender → PIDAnalyzer
+**Pipeline**: StepDetector → StepMetrics → PIDRecommender ← DTermAnalyzer → PIDAnalyzer
 
 - **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation
 - **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
-- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), safety bounds (P: 20-120, D: 15-80)
-- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
+- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), D-term effectiveness gating (noisy D blocks D-increase), safety bounds (P: 20-120, D: 15-80)
+- **DTermAnalyzer**: FFT-based D-term noise-to-effectiveness ratio (functional 20-150 Hz vs noise >150 Hz), per-axis rating (efficient/balanced/noisy)
+- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` + D-term analysis through pipeline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
 ### Data Quality Scoring (`src/main/analysis/DataQualityScorer.ts`)

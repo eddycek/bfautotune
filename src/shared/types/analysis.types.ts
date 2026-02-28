@@ -273,6 +273,21 @@ export interface PIDRecommendation {
   confidence: 'high' | 'medium' | 'low';
 }
 
+/** D-term effectiveness for one axis */
+export interface DTermEffectiveness {
+  /** Effectiveness ratio: functional_energy / noise_energy */
+  ratio: number;
+  /** Rating based on ratio thresholds */
+  rating: 'efficient' | 'balanced' | 'noisy';
+}
+
+/** Per-axis D-term effectiveness */
+export interface DTermEffectivenessPerAxis {
+  roll: DTermEffectiveness;
+  pitch: DTermEffectiveness;
+  yaw: DTermEffectiveness;
+}
+
 /** Complete PID analysis result */
 export interface PIDAnalysisResult {
   /** Step response profile for roll axis */
@@ -301,4 +316,6 @@ export interface PIDAnalysisResult {
   warnings?: AnalysisWarning[];
   /** Data quality score for the input flight data */
   dataQuality?: DataQualityScore;
+  /** D-term noise-to-effectiveness ratio per axis (when pidD data available) */
+  dTermEffectiveness?: DTermEffectivenessPerAxis;
 }

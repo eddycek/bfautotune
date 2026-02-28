@@ -8,6 +8,7 @@ import {
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type {
   AxisStepProfile,
+  DTermEffectivenessPerAxis,
   FeedforwardContext,
   StepResponse,
   StepEvent,
@@ -541,6 +542,107 @@ describe('PIDRecommender', () => {
 
       const ffRecs = recs.filter((r) => r.setting === 'feedforward_boost');
       expect(ffRecs.length).toBe(1);
+    });
+
+    // ---- D-term effectiveness gating tests ----
+
+    it('should gate D increase when D-term effectiveness is noisy', () => {
+      const profile = makeProfile({ meanOvershoot: 35 });
+      const noisyDTerm: DTermEffectivenessPerAxis = {
+        roll: { ratio: 0.5, rating: 'noisy' },
+        pitch: { ratio: 2.0, rating: 'balanced' },
+        yaw: { ratio: 5.0, rating: 'efficient' },
+      };
+
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        noisyDTerm
+      );
+
+      // Roll D should NOT be recommended (noisy)
+      const rollDRecs = recs.filter((r) => r.setting === 'pid_roll_d');
+      expect(rollDRecs.length).toBe(0);
+      // Instead, P reduction recommended with filter fix message
+      const rollPRecs = recs.filter((r) => r.setting === 'pid_roll_p');
+      expect(rollPRecs.length).toBe(1);
+      expect(rollPRecs[0].reason).toContain('noise');
+    });
+
+    it('should allow D increase when D-term effectiveness is efficient', () => {
+      const profile = makeProfile({ meanOvershoot: 35 });
+      const efficientDTerm: DTermEffectivenessPerAxis = {
+        roll: { ratio: 5.0, rating: 'efficient' },
+        pitch: { ratio: 5.0, rating: 'efficient' },
+        yaw: { ratio: 5.0, rating: 'efficient' },
+      };
+
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        efficientDTerm
+      );
+
+      // Roll D should be recommended (efficient)
+      const rollDRecs = recs.filter((r) => r.setting === 'pid_roll_d');
+      expect(rollDRecs.length).toBe(1);
+      expect(rollDRecs[0].recommendedValue).toBeGreaterThan(DEFAULT_PIDS.roll.D);
+    });
+
+    it('should gate ringing D increase when D-term is noisy', () => {
+      const profile = makeProfile({
+        responses: [makeResponse({ ringingCount: 5, overshootPercent: 5 })],
+        meanOvershoot: 5,
+      });
+      const noisyDTerm: DTermEffectivenessPerAxis = {
+        roll: { ratio: 0.5, rating: 'noisy' },
+        pitch: { ratio: 2.0, rating: 'balanced' },
+        yaw: { ratio: 5.0, rating: 'efficient' },
+      };
+
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        noisyDTerm
+      );
+
+      // No D increase for ringing when noisy
+      const rollDRecs = recs.filter((r) => r.setting === 'pid_roll_d');
+      expect(rollDRecs.length).toBe(0);
+    });
+
+    it('should work normally without D-term effectiveness data', () => {
+      const profile = makeProfile({ meanOvershoot: 35 });
+
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        undefined // no D-term data
+      );
+
+      // Should recommend D increase normally
+      const rollDRecs = recs.filter((r) => r.setting === 'pid_roll_d');
+      expect(rollDRecs.length).toBe(1);
     });
   });
 

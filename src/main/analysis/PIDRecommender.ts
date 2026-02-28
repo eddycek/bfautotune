@@ -7,6 +7,7 @@
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type {
   AxisStepProfile,
+  DTermEffectivenessPerAxis,
   FeedforwardContext,
   PIDRecommendation,
 } from '@shared/types/analysis.types';
@@ -33,7 +34,8 @@ export function recommendPID(
   currentPIDs: PIDConfiguration,
   flightPIDs?: PIDConfiguration,
   feedforwardContext?: FeedforwardContext,
-  flightStyle: FlightStyle = 'balanced'
+  flightStyle: FlightStyle = 'balanced',
+  dTermEffectiveness?: DTermEffectivenessPerAxis
 ): PIDRecommendation[] {
   const recommendations: PIDRecommendation[] = [];
   const profiles = [roll, pitch, yaw] as const;
@@ -48,6 +50,10 @@ export function recommendPID(
 
     // Skip axes with no step data
     if (profile.responses.length === 0) continue;
+
+    // D-term effectiveness gate: when D is mostly amplifying noise, don't recommend increasing it
+    const dTermRating = dTermEffectiveness?.[axisName]?.rating;
+    const dTermNoisy = dTermRating === 'noisy';
 
     // Check if overshoot on this axis is FF-dominated (majority of steps)
     const ffClassified = profile.responses.filter((r) => r.ffDominated !== undefined);
@@ -80,22 +86,9 @@ export function recommendPID(
       // Still check ringing and settling which are PID-related
     } else if (profile.meanOvershoot > overshootThreshold) {
       // Rule 1: Severe overshoot → D-first strategy (non-FF case)
-      // Scale D step with overshoot severity for faster convergence
       const severity = profile.meanOvershoot / overshootThreshold;
-      const dStep = severity > 4 ? 15 : severity > 2 ? 10 : 5;
-      const targetD = clamp(base.D + dStep, D_GAIN_MIN, D_GAIN_MAX);
-      if (targetD !== pids.D) {
-        recommendations.push({
-          setting: `pid_${axisName}_d`,
-          currentValue: pids.D,
-          recommendedValue: targetD,
-          reason: `Significant overshoot detected on ${axisName} (${Math.round(profile.meanOvershoot)}%). Increasing D-term dampens the bounce-back for a smoother, more controlled feel.`,
-          impact: 'both',
-          confidence: 'high',
-        });
-      }
-      // Reduce P when overshoot is extreme (>2x threshold) or D is already high
-      if (severity > 2 || base.D >= D_GAIN_MAX * 0.6) {
+      if (dTermNoisy) {
+        // D is mostly noise — recommend P reduction + filter fix instead of D increase
         const pStep = severity > 4 ? 10 : 5;
         const targetP = clamp(base.P - pStep, P_GAIN_MIN, P_GAIN_MAX);
         if (targetP !== pids.P) {
@@ -103,24 +96,55 @@ export function recommendPID(
             setting: `pid_${axisName}_p`,
             currentValue: pids.P,
             recommendedValue: targetP,
-            reason: `${severity > 4 ? 'Extreme' : 'Significant'} overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%). Reducing P-term helps prevent the quad from overshooting its target.`,
+            reason: `Overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%), but D-term is mostly amplifying noise. Reducing P instead — improve your filters before increasing D.`,
+            impact: 'both',
+            confidence: 'medium',
+          });
+        }
+      } else {
+        // Scale D step with overshoot severity for faster convergence
+        const dStep = severity > 4 ? 15 : severity > 2 ? 10 : 5;
+        const targetD = clamp(base.D + dStep, D_GAIN_MIN, D_GAIN_MAX);
+        if (targetD !== pids.D) {
+          recommendations.push({
+            setting: `pid_${axisName}_d`,
+            currentValue: pids.D,
+            recommendedValue: targetD,
+            reason: `Significant overshoot detected on ${axisName} (${Math.round(profile.meanOvershoot)}%). Increasing D-term dampens the bounce-back for a smoother, more controlled feel.`,
             impact: 'both',
             confidence: 'high',
           });
         }
+        // Reduce P when overshoot is extreme (>2x threshold) or D is already high
+        if (severity > 2 || base.D >= D_GAIN_MAX * 0.6) {
+          const pStep = severity > 4 ? 10 : 5;
+          const targetP = clamp(base.P - pStep, P_GAIN_MIN, P_GAIN_MAX);
+          if (targetP !== pids.P) {
+            recommendations.push({
+              setting: `pid_${axisName}_p`,
+              currentValue: pids.P,
+              recommendedValue: targetP,
+              reason: `${severity > 4 ? 'Extreme' : 'Significant'} overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%). Reducing P-term helps prevent the quad from overshooting its target.`,
+              impact: 'both',
+              confidence: 'high',
+            });
+          }
+        }
       }
     } else if (profile.meanOvershoot > moderateOvershoot) {
-      // Moderate overshoot (15-25%): increase D only
-      const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
-      if (targetD !== pids.D) {
-        recommendations.push({
-          setting: `pid_${axisName}_d`,
-          currentValue: pids.D,
-          recommendedValue: targetD,
-          reason: `Your quad overshoots on ${axisName} stick inputs (${Math.round(profile.meanOvershoot)}%). Increasing D-term will dampen the response.`,
-          impact: 'stability',
-          confidence: 'medium',
-        });
+      // Moderate overshoot (15-25%): increase D only (gated by D-term effectiveness)
+      if (!dTermNoisy) {
+        const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
+        if (targetD !== pids.D) {
+          recommendations.push({
+            setting: `pid_${axisName}_d`,
+            currentValue: pids.D,
+            recommendedValue: targetD,
+            reason: `Your quad overshoots on ${axisName} stick inputs (${Math.round(profile.meanOvershoot)}%). Increasing D-term will dampen the response.`,
+            impact: 'stability',
+            confidence: 'medium',
+          });
+        }
       }
     }
 
@@ -142,9 +166,9 @@ export function recommendPID(
       }
     }
 
-    // Rule 3: Excessive ringing → increase D (BF: any visible bounce-back should be addressed)
+    // Rule 3: Excessive ringing → increase D (gated by D-term effectiveness)
     const maxRinging = Math.max(...profile.responses.map((r) => r.ringingCount));
-    if (maxRinging > thresholds.ringingMax) {
+    if (maxRinging > thresholds.ringingMax && !dTermNoisy) {
       const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
       if (targetD !== pids.D) {
         // Don't duplicate if we already recommended D increase for overshoot
@@ -162,10 +186,11 @@ export function recommendPID(
       }
     }
 
-    // Rule 4: Slow settling → might need more D or less I
+    // Rule 4: Slow settling → might need more D or less I (gated by D-term effectiveness)
     if (
       profile.meanSettlingTimeMs > thresholds.settlingMax &&
-      profile.meanOvershoot < moderateOvershoot
+      profile.meanOvershoot < moderateOvershoot &&
+      !dTermNoisy
     ) {
       // Only if overshoot isn't the problem (settling from other causes)
       const existingDRec = recommendations.find((r) => r.setting === `pid_${axisName}_d`);

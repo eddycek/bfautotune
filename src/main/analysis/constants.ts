@@ -189,10 +189,48 @@ export interface PIDStyleThresholds {
 }
 
 export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
-  smooth:     { overshootIdeal: 3,  overshootMax: 12, settlingMax: 250, ringingMax: 1, moderateOvershoot: 8,  sluggishRise: 120 },
-  balanced:   { overshootIdeal: 10, overshootMax: 25, settlingMax: 200, ringingMax: 2, moderateOvershoot: 15, sluggishRise: 80  },
-  aggressive: { overshootIdeal: 18, overshootMax: 35, settlingMax: 150, ringingMax: 3, moderateOvershoot: 25, sluggishRise: 50  },
+  smooth: {
+    overshootIdeal: 3,
+    overshootMax: 12,
+    settlingMax: 250,
+    ringingMax: 1,
+    moderateOvershoot: 8,
+    sluggishRise: 120,
+  },
+  balanced: {
+    overshootIdeal: 10,
+    overshootMax: 25,
+    settlingMax: 200,
+    ringingMax: 2,
+    moderateOvershoot: 15,
+    sluggishRise: 80,
+  },
+  aggressive: {
+    overshootIdeal: 18,
+    overshootMax: 35,
+    settlingMax: 150,
+    ringingMax: 3,
+    moderateOvershoot: 25,
+    sluggishRise: 50,
+  },
 } as const;
+
+// ---- D-Term Effectiveness Analysis ----
+
+/** Lower bound of D-term functional frequency band (Hz) */
+export const DTERM_FUNCTIONAL_MIN_HZ = 20;
+
+/** Upper bound of D-term functional frequency band (Hz) */
+export const DTERM_FUNCTIONAL_MAX_HZ = 150;
+
+/** Lower bound of D-term noise frequency band (Hz) — same as functional max */
+export const DTERM_NOISE_MIN_HZ = 150;
+
+/** Ratio above which D is considered "efficient" (safe to increase) */
+export const DTERM_EFFECTIVE_RATIO = 3.0;
+
+/** Ratio below which D is considered "noisy" (should not increase) */
+export const DTERM_NOISY_RATIO = 1.0;
 
 // ---- PID Safety Bounds ----
 
