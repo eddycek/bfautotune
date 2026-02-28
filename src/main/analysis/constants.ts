@@ -189,9 +189,30 @@ export interface PIDStyleThresholds {
 }
 
 export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
-  smooth:     { overshootIdeal: 3,  overshootMax: 12, settlingMax: 250, ringingMax: 1, moderateOvershoot: 8,  sluggishRise: 120 },
-  balanced:   { overshootIdeal: 10, overshootMax: 25, settlingMax: 200, ringingMax: 2, moderateOvershoot: 15, sluggishRise: 80  },
-  aggressive: { overshootIdeal: 18, overshootMax: 35, settlingMax: 150, ringingMax: 3, moderateOvershoot: 25, sluggishRise: 50  },
+  smooth: {
+    overshootIdeal: 3,
+    overshootMax: 12,
+    settlingMax: 250,
+    ringingMax: 1,
+    moderateOvershoot: 8,
+    sluggishRise: 120,
+  },
+  balanced: {
+    overshootIdeal: 10,
+    overshootMax: 25,
+    settlingMax: 200,
+    ringingMax: 2,
+    moderateOvershoot: 15,
+    sluggishRise: 80,
+  },
+  aggressive: {
+    overshootIdeal: 18,
+    overshootMax: 35,
+    settlingMax: 150,
+    ringingMax: 3,
+    moderateOvershoot: 25,
+    sluggishRise: 50,
+  },
 } as const;
 
 // ---- PID Safety Bounds ----
@@ -207,6 +228,19 @@ export const D_GAIN_MIN = 15;
 
 /** Maximum D gain */
 export const D_GAIN_MAX = 80;
+
+// ---- D/P Damping Ratio ----
+
+/** Minimum healthy D/P ratio. Below this the quad is underdamped (bouncy, oscillatory).
+ * Typical BF defaults: D/P ≈ 0.55-0.65. Only checked on roll/pitch (yaw D often 0). */
+export const DAMPING_RATIO_MIN = 0.45;
+
+/** Maximum healthy D/P ratio. Above this the quad is overdamped (sluggish motors, noise amplification). */
+export const DAMPING_RATIO_MAX = 0.85;
+
+/** Minimum D/P change (in absolute terms) to emit a damping ratio recommendation.
+ * Prevents trivial 1-point adjustments from rounding. */
+export const DAMPING_RATIO_DEADZONE = 3;
 
 /** Minimum I gain */
 export const I_GAIN_MIN = 30;

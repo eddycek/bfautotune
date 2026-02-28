@@ -230,7 +230,7 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 
 - **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation
 - **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
-- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), safety bounds (P: 20-120, D: 15-80)
+- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), safety bounds (P: 20-120, D: 15-80), D/P damping ratio validation (post-process ensures ratio stays within 0.45–0.85 for roll/pitch)
 - **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
