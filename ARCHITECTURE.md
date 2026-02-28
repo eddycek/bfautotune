@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** February 28, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1894 unit tests, 96 files + 16 Playwright E2E tests**
 
 ---
 
@@ -798,12 +798,13 @@ Hardware error (FC timeout, USB disconnect)
 | File | Key Exports |
 |------|-------------|
 | `metricsExtract.ts` | `downsampleSpectrum()`, `extractFilterMetrics()`, `extractPIDMetrics()` — compact metrics for history storage |
+| `tuneQualityScore.ts` | `computeTuneQualityScore()` — 0-100 composite score from filter/PID/verification metrics, verification-aware noise delta |
 
 ---
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1894 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -819,7 +820,7 @@ Hardware error (FC timeout, USB disconnect)
 | Contexts | 1 | 10 |
 | React Hooks | 12 | 146 |
 | Charts | 3 | 41 |
-| Shared Constants & Utils | 4 | 39 |
+| Shared Constants & Utils | 4 | 49 |
 | E2E Workflows | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 69 |
 | **Playwright E2E** | **3** | **16** |
