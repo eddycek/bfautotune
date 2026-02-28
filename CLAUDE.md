@@ -216,7 +216,7 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 - **SegmentSelector**: Finds stable hover segments (excludes takeoff/landing/acro)
 - **FFTCompute**: Hanning window, Welch's method (50% overlap), power spectral density
 - **NoiseAnalyzer**: Noise floor estimation, peak detection (prominence-based), source classification (frame resonance 80-200 Hz, motor harmonics, electrical >500 Hz)
-- **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, beginner-friendly explanations
+- **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, propwash-aware gyro LPF1 floor (100 Hz, bypassed for extreme noise > -15 dB), beginner-friendly explanations
 - **FilterAnalyzer**: Orchestrator with async progress reporting
 - IPC: `ANALYSIS_RUN_FILTER` + `EVENT_ANALYSIS_PROGRESS`
 - Dependency: `fft.js`
