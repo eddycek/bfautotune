@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** February 28, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1895 unit tests, 96 files + 16 Playwright E2E tests**
 
 ---
 
@@ -803,13 +803,13 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1895 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
 | FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response (+ Real-data) | 5 | 125 |
+| Step Response (+ Real-data) | 5 | 136 |
 | Header Validation + Constants | 2 | 31 |
 | MSP Protocol & Client | 3 | 140 |
 | MSC (Mass Storage) | 2 | 32 |

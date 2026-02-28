@@ -138,8 +138,17 @@ export const STEP_MIN_MAGNITUDE_DEG_S = 100;
 /** Minimum setpoint derivative (deg/s per second) for edge detection */
 export const STEP_DERIVATIVE_THRESHOLD = 500;
 
-/** Window after step to measure response (ms) */
+/** Default window after step to measure response (ms) — fallback when adaptive not available */
 export const STEP_RESPONSE_WINDOW_MS = 300;
+
+/** Maximum response window for first-pass adaptive detection (ms) — generous for large quads */
+export const STEP_RESPONSE_WINDOW_MAX_MS = 500;
+
+/** Minimum response window (ms) — prevents clipping for tiny quads */
+export const STEP_RESPONSE_WINDOW_MIN_MS = 150;
+
+/** Multiplier for median settling time to compute adaptive window */
+export const ADAPTIVE_WINDOW_SETTLING_MULTIPLIER = 2;
 
 /** Minimum gap between steps to avoid rapid reversals (ms) */
 export const STEP_COOLDOWN_MS = 100;
@@ -189,9 +198,30 @@ export interface PIDStyleThresholds {
 }
 
 export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
-  smooth:     { overshootIdeal: 3,  overshootMax: 12, settlingMax: 250, ringingMax: 1, moderateOvershoot: 8,  sluggishRise: 120 },
-  balanced:   { overshootIdeal: 10, overshootMax: 25, settlingMax: 200, ringingMax: 2, moderateOvershoot: 15, sluggishRise: 80  },
-  aggressive: { overshootIdeal: 18, overshootMax: 35, settlingMax: 150, ringingMax: 3, moderateOvershoot: 25, sluggishRise: 50  },
+  smooth: {
+    overshootIdeal: 3,
+    overshootMax: 12,
+    settlingMax: 250,
+    ringingMax: 1,
+    moderateOvershoot: 8,
+    sluggishRise: 120,
+  },
+  balanced: {
+    overshootIdeal: 10,
+    overshootMax: 25,
+    settlingMax: 200,
+    ringingMax: 2,
+    moderateOvershoot: 15,
+    sluggishRise: 80,
+  },
+  aggressive: {
+    overshootIdeal: 18,
+    overshootMax: 35,
+    settlingMax: 150,
+    ringingMax: 3,
+    moderateOvershoot: 25,
+    sluggishRise: 50,
+  },
 } as const;
 
 // ---- PID Safety Bounds ----

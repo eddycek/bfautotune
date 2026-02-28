@@ -15,7 +15,16 @@ import type {
   StepResponseTrace,
   AxisStepProfile,
 } from '@shared/types/analysis.types';
-import { SETTLING_TOLERANCE, RISE_TIME_LOW, RISE_TIME_HIGH, LATENCY_THRESHOLD } from './constants';
+import {
+  SETTLING_TOLERANCE,
+  RISE_TIME_LOW,
+  RISE_TIME_HIGH,
+  LATENCY_THRESHOLD,
+  STEP_RESPONSE_WINDOW_MS,
+  STEP_RESPONSE_WINDOW_MIN_MS,
+  STEP_RESPONSE_WINDOW_MAX_MS,
+  ADAPTIVE_WINDOW_SETTLING_MULTIPLIER,
+} from './constants';
 
 /**
  * Compute response metrics for a single step event.
@@ -269,6 +278,43 @@ function crossedThreshold(
   } else {
     return value <= threshold;
   }
+}
+
+/**
+ * Compute an adaptive response window (ms) from first-pass step responses.
+ *
+ * Uses 2× median settling time, clamped to [MIN, MAX]. Falls back to the
+ * default 300ms when there aren't enough valid settling measurements.
+ *
+ * @param responses - All step responses from the first-pass (generous window)
+ * @param minResponses - Minimum steps required to compute adaptive window (default 3)
+ * @returns Adaptive window in ms
+ */
+export function computeAdaptiveWindowMs(responses: StepResponse[], minResponses = 3): number {
+  // Collect settling times, excluding degenerate cases where settling == full window
+  const settlingTimes = responses.map((r) => r.settlingTimeMs).filter((s) => s > 0);
+
+  if (settlingTimes.length < minResponses) {
+    return STEP_RESPONSE_WINDOW_MS; // fallback
+  }
+
+  // Compute median settling time
+  settlingTimes.sort((a, b) => a - b);
+  const mid = Math.floor(settlingTimes.length / 2);
+  const median =
+    settlingTimes.length % 2 === 0
+      ? (settlingTimes[mid - 1] + settlingTimes[mid]) / 2
+      : settlingTimes[mid];
+
+  // Adaptive window: 2× median settling, clamped to bounds
+  const adaptive = Math.round(
+    Math.max(
+      STEP_RESPONSE_WINDOW_MIN_MS,
+      Math.min(STEP_RESPONSE_WINDOW_MAX_MS, median * ADAPTIVE_WINDOW_SETTLING_MULTIPLIER)
+    )
+  );
+
+  return adaptive;
 }
 
 /** Compute mean of a Float64Array slice */

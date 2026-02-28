@@ -228,10 +228,10 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 
 **Pipeline**: StepDetector → StepMetrics → PIDRecommender → PIDAnalyzer
 
-- **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation
-- **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
+- **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation, configurable response window
+- **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement, `computeAdaptiveWindowMs()` (2× median settling, clamped 150–500ms)
 - **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), safety bounds (P: 20-120, D: 15-80)
-- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
+- **PIDAnalyzer**: Two-pass orchestrator — first pass with generous 500ms window to compute adaptive window, second pass with optimal window (2× median settling). Threads `flightPIDs` through pipeline, async progress reporting
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
 ### Data Quality Scoring (`src/main/analysis/DataQualityScorer.ts`)
