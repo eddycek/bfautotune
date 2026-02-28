@@ -472,16 +472,16 @@ describe('StepMetrics', () => {
   });
 
   describe('classifyFFContribution', () => {
-    it('should return true when pidF dominates at peak (FF-dominated overshoot)', () => {
+    it('should return true and set high ffContribution when pidF energy dominates', () => {
       const numSamples = 2000;
       const stepAt = 200;
       const stepMag = 300;
-      const peakAt = stepAt + 50; // peak 50 samples after step
+      const peakAt = stepAt + 50;
 
       // Gyro with overshoot
       const gyro = makeSeries((i) => {
         if (i < stepAt) return 0;
-        if (i === peakAt) return stepMag * 1.3; // 30% overshoot peak
+        if (i === peakAt) return stepMag * 1.3;
         if (i >= stepAt) return stepMag;
         return 0;
       }, numSamples);
@@ -490,15 +490,18 @@ describe('StepMetrics', () => {
       const step = makeStep(stepAt, stepAt + 400, stepMag);
       const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
 
-      // pidF much larger than pidP at peak
-      const pidP = makeSeries((i) => (i === peakAt ? 20 : 10), numSamples);
-      const pidF = makeSeries((i) => (i === peakAt ? 80 : 5), numSamples);
+      // pidF consistently high, pidP consistently low → FF energy dominates
+      const pidP = makeSeries(() => 10, numSamples);
+      const pidF = makeSeries(() => 50, numSamples);
 
       const result = classifyFFContribution(response, pidP, pidF, gyro);
       expect(result).toBe(true);
+      // ffContribution should be high (50²/(50²+10²) ≈ 0.96)
+      expect(response.ffContribution).toBeDefined();
+      expect(response.ffContribution!).toBeGreaterThan(0.9);
     });
 
-    it('should return false when pidP dominates at peak (P-dominated overshoot)', () => {
+    it('should return false and set low ffContribution when pidP energy dominates', () => {
       const numSamples = 2000;
       const stepAt = 200;
       const stepMag = 300;
@@ -515,12 +518,14 @@ describe('StepMetrics', () => {
       const step = makeStep(stepAt, stepAt + 400, stepMag);
       const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
 
-      // pidP much larger than pidF at peak
-      const pidP = makeSeries((i) => (i === peakAt ? 80 : 10), numSamples);
-      const pidF = makeSeries((i) => (i === peakAt ? 10 : 5), numSamples);
+      // pidP consistently high, pidF consistently low → PID energy dominates
+      const pidP = makeSeries(() => 50, numSamples);
+      const pidF = makeSeries(() => 10, numSamples);
 
       const result = classifyFFContribution(response, pidP, pidF, gyro);
       expect(result).toBe(false);
+      expect(response.ffContribution).toBeDefined();
+      expect(response.ffContribution!).toBeLessThan(0.1);
     });
 
     it('should return undefined when overshoot is below threshold', () => {
@@ -539,6 +544,63 @@ describe('StepMetrics', () => {
 
       const result = classifyFFContribution(response, pidP, pidF, gyro);
       expect(result).toBeUndefined();
+      expect(response.ffContribution).toBeUndefined();
+    });
+
+    it('should compute mixed ratio when FF and P have similar energy', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+      const peakAt = stepAt + 50;
+
+      const gyro = makeSeries((i) => {
+        if (i < stepAt) return 0;
+        if (i === peakAt) return stepMag * 1.3;
+        if (i >= stepAt) return stepMag;
+        return 0;
+      }, numSamples);
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+      const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      // Equal pidP and pidF → 50% each
+      const pidP = makeSeries(() => 30, numSamples);
+      const pidF = makeSeries(() => 30, numSamples);
+
+      const result = classifyFFContribution(response, pidP, pidF, gyro);
+      // With equal energy, ratio = 0.5 → not > 0.5, returns false
+      expect(result).toBe(false);
+      expect(response.ffContribution).toBeDefined();
+      expect(response.ffContribution!).toBeCloseTo(0.5, 1);
+    });
+
+    it('ffContribution is rounded to 3 decimal places', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+      const peakAt = stepAt + 50;
+
+      const gyro = makeSeries((i) => {
+        if (i < stepAt) return 0;
+        if (i === peakAt) return stepMag * 1.3;
+        if (i >= stepAt) return stepMag;
+        return 0;
+      }, numSamples);
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+      const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      const pidP = makeSeries(() => 20, numSamples);
+      const pidF = makeSeries(() => 35, numSamples);
+
+      classifyFFContribution(response, pidP, pidF, gyro);
+      expect(response.ffContribution).toBeDefined();
+      // Check it's a clean decimal (no more than 3 places)
+      const str = response.ffContribution!.toString();
+      const decimalPart = str.split('.')[1] || '';
+      expect(decimalPart.length).toBeLessThanOrEqual(3);
     });
   });
 });

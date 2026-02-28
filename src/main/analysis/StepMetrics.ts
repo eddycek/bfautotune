@@ -212,13 +212,13 @@ export function aggregateAxisMetrics(responses: StepResponse[]): AxisStepProfile
 }
 
 /**
- * Classify whether a step's overshoot is dominated by feedforward.
+ * Classify feedforward contribution to a step's overshoot.
  *
- * Finds the peak index in the gyro response, then compares |pidF| vs |pidP|
- * at that point. If |pidF| > |pidP|, the overshoot is FF-dominated.
+ * Computes energy-based FF contribution ratio by integrating |pidF|² and |pidP|²
+ * over the response window. Sets both `ffContribution` (continuous 0-1) and
+ * `ffDominated` (binary, backward-compatible) on the response.
  *
- * Returns undefined if pidF or pidP data is not available or step has no
- * meaningful overshoot.
+ * @returns The continuous ffContribution ratio (0-1), or undefined if data unavailable
  */
 export function classifyFFContribution(
   response: StepResponse,
@@ -237,24 +237,27 @@ export function classifyFFContribution(
 
   if (Math.abs(effectiveMagnitude) < 1) return undefined;
 
-  // Find peak index (max deviation in step direction)
-  let peakIdx = startIndex;
-  let peakVal = gyro.values[startIndex];
+  // Validate data bounds
+  if (endIndex > pidP.values.length || endIndex > pidF.values.length) return undefined;
+
+  // Compute energy-based FF contribution ratio over the response window
+  let ffEnergy = 0;
+  let pEnergy = 0;
   for (let i = startIndex; i < endIndex; i++) {
-    const val = gyro.values[i];
-    if (effectiveMagnitude > 0 ? val > peakVal : val < peakVal) {
-      peakVal = val;
-      peakIdx = i;
-    }
+    const f = pidF.values[i];
+    const p = pidP.values[i];
+    ffEnergy += f * f;
+    pEnergy += p * p;
   }
 
-  // Compare pidF vs pidP magnitudes at peak
-  if (peakIdx >= pidP.values.length || peakIdx >= pidF.values.length) return undefined;
+  const totalEnergy = ffEnergy + pEnergy;
+  if (totalEnergy === 0) return undefined;
 
-  const pMag = Math.abs(pidP.values[peakIdx]);
-  const fMag = Math.abs(pidF.values[peakIdx]);
+  const ratio = ffEnergy / totalEnergy;
+  response.ffContribution = Math.round(ratio * 1000) / 1000; // 3 decimal places
 
-  return fMag > pMag;
+  // Binary classification: FF-dominated when ratio > 0.5 (backward compat)
+  return ratio > 0.5;
 }
 
 /** Check if value has crossed a threshold in the correct direction */

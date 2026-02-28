@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** February 28, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1893 unit tests, 96 files + 16 Playwright E2E tests**
 
 ---
 
@@ -284,8 +284,8 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `FilterRecommender.ts` | 330 | 41 | Noise-based filter targets, RPM-aware bounds |
 | `FilterAnalyzer.ts` | 206 | 16 | Filter analysis orchestrator (data quality integration) |
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
-| `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
-| `PIDRecommender.ts` | 380 | 40 | Flight-PID-anchored P/D recommendations, FF-aware rules, flight style thresholds |
+| `StepMetrics.ts` | 286 | 29 | Rise time, overshoot, settling, trace, energy-based FF contribution ratio |
+| `PIDRecommender.ts` | 322 | 44 | Flight-PID-anchored P/D recommendations, continuous FF ratio rules (dominated/mixed/PID), flight style thresholds |
 | `PIDAnalyzer.ts` | 185 | 19 | PID analysis orchestrator (FF context wiring, flight style, data quality) |
 | `DataQualityScorer.ts` | ~200 | 22 | Flight data quality scoring (0-100), confidence adjustment |
 | `headerValidation.ts` | 94 | 20 | BB header diagnostics, version-aware debug mode, RPM enrichment |
@@ -365,9 +365,9 @@ BBL rawHeaders → extractFeedforwardContext() → FeedforwardContext
 | Latency | Time to 5% movement from baseline (ms) |
 | Ringing | Post-step oscillation count (zero-crossings) |
 
-Each step also stores a `StepResponseTrace { timeMs, setpoint, gyro }` (Float64Array) for chart visualization. Steps can be classified as `ffDominated: boolean` via `classifyFFContribution()`.
+Each step also stores a `StepResponseTrace { timeMs, setpoint, gyro }` (Float64Array) for chart visualization. Steps carry a continuous `ffContribution` ratio (0.0–1.0) computed by `classifyFFContribution()` using energy integration over the response window.
 
-**PIDRecommender** — flight-PID-anchored convergent recommendations (FF-aware):
+**PIDRecommender** — flight-PID-anchored convergent recommendations (continuous FF-aware):
 
 ```
 extractFlightPIDs(rawHeaders) → PIDConfiguration from BBL header
@@ -383,14 +383,16 @@ Decision rules:
 
 Safety bounds: P 20–120, D 15–80, I 30–120
 
-FF-aware override:
+Continuous FF-aware classification:
+  classifyFFContribution() → energy ratio: FF/(FF+P) integrated over response window
   extractFeedforwardContext(rawHeaders) → { active, boost?, maxRateLimit? }
-  When majority of steps are ffDominated (|pidF| > |pidP| at peak):
-    → Skip P/D overshoot rules
-    → Recommend feedforward_boost reduction instead
+  Mean FF ratio per axis:
+    > 0.6 (FF-dominated)  → recommend feedforward_boost -5, skip P/D
+    0.3–0.6 (mixed)       → recommend feedforward_boost -3 AND D +5
+    < 0.3 (PID-dominated) → normal P/D rules
 ```
 
-Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**. FF-aware classification prevents misattributing feedforward-caused overshoot to P/D imbalance.
+Anchoring to flight PIDs (not current FC PIDs) makes recommendations **convergent**. Continuous FF energy ratio (replacing binary peak-point check) prevents misattributing feedforward-caused overshoot to P/D imbalance and enables mixed FF/PID recommendations.
 
 #### Header Validation (`headerValidation.ts`)
 
@@ -787,7 +789,7 @@ Hardware error (FC timeout, USB disconnect)
 | `profile.types.ts` | `DroneProfile`, `DroneProfileMetadata`, `ProfileCreationInput`, `DroneSize`, `BatteryType`, `FlightStyle` |
 | `pid.types.ts` | `PIDTerm { P, I, D }`, `PIDFTerm extends PIDTerm { F }`, `PIDConfiguration`, `FeedforwardConfiguration` |
 | `blackbox.types.ts` | `BlackboxInfo`, `BlackboxParseResult`, `BlackboxFlightData`, `BBLLogHeader`, `BBLEncoding`, `BBLPredictor` |
-| `analysis.types.ts` | `PowerSpectrum`, `NoiseProfile`, `FilterRecommendation`, `StepResponse` (with `ffDominated`), `StepResponseTrace`, `PIDRecommendation`, `AxisStepMetrics`, `CurrentFilterSettings`, `FeedforwardContext` |
+| `analysis.types.ts` | `PowerSpectrum`, `NoiseProfile`, `FilterRecommendation`, `StepResponse` (with `ffDominated`, `ffContribution`), `StepResponseTrace`, `PIDRecommendation`, `AxisStepMetrics`, `CurrentFilterSettings`, `FeedforwardContext` |
 | `tuning.types.ts` | `TuningPhase` (10 values), `TuningSession`, `TuningMode`, `AppliedChange` |
 | `tuning-history.types.ts` | `CompactSpectrum`, `FilterMetricsSummary`, `PIDMetricsSummary`, `CompletedTuningRecord` |
 | `ipc.types.ts` | `ApplyRecommendationsInput/Progress/Result`, `SnapshotRestoreProgress/Result`, `BetaflightAPI` (complete API interface) |
@@ -803,7 +805,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1893 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
