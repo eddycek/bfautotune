@@ -189,9 +189,30 @@ export interface PIDStyleThresholds {
 }
 
 export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
-  smooth:     { overshootIdeal: 3,  overshootMax: 12, settlingMax: 250, ringingMax: 1, moderateOvershoot: 8,  sluggishRise: 120 },
-  balanced:   { overshootIdeal: 10, overshootMax: 25, settlingMax: 200, ringingMax: 2, moderateOvershoot: 15, sluggishRise: 80  },
-  aggressive: { overshootIdeal: 18, overshootMax: 35, settlingMax: 150, ringingMax: 3, moderateOvershoot: 25, sluggishRise: 50  },
+  smooth: {
+    overshootIdeal: 3,
+    overshootMax: 12,
+    settlingMax: 250,
+    ringingMax: 1,
+    moderateOvershoot: 8,
+    sluggishRise: 120,
+  },
+  balanced: {
+    overshootIdeal: 10,
+    overshootMax: 25,
+    settlingMax: 200,
+    ringingMax: 2,
+    moderateOvershoot: 15,
+    sluggishRise: 80,
+  },
+  aggressive: {
+    overshootIdeal: 18,
+    overshootMax: 35,
+    settlingMax: 150,
+    ringingMax: 3,
+    moderateOvershoot: 25,
+    sluggishRise: 50,
+  },
 } as const;
 
 // ---- PID Safety Bounds ----
@@ -213,3 +234,29 @@ export const I_GAIN_MIN = 30;
 
 /** Maximum I gain */
 export const I_GAIN_MAX = 120;
+
+// ---- Prop Wash Detection ----
+
+/** Minimum throttle derivative (normalized units/s) for throttle-down event detection */
+export const PROPWASH_THROTTLE_DROP_RATE = 0.3;
+
+/** Minimum sustained duration of throttle drop (ms) */
+export const PROPWASH_MIN_DROP_DURATION_MS = 50;
+
+/** Post-event analysis window (ms) — oscillation occurs right after throttle cut */
+export const PROPWASH_ANALYSIS_WINDOW_MS = 400;
+
+/** Prop wash frequency band lower bound (Hz) */
+export const PROPWASH_FREQ_MIN_HZ = 20;
+
+/** Prop wash frequency band upper bound (Hz) */
+export const PROPWASH_FREQ_MAX_HZ = 90;
+
+/** Severity ratio threshold: below this is minimal prop wash */
+export const PROPWASH_SEVERITY_MINIMAL = 2.0;
+
+/** Severity ratio threshold: above this is severe prop wash */
+export const PROPWASH_SEVERITY_SEVERE = 5.0;
+
+/** Minimum events needed for reliable analysis */
+export const PROPWASH_MIN_EVENTS = 3;

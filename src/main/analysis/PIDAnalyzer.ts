@@ -17,6 +17,7 @@ import { detectSteps } from './StepDetector';
 import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
+import { analyzePropWash } from './PropWashDetector';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -115,6 +116,9 @@ export async function analyzePID(
   // Extract feedforward context before recommendations (needed for FF-aware rules)
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
+  // Step 2b: Prop wash analysis (runs on any flight with throttle data)
+  const propWash = analyzePropWash(flightData);
+
   // Step 3: Generate recommendations
   onProgress?.({ step: 'scoring', percent: 80 });
   const rawRecommendations = recommendPID(
@@ -158,6 +162,7 @@ export async function analyzePID(
     flightStyle,
     dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
+    ...(propWash ? { propWash } : {}),
   };
 }
 

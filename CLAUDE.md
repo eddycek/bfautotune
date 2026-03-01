@@ -232,6 +232,7 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 - **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
 - **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), safety bounds (P: 20-120, D: 15-80)
 - **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
+- **PropWashDetector**: Detects throttle-down events, computes post-event PSD in 20-90 Hz band, scores severity (minimal/moderate/severe) against baseline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
 ### Data Quality Scoring (`src/main/analysis/DataQualityScorer.ts`)

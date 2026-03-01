@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** March 1, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1906 unit tests, 97 files + 16 Playwright E2E tests**
 
 ---
 
@@ -286,7 +286,8 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
 | `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
 | `PIDRecommender.ts` | 380 | 40 | Flight-PID-anchored P/D recommendations, FF-aware rules, flight style thresholds |
-| `PIDAnalyzer.ts` | 185 | 19 | PID analysis orchestrator (FF context wiring, flight style, data quality) |
+| `PIDAnalyzer.ts` | 171 | 20 | PID analysis orchestrator (FF context wiring, flight style, data quality, prop wash) |
+| `PropWashDetector.ts` | 309 | 15 | Prop wash event detection (throttle-down events, post-event FFT, severity scoring) |
 | `DataQualityScorer.ts` | ~200 | 22 | Flight data quality scoring (0-100), confidence adjustment |
 | `headerValidation.ts` | 94 | 20 | BB header diagnostics, version-aware debug mode, RPM enrichment |
 | `constants.ts` | 177 | — | All tunable thresholds |
@@ -803,13 +804,13 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1906 unit tests across 97 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
 | FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response (+ Real-data) | 5 | 125 |
+| Step Response (+ Prop Wash + Real-data) | 6 | 141 |
 | Header Validation + Constants | 2 | 31 |
 | MSP Protocol & Client | 3 | 140 |
 | MSC (Mass Storage) | 2 | 32 |

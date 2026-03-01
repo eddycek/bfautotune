@@ -64,7 +64,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 
 ### Automated Tuning
 - **Filter tuning**: FFT noise analysis (Welch's method, Hanning window, peak detection)
-- **PID tuning**: Step response analysis (rise time, overshoot, settling, ringing)
+- **PID tuning**: Step response analysis (rise time, overshoot, settling, ringing) + prop wash detection
 - **Flight style preferences**: Smooth (cinematic), Balanced (freestyle), or Aggressive (racing) — PID thresholds adapt to pilot preference
 - **RPM filter awareness**: Detects RPM filter state via MSP or BBL headers, widens safety bounds when active (gyro LPF1 up to 500 Hz), recommends dynamic notch optimization (count/Q), diagnoses motor harmonic anomalies
 - **Feedforward awareness**: Detects FF state from BBL headers, classifies FF-dominated overshoot, adjusts P/D recommendations accordingly
@@ -159,7 +159,7 @@ Demo mode auto-connects to a virtual FC, creates a demo profile, and generates r
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Unit tests:** 1877 tests across 96 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Unit tests:** 1906 tests across 97 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
 **Playwright E2E:** 16 tests across 3 spec files — launches real Electron app in demo mode, walks through complete tuning cycles.
 
@@ -224,7 +224,7 @@ bfautotune/
 │   │   │   ├── commands.ts      # MSP command definitions
 │   │   │   └── types.ts         # MSP type definitions
 │   │   ├── blackbox/            # BBL binary log parser (6 modules, 245 tests)
-│   │   ├── analysis/            # FFT noise + step response analysis (11 modules, FF-aware)
+│   │   ├── analysis/            # FFT noise + step response analysis (12 modules, FF-aware)
 │   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
 │   │   │   ├── SegmentSelector.ts   # Hover segment detection
 │   │   │   ├── NoiseAnalyzer.ts     # Peak detection, noise classification
@@ -234,6 +234,7 @@ bfautotune/
 │   │   │   ├── StepMetrics.ts       # Rise time, overshoot, settling, FF classification
 │   │   │   ├── PIDRecommender.ts    # Flight-PID-anchored P/D recommendations, FF-aware
 │   │   │   ├── PIDAnalyzer.ts       # PID analysis orchestrator (FF context wiring)
+│   │   │   ├── PropWashDetector.ts  # Prop wash event detection + severity scoring
 │   │   │   ├── DataQualityScorer.ts # Flight data quality scoring (0-100)
 │   │   │   ├── headerValidation.ts  # BB header diagnostics
 │   │   │   └── constants.ts         # Tunable thresholds
