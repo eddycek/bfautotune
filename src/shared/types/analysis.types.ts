@@ -301,4 +301,48 @@ export interface PIDAnalysisResult {
   warnings?: AnalysisWarning[];
   /** Data quality score for the input flight data */
   dataQuality?: DataQualityScore;
+  /** Bayesian optimization suggestions (when enough tuning history is available) */
+  bayesianSuggestions?: BayesianOptimizationResult;
+}
+
+// ---- Bayesian Optimization Types ----
+
+/** An observation point mapping PID gains to performance metrics */
+export interface BayesianObservation {
+  /** PID gains active during the flight */
+  gains: { P: number; D: number };
+  /** Measured step response performance */
+  metrics: { overshoot: number; riseTimeMs: number; settlingTimeMs: number };
+  /** Scalar objective value (lower is better) */
+  objectiveValue: number;
+  /** Data quality tier of the source session */
+  dataQualityTier?: string;
+}
+
+/** Bayesian optimization result for one axis */
+export interface AxisOptimizationResult {
+  /** Suggested P gain */
+  suggestedP: number;
+  /** Suggested D gain */
+  suggestedD: number;
+  /** Expected improvement over current best */
+  expectedImprovement: number;
+  /** Confidence in the suggestion */
+  confidence: 'high' | 'medium' | 'low';
+  /** Predicted objective value at suggested gains */
+  predictedObjective: number;
+  /** Number of observations used for this axis */
+  observationCount: number;
+}
+
+/** Complete Bayesian optimization result */
+export interface BayesianOptimizationResult {
+  /** Per-axis optimization results */
+  roll?: AxisOptimizationResult;
+  pitch?: AxisOptimizationResult;
+  yaw?: AxisOptimizationResult;
+  /** Number of tuning sessions used as history */
+  historySessionsUsed: number;
+  /** Whether Bayesian optimization was used (false = too few sessions) */
+  usedBayesian: boolean;
 }

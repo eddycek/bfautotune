@@ -10,13 +10,16 @@ import type { FlightStyle } from '@shared/types/profile.types';
 import type {
   AnalysisProgress,
   AnalysisWarning,
+  BayesianOptimizationResult,
   PIDAnalysisResult,
   StepResponse,
 } from '@shared/types/analysis.types';
+import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
 import { detectSteps } from './StepDetector';
 import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
+import { optimizeWithHistory } from './BayesianOptimizer';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -35,6 +38,7 @@ const DEFAULT_PIDS: PIDConfiguration = {
  * @param flightPIDs - PIDs from the BBL header (flight-time PIDs) for convergent recommendations
  * @param rawHeaders - BBL raw headers for feedforward context extraction
  * @param flightStyle - Pilot's flying style preference (affects thresholds)
+ * @param tuningHistory - Completed tuning records for Bayesian optimization
  * @returns Complete PID analysis result with recommendations
  */
 export async function analyzePID(
@@ -44,7 +48,8 @@ export async function analyzePID(
   onProgress?: (progress: AnalysisProgress) => void,
   flightPIDs?: PIDConfiguration,
   rawHeaders?: Map<string, string>,
-  flightStyle: FlightStyle = 'balanced'
+  flightStyle: FlightStyle = 'balanced',
+  tuningHistory?: CompletedTuningRecord[]
 ): Promise<PIDAnalysisResult> {
   const startTime = performance.now();
 
@@ -144,6 +149,15 @@ export async function analyzePID(
     });
   }
 
+  // Bayesian optimization from tuning history (when available)
+  let bayesianSuggestions: BayesianOptimizationResult | undefined;
+  if (tuningHistory && tuningHistory.length > 0) {
+    bayesianSuggestions = optimizeWithHistory(tuningHistory, flightStyle);
+    if (!bayesianSuggestions.usedBayesian) {
+      bayesianSuggestions = undefined;
+    }
+  }
+
   return {
     roll,
     pitch,
@@ -158,6 +172,7 @@ export async function analyzePID(
     flightStyle,
     dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
+    ...(bayesianSuggestions ? { bayesianSuggestions } : {}),
   };
 }
 

@@ -247,6 +247,22 @@ Rates flight data quality 0-100 before generating recommendations. Integrated in
 - History: compact `dataQuality` in `FilterMetricsSummary` / `PIDMetricsSummary`
 - **Flight quality score** (`src/shared/utils/tuneQualityScore.ts`): Composite 0-100 score combining data quality, noise reduction, and PID metrics. Displayed as badge in TuningCompletionSummary and TuningHistoryPanel. Trend chart (QualityTrendChart) shows progression across sessions.
 
+### Bayesian Optimization (`src/main/analysis/BayesianOptimizer.ts`)
+
+Multi-flight PID convergence via Gaussian Process regression and Expected Improvement acquisition.
+
+- **`computeObjective()`**: Weighted scalar objective from step response metrics (overshoot 0.5, rise time 0.3, settling 0.2), normalized against flight style thresholds (lower = better)
+- **`extractObservations()`**: Converts `CompletedTuningRecord[]` into per-axis `BayesianObservation[]` (P, D gains → objective), skips zero-metric axes
+- **`optimizeAxis()`**: Full GP pipeline for one axis — RBF kernel, Cholesky decomposition, grid search over (P: 20-120, D: 15-80) with step size 5, Expected Improvement acquisition
+- **`optimizeWithHistory()`**: Orchestrator — filters valid records, extracts observations, optimizes each axis independently, returns `BayesianOptimizationResult`
+- Minimum 3 completed tuning sessions required (`BAYESIAN_MIN_HISTORY`)
+- Data quality weighting: poor/fair sessions get inflated objective (÷0.5) to reduce influence
+- Confidence: high (≥6 obs + EI>0.01), medium (≥4 obs + EI>0.001), else low
+- Length scales auto-estimated from data spread (range × 0.3, floored at grid step)
+- Integrated into `PIDAnalyzer.analyzePID()` via optional `tuningHistory` parameter
+- Types: `BayesianObservation`, `AxisOptimizationResult`, `BayesianOptimizationResult` in `analysis.types.ts`
+- Constants: 12 `BAYESIAN_*` constants in `constants.ts`
+
 ### Stateful Tuning Session
 
 Two-flight iterative tuning approach: filters first (hover + throttle sweeps), then PIDs (stick snaps).
