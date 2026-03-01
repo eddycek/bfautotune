@@ -12,6 +12,7 @@ import type {
   CurrentFilterSettings,
   DataQualityScore,
   PowerSpectrum,
+  ThrottleSpectrogramResult,
 } from '@shared/types/analysis.types';
 import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
 import { findSteadySegments, findThrottleSweepSegments } from './SegmentSelector';
@@ -19,6 +20,7 @@ import { computePowerSpectrum, trimSpectrum } from './FFTCompute';
 import { analyzeAxisNoise, buildNoiseProfile } from './NoiseAnalyzer';
 import { recommend, generateSummary, isRpmFilterActive } from './FilterRecommender';
 import { scoreFilterDataQuality, adjustFilterConfidenceByQuality } from './DataQualityScorer';
+import { computeThrottleSpectrogram } from './ThrottleSpectrogramAnalyzer';
 import { FFT_WINDOW_SIZE, FREQUENCY_MIN_HZ, FREQUENCY_MAX_HZ } from './constants';
 
 /** Maximum number of segments to use (more = slower but more accurate) */
@@ -119,6 +121,14 @@ export async function analyze(
 
   await yieldToEventLoop();
 
+  // Step 3b: Compute throttle spectrogram
+  let throttleSpectrogram: ThrottleSpectrogramResult | undefined;
+  if (flightData.setpoint[3]?.values.length > 0) {
+    throttleSpectrogram = computeThrottleSpectrogram(flightData);
+  }
+
+  await yieldToEventLoop();
+
   // Step 4: Generate recommendations
   onProgress?.({ step: 'recommending', percent: 85 });
   const rpmActive = isRpmFilterActive(currentSettings);
@@ -141,6 +151,7 @@ export async function analyze(
     rpmFilterActive: rpmActive,
     dataQuality: qualityResult.score,
     ...(qualityResult.warnings.length > 0 ? { warnings: qualityResult.warnings } : {}),
+    ...(throttleSpectrogram?.bandsWithData ? { throttleSpectrogram } : {}),
   };
 }
 
@@ -176,6 +187,12 @@ async function analyzeEntireFlight(
   const yawNoise = analyzeAxisNoise(spectraByAxis[2]);
   const noiseProfile = buildNoiseProfile(rollNoise, pitchNoise, yawNoise);
 
+  // Compute throttle spectrogram
+  let throttleSpectrogram: ThrottleSpectrogramResult | undefined;
+  if (flightData.setpoint[3]?.values.length > 0) {
+    throttleSpectrogram = computeThrottleSpectrogram(flightData);
+  }
+
   onProgress?.({ step: 'recommending', percent: 85 });
   const rpmActive = isRpmFilterActive(currentSettings);
   const rawRecommendations = recommend(noiseProfile, currentSettings);
@@ -196,6 +213,7 @@ async function analyzeEntireFlight(
     rpmFilterActive: rpmActive,
     warnings,
     dataQuality,
+    ...(throttleSpectrogram?.bandsWithData ? { throttleSpectrogram } : {}),
   };
 }
 
