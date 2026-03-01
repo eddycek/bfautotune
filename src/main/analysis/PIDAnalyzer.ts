@@ -24,6 +24,7 @@ import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './P
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
 import { STEP_RESPONSE_WINDOW_MAX_MS } from './constants';
 import { analyzeCrossAxisCoupling } from './CrossAxisDetector';
+import { estimateTransferFunctions } from './TransferFunctionEstimator';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -147,6 +148,9 @@ export async function analyzePID(
   // Detect cross-axis coupling
   const crossAxisCoupling = analyzeCrossAxisCoupling(steps, flightData);
 
+  // Estimate transfer functions via Wiener deconvolution
+  const transferFunctions = estimateTransferFunctions(flightData);
+
   // Extract feedforward context before recommendations (needed for FF-aware rules)
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
@@ -194,6 +198,7 @@ export async function analyzePID(
     dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
     ...(crossAxisCoupling ? { crossAxisCoupling } : {}),
+    ...(transferFunctions ? { transferFunctions } : {}),
   };
 }
 

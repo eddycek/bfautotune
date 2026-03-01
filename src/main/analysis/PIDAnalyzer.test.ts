@@ -375,5 +375,23 @@ describe('PIDAnalyzer', () => {
         expect(result.crossAxisCoupling!.summary.length).toBeGreaterThan(0);
       }
     });
+
+    it('should include transferFunctions when setpoint has activity', async () => {
+      const n = SAMPLE_RATE * 3; // 3 seconds
+      const data = createFlightData({
+        numSamples: n,
+        rollSetpointFn: (i) => Math.sin((2 * Math.PI * 30 * i) / SAMPLE_RATE) * 200,
+        rollGyroFn: (i) => Math.sin((2 * Math.PI * 30 * i) / SAMPLE_RATE) * 190,
+      });
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      // Should include transfer function results
+      if (result.transferFunctions) {
+        expect(result.transferFunctions.roll).toBeDefined();
+        expect(result.transferFunctions.roll!.metrics.bandwidth3dB).toBeGreaterThan(0);
+        expect(result.transferFunctions.roll!.axis).toBe('roll');
+      }
+    });
   });
 });

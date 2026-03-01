@@ -277,3 +277,20 @@ export const I_GAIN_MIN = 30;
 
 /** Maximum I gain */
 export const I_GAIN_MAX = 120;
+
+// ---- Transfer Function Estimation ----
+
+/** Window duration for transfer function estimation (samples, must be power of 2) */
+export const TRANSFER_FUNCTION_WINDOW_SIZE = 4096;
+
+/** Wiener regularization as fraction of mean input power */
+export const WIENER_REGULARIZATION_RATIO = 0.01;
+
+/** Minimum setpoint energy per window to include (excludes idle segments) */
+export const TRANSFER_FUNCTION_MIN_INPUT_ENERGY = 1e-6;
+
+/** Maximum frequency for transfer function analysis (Hz) */
+export const TRANSFER_FUNCTION_MAX_HZ = 500;
+
+/** Peak resonance threshold (|H| above 1.0 = underdamped) */
+export const PEAK_RESONANCE_WARNING_THRESHOLD = 1.3;
