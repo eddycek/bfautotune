@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1884 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 27, 2026)
+**Total: 1905 unit tests across 97 files + 16 Playwright E2E tests** (last verified: March 1, 2026)
 
 ### UI Components
 
@@ -296,6 +296,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/DataQualityScorer.test.ts` | 22 | Filter/PID data quality scoring, tier mapping, warnings, confidence adjustment |
 | `analysis/FilterAnalyzer.test.ts` | 16 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring |
 
+
 ### Step Response Analysis
 
 | File | Tests | Description |
@@ -303,7 +304,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
 | `analysis/StepMetrics.test.ts` | 27 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS computation and aggregation |
 | `analysis/PIDRecommender.test.ts` | 43 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling |
-| `analysis/PIDAnalyzer.test.ts` | 19 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring |
+| `analysis/CrossAxisDetector.test.ts` | 20 | Normalized correlation, coupling detection, rating classification, summary generation |
+| `analysis/PIDAnalyzer.test.ts` | 20 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring, cross-axis coupling integration |
 | `analysis/AnalysisPipeline.realdata.test.ts` | 20 | End-to-end filter+PID analysis with bf45-reference fixture and real_flight.bbl, safety bounds, determinism, performance |
 
 ### E2E Workflow Tests

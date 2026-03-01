@@ -301,4 +301,30 @@ export interface PIDAnalysisResult {
   warnings?: AnalysisWarning[];
   /** Data quality score for the input flight data */
   dataQuality?: DataQualityScore;
+  /** Cross-axis coupling analysis */
+  crossAxisCoupling?: CrossAxisCoupling;
+}
+
+// ---- Cross-Axis Coupling Types ----
+
+/** Coupling between a specific pair of axes */
+export interface AxisPairCoupling {
+  /** Source axis (where the step input occurs) */
+  sourceAxis: 'roll' | 'pitch' | 'yaw';
+  /** Affected axis (where coupling oscillation appears) */
+  affectedAxis: 'roll' | 'pitch' | 'yaw';
+  /** Normalized correlation coefficient (0-1, where 0 = no coupling) */
+  correlation: number;
+  /** Rating based on correlation magnitude */
+  rating: 'none' | 'mild' | 'significant';
+}
+
+/** Complete cross-axis coupling analysis */
+export interface CrossAxisCoupling {
+  /** All axis pair couplings */
+  pairs: AxisPairCoupling[];
+  /** Whether any significant coupling was detected */
+  hasSignificantCoupling: boolean;
+  /** Human-readable summary */
+  summary: string;
 }
