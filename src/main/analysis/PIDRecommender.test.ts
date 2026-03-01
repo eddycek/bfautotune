@@ -384,8 +384,8 @@ describe('PIDRecommender', () => {
 
     // --- FF-aware recommendation tests ---
 
-    it('should recommend feedforward_boost reduction for FF-dominated overshoot', () => {
-      const ffResponse = makeResponse({ overshootPercent: 30, ffDominated: true });
+    it('should recommend feedforward_boost reduction for FF-dominated overshoot (>60% FF energy)', () => {
+      const ffResponse = makeResponse({ overshootPercent: 30, ffContribution: 0.8 });
       const profile = makeProfile({
         responses: [ffResponse],
         meanOvershoot: 30,
@@ -405,6 +405,7 @@ describe('PIDRecommender', () => {
       expect(ffRec).toBeDefined();
       expect(ffRec!.recommendedValue).toBe(10);
       expect(ffRec!.reason).toContain('feedforward');
+      expect(ffRec!.reason).toContain('80%');
       // Should NOT have P/D recommendations for this axis
       const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       const pRec = recs.find((r) => r.setting === 'pid_roll_p');
@@ -412,8 +413,8 @@ describe('PIDRecommender', () => {
       expect(pRec).toBeUndefined();
     });
 
-    it('should not recommend FF changes when overshoot is P-dominated', () => {
-      const pResponse = makeResponse({ overshootPercent: 30, ffDominated: false });
+    it('should not recommend FF changes when overshoot is P-dominated (<30% FF energy)', () => {
+      const pResponse = makeResponse({ overshootPercent: 30, ffContribution: 0.1 });
       const profile = makeProfile({
         responses: [pResponse],
         meanOvershoot: 30,
@@ -434,6 +435,34 @@ describe('PIDRecommender', () => {
       // Should have normal D recommendation
       const dRec = recs.find((r) => r.setting === 'pid_roll_d');
       expect(dRec).toBeDefined();
+    });
+
+    it('should recommend both FF and D for mixed FF/PID overshoot (30-60% FF energy)', () => {
+      const mixedResponse = makeResponse({ overshootPercent: 30, ffContribution: 0.45 });
+      const profile = makeProfile({
+        responses: [mixedResponse],
+        meanOvershoot: 30,
+      });
+      const ffContext: FeedforwardContext = { active: true, boost: 15 };
+
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        ffContext
+      );
+
+      // Should have both FF and D recommendations
+      const ffRec = recs.find((r) => r.setting === 'feedforward_boost');
+      expect(ffRec).toBeDefined();
+      expect(ffRec!.recommendedValue).toBe(12); // boost - 3 (smaller reduction for mixed)
+      expect(ffRec!.reason).toContain('45%');
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+      expect(dRec!.reason).toContain('Mixed');
     });
 
     // --- FlightStyle-aware tests ---
@@ -532,7 +561,7 @@ describe('PIDRecommender', () => {
     });
 
     it('should emit feedforward_boost recommendation only once across axes', () => {
-      const ffResponse = makeResponse({ overshootPercent: 30, ffDominated: true });
+      const ffResponse = makeResponse({ overshootPercent: 30, ffContribution: 0.8 });
       const rollProfile = makeProfile({ responses: [ffResponse], meanOvershoot: 30 });
       const pitchProfile = makeProfile({ responses: [ffResponse], meanOvershoot: 30 });
       const ffContext: FeedforwardContext = { active: true, boost: 15 };

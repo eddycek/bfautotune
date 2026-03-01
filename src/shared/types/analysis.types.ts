@@ -295,6 +295,8 @@ export interface StepResponse {
   trace?: StepResponseTrace;
   /** Whether overshoot is dominated by feedforward (|pidF| > |pidP| at peak) */
   ffDominated?: boolean;
+  /** Continuous FF energy ratio: FF/(FF+P) integrated over response window (0.0-1.0) */
+  ffContribution?: number;
   /** RMS of (setpoint−gyro)/|magnitude| over the response window (dimensionless) */
   trackingErrorRMS?: number;
 }

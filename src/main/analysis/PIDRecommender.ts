@@ -58,10 +58,17 @@ export function recommendPID(
     // Skip axes with no step data
     if (profile.responses.length === 0) continue;
 
-    // Check if overshoot on this axis is FF-dominated (majority of steps)
-    const ffClassified = profile.responses.filter((r) => r.ffDominated !== undefined);
-    const ffDominatedCount = ffClassified.filter((r) => r.ffDominated === true).length;
-    const axisFFDominated = ffClassified.length > 0 && ffDominatedCount > ffClassified.length / 2;
+    // Compute mean FF contribution ratio (continuous 0-1) for this axis
+    const ffResponses = profile.responses.filter((r) => r.ffContribution !== undefined);
+    const meanFFRatio =
+      ffResponses.length > 0
+        ? ffResponses.reduce((sum, r) => sum + r.ffContribution!, 0) / ffResponses.length
+        : 0;
+    // FF-dominated: ratio > 0.6 (primarily FF overshoot)
+    // Mixed: 0.3-0.6 (both FF and PID contribute)
+    // PID-dominated: < 0.3 (normal P/D rules apply)
+    const axisFFDominated = meanFFRatio > 0.6;
+    const axisFFMixed = meanFFRatio > 0.3 && meanFFRatio <= 0.6;
 
     // Yaw is analyzed with relaxed thresholds
     const isYaw = axis === 2;
@@ -69,7 +76,7 @@ export function recommendPID(
     const moderateOvershoot = isYaw ? thresholds.overshootMax : thresholds.moderateOvershoot;
     const sluggishRiseMs = isYaw ? thresholds.sluggishRise * 1.5 : thresholds.sluggishRise;
 
-    // FF-dominated overshoot: skip P/D rules, recommend FF adjustment instead
+    // FF-dominated overshoot (>60% FF energy): recommend FF reduction, skip P/D
     if (axisFFDominated && profile.meanOvershoot > moderateOvershoot) {
       const boost = feedforwardContext?.boost;
       // Only emit feedforward_boost recommendation once (not per-axis)
@@ -80,13 +87,40 @@ export function recommendPID(
           setting: 'feedforward_boost',
           currentValue: boost,
           recommendedValue: targetBoost,
-          reason: `Overshoot on ${axisName} appears to be caused by feedforward, not P/D imbalance (${Math.round(profile.meanOvershoot)}%). Reducing feedforward_boost will tame the overshoot without losing PID responsiveness.`,
+          reason: `Overshoot on ${axisName} is primarily caused by feedforward (${Math.round(meanFFRatio * 100)}% FF energy). Reducing feedforward_boost will tame the overshoot without losing PID responsiveness.`,
           impact: 'stability',
           confidence: 'medium',
         });
       }
       // Skip P/D overshoot rules for this axis (continue to other rules)
       // Still check ringing and settling which are PID-related
+    } else if (axisFFMixed && profile.meanOvershoot > overshootThreshold) {
+      // Mixed FF+PID overshoot (30-60% FF energy): recommend both FF and smaller D increase
+      const boost = feedforwardContext?.boost;
+      const existingFFRec = recommendations.find((r) => r.setting === 'feedforward_boost');
+      if (!existingFFRec && boost !== undefined && boost > 0) {
+        const targetBoost = Math.max(0, boost - 3);
+        recommendations.push({
+          setting: 'feedforward_boost',
+          currentValue: boost,
+          recommendedValue: targetBoost,
+          reason: `Overshoot on ${axisName} has significant feedforward contribution (${Math.round(meanFFRatio * 100)}% FF energy, ${Math.round(profile.meanOvershoot)}% overshoot). A small feedforward_boost reduction helps alongside PID adjustment.`,
+          impact: 'stability',
+          confidence: 'low',
+        });
+      }
+      // Also apply a reduced D increase for the PID portion
+      const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
+      if (targetD !== pids.D) {
+        recommendations.push({
+          setting: `pid_${axisName}_d`,
+          currentValue: pids.D,
+          recommendedValue: targetD,
+          reason: `Mixed FF/PID overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%). A small D increase addresses the PID portion of the overshoot.`,
+          impact: 'both',
+          confidence: 'medium',
+        });
+      }
     } else if (profile.meanOvershoot > overshootThreshold) {
       // Rule 1: Severe overshoot → D-first strategy (non-FF case)
       // Scale D step with overshoot severity for faster convergence
