@@ -222,6 +222,18 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 - Dependency: `fft.js`
 - Constants in `src/main/analysis/constants.ts` (tunable thresholds)
 
+### Chirp Flight Analysis (`src/main/analysis/ChirpAnalyzer.ts`)
+
+BF 4.6+ system identification via swept-sine chirp signals.
+
+- **detectChirpSignal()**: Header-based (debug_mode=CHIRP/SYS_ID) or pattern-based (short-time FFT peak tracking)
+- **computeCrossSpectralTransfer()**: Welch-averaged cross-spectral density H(f) = Sxy/Sxx with coherence γ²(f)
+- **extractBodeMetrics()**: -3dB bandwidth, phase margin, gain margin, peak resonance
+- **analyzeChirp()**: Orchestrator — detect chirp → extract transfer function → compute metrics
+- Integration: PIDAnalyzer runs chirp analysis alongside step-based analysis, adds `chirpAnalysis` to result
+- Low-coherence warning: `chirp_low_coherence` when mean coherence < 0.7
+- Constants in `src/main/analysis/constants.ts` (CHIRP_FFT_WINDOW_SIZE, CHIRP_MIN_COHERENCE, etc.)
+
 ### Step Response Analysis Engine (`src/main/analysis/`)
 
 Analyzes step response metrics from setpoint/gyro data to produce PID tuning recommendations.

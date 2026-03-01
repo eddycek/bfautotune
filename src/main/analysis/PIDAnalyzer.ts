@@ -17,6 +17,8 @@ import { detectSteps } from './StepDetector';
 import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
+import { analyzeChirp } from './ChirpAnalyzer';
+import { CHIRP_MIN_COHERENCE } from './constants';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -115,6 +117,9 @@ export async function analyzePID(
   // Extract feedforward context before recommendations (needed for FF-aware rules)
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
+  // Chirp analysis (BF 4.6+ system identification)
+  const chirpAnalysis = analyzeChirp(flightData, rawHeaders);
+
   // Step 3: Generate recommendations
   onProgress?.({ step: 'scoring', percent: 80 });
   const rawRecommendations = recommendPID(
@@ -143,6 +148,16 @@ export async function analyzePID(
       severity: 'info',
     });
   }
+  if (chirpAnalysis && chirpAnalysis.axes.length > 0) {
+    const meanCoh = chirpAnalysis.axes[0].meanCoherence;
+    if (meanCoh < CHIRP_MIN_COHERENCE) {
+      warnings.push({
+        code: 'chirp_low_coherence',
+        message: `Chirp analysis coherence is low (${(meanCoh * 100).toFixed(0)}%). Transfer function estimates may be unreliable — consider a longer chirp duration or quieter conditions.`,
+        severity: 'warning',
+      });
+    }
+  }
 
   return {
     roll,
@@ -158,6 +173,7 @@ export async function analyzePID(
     flightStyle,
     dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
+    ...(chirpAnalysis ? { chirpAnalysis } : {}),
   };
 }
 

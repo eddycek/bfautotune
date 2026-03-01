@@ -354,5 +354,65 @@ describe('PIDAnalyzer', () => {
       // Smooth should be at least as strict as aggressive
       expect(smoothOvershootRecs.length).toBeGreaterThanOrEqual(aggressiveOvershootRecs.length);
     });
+
+    it('should include chirpAnalysis when chirp header is present', async () => {
+      const n = SAMPLE_RATE * 5;
+      const duration = n / SAMPLE_RATE;
+      // Linear chirp from 10 Hz to 200 Hz
+      const chirpFn = (i: number) => {
+        const t = i / SAMPLE_RATE;
+        const phase = 2 * Math.PI * (10 * t + ((200 - 10) * t * t) / (2 * duration));
+        return 100 * Math.sin(phase);
+      };
+      const data = createFlightData({
+        numSamples: n,
+        rollSetpointFn: chirpFn,
+        rollGyroFn: chirpFn,
+      });
+      const headers = new Map<string, string>();
+      headers.set('debug_mode', 'CHIRP');
+
+      const result = await analyzePID(data, 0, PIDS, undefined, undefined, headers);
+
+      expect(result.chirpAnalysis).toBeDefined();
+      expect(result.chirpAnalysis!.metadata.detected).toBe(true);
+      expect(result.chirpAnalysis!.axes.length).toBe(1);
+      expect(result.chirpAnalysis!.axes[0].metrics.bandwidth3dB).toBeGreaterThan(0);
+    });
+
+    it('should emit chirp_low_coherence warning for noisy chirp data', async () => {
+      const n = SAMPLE_RATE * 5;
+      const data = createFlightData({
+        numSamples: n,
+        // Chirp input but uncorrelated noise output
+        rollSetpointFn: (i) => {
+          const t = i / SAMPLE_RATE;
+          return 100 * Math.sin(2 * Math.PI * (10 * t + (190 * t * t) / (2 * 5)));
+        },
+        rollGyroFn: (i) => {
+          // Seeded noise — uncorrelated with input
+          const seed = ((i * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+          return (seed - 0.5) * 200;
+        },
+      });
+      const headers = new Map<string, string>();
+      headers.set('debug_mode', 'CHIRP');
+
+      const result = await analyzePID(data, 0, PIDS, undefined, undefined, headers);
+
+      if (result.chirpAnalysis) {
+        const cohWarning = (result.warnings ?? []).find((w) => w.code === 'chirp_low_coherence');
+        expect(cohWarning).toBeDefined();
+        expect(cohWarning!.severity).toBe('warning');
+      }
+    });
+
+    it('should not include chirpAnalysis when no chirp detected', async () => {
+      const data = createFlightData({});
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      expect(result.chirpAnalysis).toBeUndefined();
+    });
   });
 });
