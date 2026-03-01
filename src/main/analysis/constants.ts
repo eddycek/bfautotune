@@ -361,3 +361,37 @@ export const CHIRP_MIN_SWEEP_OCTAVES = 2;
 
 /** Minimum fraction of windows with increasing peak frequency for chirp detection */
 export const CHIRP_MONOTONIC_RATIO = 0.7;
+// ---- Bayesian Optimization ----
+
+/** Minimum number of completed tuning sessions required for Bayesian optimization */
+export const BAYESIAN_MIN_HISTORY = 3;
+
+/** GP noise variance (observation noise, accounts for measurement variability) */
+export const BAYESIAN_NOISE_VARIANCE = 0.01;
+
+/** GP kernel signal variance (amplitude of the kernel function) */
+export const BAYESIAN_SIGNAL_VARIANCE = 1.0;
+
+/** GP kernel default length scale (scaled per-axis from data range) */
+export const BAYESIAN_LENGTH_SCALE_FACTOR = 0.3;
+
+/** Grid search step size for P gain optimization */
+export const BAYESIAN_P_STEP = 5;
+
+/** Grid search step size for D gain optimization */
+export const BAYESIAN_D_STEP = 5;
+
+/** Exploration-exploitation trade-off parameter (higher = more exploration) */
+export const BAYESIAN_EXPLORATION_WEIGHT = 0.1;
+
+/** Weight for overshoot in the objective function */
+export const BAYESIAN_WEIGHT_OVERSHOOT = 0.5;
+
+/** Weight for rise time in the objective function */
+export const BAYESIAN_WEIGHT_RISE_TIME = 0.3;
+
+/** Weight for settling time in the objective function */
+export const BAYESIAN_WEIGHT_SETTLING = 0.2;
+
+/** Data quality weight reduction for poor/fair sessions */
+export const BAYESIAN_POOR_QUALITY_WEIGHT = 0.5;

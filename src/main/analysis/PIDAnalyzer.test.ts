@@ -539,4 +539,222 @@ describe('PIDAnalyzer', () => {
       expect(result.chirpAnalysis).toBeUndefined();
     });
   });
+
+  describe('bayesian optimization integration', () => {
+    it('should include bayesianSuggestions when tuning history is provided', async () => {
+      const data = createFlightData({});
+
+      const history = [
+        {
+          id: 'r1',
+          profileId: 'p1',
+          startedAt: '',
+          completedAt: '',
+          baselineSnapshotId: null,
+          postFilterSnapshotId: null,
+          postTuningSnapshotId: null,
+          filterLogId: null,
+          pidLogId: null,
+          verificationLogId: null,
+          appliedFilterChanges: [],
+          appliedPIDChanges: [],
+          appliedFeedforwardChanges: [],
+          filterMetrics: null,
+          verificationMetrics: null,
+          pidMetrics: {
+            roll: {
+              meanOvershoot: 25,
+              meanRiseTimeMs: 60,
+              meanSettlingTimeMs: 180,
+              meanLatencyMs: 5,
+            },
+            pitch: {
+              meanOvershoot: 25,
+              meanRiseTimeMs: 60,
+              meanSettlingTimeMs: 180,
+              meanLatencyMs: 5,
+            },
+            yaw: {
+              meanOvershoot: 5,
+              meanRiseTimeMs: 40,
+              meanSettlingTimeMs: 100,
+              meanLatencyMs: 5,
+            },
+            stepsDetected: 10,
+            currentPIDs: {
+              roll: { P: 40, I: 80, D: 25 },
+              pitch: { P: 42, I: 84, D: 27 },
+              yaw: { P: 40, I: 80, D: 0 },
+            },
+            summary: 'test',
+          },
+        },
+        {
+          id: 'r2',
+          profileId: 'p1',
+          startedAt: '',
+          completedAt: '',
+          baselineSnapshotId: null,
+          postFilterSnapshotId: null,
+          postTuningSnapshotId: null,
+          filterLogId: null,
+          pidLogId: null,
+          verificationLogId: null,
+          appliedFilterChanges: [],
+          appliedPIDChanges: [],
+          appliedFeedforwardChanges: [],
+          filterMetrics: null,
+          verificationMetrics: null,
+          pidMetrics: {
+            roll: {
+              meanOvershoot: 15,
+              meanRiseTimeMs: 40,
+              meanSettlingTimeMs: 100,
+              meanLatencyMs: 5,
+            },
+            pitch: {
+              meanOvershoot: 15,
+              meanRiseTimeMs: 40,
+              meanSettlingTimeMs: 100,
+              meanLatencyMs: 5,
+            },
+            yaw: {
+              meanOvershoot: 5,
+              meanRiseTimeMs: 40,
+              meanSettlingTimeMs: 100,
+              meanLatencyMs: 5,
+            },
+            stepsDetected: 10,
+            currentPIDs: {
+              roll: { P: 45, I: 80, D: 30 },
+              pitch: { P: 47, I: 84, D: 32 },
+              yaw: { P: 45, I: 80, D: 0 },
+            },
+            summary: 'test',
+          },
+        },
+        {
+          id: 'r3',
+          profileId: 'p1',
+          startedAt: '',
+          completedAt: '',
+          baselineSnapshotId: null,
+          postFilterSnapshotId: null,
+          postTuningSnapshotId: null,
+          filterLogId: null,
+          pidLogId: null,
+          verificationLogId: null,
+          appliedFilterChanges: [],
+          appliedPIDChanges: [],
+          appliedFeedforwardChanges: [],
+          filterMetrics: null,
+          verificationMetrics: null,
+          pidMetrics: {
+            roll: {
+              meanOvershoot: 10,
+              meanRiseTimeMs: 30,
+              meanSettlingTimeMs: 80,
+              meanLatencyMs: 5,
+            },
+            pitch: {
+              meanOvershoot: 10,
+              meanRiseTimeMs: 30,
+              meanSettlingTimeMs: 80,
+              meanLatencyMs: 5,
+            },
+            yaw: { meanOvershoot: 5, meanRiseTimeMs: 30, meanSettlingTimeMs: 70, meanLatencyMs: 5 },
+            stepsDetected: 10,
+            currentPIDs: {
+              roll: { P: 50, I: 80, D: 35 },
+              pitch: { P: 52, I: 84, D: 37 },
+              yaw: { P: 50, I: 80, D: 0 },
+            },
+            summary: 'test',
+          },
+        },
+      ];
+
+      const result = await analyzePID(
+        data,
+        0,
+        PIDS,
+        undefined,
+        undefined,
+        undefined,
+        'balanced',
+        history
+      );
+
+      expect(result.bayesianSuggestions).toBeDefined();
+      expect(result.bayesianSuggestions!.usedBayesian).toBe(true);
+      expect(result.bayesianSuggestions!.historySessionsUsed).toBe(3);
+    });
+
+    it('should not include bayesianSuggestions when no history', async () => {
+      const data = createFlightData({});
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      expect(result.bayesianSuggestions).toBeUndefined();
+    });
+
+    it('should not include bayesianSuggestions when insufficient history', async () => {
+      const data = createFlightData({});
+      const history = [
+        {
+          id: 'r1',
+          profileId: 'p1',
+          startedAt: '',
+          completedAt: '',
+          baselineSnapshotId: null,
+          postFilterSnapshotId: null,
+          postTuningSnapshotId: null,
+          filterLogId: null,
+          pidLogId: null,
+          verificationLogId: null,
+          appliedFilterChanges: [],
+          appliedPIDChanges: [],
+          appliedFeedforwardChanges: [],
+          filterMetrics: null,
+          verificationMetrics: null,
+          pidMetrics: {
+            roll: {
+              meanOvershoot: 15,
+              meanRiseTimeMs: 40,
+              meanSettlingTimeMs: 100,
+              meanLatencyMs: 5,
+            },
+            pitch: {
+              meanOvershoot: 15,
+              meanRiseTimeMs: 40,
+              meanSettlingTimeMs: 100,
+              meanLatencyMs: 5,
+            },
+            yaw: {
+              meanOvershoot: 5,
+              meanRiseTimeMs: 40,
+              meanSettlingTimeMs: 100,
+              meanLatencyMs: 5,
+            },
+            stepsDetected: 10,
+            currentPIDs: PIDS,
+            summary: 'test',
+          },
+        },
+      ];
+
+      const result = await analyzePID(
+        data,
+        0,
+        PIDS,
+        undefined,
+        undefined,
+        undefined,
+        'balanced',
+        history
+      );
+
+      expect(result.bayesianSuggestions).toBeUndefined();
+    });
+  });
 });
