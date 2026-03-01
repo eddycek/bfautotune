@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1884 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 27, 2026)
+**Total: 1913 unit tests across 97 files + 16 Playwright E2E tests** (last verified: March 1, 2026)
 
 ### UI Components
 
@@ -294,7 +294,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/NoiseAnalyzer.test.ts` | 25 | Peak detection, classification, noise floor |
 | `analysis/FilterRecommender.test.ts` | 41 | Noise-based targets, convergence, safety bounds, RPM-aware bounds, dynamic notch, motor diagnostic |
 | `analysis/DataQualityScorer.test.ts` | 22 | Filter/PID data quality scoring, tier mapping, warnings, confidence adjustment |
-| `analysis/FilterAnalyzer.test.ts` | 16 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring |
+| `analysis/FilterAnalyzer.test.ts` | 17 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring, group delay integration |
+| `analysis/GroupDelayEstimator.test.ts` | 22 | PT1/biquad/notch group delay computation, filter chain estimation, warning thresholds, disabled filters, custom reference frequency |
 
 ### Step Response Analysis
 

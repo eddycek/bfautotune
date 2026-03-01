@@ -159,7 +159,7 @@ Demo mode auto-connects to a virtual FC, creates a demo profile, and generates r
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Unit tests:** 1877 tests across 96 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Unit tests:** 1913 tests across 97 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
 **Playwright E2E:** 16 tests across 3 spec files — launches real Electron app in demo mode, walks through complete tuning cycles.
 
@@ -224,7 +224,7 @@ bfautotune/
 │   │   │   ├── commands.ts      # MSP command definitions
 │   │   │   └── types.ts         # MSP type definitions
 │   │   ├── blackbox/            # BBL binary log parser (6 modules, 245 tests)
-│   │   ├── analysis/            # FFT noise + step response analysis (11 modules, FF-aware)
+│   │   ├── analysis/            # FFT noise + step response analysis (12 modules, FF-aware)
 │   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
 │   │   │   ├── SegmentSelector.ts   # Hover segment detection
 │   │   │   ├── NoiseAnalyzer.ts     # Peak detection, noise classification
@@ -235,6 +235,7 @@ bfautotune/
 │   │   │   ├── PIDRecommender.ts    # Flight-PID-anchored P/D recommendations, FF-aware
 │   │   │   ├── PIDAnalyzer.ts       # PID analysis orchestrator (FF context wiring)
 │   │   │   ├── DataQualityScorer.ts # Flight data quality scoring (0-100)
+│   │   │   ├── GroupDelayEstimator.ts # Filter chain group delay estimation
 │   │   │   ├── headerValidation.ts  # BB header diagnostics
 │   │   │   └── constants.ts         # Tunable thresholds
 │   │   ├── storage/             # Data managers

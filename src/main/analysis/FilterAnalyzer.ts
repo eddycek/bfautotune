@@ -19,6 +19,7 @@ import { computePowerSpectrum, trimSpectrum } from './FFTCompute';
 import { analyzeAxisNoise, buildNoiseProfile } from './NoiseAnalyzer';
 import { recommend, generateSummary, isRpmFilterActive } from './FilterRecommender';
 import { scoreFilterDataQuality, adjustFilterConfidenceByQuality } from './DataQualityScorer';
+import { estimateGroupDelay } from './GroupDelayEstimator';
 import { FFT_WINDOW_SIZE, FREQUENCY_MIN_HZ, FREQUENCY_MAX_HZ } from './constants';
 
 /** Maximum number of segments to use (more = slower but more accurate) */
@@ -129,6 +130,9 @@ export async function analyze(
   );
   const summary = generateSummary(noiseProfile, recommendations, rpmActive);
 
+  // Step 5: Estimate group delay
+  const groupDelay = estimateGroupDelay(currentSettings);
+
   onProgress?.({ step: 'recommending', percent: 100 });
 
   return {
@@ -141,6 +145,7 @@ export async function analyze(
     rpmFilterActive: rpmActive,
     dataQuality: qualityResult.score,
     ...(qualityResult.warnings.length > 0 ? { warnings: qualityResult.warnings } : {}),
+    groupDelay,
   };
 }
 
@@ -186,6 +191,8 @@ async function analyzeEntireFlight(
 
   onProgress?.({ step: 'recommending', percent: 100 });
 
+  const groupDelay = estimateGroupDelay(currentSettings);
+
   return {
     noise: noiseProfile,
     recommendations,
@@ -196,6 +203,7 @@ async function analyzeEntireFlight(
     rpmFilterActive: rpmActive,
     warnings,
     dataQuality,
+    groupDelay,
   };
 }
 

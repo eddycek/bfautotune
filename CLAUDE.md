@@ -218,6 +218,7 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 - **NoiseAnalyzer**: Noise floor estimation, peak detection (prominence-based), source classification (frame resonance 80-200 Hz, motor harmonics, electrical >500 Hz)
 - **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, beginner-friendly explanations
 - **FilterAnalyzer**: Orchestrator with async progress reporting
+- **GroupDelayEstimator**: Computes PT1/biquad/notch group delay for current filter settings, warns when total delay exceeds safe threshold
 - IPC: `ANALYSIS_RUN_FILTER` + `EVENT_ANALYSIS_PROGRESS`
 - Dependency: `fft.js`
 - Constants in `src/main/analysis/constants.ts` (tunable thresholds)

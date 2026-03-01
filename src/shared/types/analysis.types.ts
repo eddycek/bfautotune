@@ -116,6 +116,34 @@ export interface FilterAnalysisResult {
   warnings?: AnalysisWarning[];
   /** Data quality score for the input flight data */
   dataQuality?: DataQualityScore;
+  /** Estimated group delay of the current filter chain */
+  groupDelay?: FilterGroupDelay;
+}
+
+// ---- Filter Group Delay Types ----
+
+/** Group delay estimate for a single filter */
+export interface SingleFilterDelay {
+  /** Filter type identifier */
+  type: 'gyro_lpf1' | 'gyro_lpf2' | 'dterm_lpf1' | 'dterm_lpf2' | 'dyn_notch';
+  /** Cutoff frequency in Hz */
+  cutoffHz: number;
+  /** Estimated group delay at a reference frequency in ms */
+  delayMs: number;
+}
+
+/** Combined group delay estimate for the full filter chain */
+export interface FilterGroupDelay {
+  /** Individual filter delays */
+  filters: SingleFilterDelay[];
+  /** Total estimated delay of the gyro filter chain in ms */
+  gyroTotalMs: number;
+  /** Total estimated delay of the D-term filter chain in ms */
+  dtermTotalMs: number;
+  /** Reference frequency used for delay computation (Hz) */
+  referenceFreqHz: number;
+  /** Warning if total delay exceeds a safe threshold */
+  warning?: string;
 }
 
 /** A steady flight segment identified from throttle/gyro data */
