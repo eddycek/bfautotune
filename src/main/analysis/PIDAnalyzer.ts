@@ -17,6 +17,7 @@ import { detectSteps } from './StepDetector';
 import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
+import { estimateTransferFunctions } from './TransferFunctionEstimator';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -112,6 +113,9 @@ export async function analyzePID(
     axisResponses: { roll: rollResponses, pitch: pitchResponses, yaw: yawResponses },
   });
 
+  // Estimate transfer functions via Wiener deconvolution
+  const transferFunctions = estimateTransferFunctions(flightData);
+
   // Extract feedforward context before recommendations (needed for FF-aware rules)
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
@@ -158,6 +162,7 @@ export async function analyzePID(
     flightStyle,
     dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
+    ...(transferFunctions ? { transferFunctions } : {}),
   };
 }
 

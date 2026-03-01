@@ -189,9 +189,30 @@ export interface PIDStyleThresholds {
 }
 
 export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
-  smooth:     { overshootIdeal: 3,  overshootMax: 12, settlingMax: 250, ringingMax: 1, moderateOvershoot: 8,  sluggishRise: 120 },
-  balanced:   { overshootIdeal: 10, overshootMax: 25, settlingMax: 200, ringingMax: 2, moderateOvershoot: 15, sluggishRise: 80  },
-  aggressive: { overshootIdeal: 18, overshootMax: 35, settlingMax: 150, ringingMax: 3, moderateOvershoot: 25, sluggishRise: 50  },
+  smooth: {
+    overshootIdeal: 3,
+    overshootMax: 12,
+    settlingMax: 250,
+    ringingMax: 1,
+    moderateOvershoot: 8,
+    sluggishRise: 120,
+  },
+  balanced: {
+    overshootIdeal: 10,
+    overshootMax: 25,
+    settlingMax: 200,
+    ringingMax: 2,
+    moderateOvershoot: 15,
+    sluggishRise: 80,
+  },
+  aggressive: {
+    overshootIdeal: 18,
+    overshootMax: 35,
+    settlingMax: 150,
+    ringingMax: 3,
+    moderateOvershoot: 25,
+    sluggishRise: 50,
+  },
 } as const;
 
 // ---- PID Safety Bounds ----
@@ -213,3 +234,20 @@ export const I_GAIN_MIN = 30;
 
 /** Maximum I gain */
 export const I_GAIN_MAX = 120;
+
+// ---- Transfer Function Estimation ----
+
+/** Window duration for transfer function estimation (samples, must be power of 2) */
+export const TRANSFER_FUNCTION_WINDOW_SIZE = 4096;
+
+/** Wiener regularization as fraction of mean input power */
+export const WIENER_REGULARIZATION_RATIO = 0.01;
+
+/** Minimum setpoint energy per window to include (excludes idle segments) */
+export const TRANSFER_FUNCTION_MIN_INPUT_ENERGY = 1e-6;
+
+/** Maximum frequency for transfer function analysis (Hz) */
+export const TRANSFER_FUNCTION_MAX_HZ = 500;
+
+/** Peak resonance threshold (|H| above 1.0 = underdamped) */
+export const PEAK_RESONANCE_WARNING_THRESHOLD = 1.3;

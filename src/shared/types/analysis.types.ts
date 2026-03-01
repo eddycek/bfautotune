@@ -301,4 +301,48 @@ export interface PIDAnalysisResult {
   warnings?: AnalysisWarning[];
   /** Data quality score for the input flight data */
   dataQuality?: DataQualityScore;
+  /** Frequency-domain transfer function estimates */
+  transferFunctions?: TransferFunctionResult;
+}
+
+// ---- Transfer Function Types ----
+
+/** Transfer function estimate in frequency domain */
+export interface TransferFunction {
+  /** Frequency bins (Hz) */
+  frequencies: Float64Array;
+  /** Magnitude response (linear scale) */
+  magnitude: Float64Array;
+  /** Phase response (degrees) */
+  phase: Float64Array;
+}
+
+/** Frequency-domain metrics from a transfer function */
+export interface FrequencyDomainMetrics {
+  /** -3dB bandwidth in Hz */
+  bandwidth3dB: number;
+  /** Phase margin at bandwidth (degrees) */
+  phaseMargin: number;
+  /** Peak resonance magnitude (linear, >1 = underdamped) */
+  peakResonance: number;
+  /** Frequency of peak resonance (Hz) */
+  peakResonanceFrequency: number;
+  /** Synthetic step response overshoot (%) from IFFT */
+  estimatedOvershoot: number;
+  /** Synthetic rise time (ms) from IFFT */
+  estimatedRiseTimeMs: number;
+}
+
+/** Per-axis transfer function result */
+export interface AxisTransferFunction {
+  axis: 'roll' | 'pitch' | 'yaw';
+  transferFunction: TransferFunction;
+  metrics: FrequencyDomainMetrics;
+}
+
+/** Grouped transfer function results for all axes */
+export interface TransferFunctionResult {
+  roll?: AxisTransferFunction;
+  pitch?: AxisTransferFunction;
+  yaw?: AxisTransferFunction;
 }
