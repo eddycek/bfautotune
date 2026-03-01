@@ -323,7 +323,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `shared/utils/metricsExtract.test.ts` | 13 | Spectrum downsampling, filter/PID metrics extraction, boundary handling, trackingErrorRMS extraction |
-| `shared/utils/tuneQualityScore.test.ts` | 15 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping, TIER_LABELS |
+| `shared/utils/tuneQualityScore.test.ts` | 25 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping, TIER_LABELS, verification metrics integration (noise delta, regression penalty) |
 | `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
 | `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |
 

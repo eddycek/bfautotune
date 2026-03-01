@@ -798,6 +798,7 @@ Hardware error (FC timeout, USB disconnect)
 | File | Key Exports |
 |------|-------------|
 | `metricsExtract.ts` | `downsampleSpectrum()`, `extractFilterMetrics()`, `extractPIDMetrics()` — compact metrics for history storage |
+| `tuneQualityScore.ts` | `computeTuneQualityScore()` — 0-100 composite score from filter/PID/verification metrics, verification-aware noise delta |
 
 ---
 
@@ -819,7 +820,7 @@ Hardware error (FC timeout, USB disconnect)
 | Contexts | 1 | 10 |
 | React Hooks | 12 | 146 |
 | Charts | 3 | 41 |
-| Shared Constants & Utils | 4 | 39 |
+| Shared Constants & Utils | 4 | 49 |
 | E2E Workflows | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 69 |
 | **Playwright E2E** | **3** | **16** |
