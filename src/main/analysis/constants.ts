@@ -311,3 +311,28 @@ export const TRANSFER_FUNCTION_MAX_HZ = 500;
 
 /** Peak resonance threshold (|H| above 1.0 = underdamped) */
 export const PEAK_RESONANCE_WARNING_THRESHOLD = 1.3;
+// ---- Prop Wash Detection ----
+
+/** Minimum throttle derivative (normalized units/s) for throttle-down event detection */
+export const PROPWASH_THROTTLE_DROP_RATE = 0.3;
+
+/** Minimum sustained duration of throttle drop (ms) */
+export const PROPWASH_MIN_DROP_DURATION_MS = 50;
+
+/** Post-event analysis window (ms) — oscillation occurs right after throttle cut */
+export const PROPWASH_ANALYSIS_WINDOW_MS = 400;
+
+/** Prop wash frequency band lower bound (Hz) */
+export const PROPWASH_FREQ_MIN_HZ = 20;
+
+/** Prop wash frequency band upper bound (Hz) */
+export const PROPWASH_FREQ_MAX_HZ = 90;
+
+/** Severity ratio threshold: below this is minimal prop wash */
+export const PROPWASH_SEVERITY_MINIMAL = 2.0;
+
+/** Severity ratio threshold: above this is severe prop wash */
+export const PROPWASH_SEVERITY_SEVERE = 5.0;
+
+/** Minimum events needed for reliable analysis */
+export const PROPWASH_MIN_EVENTS = 3;
