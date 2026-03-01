@@ -91,7 +91,8 @@ export interface AnalysisWarning {
     | 'narrow_throttle_coverage'
     | 'few_steps_per_axis'
     | 'missing_axis_coverage'
-    | 'low_step_magnitude';
+    | 'low_step_magnitude'
+    | 'chirp_low_coherence';
   message: string;
   severity: 'info' | 'warning' | 'error';
 }
@@ -388,6 +389,8 @@ export interface PIDAnalysisResult {
   dTermEffectiveness?: DTermEffectivenessPerAxis;
   /** Prop wash analysis results */
   propWash?: PropWashAnalysis;
+  /** Chirp-based transfer function analysis (BF 4.6+ chirp mode) */
+  chirpAnalysis?: ChirpAnalysisResult;
 }
 
 // ---- Cross-Axis Coupling Types ----
@@ -486,4 +489,70 @@ export interface PropWashAnalysis {
   dominantFrequencyHz: number;
   /** Human-readable recommendation */
   recommendation: string;
+}
+
+// ---- Chirp Flight Analysis Types (BF 4.6+) ----
+
+/** Coherence function γ²(f) = |Sxy|² / (Sxx · Syy) */
+export interface CoherenceFunction {
+  /** Frequency bins in Hz */
+  frequencies: Float64Array;
+  /** Coherence values (0 to 1) */
+  coherence: Float64Array;
+}
+
+/** Frequency-domain metrics extracted from chirp Bode analysis */
+export interface ChirpBodeMetrics {
+  /** -3dB bandwidth in Hz */
+  bandwidth3dB: number;
+  /** Phase margin in degrees (phase at unity gain + 180°) */
+  phaseMargin: number;
+  /** Gain margin in dB (1/|H| at -180° phase) */
+  gainMargin: number;
+  /** Peak resonance magnitude (linear scale) */
+  peakResonance: number;
+  /** Frequency of peak resonance in Hz */
+  peakResonanceFrequency: number;
+}
+
+/** Metadata about a detected chirp excitation signal */
+export interface ChirpFlightMetadata {
+  /** Whether a chirp signal was detected */
+  detected: boolean;
+  /** Which axis has the chirp (0=roll, 1=pitch, 2=yaw) */
+  axis?: 0 | 1 | 2;
+  /** Start sample index of the chirp */
+  startIndex?: number;
+  /** End sample index of the chirp */
+  endIndex?: number;
+  /** Chirp start frequency in Hz */
+  minFrequencyHz?: number;
+  /** Chirp end frequency in Hz */
+  maxFrequencyHz?: number;
+  /** Chirp duration in seconds */
+  durationSeconds?: number;
+  /** How the chirp was detected */
+  source: 'header' | 'pattern' | 'none';
+}
+
+/** Chirp analysis result for one axis */
+export interface AxisChirpAnalysis {
+  /** Axis name */
+  axis: 'roll' | 'pitch' | 'yaw';
+  /** Transfer function H(f) — reuses TransferFunction from Wiener estimation */
+  transferFunction: TransferFunction;
+  /** Coherence function */
+  coherence: CoherenceFunction;
+  /** Bode-derived metrics */
+  metrics: ChirpBodeMetrics;
+  /** Mean coherence in the chirp frequency range */
+  meanCoherence: number;
+}
+
+/** Complete chirp analysis result */
+export interface ChirpAnalysisResult {
+  /** Chirp detection metadata */
+  metadata: ChirpFlightMetadata;
+  /** Per-axis analysis results */
+  axes: AxisChirpAnalysis[];
 }

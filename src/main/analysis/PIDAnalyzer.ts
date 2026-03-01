@@ -23,11 +23,12 @@ import {
 } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
-import { STEP_RESPONSE_WINDOW_MAX_MS } from './constants';
+import { STEP_RESPONSE_WINDOW_MAX_MS, CHIRP_MIN_COHERENCE } from './constants';
 import { analyzeCrossAxisCoupling } from './CrossAxisDetector';
 import { estimateTransferFunctions } from './TransferFunctionEstimator';
 import { analyzeDTermEffectiveness } from './DTermAnalyzer';
 import { analyzePropWash } from './PropWashDetector';
+import { analyzeChirp } from './ChirpAnalyzer';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -175,6 +176,9 @@ export async function analyzePID(
   // Step 2b: Prop wash analysis (runs on any flight with throttle data)
   const propWash = analyzePropWash(flightData);
 
+  // Chirp analysis (BF 4.6+ system identification)
+  const chirpAnalysis = analyzeChirp(flightData, rawHeaders);
+
   // Step 3: Generate recommendations
   onProgress?.({ step: 'scoring', percent: 80 });
   const rawRecommendations = recommendPID(
@@ -204,6 +208,16 @@ export async function analyzePID(
       severity: 'info',
     });
   }
+  if (chirpAnalysis && chirpAnalysis.axes.length > 0) {
+    const meanCoh = chirpAnalysis.axes[0].meanCoherence;
+    if (meanCoh < CHIRP_MIN_COHERENCE) {
+      warnings.push({
+        code: 'chirp_low_coherence',
+        message: `Chirp analysis coherence is low (${(meanCoh * 100).toFixed(0)}%). Transfer function estimates may be unreliable — consider a longer chirp duration or quieter conditions.`,
+        severity: 'warning',
+      });
+    }
+  }
 
   return {
     roll,
@@ -223,6 +237,7 @@ export async function analyzePID(
     ...(transferFunctions ? { transferFunctions } : {}),
     ...(dTermEffectiveness ? { dTermEffectiveness } : {}),
     ...(propWash ? { propWash } : {}),
+    ...(chirpAnalysis ? { chirpAnalysis } : {}),
   };
 }
 

@@ -336,3 +336,28 @@ export const PROPWASH_SEVERITY_SEVERE = 5.0;
 
 /** Minimum events needed for reliable analysis */
 export const PROPWASH_MIN_EVENTS = 3;
+// ---- Chirp Analysis (BF 4.6+ System Identification) ----
+
+/** FFT window size for chirp cross-spectral analysis (8192 at 4 kHz → ~0.5 Hz resolution) */
+export const CHIRP_FFT_WINDOW_SIZE = 8192;
+
+/** Minimum chirp frequency of interest in Hz */
+export const CHIRP_MIN_FREQUENCY_HZ = 5;
+
+/** Maximum chirp frequency of interest in Hz */
+export const CHIRP_MAX_FREQUENCY_HZ = 500;
+
+/** Minimum chirp signal duration in seconds */
+export const CHIRP_MIN_DURATION_S = 3;
+
+/** Minimum mean coherence for a reliable transfer function estimate */
+export const CHIRP_MIN_COHERENCE = 0.7;
+
+/** Short-time FFT window size for chirp pattern detection (must be power of 2) */
+export const CHIRP_DETECTION_WINDOW_SIZE = 1024;
+
+/** Minimum frequency sweep range in octaves for chirp pattern detection */
+export const CHIRP_MIN_SWEEP_OCTAVES = 2;
+
+/** Minimum fraction of windows with increasing peak frequency for chirp detection */
+export const CHIRP_MONOTONIC_RATIO = 0.7;
