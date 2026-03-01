@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 28, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1894 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** March 1, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2139 unit tests, 105 files + 16 Playwright E2E tests**
 
 ---
 
@@ -804,21 +804,21 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1894 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2139 unit tests across 105 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
-| FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response (+ Real-data) | 5 | 125 |
+| FFT Analysis (+ Data Quality) | 8 | 190 |
+| Step Response (+ Real-data) | 11 | 268 |
 | Header Validation + Constants | 2 | 31 |
-| MSP Protocol & Client | 3 | 150 |
+| MSP Protocol & Client | 4 | 167 |
 | MSC (Mass Storage) | 2 | 32 |
 | Storage Managers | 7 | 115 |
 | IPC Handlers | 1 | 105 |
 | UI Components | 36 | 549 |
 | Contexts | 1 | 10 |
-| React Hooks | 12 | 146 |
+| React Hooks | 13 | 149 |
 | Charts | 3 | 41 |
 | Shared Constants & Utils | 4 | 49 |
 | E2E Workflows | 1 | 30 |

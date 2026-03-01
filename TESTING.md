@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1894 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 28, 2026)
+**Total: 2139 unit tests across 105 files + 16 Playwright E2E tests** (last verified: March 1, 2026)
 
 ### UI Components
 
@@ -236,6 +236,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useToast.test.tsx` | 5 | Toast helper methods, context requirement |
 | `hooks/useBlackboxInfo.test.ts` | 8 | Auto-load, refresh, concurrent request prevention |
 | `hooks/useBlackboxLogs.test.ts` | 9 | Log list, profile change subscription, delete, openFolder |
+| `hooks/useDemoMode.test.ts` | 3 | Demo mode detection, environment flag, hook behavior |
 | `utils/bbSettingsUtils.test.ts` | 18 | BB settings status computation, version-aware debug mode, fix/reset commands |
 
 ### IPC Handlers
@@ -251,6 +252,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `msp/MSPProtocol.test.ts` | 40 | MSPv1 encode/decode, jumbo frames, round-trip, parseBuffer, parseBuffer jumbo (mixed standard+jumbo, multi-jumbo, incomplete, boundary, data integrity), checksum validation, garbage recovery |
 | `msp/MSPConnection.test.ts` | 48 | Connection lifecycle, sendCommand, sendCommandNoResponse, timeouts, error/partial responses, CLI mode (prompt debounce, chunk-boundary, trailing CR), event forwarding |
 | `msp/MSPClient.test.ts` | 62 | FC info queries, PID/filter/FF config, board info, UID, blackbox info (flash+SD card), SD card summary, MSC reboot (fire-and-forget), set PID, CLI diff, save & reboot, connect/disconnect, version gate, listPorts |
+| `msp/cliUtils.test.ts` | 17 | CLI command validation, response parsing, error detection patterns |
 
 ### MSC (Mass Storage Class)
 
@@ -292,19 +294,27 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/FFTCompute.test.ts` | 20 | Hanning window, Welch's method, sine detection |
 | `analysis/SegmentSelector.test.ts` | 27 | Hover detection, throttle normalization |
 | `analysis/NoiseAnalyzer.test.ts` | 25 | Peak detection, classification, noise floor |
-| `analysis/FilterRecommender.test.ts` | 41 | Noise-based targets, convergence, safety bounds, RPM-aware bounds, dynamic notch, motor diagnostic |
-| `analysis/DataQualityScorer.test.ts` | 22 | Filter/PID data quality scoring, tier mapping, warnings, confidence adjustment |
-| `analysis/FilterAnalyzer.test.ts` | 16 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring |
+| `analysis/FilterRecommender.test.ts` | 48 | Noise-based targets, convergence, safety bounds, RPM-aware bounds, dynamic notch, motor diagnostic, propwash floor |
+| `analysis/DataQualityScorer.test.ts` | 27 | Filter/PID data quality scoring, tier mapping, warnings, confidence adjustment |
+| `analysis/FilterAnalyzer.test.ts` | 19 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring, throttle spectrogram, group delay |
+| `analysis/ThrottleSpectrogramAnalyzer.test.ts` | 17 | Throttle-binned PSD, harmonic tracking, throttle range coverage |
+| `analysis/GroupDelayEstimator.test.ts` | 22 | Filter group delay computation, LPF/biquad stages, total chain delay |
 
 ### Step Response Analysis
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
-| `analysis/StepMetrics.test.ts` | 27 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS computation and aggregation |
-| `analysis/PIDRecommender.test.ts` | 43 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling |
-| `analysis/PIDAnalyzer.test.ts` | 19 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring |
+| `analysis/StepMetrics.test.ts` | 44 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS, steady-state error, damping ratio |
+| `analysis/PIDRecommender.test.ts` | 63 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling, I-term recommendations, D-term effectiveness gating, damping ratio |
+| `analysis/PIDAnalyzer.test.ts` | 28 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring, cross-axis coupling, transfer functions, prop wash, chirp, Bayesian optimization |
 | `analysis/AnalysisPipeline.realdata.test.ts` | 20 | End-to-end filter+PID analysis with bf45-reference fixture and real_flight.bbl, safety bounds, determinism, performance |
+| `analysis/CrossAxisDetector.test.ts` | 20 | Cross-axis coupling detection, threshold-based flagging, axis pair analysis |
+| `analysis/TransferFunctionEstimator.test.ts` | 19 | Wiener deconvolution, transfer function estimation, frequency domain metrics |
+| `analysis/DTermAnalyzer.test.ts` | 9 | D-term noise-to-effectiveness ratio, functional vs noise band energy |
+| `analysis/PropWashDetector.test.ts` | 15 | Prop wash event detection, throttle-down analysis, 30-80 Hz band energy scoring |
+| `analysis/ChirpAnalyzer.test.ts` | 27 | Chirp signal detection, cross-spectral density, Bode metrics, header and pattern-based detection |
+| `analysis/BayesianOptimizer.test.ts` | 23 | Gaussian Process regression, Expected Improvement acquisition, multi-flight PID convergence |
 
 ### E2E Workflow Tests
 

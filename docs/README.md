@@ -8,7 +8,7 @@ Overview of all design documents in this directory. Each document starts as a de
 |----------|--------|-----|-------------|
 | [BBL_PARSER_VALIDATION](./BBL_PARSER_VALIDATION.md) | **Complete** | #2–#10 | Byte-exact validation of BBL parser against BF Explorer reference implementations |
 | [BF_VERSION_POLICY](./BF_VERSION_POLICY.md) | **Complete** | #79 | Betaflight version compatibility policy (min 4.3, recommended 4.5+) |
-| [COMPREHENSIVE_TESTING_PLAN](./COMPREHENSIVE_TESTING_PLAN.md) | **Complete** | #84–#88 | 9-phase testing plan: 1893 tests / 96 files |
+| [COMPREHENSIVE_TESTING_PLAN](./COMPREHENSIVE_TESTING_PLAN.md) | **Complete** | #84–#88 | 9-phase testing plan: 2139 tests / 105 files |
 | [FEEDFORWARD_AWARENESS](./FEEDFORWARD_AWARENESS.md) | **Complete** | #55–#62 | FF detection from BBL headers, FF-dominated overshoot classification, FF-aware PID recommendations, MSP read, FC info display |
 | [FLIGHT_STYLE_PROFILES](./FLIGHT_STYLE_PROFILES.md) | **Complete** | #71–#78 | Smooth/Balanced/Aggressive flight style selector, style-based PID thresholds, preset defaults |
 | [RPM_FILTER_AWARENESS](./RPM_FILTER_AWARENESS.md) | **Complete** | #63–#69 | RPM filter detection via MSP/BBL, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics |
@@ -16,9 +16,9 @@ Overview of all design documents in this directory. Each document starts as a de
 | [TUNING_WORKFLOW_FIXES](./TUNING_WORKFLOW_FIXES.md) | **Complete** | #42–#43 | Fix for download/analyze being blocked during tuning session + phase transition after apply |
 | [TUNING_HISTORY_AND_COMPARISON](./TUNING_HISTORY_AND_COMPARISON.md) | **Complete** | #96–#99 | Tuning session history + before/after comparison on completion (UX #3 + #6) |
 | [SD_CARD_BLACKBOX_SUPPORT](./SD_CARD_BLACKBOX_SUPPORT.md) | **Complete** | #105, #142 | SD card blackbox storage support via MSC mode + tuning session fixes |
-| [PROJECT_VALIDATION_2026-02-28](./PROJECT_VALIDATION_2026-02-28.md) | **Active** | — | Deep functional validation: 8 issues + 7 enhancements, prioritized implementation roadmap |
-| [PROPWASH_AND_DTERM_DIAGNOSTICS](./PROPWASH_AND_DTERM_DIAGNOSTICS.md) | **Active** | — | ~~Prop wash event detection~~ (done) + ~~D-term noise-to-effectiveness ratio~~ (done) |
-| [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Active** | #119–#120, #137 | Research-based tuning accuracy improvements: ~~Wiener deconvolution~~ (done), ~~throttle spectrograms~~ (done), ~~proportional PID scaling~~ (done), ~~data quality scoring~~ (done), ~~flight quality score~~ (done), ~~chirp analysis~~ (done) |
+| [PROJECT_VALIDATION_2026-02-28](./PROJECT_VALIDATION_2026-02-28.md) | **Complete** | — | Deep functional validation: 8 issues + 7 enhancements — all implemented and merged |
+| [PROPWASH_AND_DTERM_DIAGNOSTICS](./PROPWASH_AND_DTERM_DIAGNOSTICS.md) | **Complete** | — | ~~Prop wash event detection~~ (done) + ~~D-term noise-to-effectiveness ratio~~ (done) |
+| [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Complete** | #119–#120, #137 | Research-based tuning accuracy improvements: all items implemented (Wiener, spectrograms, PID scaling, data quality, flight quality, chirp, Bayesian) |
 | [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (4/7 done, rest are future work) |
 | [OFFLINE_UX_TESTING](./OFFLINE_UX_TESTING.md) | **Active** | — | Demo mode (`--demo` flag) for offline UX testing without real FC hardware. Includes Playwright E2E tests (16 tests). |
 
