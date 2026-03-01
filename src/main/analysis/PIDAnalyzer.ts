@@ -10,6 +10,7 @@ import type { FlightStyle } from '@shared/types/profile.types';
 import type {
   AnalysisProgress,
   AnalysisWarning,
+  DTermEffectivenessPerAxis,
   PIDAnalysisResult,
   StepResponse,
 } from '@shared/types/analysis.types';
@@ -25,6 +26,7 @@ import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQuality
 import { STEP_RESPONSE_WINDOW_MAX_MS } from './constants';
 import { analyzeCrossAxisCoupling } from './CrossAxisDetector';
 import { estimateTransferFunctions } from './TransferFunctionEstimator';
+import { analyzeDTermEffectiveness } from './DTermAnalyzer';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -154,6 +156,21 @@ export async function analyzePID(
   // Extract feedforward context before recommendations (needed for FF-aware rules)
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
+  // Compute D-term effectiveness when pidD data is available
+  let dTermEffectiveness: DTermEffectivenessPerAxis | undefined;
+  const hasPidD =
+    flightData.pidD[0]?.values.length > 0 &&
+    flightData.pidD[1]?.values.length > 0 &&
+    flightData.pidD[2]?.values.length > 0;
+  if (hasPidD) {
+    const dTermResult = analyzeDTermEffectiveness(flightData.pidD, flightData.sampleRateHz);
+    dTermEffectiveness = {
+      roll: { ratio: dTermResult.roll.ratio, rating: dTermResult.roll.rating },
+      pitch: { ratio: dTermResult.pitch.ratio, rating: dTermResult.pitch.rating },
+      yaw: { ratio: dTermResult.yaw.ratio, rating: dTermResult.yaw.rating },
+    };
+  }
+
   // Step 3: Generate recommendations
   onProgress?.({ step: 'scoring', percent: 80 });
   const rawRecommendations = recommendPID(
@@ -163,7 +180,8 @@ export async function analyzePID(
     currentPIDs,
     flightPIDs,
     feedforwardContext,
-    flightStyle
+    flightStyle,
+    dTermEffectiveness
   );
   const recommendations = adjustPIDConfidenceByQuality(
     rawRecommendations,
@@ -199,6 +217,7 @@ export async function analyzePID(
     ...(warnings.length > 0 ? { warnings } : {}),
     ...(crossAxisCoupling ? { crossAxisCoupling } : {}),
     ...(transferFunctions ? { transferFunctions } : {}),
+    ...(dTermEffectiveness ? { dTermEffectiveness } : {}),
   };
 }
 

@@ -245,6 +245,23 @@ export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
   },
 } as const;
 
+// ---- D-Term Effectiveness Analysis ----
+
+/** Lower bound of D-term functional frequency band (Hz) */
+export const DTERM_FUNCTIONAL_MIN_HZ = 20;
+
+/** Upper bound of D-term functional frequency band (Hz) */
+export const DTERM_FUNCTIONAL_MAX_HZ = 150;
+
+/** Lower bound of D-term noise frequency band (Hz) — same as functional max */
+export const DTERM_NOISE_MIN_HZ = 150;
+
+/** Ratio above which D is considered "efficient" (safe to increase) */
+export const DTERM_EFFECTIVE_RATIO = 3.0;
+
+/** Ratio below which D is considered "noisy" (should not increase) */
+export const DTERM_NOISY_RATIO = 1.0;
+
 // ---- PID Safety Bounds ----
 
 /** Minimum P gain */

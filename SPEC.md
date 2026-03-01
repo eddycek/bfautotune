@@ -350,7 +350,11 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
+<<<<<<< HEAD
 **Last Updated:** February 28, 2026 | **Tests:** 1894 unit tests across 96 files + 16 Playwright E2E tests | **PRs Merged:** #1–#137
+=======
+**Last Updated:** February 28, 2026 | **Tests:** 1903 unit tests across 97 files + 16 Playwright E2E tests | **PRs Merged:** #1–#137
+>>>>>>> origin/claude/enhance-dterm-effectiveness-az6qz
 
 | Phase | Status | Notes |
 |-------|--------|-------|
