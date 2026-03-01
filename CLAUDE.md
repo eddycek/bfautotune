@@ -218,6 +218,7 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 - **NoiseAnalyzer**: Noise floor estimation, peak detection (prominence-based), source classification (frame resonance 80-200 Hz, motor harmonics, electrical >500 Hz)
 - **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, beginner-friendly explanations
 - **FilterAnalyzer**: Orchestrator with async progress reporting
+- **ThrottleSpectrogramAnalyzer**: Bins gyro data by throttle level (10 bands), computes per-band PSD, reveals motor harmonic tracking, frame resonance, and throttle-dependent noise
 - IPC: `ANALYSIS_RUN_FILTER` + `EVENT_ANALYSIS_PROGRESS`
 - Dependency: `fft.js`
 - Constants in `src/main/analysis/constants.ts` (tunable thresholds)

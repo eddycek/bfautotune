@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1884 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 27, 2026)
+**Total: 1909 unit tests across 97 files + 16 Playwright E2E tests** (last verified: March 1, 2026)
 
 ### UI Components
 
@@ -294,7 +294,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/NoiseAnalyzer.test.ts` | 25 | Peak detection, classification, noise floor |
 | `analysis/FilterRecommender.test.ts` | 41 | Noise-based targets, convergence, safety bounds, RPM-aware bounds, dynamic notch, motor diagnostic |
 | `analysis/DataQualityScorer.test.ts` | 22 | Filter/PID data quality scoring, tier mapping, warnings, confidence adjustment |
-| `analysis/FilterAnalyzer.test.ts` | 16 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring |
+| `analysis/FilterAnalyzer.test.ts` | 18 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring, throttle spectrogram integration |
+| `analysis/ThrottleSpectrogramAnalyzer.test.ts` | 17 | Throttle binning (uniform/constant/BF raw ranges/clamping), spectrogram computation, per-band spectra, noise floor, frequency detection, sample threshold |
 
 ### Step Response Analysis
 

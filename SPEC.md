@@ -151,7 +151,7 @@ High-level user journey:
 | `msp-client` | connect, read/write settings, reboot, log download | :white_check_mark: | `src/main/msp/` — MSPProtocol, MSPConnection, MSPClient |
 | `config-vcs` | snapshots, diffs, rollback, export/import | :white_check_mark: | `src/main/storage/SnapshotManager.ts` + ProfileManager + snapshot restore + diff view |
 | `blackbox-parser` | decode logs | :white_check_mark: | `src/main/blackbox/` — 6 modules, 245 tests (incl. fuzz + real-flight regression) |
-| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 5 modules, 129 tests (convergent noise-based targets, RPM-aware, data quality scoring) |
+| `analysis-filter` | FFT, noise floor, peaks, filter recommendations | :white_check_mark: | `src/main/analysis/` — 6 modules, 148 tests (convergent noise-based targets, RPM-aware, data quality scoring, throttle spectrogram) |
 | `analysis-pid` | step response extraction, scoring, recommendations | :white_check_mark: | `src/main/analysis/` — 4 modules, 97 tests (flight PID anchoring, convergent, FF-aware, data quality scoring) |
 | `tuning-orchestrator` | state machine + safety constraints | :white_check_mark: | TuningSessionManager (10-phase state machine) + apply handlers + restore handler |
 | `ui-wizard` | screens + explanations + charts | :white_check_mark: | TuningWizard (mode-aware) + AnalysisOverview + TuningStatusBanner + interactive charts |
@@ -169,7 +169,7 @@ High-level user journey:
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Package analysis engine as a stateless service (container) | :fast_forward: | Architecture supports this — analysis modules are pure functions |
-| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 327 tests (151 filter + 122 PID + 22 data quality + 27 header validation + 5 misc) |
+| Keep core algorithms pure and testable (input → output) | :white_check_mark: | All analysis modules: pure TypeScript, no side effects, 346 tests (170 filter + 122 PID + 22 data quality + 27 header validation + 5 misc) |
 | Cloud optional; local remains primary | :white_check_mark: | Fully offline, no network calls |
 
 ---
@@ -350,7 +350,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** February 26, 2026 | **Tests:** 1884 unit tests across 96 files + 16 Playwright E2E tests | **PRs Merged:** #1–#137
+**Last Updated:** March 1, 2026 | **Tests:** 1909 unit tests across 97 files + 16 Playwright E2E tests | **PRs Merged:** #1–#137
 
 | Phase | Status | Notes |
 |-------|--------|-------|
