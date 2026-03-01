@@ -197,6 +197,10 @@ export interface PIDStyleThresholds {
   ringingMax: number;
   moderateOvershoot: number;
   sluggishRise: number;
+  /** Steady-state error threshold (%) above which I is considered too low */
+  steadyStateErrorMax: number;
+  /** Steady-state error threshold (%) below which I might be safely reduced */
+  steadyStateErrorLow: number;
 }
 
 export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
@@ -207,6 +211,8 @@ export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
     ringingMax: 1,
     moderateOvershoot: 8,
     sluggishRise: 120,
+    steadyStateErrorMax: 8,
+    steadyStateErrorLow: 2,
   },
   balanced: {
     overshootIdeal: 10,
@@ -215,6 +221,8 @@ export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
     ringingMax: 2,
     moderateOvershoot: 15,
     sluggishRise: 80,
+    steadyStateErrorMax: 5,
+    steadyStateErrorLow: 1,
   },
   aggressive: {
     overshootIdeal: 18,
@@ -223,6 +231,8 @@ export const PID_STYLE_THRESHOLDS: Record<FlightStyle, PIDStyleThresholds> = {
     ringingMax: 3,
     moderateOvershoot: 25,
     sluggishRise: 50,
+    steadyStateErrorMax: 3,
+    steadyStateErrorLow: 1,
   },
 } as const;
 

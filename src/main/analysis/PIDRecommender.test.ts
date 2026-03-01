@@ -50,6 +50,7 @@ function makeProfile(
     meanSettlingTimeMs: overrides.meanSettlingTimeMs ?? responses[0].settlingTimeMs,
     meanLatencyMs: overrides.meanLatencyMs ?? responses[0].latencyMs,
     meanTrackingErrorRMS: 0,
+    meanSteadyStateError: overrides.meanSteadyStateError ?? 0,
   };
 }
 
@@ -61,6 +62,7 @@ function emptyProfile(): AxisStepProfile {
     meanSettlingTimeMs: 0,
     meanLatencyMs: 0,
     meanTrackingErrorRMS: 0,
+    meanSteadyStateError: 0,
   };
 }
 
@@ -577,6 +579,113 @@ describe('PIDRecommender', () => {
 
       const ffRecs = recs.filter((r) => r.setting === 'feedforward_boost');
       expect(ffRecs.length).toBe(1);
+    });
+
+    // ---- I-term recommendation tests ----
+
+    it('should recommend I increase when steady-state error is high', () => {
+      // balanced: steadyStateErrorMax = 5
+      const profile = makeProfile({ meanOvershoot: 5, meanSteadyStateError: 8 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      const iRecs = recs.filter((r) => r.setting === 'pid_roll_i');
+      expect(iRecs.length).toBe(1);
+      expect(iRecs[0].recommendedValue).toBeGreaterThan(DEFAULT_PIDS.roll.I);
+      expect(iRecs[0].reason).toContain('drifts');
+      expect(iRecs[0].confidence).toBe('medium');
+    });
+
+    it('should recommend larger I increase for very high steady-state error', () => {
+      // balanced: steadyStateErrorMax = 5, 2× = 10
+      const profile = makeProfile({ meanOvershoot: 5, meanSteadyStateError: 12 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      const iRecs = recs.filter((r) => r.setting === 'pid_roll_i');
+      expect(iRecs.length).toBe(1);
+      // Should step by 10 instead of 5
+      expect(iRecs[0].recommendedValue).toBe(DEFAULT_PIDS.roll.I + 10);
+      expect(iRecs[0].confidence).toBe('high');
+    });
+
+    it('should not recommend I change when steady-state error is normal', () => {
+      const profile = makeProfile({ meanOvershoot: 5, meanSteadyStateError: 3 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      const iRecs = recs.filter((r) => r.setting === 'pid_roll_i');
+      expect(iRecs.length).toBe(0);
+    });
+
+    it('should recommend I decrease when low error + slow settling + overshoot', () => {
+      // balanced: steadyStateErrorLow = 1, settlingMax = 200, moderateOvershoot = 15
+      const profile = makeProfile({
+        meanOvershoot: 20,
+        meanSteadyStateError: 0.5,
+        meanSettlingTimeMs: 250,
+      });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      const iRecs = recs.filter((r) => r.setting === 'pid_roll_i');
+      expect(iRecs.length).toBe(1);
+      expect(iRecs[0].recommendedValue).toBeLessThan(DEFAULT_PIDS.roll.I);
+      expect(iRecs[0].reason).toContain('settle');
+    });
+
+    it('should clamp I recommendations within safety bounds', () => {
+      // I already at max → no recommendation
+      const highIPIDs: PIDConfiguration = {
+        roll: { P: 45, I: 120, D: 30 },
+        pitch: { P: 47, I: 84, D: 32 },
+        yaw: { P: 45, I: 80, D: 0 },
+      };
+      const profile = makeProfile({ meanOvershoot: 5, meanSteadyStateError: 8 });
+
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), highIPIDs);
+
+      const iRecs = recs.filter((r) => r.setting === 'pid_roll_i');
+      expect(iRecs.length).toBe(0); // already at max, clamped = same
+    });
+
+    it('should use style-specific I-term thresholds', () => {
+      // smooth: steadyStateErrorMax = 8 — error of 6 is below threshold
+      // balanced: steadyStateErrorMax = 5 — error of 6 exceeds threshold
+      const profile = makeProfile({ meanOvershoot: 5, meanSteadyStateError: 6 });
+
+      const smoothRecs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'smooth'
+      );
+      const balancedRecs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced'
+      );
+
+      const smoothI = smoothRecs.filter((r) => r.setting === 'pid_roll_i');
+      const balancedI = balancedRecs.filter((r) => r.setting === 'pid_roll_i');
+
+      expect(smoothI.length).toBe(0); // 6 < 8, within tolerance
+      expect(balancedI.length).toBe(1); // 6 > 5, above threshold
+    });
+
+    it('summary should mention tracking drift for I-term recommendations', () => {
+      const profile = makeProfile({ meanOvershoot: 5, meanSteadyStateError: 8 });
+      const recs = recommendPID(profile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+      const summary = generatePIDSummary(profile, emptyProfile(), emptyProfile(), recs);
+
+      expect(summary).toContain('tracking drift');
     });
   });
 
