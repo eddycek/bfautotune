@@ -149,8 +149,17 @@ export const STEP_MIN_MAGNITUDE_DEG_S = 100;
 /** Minimum setpoint derivative (deg/s per second) for edge detection */
 export const STEP_DERIVATIVE_THRESHOLD = 500;
 
-/** Window after step to measure response (ms) */
+/** Default window after step to measure response (ms) — fallback when adaptive not available */
 export const STEP_RESPONSE_WINDOW_MS = 300;
+
+/** Maximum response window for first-pass adaptive detection (ms) — generous for large quads */
+export const STEP_RESPONSE_WINDOW_MAX_MS = 500;
+
+/** Minimum response window (ms) — prevents clipping for tiny quads */
+export const STEP_RESPONSE_WINDOW_MIN_MS = 150;
+
+/** Multiplier for median settling time to compute adaptive window */
+export const ADAPTIVE_WINDOW_SETTLING_MULTIPLIER = 2;
 
 /** Minimum gap between steps to avoid rapid reversals (ms) */
 export const STEP_COOLDOWN_MS = 100;
