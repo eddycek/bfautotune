@@ -23,6 +23,7 @@ import {
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
 import { STEP_RESPONSE_WINDOW_MAX_MS } from './constants';
+import { analyzeCrossAxisCoupling } from './CrossAxisDetector';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -143,6 +144,9 @@ export async function analyzePID(
     axisResponses: { roll: rollResponses, pitch: pitchResponses, yaw: yawResponses },
   });
 
+  // Detect cross-axis coupling
+  const crossAxisCoupling = analyzeCrossAxisCoupling(steps, flightData);
+
   // Extract feedforward context before recommendations (needed for FF-aware rules)
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
@@ -189,6 +193,7 @@ export async function analyzePID(
     flightStyle,
     dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
+    ...(crossAxisCoupling ? { crossAxisCoupling } : {}),
   };
 }
 

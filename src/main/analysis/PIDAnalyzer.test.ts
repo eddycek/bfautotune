@@ -354,5 +354,26 @@ describe('PIDAnalyzer', () => {
       // Smooth should be at least as strict as aggressive
       expect(smoothOvershootRecs.length).toBeGreaterThanOrEqual(aggressiveOvershootRecs.length);
     });
+
+    it('should include crossAxisCoupling when steps are detected', async () => {
+      const stepAt = 1000;
+      const mag = 300;
+      const data = createFlightData({
+        rollSetpointFn: (i) => (i >= stepAt ? mag : 0),
+        rollGyroFn: (i) => (i >= stepAt ? mag : 0),
+        pitchSetpointFn: (i) => (i >= 3000 ? -mag : 0),
+        pitchGyroFn: (i) => (i >= 3000 ? -mag : 0),
+      });
+
+      const result = await analyzePID(data, 0, PIDS);
+
+      // If enough steps detected, crossAxisCoupling should be present
+      if (result.stepsDetected >= 2) {
+        expect(result.crossAxisCoupling).toBeDefined();
+        expect(result.crossAxisCoupling!.pairs.length).toBeGreaterThan(0);
+        expect(typeof result.crossAxisCoupling!.hasSignificantCoupling).toBe('boolean');
+        expect(result.crossAxisCoupling!.summary.length).toBeGreaterThan(0);
+      }
+    });
   });
 });
