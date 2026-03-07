@@ -678,9 +678,9 @@ After snapshot, transition `quick_applied → verification_pending` (reuses exis
 
 | # | Task | Files | Tests |
 |---|------|-------|-------|
-| B1 | BodePlot chart component | `src/renderer/components/TuningWizard/charts/BodePlot.tsx` | Component test: renders axes, handles empty data |
-| B2 | AnalysisOverview Wiener integration | `src/renderer/components/AnalysisOverview/AnalysisOverview.tsx`, `useAnalysisOverview.ts` | Component test: shows Bode plot when no steps, shows both when steps found |
-| B3 | ANALYSIS_RUN_PID wiener option | `src/main/ipc/handlers/analysisHandlers.ts` | Integration test: method parameter routing |
+| B1 | ✅ BodePlot chart component | `src/renderer/components/TuningWizard/charts/BodePlot.tsx` | Component test: renders axes, handles empty data |
+| B2 | ✅ AnalysisOverview Wiener integration | `src/renderer/components/AnalysisOverview/AnalysisOverview.tsx`, `useAnalysisOverview.ts` | Component test: shows Bode plot when no steps, shows both when steps found |
+| B3 | ✅ ANALYSIS_RUN_TRANSFER_FUNCTION handler | `src/main/ipc/handlers/analysisHandlers.ts` | Integration test: method parameter routing |
 
 ### Phase C: Session & State Machine
 
