@@ -305,6 +305,67 @@ describe('TuningHistoryManager', () => {
     });
   });
 
+  describe('quick tuning archive', () => {
+    it('archives tuningType from session', async () => {
+      const session = makeCompletedSession('profile-1', {
+        tuningType: 'quick',
+      });
+      const record = await manager.archiveSession(session);
+      expect(record.tuningType).toBe('quick');
+    });
+
+    it('archives quickLogId from session', async () => {
+      const session = makeCompletedSession('profile-1', {
+        tuningType: 'quick',
+        quickLogId: 'quick-log-abc',
+      });
+      const record = await manager.archiveSession(session);
+      expect(record.quickLogId).toBe('quick-log-abc');
+    });
+
+    it('archives transferFunctionMetrics from session', async () => {
+      const tfMetrics = {
+        roll: {
+          bandwidthHz: 65,
+          phaseMarginDeg: 55,
+          gainMarginDb: 12,
+          overshootPercent: 8,
+          settlingTimeMs: 80,
+          riseTimeMs: 12,
+        },
+        pitch: {
+          bandwidthHz: 60,
+          phaseMarginDeg: 50,
+          gainMarginDb: 10,
+          overshootPercent: 10,
+          settlingTimeMs: 90,
+          riseTimeMs: 14,
+        },
+        yaw: {
+          bandwidthHz: 40,
+          phaseMarginDeg: 45,
+          gainMarginDb: 8,
+          overshootPercent: 12,
+          settlingTimeMs: 100,
+          riseTimeMs: 18,
+        },
+      };
+      const session = makeCompletedSession('profile-1', {
+        tuningType: 'quick',
+        transferFunctionMetrics: tfMetrics,
+      });
+      const record = await manager.archiveSession(session);
+      expect(record.transferFunctionMetrics).toEqual(tfMetrics);
+    });
+
+    it('defaults quickLogId and transferFunctionMetrics to null', async () => {
+      const session = makeCompletedSession('profile-1');
+      const record = await manager.archiveSession(session);
+      expect(record.quickLogId).toBeNull();
+      expect(record.transferFunctionMetrics).toBeNull();
+    });
+  });
+
   describe('deleteHistory', () => {
     it('deletes all history for a profile', async () => {
       await manager.archiveSession(makeCompletedSession('profile-1'));

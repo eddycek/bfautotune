@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { downsampleSpectrum, extractFilterMetrics, extractPIDMetrics } from './metricsExtract';
+import {
+  downsampleSpectrum,
+  extractFilterMetrics,
+  extractPIDMetrics,
+  extractTransferFunctionMetrics,
+} from './metricsExtract';
 import type { FilterAnalysisResult, PIDAnalysisResult } from '../types/analysis.types';
 
 describe('downsampleSpectrum', () => {
@@ -241,5 +246,67 @@ describe('extractPIDMetrics', () => {
     expect(metrics.roll.meanTrackingErrorRMS).toBeDefined();
     expect(metrics.pitch.meanTrackingErrorRMS).toBeDefined();
     expect(metrics.yaw.meanTrackingErrorRMS).toBeDefined();
+  });
+});
+
+describe('extractTransferFunctionMetrics', () => {
+  const makeTFMetrics = () => ({
+    roll: {
+      bandwidthHz: 65.1234,
+      phaseMarginDeg: 55.5678,
+      gainMarginDb: 12.3456,
+      overshootPercent: 8.7654,
+      settlingTimeMs: 80.1234,
+      riseTimeMs: 12.5678,
+    },
+    pitch: {
+      bandwidthHz: 60.9876,
+      phaseMarginDeg: 50.4321,
+      gainMarginDb: 10.6789,
+      overshootPercent: 10.1234,
+      settlingTimeMs: 90.5678,
+      riseTimeMs: 14.9012,
+    },
+    yaw: {
+      bandwidthHz: 40.1111,
+      phaseMarginDeg: 45.2222,
+      gainMarginDb: 8.3333,
+      overshootPercent: 12.4444,
+      settlingTimeMs: 100.5555,
+      riseTimeMs: 18.6666,
+    },
+  });
+
+  it('extracts all per-axis fields', () => {
+    const metrics = extractTransferFunctionMetrics(makeTFMetrics());
+    expect(metrics.roll.bandwidthHz).toBe(65.12);
+    expect(metrics.roll.phaseMarginDeg).toBe(55.57);
+    expect(metrics.pitch.gainMarginDb).toBe(10.68);
+    expect(metrics.yaw.overshootPercent).toBe(12.44);
+    expect(metrics.yaw.settlingTimeMs).toBe(100.56);
+    expect(metrics.yaw.riseTimeMs).toBe(18.67);
+  });
+
+  it('rounds all values to 2 decimal places', () => {
+    const metrics = extractTransferFunctionMetrics(makeTFMetrics());
+    for (const axis of ['roll', 'pitch', 'yaw'] as const) {
+      for (const key of Object.keys(metrics[axis]) as (keyof typeof metrics.roll)[]) {
+        const val = metrics[axis][key];
+        expect(Math.round(val * 100) / 100).toBe(val);
+      }
+    }
+  });
+
+  it('includes dataQuality when provided', () => {
+    const metrics = extractTransferFunctionMetrics(makeTFMetrics(), {
+      overall: 85,
+      tier: 'excellent',
+    });
+    expect(metrics.dataQuality).toEqual({ overall: 85, tier: 'excellent' });
+  });
+
+  it('omits dataQuality when not provided', () => {
+    const metrics = extractTransferFunctionMetrics(makeTFMetrics());
+    expect(metrics.dataQuality).toBeUndefined();
   });
 });

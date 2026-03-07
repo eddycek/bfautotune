@@ -112,7 +112,9 @@ describe('TuningSessionManager', () => {
         filterLogId: 'log-123',
       });
       const updated = await manager.updatePhase('profile-1', 'pid_flight_pending', {
-        appliedFilterChanges: [{ setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 150 }],
+        appliedFilterChanges: [
+          { setting: 'gyro_lpf1_static_hz', previousValue: 250, newValue: 150 },
+        ],
       });
 
       expect(updated.filterLogId).toBe('log-123');
@@ -121,9 +123,9 @@ describe('TuningSessionManager', () => {
     });
 
     it('throws when session does not exist', async () => {
-      await expect(
-        manager.updatePhase('nonexistent', 'filter_log_ready')
-      ).rejects.toThrow('No tuning session found');
+      await expect(manager.updatePhase('nonexistent', 'filter_log_ready')).rejects.toThrow(
+        'No tuning session found'
+      );
     });
   });
 
@@ -139,6 +141,42 @@ describe('TuningSessionManager', () => {
     it('is a no-op for non-existent session', async () => {
       // Should not throw
       await manager.deleteSession('nonexistent');
+    });
+  });
+
+  describe('quick tuning support', () => {
+    it('creates quick session with quick_flight_pending phase', async () => {
+      const session = await manager.createSession('profile-1', 'quick');
+      expect(session.phase).toBe('quick_flight_pending');
+      expect(session.tuningType).toBe('quick');
+    });
+
+    it('creates guided session by default', async () => {
+      const session = await manager.createSession('profile-1');
+      expect(session.phase).toBe('filter_flight_pending');
+      expect(session.tuningType).toBe('guided');
+    });
+
+    it('creates guided session with explicit type', async () => {
+      const session = await manager.createSession('profile-1', 'guided');
+      expect(session.phase).toBe('filter_flight_pending');
+      expect(session.tuningType).toBe('guided');
+    });
+
+    it('supports quick phase transitions', async () => {
+      await manager.createSession('profile-1', 'quick');
+      const updated = await manager.updatePhase('profile-1', 'quick_log_ready');
+      expect(updated.phase).toBe('quick_log_ready');
+      expect(updated.tuningType).toBe('quick');
+    });
+
+    it('preserves quickLogId across updates', async () => {
+      await manager.createSession('profile-1', 'quick');
+      await manager.updatePhase('profile-1', 'quick_analysis', {
+        quickLogId: 'quick-log-123',
+      });
+      const session = await manager.getSession('profile-1');
+      expect(session!.quickLogId).toBe('quick-log-123');
     });
   });
 

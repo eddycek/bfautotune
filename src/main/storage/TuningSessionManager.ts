@@ -7,7 +7,7 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
+import type { TuningSession, TuningPhase, TuningType } from '@shared/types/tuning.types';
 import { logger } from '../utils/logger';
 
 export class TuningSessionManager {
@@ -33,16 +33,23 @@ export class TuningSessionManager {
         return null;
       }
       // Corrupted file — treat as no session
-      logger.warn(`Failed to load tuning session for profile ${profileId}, treating as no session`, error);
+      logger.warn(
+        `Failed to load tuning session for profile ${profileId}, treating as no session`,
+        error
+      );
       return null;
     }
   }
 
-  async createSession(profileId: string): Promise<TuningSession> {
+  async createSession(
+    profileId: string,
+    tuningType: TuningType = 'guided'
+  ): Promise<TuningSession> {
     const now = new Date().toISOString();
     const session: TuningSession = {
       profileId,
-      phase: 'filter_flight_pending',
+      phase: tuningType === 'quick' ? 'quick_flight_pending' : 'filter_flight_pending',
+      tuningType,
       startedAt: now,
       updatedAt: now,
     };

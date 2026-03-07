@@ -28,7 +28,7 @@ import type {
   FilterRecommendation,
   PIDRecommendation,
 } from './analysis.types';
-import type { TuningSession, TuningPhase } from './tuning.types';
+import type { TuningSession, TuningPhase, TuningType } from './tuning.types';
 import type { CompletedTuningRecord, FilterMetricsSummary } from './tuning-history.types';
 
 /** Progress during snapshot restore */
@@ -263,7 +263,7 @@ export interface BetaflightAPI {
 
   // Tuning Session
   getTuningSession(): Promise<TuningSession | null>;
-  startTuningSession(): Promise<TuningSession>;
+  startTuningSession(tuningType?: TuningType): Promise<TuningSession>;
   updateTuningPhase(phase: TuningPhase, data?: Partial<TuningSession>): Promise<TuningSession>;
   resetTuningSession(): Promise<void>;
   onTuningSessionChanged(callback: (session: TuningSession | null) => void): () => void;

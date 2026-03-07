@@ -4,7 +4,7 @@
  * These types store JSON-safe metrics (no Float64Array) for persistence and comparison.
  */
 
-import type { AppliedChange } from './tuning.types';
+import type { AppliedChange, TuningType } from './tuning.types';
 import type { PIDConfiguration } from './pid.types';
 
 /** Downsampled power spectrum safe for JSON serialization (128 bins) */
@@ -85,6 +85,25 @@ export interface PIDMetricsSummary {
   dataQuality?: { overall: number; tier: string };
 }
 
+/** Per-axis transfer function metrics summary for history storage */
+export interface AxisTransferFunctionSummary {
+  bandwidthHz: number;
+  phaseMarginDeg: number;
+  gainMarginDb: number;
+  overshootPercent: number;
+  settlingTimeMs: number;
+  riseTimeMs: number;
+}
+
+/** Compact transfer function metrics for history storage */
+export interface TransferFunctionMetricsSummary {
+  roll: AxisTransferFunctionSummary;
+  pitch: AxisTransferFunctionSummary;
+  yaw: AxisTransferFunctionSummary;
+  /** Data quality score summary */
+  dataQuality?: { overall: number; tier: string };
+}
+
 /** A completed tuning session archived for history/comparison */
 export interface CompletedTuningRecord {
   /** Unique record ID */
@@ -96,6 +115,9 @@ export interface CompletedTuningRecord {
   /** When the tuning session was completed (ISO string) */
   completedAt: string;
 
+  /** Guided (2-flight) or Quick (1-flight). Defaults to 'guided' for old records. */
+  tuningType?: TuningType;
+
   /** Snapshot IDs (nullable — may not exist if skipped or deleted) */
   baselineSnapshotId: string | null;
   postFilterSnapshotId: string | null;
@@ -104,6 +126,7 @@ export interface CompletedTuningRecord {
   /** Log IDs (nullable) */
   filterLogId: string | null;
   pidLogId: string | null;
+  quickLogId: string | null;
   verificationLogId: string | null;
 
   /** Applied changes */
@@ -115,4 +138,7 @@ export interface CompletedTuningRecord {
   filterMetrics: FilterMetricsSummary | null;
   pidMetrics: PIDMetricsSummary | null;
   verificationMetrics: FilterMetricsSummary | null;
+
+  /** Transfer function metrics from Wiener deconvolution (Quick Tune only) */
+  transferFunctionMetrics: TransferFunctionMetricsSummary | null;
 }

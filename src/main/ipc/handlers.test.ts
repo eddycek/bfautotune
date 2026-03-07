@@ -1514,7 +1514,7 @@ describe('IPC Handlers', () => {
 
       const res = await invoke(IPCChannel.TUNING_START_SESSION);
       expect(res.success).toBe(true);
-      expect(mockTuningMgr.createSession).toHaveBeenCalledWith('prof-1');
+      expect(mockTuningMgr.createSession).toHaveBeenCalledWith('prof-1', 'guided');
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         IPCChannel.EVENT_TUNING_SESSION_CHANGED,
         expect.objectContaining({ phase: 'filter_flight_pending' })

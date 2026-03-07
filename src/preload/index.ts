@@ -36,7 +36,7 @@ import type {
   FixBlackboxSettingsInput,
   FixBlackboxSettingsResult,
 } from '@shared/types/ipc.types';
-import type { TuningSession, TuningPhase } from '@shared/types/tuning.types';
+import type { TuningSession, TuningPhase, TuningType } from '@shared/types/tuning.types';
 import type {
   CompletedTuningRecord,
   FilterMetricsSummary,
@@ -568,8 +568,8 @@ const betaflightAPI: BetaflightAPI = {
     return response.data;
   },
 
-  async startTuningSession(): Promise<TuningSession> {
-    const response = await ipcRenderer.invoke(IPCChannel.TUNING_START_SESSION);
+  async startTuningSession(tuningType?: TuningType): Promise<TuningSession> {
+    const response = await ipcRenderer.invoke(IPCChannel.TUNING_START_SESSION, tuningType);
     if (!response.success) {
       throw new Error(response.error || 'Failed to start tuning session');
     }

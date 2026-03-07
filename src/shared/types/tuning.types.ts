@@ -8,13 +8,20 @@
  * A persistent TuningSession tracks progress across connect/disconnect cycles.
  */
 
-import type { FilterMetricsSummary, PIDMetricsSummary } from './tuning-history.types';
+import type {
+  FilterMetricsSummary,
+  PIDMetricsSummary,
+  TransferFunctionMetricsSummary,
+} from './tuning-history.types';
 
 /** Which analysis mode the wizard is operating in */
-export type TuningMode = 'filter' | 'pid' | 'full';
+export type TuningMode = 'filter' | 'pid' | 'full' | 'quick';
 
 /** Extended mode for flight guide (includes verification hover) */
 export type FlightGuideMode = TuningMode | 'verification';
+
+/** Whether this is a guided (2-flight) or quick (1-flight) tuning session */
+export type TuningType = 'guided' | 'quick';
 
 /** Phases of the tuning session state machine */
 export type TuningPhase =
@@ -26,6 +33,10 @@ export type TuningPhase =
   | 'pid_log_ready' // FC reconnected, ready to download PID log
   | 'pid_analysis' // PID log downloaded, analyzing
   | 'pid_applied' // PIDs applied, flash erased, ready for verification
+  | 'quick_flight_pending' // Quick Tune: waiting for user to fly any flight
+  | 'quick_log_ready' // Quick Tune: FC reconnected, ready to download log
+  | 'quick_analysis' // Quick Tune: log downloaded, analyzing (filter + Wiener in parallel)
+  | 'quick_applied' // Quick Tune: all changes applied, ready for verification
   | 'verification_pending' // Waiting for verification flight
   | 'completed'; // Tuning done
 
@@ -44,6 +55,9 @@ export interface TuningSession {
   /** Current phase of the tuning process */
   phase: TuningPhase;
 
+  /** Guided (2-flight) or Quick (1-flight) tuning. Defaults to 'guided' for backward compat. */
+  tuningType?: TuningType;
+
   /** When the session was started (ISO string) */
   startedAt: string;
 
@@ -61,6 +75,9 @@ export interface TuningSession {
 
   /** Log ID of the PID test flight (after download) */
   pidLogId?: string;
+
+  /** Log ID of the quick tune flight (single flight, after download) */
+  quickLogId?: string;
 
   /** Summary of applied PID changes */
   appliedPIDChanges?: AppliedChange[];
@@ -85,6 +102,9 @@ export interface TuningSession {
 
   /** Compact verification flight metrics (saved for history) */
   verificationMetrics?: FilterMetricsSummary;
+
+  /** Compact transfer function metrics from Wiener deconvolution (Quick Tune only) */
+  transferFunctionMetrics?: TransferFunctionMetricsSummary;
 
   /** True when user skipped erase (e.g. formatted SD card manually) — persists across restart */
   eraseSkipped?: boolean;
