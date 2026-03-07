@@ -5,6 +5,7 @@ import {
   extractFlightPIDs,
   extractFeedforwardContext,
 } from './PIDRecommender';
+import type { TransferFunctionContext } from './PIDRecommender';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type {
   AxisStepProfile,
@@ -12,6 +13,7 @@ import type {
   StepResponse,
   StepEvent,
 } from '@shared/types/analysis.types';
+import type { TransferFunctionMetrics } from './TransferFunctionEstimator';
 import { P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
 
 function makeStep(): StepEvent {
@@ -541,6 +543,252 @@ describe('PIDRecommender', () => {
 
       const ffRecs = recs.filter((r) => r.setting === 'feedforward_boost');
       expect(ffRecs.length).toBe(1);
+    });
+  });
+
+  describe('frequency-domain recommendations (tfMetrics)', () => {
+    function makeTFMetrics(
+      overrides: Partial<TransferFunctionMetrics> = {}
+    ): TransferFunctionMetrics {
+      return {
+        bandwidthHz: 60,
+        gainMarginDb: 12,
+        phaseMarginDeg: 60,
+        overshootPercent: 5,
+        settlingTimeMs: 80,
+        riseTimeMs: 30,
+        ...overrides,
+      };
+    }
+
+    it('should use TF metrics when responses are empty', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ phaseMarginDeg: 25 }), // critically low
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+      expect(dRec!.reason).toContain('phase margin');
+      expect(dRec!.confidence).toBe('medium');
+    });
+
+    it('should recommend D+10 for critically low phase margin (<30°)', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ phaseMarginDeg: 25 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+      expect(dRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.D + 10);
+    });
+
+    it('should recommend D+5 for low phase margin (30-45°)', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ phaseMarginDeg: 38 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+      expect(dRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.D + 5);
+    });
+
+    it('should recommend P increase for low bandwidth', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ bandwidthHz: 25, overshootPercent: 3 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p');
+      expect(pRec).toBeDefined();
+      expect(pRec!.reason).toContain('bandwidth');
+      expect(pRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.P + 5);
+    });
+
+    it('should not recommend P increase when overshoot is high despite low bandwidth', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ bandwidthHz: 25, overshootPercent: 15 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const pRec = recs.find((r) => r.setting === 'pid_roll_p' && r.reason.includes('bandwidth'));
+      expect(pRec).toBeUndefined();
+    });
+
+    it('should recommend D increase for TF-based overshoot', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ overshootPercent: 35, phaseMarginDeg: 60 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+      expect(dRec).toBeDefined();
+      expect(dRec!.reason).toContain('overshoot');
+    });
+
+    it('should not duplicate D recommendations from phase margin and overshoot', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ phaseMarginDeg: 25, overshootPercent: 35 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const dRecs = recs.filter((r) => r.setting === 'pid_roll_d');
+      expect(dRecs.length).toBe(1);
+    });
+
+    it('should return no recommendations when TF metrics are healthy', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics(), // all healthy defaults
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      expect(recs.length).toBe(0);
+    });
+
+    it('should prefer step-based rules when responses exist even with tfMetrics', () => {
+      const stepProfile = makeProfile({ meanOvershoot: 35 });
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ phaseMarginDeg: 25 }), // would trigger TF rules
+      };
+
+      const recsWithTF = recommendPID(
+        stepProfile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+      const recsWithout = recommendPID(stepProfile, emptyProfile(), emptyProfile(), DEFAULT_PIDS);
+
+      // When steps exist, TF metrics are ignored — same recommendations
+      expect(recsWithTF).toEqual(recsWithout);
+    });
+
+    it('should use relaxed thresholds for yaw axis with TF metrics', () => {
+      const tf: TransferFunctionContext = {
+        yaw: makeTFMetrics({ bandwidthHz: 25, overshootPercent: 3 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      // yaw bandwidth threshold is 40 * 0.7 = 28, so 25 < 28 → should trigger
+      const pRec = recs.find((r) => r.setting === 'pid_yaw_p');
+      expect(pRec).toBeDefined();
+    });
+
+    it('should cap all TF-based recommendations at medium confidence', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ phaseMarginDeg: 20, overshootPercent: 60 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      for (const rec of recs) {
+        expect(rec.confidence).toBe('medium');
+      }
     });
   });
 
