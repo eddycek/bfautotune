@@ -10,6 +10,7 @@ import type { FlightStyle } from '@shared/types/profile.types';
 import type {
   AnalysisProgress,
   AnalysisWarning,
+  AxisStepProfile,
   PIDAnalysisResult,
   StepResponse,
 } from '@shared/types/analysis.types';
@@ -17,6 +18,7 @@ import { detectSteps } from './StepDetector';
 import { computeStepResponse, aggregateAxisMetrics, classifyFFContribution } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
 import { scorePIDDataQuality, adjustPIDConfidenceByQuality } from './DataQualityScorer';
+import { estimateAllAxes, type TransferFunctionResult } from './TransferFunctionEstimator';
 
 /** Default PID configuration if none provided */
 const DEFAULT_PIDS: PIDConfiguration = {
@@ -158,6 +160,130 @@ export async function analyzePID(
     flightStyle,
     dataQuality: qualityResult.score,
     ...(warnings.length > 0 ? { warnings } : {}),
+  };
+}
+
+/**
+ * Run PID analysis using Wiener deconvolution (transfer function estimation).
+ *
+ * Works with any flight data — no stick snaps required. Produces the same
+ * PIDAnalysisResult shape as step-based analysis for downstream compatibility.
+ *
+ * @param flightData - Parsed Blackbox flight data for one session
+ * @param sessionIndex - Which session is being analyzed
+ * @param currentPIDs - Current PID configuration from the FC
+ * @param onProgress - Optional progress callback
+ * @param flightPIDs - PIDs from BBL header for convergent recommendations
+ * @param rawHeaders - BBL raw headers for feedforward context
+ * @param flightStyle - Pilot's flying style preference
+ * @returns PID analysis result with analysisMethod='wiener_deconvolution'
+ */
+export async function analyzeTransferFunction(
+  flightData: BlackboxFlightData,
+  sessionIndex: number = 0,
+  currentPIDs: PIDConfiguration = DEFAULT_PIDS,
+  onProgress?: (progress: AnalysisProgress) => void,
+  flightPIDs?: PIDConfiguration,
+  rawHeaders?: Map<string, string>,
+  flightStyle: FlightStyle = 'balanced'
+): Promise<PIDAnalysisResult & { transferFunction: TransferFunctionResult }> {
+  const startTime = performance.now();
+
+  onProgress?.({ step: 'detecting', percent: 5 });
+
+  // Estimate transfer function for all axes
+  const tfResult = estimateAllAxes(
+    {
+      roll: flightData.setpoint[0].values,
+      pitch: flightData.setpoint[1].values,
+      yaw: flightData.setpoint[2].values,
+    },
+    {
+      roll: flightData.gyro[0].values,
+      pitch: flightData.gyro[1].values,
+      yaw: flightData.gyro[2].values,
+    },
+    flightData.sampleRateHz,
+    (p) => {
+      // Map TF progress (0-100) to analysis progress (5-70)
+      onProgress?.({ step: 'measuring', percent: 5 + Math.round(p.percent * 0.65) });
+    }
+  );
+
+  await yieldToEventLoop();
+
+  // Build AxisStepProfile from synthetic step response metrics
+  const axes = ['roll', 'pitch', 'yaw'] as const;
+  const profiles: Record<string, AxisStepProfile> = {};
+
+  for (const axis of axes) {
+    const m = tfResult.metrics[axis];
+    profiles[axis] = {
+      responses: [], // No individual step responses (Wiener produces a single synthetic response)
+      meanOvershoot: m.overshootPercent,
+      meanRiseTimeMs: m.riseTimeMs,
+      meanSettlingTimeMs: m.settlingTimeMs,
+      meanLatencyMs: 0, // Not directly measurable from transfer function
+      meanTrackingErrorRMS: 0, // Not applicable for synthetic response
+    };
+  }
+
+  // Extract feedforward context
+  const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
+
+  // Generate recommendations using the same PIDRecommender
+  onProgress?.({ step: 'scoring', percent: 80 });
+  const rawRecommendations = recommendPID(
+    profiles.roll as AxisStepProfile,
+    profiles.pitch as AxisStepProfile,
+    profiles.yaw as AxisStepProfile,
+    currentPIDs,
+    flightPIDs,
+    feedforwardContext,
+    flightStyle
+  );
+
+  // Cap confidence at 'medium' for Wiener-derived recommendations
+  const recommendations = rawRecommendations.map((r) => ({
+    ...r,
+    confidence: r.confidence === 'high' ? ('medium' as const) : r.confidence,
+  }));
+
+  const summary = generatePIDSummary(
+    profiles.roll as AxisStepProfile,
+    profiles.pitch as AxisStepProfile,
+    profiles.yaw as AxisStepProfile,
+    recommendations,
+    flightStyle
+  );
+
+  onProgress?.({ step: 'scoring', percent: 100 });
+
+  const warnings: AnalysisWarning[] = [];
+  if (feedforwardContext?.active) {
+    warnings.push({
+      code: 'feedforward_active',
+      message:
+        'Feedforward is active. Transfer function includes FF contribution — some overshoot may be from FF.',
+      severity: 'info',
+    });
+  }
+
+  return {
+    roll: profiles.roll as AxisStepProfile,
+    pitch: profiles.pitch as AxisStepProfile,
+    yaw: profiles.yaw as AxisStepProfile,
+    recommendations,
+    summary,
+    analysisTimeMs: Math.round(performance.now() - startTime),
+    sessionIndex,
+    stepsDetected: 0, // No actual steps detected
+    currentPIDs,
+    feedforwardContext,
+    flightStyle,
+    analysisMethod: 'wiener_deconvolution',
+    ...(warnings.length > 0 ? { warnings } : {}),
+    transferFunction: tfResult,
   };
 }
 
