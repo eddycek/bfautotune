@@ -11,7 +11,15 @@ import type {
   PIDRecommendation,
 } from '@shared/types/analysis.types';
 import type { FlightStyle } from '@shared/types/profile.types';
+import type { TransferFunctionMetrics } from './TransferFunctionEstimator';
 import { PID_STYLE_THRESHOLDS, P_GAIN_MIN, P_GAIN_MAX, D_GAIN_MIN, D_GAIN_MAX } from './constants';
+
+/** Per-axis transfer function metrics for frequency-domain PID recommendations */
+export interface TransferFunctionContext {
+  roll?: TransferFunctionMetrics;
+  pitch?: TransferFunctionMetrics;
+  yaw?: TransferFunctionMetrics;
+}
 
 const AXIS_NAMES = ['roll', 'pitch', 'yaw'] as const;
 
@@ -33,7 +41,8 @@ export function recommendPID(
   currentPIDs: PIDConfiguration,
   flightPIDs?: PIDConfiguration,
   feedforwardContext?: FeedforwardContext,
-  flightStyle: FlightStyle = 'balanced'
+  flightStyle: FlightStyle = 'balanced',
+  tfMetrics?: TransferFunctionContext
 ): PIDRecommendation[] {
   const recommendations: PIDRecommendation[] = [];
   const profiles = [roll, pitch, yaw] as const;
@@ -45,8 +54,15 @@ export function recommendPID(
     const pids = currentPIDs[axisName];
     // Anchor to flight PIDs (from BBL header) when available, else fall back to current
     const base = flightPIDs ? flightPIDs[axisName] : pids;
+    const axisTF = tfMetrics?.[axisName];
 
-    // Skip axes with no step data
+    // If we have transfer function metrics and no step data, use frequency-domain rules
+    if (profile.responses.length === 0 && axisTF) {
+      generateFrequencyDomainRecs(axisTF, axisName, pids, base, thresholds, recommendations);
+      continue;
+    }
+
+    // Skip axes with no step data (and no TF metrics)
     if (profile.responses.length === 0) continue;
 
     // Check if overshoot on this axis is FF-dominated (majority of steps)
@@ -281,6 +297,126 @@ function parseIntOr(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
   const n = parseInt(value, 10);
   return Number.isNaN(n) ? undefined : n;
+}
+
+// ---- Frequency-domain recommendation thresholds ----
+
+/** Minimum bandwidth (Hz) below which we consider P too low */
+const BANDWIDTH_LOW_HZ = 40;
+
+/** Phase margin threshold below which we consider the system under-damped */
+const PHASE_MARGIN_LOW_DEG = 45;
+
+/** Phase margin threshold below which we consider the system critically under-damped */
+const PHASE_MARGIN_CRITICAL_DEG = 30;
+
+/**
+ * Generate PID recommendations from transfer function metrics (frequency domain).
+ *
+ * Used when Wiener deconvolution produces TF metrics but no step responses exist.
+ * Bandwidth indicates responsiveness (P), phase margin indicates damping (D).
+ */
+function generateFrequencyDomainRecs(
+  tf: TransferFunctionMetrics,
+  axisName: string,
+  pids: { P: number; I: number; D: number },
+  base: { P: number; I: number; D: number },
+  thresholds: (typeof PID_STYLE_THRESHOLDS)[FlightStyle],
+  recommendations: PIDRecommendation[]
+): void {
+  const isYaw = axisName === 'yaw';
+  const overshootThreshold = isYaw ? thresholds.overshootMax * 1.5 : thresholds.overshootMax;
+  const moderateOvershoot = isYaw ? thresholds.overshootMax : thresholds.moderateOvershoot;
+  const bandwidthLow = isYaw ? BANDWIDTH_LOW_HZ * 0.7 : BANDWIDTH_LOW_HZ;
+
+  // Rule TF-1: Low phase margin → increase D (under-damped system)
+  if (tf.phaseMarginDeg < PHASE_MARGIN_LOW_DEG && tf.phaseMarginDeg > 0) {
+    const dStep = tf.phaseMarginDeg < PHASE_MARGIN_CRITICAL_DEG ? 10 : 5;
+    const targetD = clamp(base.D + dStep, D_GAIN_MIN, D_GAIN_MAX);
+    if (targetD !== pids.D) {
+      recommendations.push({
+        setting: `pid_${axisName}_d`,
+        currentValue: pids.D,
+        recommendedValue: targetD,
+        reason: `Transfer function shows low phase margin on ${axisName} (${Math.round(tf.phaseMarginDeg)}°). Increasing D-term adds damping to prevent oscillation.`,
+        impact: 'stability',
+        confidence: 'medium',
+      });
+    }
+  }
+
+  // Rule TF-2: Overshoot from synthetic step response
+  if (tf.overshootPercent > overshootThreshold) {
+    const severity = tf.overshootPercent / overshootThreshold;
+    const dStep = severity > 4 ? 15 : severity > 2 ? 10 : 5;
+    const existingDRec = recommendations.find((r) => r.setting === `pid_${axisName}_d`);
+    if (!existingDRec) {
+      const targetD = clamp(base.D + dStep, D_GAIN_MIN, D_GAIN_MAX);
+      if (targetD !== pids.D) {
+        recommendations.push({
+          setting: `pid_${axisName}_d`,
+          currentValue: pids.D,
+          recommendedValue: targetD,
+          reason: `Synthetic step response shows ${Math.round(tf.overshootPercent)}% overshoot on ${axisName}. Increasing D-term will dampen the response.`,
+          impact: 'both',
+          confidence: 'medium',
+        });
+      }
+    }
+    // Reduce P for extreme overshoot
+    if (severity > 2 || base.D >= D_GAIN_MAX * 0.6) {
+      const pStep = severity > 4 ? 10 : 5;
+      const targetP = clamp(base.P - pStep, P_GAIN_MIN, P_GAIN_MAX);
+      if (targetP !== pids.P) {
+        recommendations.push({
+          setting: `pid_${axisName}_p`,
+          currentValue: pids.P,
+          recommendedValue: targetP,
+          reason: `High overshoot on ${axisName} (${Math.round(tf.overshootPercent)}%) from transfer function analysis. Reducing P-term helps prevent overshooting.`,
+          impact: 'both',
+          confidence: 'medium',
+        });
+      }
+    }
+  } else if (tf.overshootPercent > moderateOvershoot) {
+    // Moderate overshoot
+    const existingDRec = recommendations.find((r) => r.setting === `pid_${axisName}_d`);
+    if (!existingDRec) {
+      const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
+      if (targetD !== pids.D) {
+        recommendations.push({
+          setting: `pid_${axisName}_d`,
+          currentValue: pids.D,
+          recommendedValue: targetD,
+          reason: `Transfer function indicates moderate overshoot on ${axisName} (${Math.round(tf.overshootPercent)}%). A D-term increase will improve damping.`,
+          impact: 'stability',
+          confidence: 'medium',
+        });
+      }
+    }
+  }
+
+  // Rule TF-3: Low bandwidth → increase P (sluggish system)
+  if (
+    tf.bandwidthHz < bandwidthLow &&
+    tf.bandwidthHz > 0 &&
+    tf.overshootPercent < thresholds.overshootIdeal
+  ) {
+    const targetP = clamp(base.P + 5, P_GAIN_MIN, P_GAIN_MAX);
+    if (targetP !== pids.P) {
+      const existingPRec = recommendations.find((r) => r.setting === `pid_${axisName}_p`);
+      if (!existingPRec) {
+        recommendations.push({
+          setting: `pid_${axisName}_p`,
+          currentValue: pids.P,
+          recommendedValue: targetP,
+          reason: `Low bandwidth on ${axisName} (${Math.round(tf.bandwidthHz)} Hz) suggests sluggish response. Increasing P-term will improve responsiveness.`,
+          impact: 'response',
+          confidence: 'medium',
+        });
+      }
+    }
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {

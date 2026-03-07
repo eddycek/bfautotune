@@ -231,7 +231,7 @@ export async function analyzeTransferFunction(
   // Extract feedforward context
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
 
-  // Generate recommendations using the same PIDRecommender
+  // Generate recommendations using the same PIDRecommender with TF metrics
   onProgress?.({ step: 'scoring', percent: 80 });
   const rawRecommendations = recommendPID(
     profiles.roll as AxisStepProfile,
@@ -240,7 +240,12 @@ export async function analyzeTransferFunction(
     currentPIDs,
     flightPIDs,
     feedforwardContext,
-    flightStyle
+    flightStyle,
+    {
+      roll: tfResult.metrics.roll,
+      pitch: tfResult.metrics.pitch,
+      yaw: tfResult.metrics.yaw,
+    }
   );
 
   // Cap confidence at 'medium' for Wiener-derived recommendations

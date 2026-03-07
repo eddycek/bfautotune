@@ -232,6 +232,98 @@ export function scorePIDDataQuality(input: PIDQualityInput): {
   };
 }
 
+// ---- Wiener deconvolution data quality ----
+
+export interface WienerQualityInput {
+  /** Total number of samples in the signal */
+  sampleCount: number;
+  /** Sample rate in Hz */
+  sampleRateHz: number;
+  /** RMS of setpoint signal (should be > 0 for meaningful analysis) */
+  setpointRMS: number;
+  /** Per-axis coherence mean (0-1, higher = better signal-to-noise) */
+  coherenceMean?: { roll: number; pitch: number; yaw: number };
+}
+
+/**
+ * Score the quality of Wiener deconvolution input data.
+ *
+ * Sub-scores:
+ * - Signal duration (weight 0.30): 10s+ = 100, <2s = 0
+ * - Sample rate (weight 0.20): 4kHz+ = 100, <1kHz = 0
+ * - Setpoint activity (weight 0.30): RMS > 50 deg/s = 100, 0 = 0
+ * - Axis coverage (weight 0.20): all 3 axes active = 100
+ */
+export function scoreWienerDataQuality(input: WienerQualityInput): {
+  score: DataQualityScore;
+  warnings: AnalysisWarning[];
+} {
+  const { sampleCount, sampleRateHz, setpointRMS } = input;
+  const warnings: AnalysisWarning[] = [];
+
+  // Sub-score: signal duration
+  const durationS = sampleCount / sampleRateHz;
+  // Linear 2s→0, 10s→100
+  const durationScore = clamp100(((durationS - 2) / 8) * 100);
+
+  if (durationS < 5) {
+    warnings.push({
+      code: 'short_hover_time',
+      message: `Flight data is only ${durationS.toFixed(1)}s long. At least 10 seconds of flight data is recommended for reliable transfer function estimation.`,
+      severity: durationS < 2 ? 'error' : 'warning',
+    });
+  }
+
+  // Sub-score: sample rate
+  // Linear 1kHz→0, 4kHz→100
+  const sampleRateScore = clamp100(((sampleRateHz - 1000) / 3000) * 100);
+
+  if (sampleRateHz < 2000) {
+    warnings.push({
+      code: 'low_logging_rate',
+      message: `Logging rate is ${sampleRateHz} Hz. At least 4 kHz is recommended for accurate transfer function estimation.`,
+      severity: sampleRateHz < 1000 ? 'error' : 'warning',
+    });
+  }
+
+  // Sub-score: setpoint activity (RMS of setpoint signal)
+  // Linear 0→0, 50→100
+  const activityScore = clamp100((setpointRMS / 50) * 100);
+
+  if (setpointRMS < 10) {
+    warnings.push({
+      code: 'low_step_magnitude',
+      message: `Very little stick activity detected (RMS: ${setpointRMS.toFixed(0)} deg/s). Fly more actively for better transfer function estimation.`,
+      severity: setpointRMS < 1 ? 'error' : 'warning',
+    });
+  }
+
+  // Sub-score: axis coverage from coherence
+  let axisCoverageScore = 50; // default when coherence not available
+  if (input.coherenceMean) {
+    const activeAxes = [
+      input.coherenceMean.roll,
+      input.coherenceMean.pitch,
+      input.coherenceMean.yaw,
+    ].filter((c) => c > 0.3).length;
+    axisCoverageScore = clamp100((activeAxes / 3) * 100);
+  }
+
+  const subScores: DataQualitySubScore[] = [
+    { name: 'Signal duration', score: durationScore, weight: 0.3 },
+    { name: 'Sample rate', score: sampleRateScore, weight: 0.2 },
+    { name: 'Stick activity', score: activityScore, weight: 0.3 },
+    { name: 'Axis coverage', score: axisCoverageScore, weight: 0.2 },
+  ];
+
+  const overall = clamp100(subScores.reduce((sum, s) => sum + s.score * s.weight, 0));
+
+  return {
+    score: { overall, tier: tierFromScore(overall), subScores },
+    warnings,
+  };
+}
+
 // ---- Confidence adjustment ----
 
 /**

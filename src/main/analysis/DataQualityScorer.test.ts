@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   scoreFilterDataQuality,
   scorePIDDataQuality,
+  scoreWienerDataQuality,
   adjustFilterConfidenceByQuality,
   adjustPIDConfidenceByQuality,
 } from './DataQualityScorer';
@@ -401,6 +402,110 @@ describe('DataQualityScorer', () => {
       const adjusted = adjustPIDConfidenceByQuality(recs, 'poor');
       expect(adjusted[0].confidence).toBe('medium');
       expect(adjusted[1].confidence).toBe('low');
+    });
+  });
+
+  describe('scoreWienerDataQuality', () => {
+    it('scores excellent for ideal data (long signal, high rate, active sticks)', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 40000, // 10s at 4kHz
+        sampleRateHz: 4000,
+        setpointRMS: 80,
+      });
+
+      expect(result.score.overall).toBeGreaterThanOrEqual(80);
+      expect(result.score.tier).toBe('excellent');
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('scores poor for very short signal', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 2000, // 0.5s at 4kHz
+        sampleRateHz: 4000,
+        setpointRMS: 80,
+      });
+
+      expect(result.score.overall).toBeLessThan(80);
+      expect(result.warnings.some((w) => w.code === 'short_hover_time')).toBe(true);
+    });
+
+    it('warns about low sample rate', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 10000,
+        sampleRateHz: 500,
+        setpointRMS: 80,
+      });
+
+      expect(result.warnings.some((w) => w.code === 'low_logging_rate')).toBe(true);
+      expect(result.warnings[0].severity).toBe('error');
+    });
+
+    it('warns about low stick activity', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 40000,
+        sampleRateHz: 4000,
+        setpointRMS: 3,
+      });
+
+      expect(result.warnings.some((w) => w.code === 'low_step_magnitude')).toBe(true);
+    });
+
+    it('does not warn about activity when RMS >= 10', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 40000,
+        sampleRateHz: 4000,
+        setpointRMS: 50,
+      });
+
+      expect(result.warnings.some((w) => w.code === 'low_step_magnitude')).toBe(false);
+    });
+
+    it('uses coherence for axis coverage when provided', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 40000,
+        sampleRateHz: 4000,
+        setpointRMS: 80,
+        coherenceMean: { roll: 0.8, pitch: 0.7, yaw: 0.1 },
+      });
+
+      // 2 of 3 axes above 0.3 threshold
+      const axisSub = result.score.subScores.find((s) => s.name === 'Axis coverage');
+      expect(axisSub).toBeDefined();
+      expect(axisSub!.score).toBe(67); // 2/3 * 100 ≈ 67
+    });
+
+    it('returns default axis score when coherence not provided', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 40000,
+        sampleRateHz: 4000,
+        setpointRMS: 80,
+      });
+
+      const axisSub = result.score.subScores.find((s) => s.name === 'Axis coverage');
+      expect(axisSub).toBeDefined();
+      expect(axisSub!.score).toBe(50); // default
+    });
+
+    it('returns score between 0 and 100', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 100,
+        sampleRateHz: 500,
+        setpointRMS: 0,
+      });
+
+      expect(result.score.overall).toBeGreaterThanOrEqual(0);
+      expect(result.score.overall).toBeLessThanOrEqual(100);
+    });
+
+    it('error severity for very short signal (<2s)', () => {
+      const result = scoreWienerDataQuality({
+        sampleCount: 1000, // 0.25s at 4kHz
+        sampleRateHz: 4000,
+        setpointRMS: 80,
+      });
+
+      const shortWarning = result.warnings.find((w) => w.code === 'short_hover_time');
+      expect(shortWarning?.severity).toBe('error');
     });
   });
 });
