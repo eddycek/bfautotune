@@ -301,4 +301,6 @@ export interface PIDAnalysisResult {
   warnings?: AnalysisWarning[];
   /** Data quality score for the input flight data */
   dataQuality?: DataQualityScore;
+  /** Which analysis method was used to produce PID recommendations */
+  analysisMethod?: 'step_response' | 'wiener_deconvolution';
 }
