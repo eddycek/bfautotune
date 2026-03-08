@@ -6,7 +6,7 @@ Most FPV pilots tune their quads by hand — tweaking PID numbers, test flying, 
 
 **What makes it different:**
 - **Fully automated recommendations** — not just graphs, but actual filter cutoffs and PID values ready to flash
-- **Two tuning modes** — Deep Tune (2 dedicated flights, max accuracy) or Flash Tune (any single flight via transfer function estimation)
+- **Two tuning modes** — Deep Tune (2 dedicated flights, direct step response measurement) or Flash Tune (any single flight, Wiener deconvolution à la [Plasmatree](https://github.com/Plasmatree/PID-Analyzer))
 - **Convergent by design** — re-analyzing the same log always produces the same result, no recommendation drift
 - **Safety-first** — every apply creates an automatic rollback snapshot, all values clamped to proven safe bounds
 - **Multi-quad profiles** — auto-detects each FC by serial number, stores configs and tuning history per quad
@@ -91,12 +91,17 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Proportional step sizing: D +5/+10/+15 based on overshoot severity for faster convergence
 
 ### Transfer Function Analysis (Wiener Deconvolution)
-- Computes closed-loop transfer function H(f) from any flight data (no dedicated maneuvers needed)
+
+Inspired by [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer — the first tool to bring frequency-domain system identification to FPV tuning (2018). PIDlab reimplements the core technique (cross-spectral density estimation with Wiener regularization) in TypeScript with `fft.js`, extended with automatic PID recommendations and integrated into the tuning workflow.
+
+- Computes closed-loop transfer function H(f) = S_xy(f) / (S_xx(f) + ε) from any flight data — no dedicated maneuvers needed
+- 2-second Hanning windows with 50% Welch overlap (matching Plasmatree's proven parameters)
+- Noise-floor-based regularization (1% of S_xx median) prevents artifacts in low-SNR bins
+- Synthetic step response via IFFT → cumulative sum (impulse → step integration)
 - Bode plot visualization (magnitude + phase vs frequency)
-- Synthetic step response derived from IFFT of H(f)
-- Bandwidth, gain margin, and phase margin metrics
+- Classical stability metrics: bandwidth (-3 dB), phase margin (at 0 dB gain crossover), gain margin (at -180° phase crossover)
 - Frequency-domain PID rules: low phase margin → D increase, low bandwidth → P increase
-- Confidence capped at medium (less precise than dedicated stick snaps)
+- Confidence capped at medium — Wiener deconvolution assumes a linear time-invariant system; real quads are nonlinear, so dedicated step response measurements remain more precise
 
 ### Bayesian PID Optimizer (Framework)
 - Gaussian Process surrogate with RBF kernel
@@ -121,20 +126,32 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Flight quality score: composite 0-100 metric tracking tuning progress across sessions
 
 ### Deep Tune (Two-Flight Workflow)
-- Stateful tuning session: filters first (hover + throttle sweeps), then PIDs (stick snaps)
-- Step-by-step banner with progress indicator (10 phases including optional verification)
-- Smart reconnect detection: auto-advances when flight data detected
-- Post-erase guidance: flash erased notification with flight guide
-- Mode-aware wizard adapts UI for filter vs PID analysis
-- Optional verification hover after PID apply for before/after noise comparison
-- Tuning completion summary with applied changes, noise metrics, and PID response data
+
+The thorough approach — two dedicated flights with specific maneuvers for maximum measurement accuracy.
+
+**Flight 1 (Filters):** Hover + throttle sweeps across the full throttle range. The FFT engine (Welch's method, Hanning window, prominence-based peak detection) identifies noise sources — frame resonances (80–200 Hz), motor harmonics, and electrical noise (>500 Hz) — and computes optimal filter cutoffs via noise-floor-based targeting. RPM-filter-aware quads get wider safety bounds.
+
+**Flight 2 (PIDs):** Sharp stick snaps on each axis with 500 ms holds. The step detector finds these inputs via derivative thresholds, then `StepMetrics` measures each response directly — rise time, overshoot, settling time, latency, ringing, and steady-state error. This time-domain approach gives the most precise overshoot and damping measurements because you're observing the actual physical response, not a mathematical estimate.
+
+- 10-phase state machine (filter_flight_pending → ... → completed) with per-profile persistence
+- Smart reconnect: auto-advances to log_ready when flash data detected after FC reboot
+- Post-erase flight guide with mode-specific maneuver instructions
+- Optional verification hover after PID apply — before/after noise spectrum comparison with dB delta
+- Tuning completion summary with applied changes, noise metrics, and step response data
 
 ### Flash Tune (Single Flight)
-- Analyze filters and PIDs from any single flight (freestyle, cruise, etc.)
-- Transfer function estimation via Wiener deconvolution for PID recommendations
-- Bode plot (magnitude + phase) with bandwidth/margin indicators
-- Parallel filter + PID analysis with combined apply
-- Faster iteration for experienced pilots with an existing tune
+
+The fast approach — analyzes any single flight (freestyle, cruise, hover) using frequency-domain system identification. Based on the [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) technique pioneered by Florian Melsheimer.
+
+**How it works:** Normal stick inputs contain broadband energy that excites the PID loop across all relevant frequencies. Wiener deconvolution recovers the closed-loop transfer function H(f) = S_xy / (S_xx + ε) from setpoint→gyro data, then synthesizes a step response via IFFT integration. Filter analysis runs the same FFT pipeline as Deep Tune. Both run in parallel from the same log.
+
+**Trade-off:** No dedicated maneuvers needed, but the LTI (linear time-invariant) assumption means recommendations are less precise than direct step measurements — PIDlab caps Flash Tune confidence at "medium" and recommends Deep Tune for initial setup or major changes.
+
+- Parallel filter + transfer function analysis with combined one-click apply
+- Bode plot (magnitude + phase) with bandwidth, gain margin, and phase margin markers
+- Synthetic step response metrics: overshoot, rise time, settling time derived from H(f)
+- 6-phase state machine (quick_flight_pending → ... → completed)
+- Best for experienced pilots iterating on an existing tune
 
 ### Tuning History
 - Archived tuning records per profile (persistent across sessions)
@@ -476,12 +493,17 @@ The session shows a **completion summary** with all applied changes, noise metri
 Click **Start Tuning Session** and select **Flash Tune**:
 
 1. **Erase Flash** — Clear old data
-2. **Fly any flight** — Freestyle, cruise, stick snaps — any 30-60s flight works
-3. **Download & analyze** — App runs FFT (for filters) + Wiener deconvolution (for PIDs) in parallel
-4. **Apply all** — Combined filter + PID changes in one click
-5. **Optional verification** — Same as guided mode
+2. **Fly any flight** — Freestyle, cruise, stick snaps — any 30+ second flight works
+3. **Download & analyze** — App runs two analyses in parallel:
+   - **FFT noise analysis** (same as Deep Tune) for filter recommendations
+   - **Wiener deconvolution** for PID recommendations — computes the closed-loop transfer function H(f) = S_xy(f) / S_xx(f) from setpoint→gyro data using 2s Hanning windows with 50% Welch overlap, then synthesizes a step response via IFFT cumulative integration
+4. **Review Bode plot** — Magnitude + phase curves with bandwidth (-3 dB), gain margin, and phase margin markers. Low phase margin (<45°) indicates need for more D damping; low bandwidth (<40 Hz) suggests P increase
+5. **Apply all** — Combined filter + PID changes in one click
+6. **Optional verification** — Same as Deep Tune
 
-Flash Tune uses transfer function estimation instead of step detection, so it works with any flight style. Confidence is capped at medium (less precise than dedicated stick snaps). Best for experienced pilots iterating on an existing tune.
+This approach is based on the [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) technique by Florian Melsheimer (2018) — the first tool to apply Wiener deconvolution to FPV PID tuning. The key insight is that normal stick inputs contain enough broadband energy to excite the PID loop across all relevant frequencies, so the transfer function can be recovered from *any* flight data without dedicated maneuvers.
+
+**Trade-off vs Deep Tune:** Wiener deconvolution assumes a linear time-invariant (LTI) system. Real quads are nonlinear (TPA, anti-gravity, motor saturation), so PIDlab caps Flash Tune confidence at "medium". Use Deep Tune for initial setup or significant changes; Flash Tune for fast iteration on an existing tune.
 
 ### 5. Standalone Analysis (No Tuning Session)
 
@@ -746,13 +768,17 @@ The recommendation engine applies rule-based tuning logic anchored to the PID va
 | **D-term effectiveness (low)** | D decrease rec + effectiveness < 0.3 | Advisory note appended | D may not be doing much dampening — filter issue? |
 | **FF energy ratio** | P decrease rec + meanFFEnergyRatio > 0.6 | Downgrade confidence → Low | Overshoot is feedforward-dominated, not P-caused |
 
-**Transfer Function Rules (Wiener deconvolution, when no step data):**
+**Transfer Function Rules (Wiener deconvolution — used in Flash Tune and as fallback when no step inputs detected):**
+
+The transfer function approach is based on [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer (2018). PIDlab estimates the closed-loop transfer function H(f) from setpoint→gyro data via cross-spectral density: `H(f) = S_xy(f) / (S_xx(f) + ε)`, where ε is a noise-floor-based regularization term. A synthetic step response is derived by inverse-FFT of H(f) followed by cumulative integration (impulse → step). Classical control stability metrics (bandwidth, phase margin, gain margin) are extracted from the Bode plot representation.
 
 | Rule | Condition | Action | Step Size | Confidence |
 |------|-----------|--------|-----------|------------|
-| **TF-1** | Phase margin < 45° | D ↑ | +5 / +10 | Medium |
+| **TF-1** | Phase margin < 45° (critical: < 30°) | D ↑ | +5 / +10 | Medium |
 | **TF-2** | Synthetic overshoot > threshold | Same as Rule 1a | varies | Medium |
-| **TF-3** | Bandwidth < 40 Hz, no overshoot | P ↑ | +5 | Medium |
+| **TF-3** | Bandwidth < 40 Hz (yaw: < 28 Hz), no overshoot | P ↑ | +5 | Medium |
+
+All TF-derived recommendations are capped at "medium" confidence because Wiener deconvolution assumes a linear time-invariant (LTI) system, while real quads exhibit nonlinearities (TPA gain scheduling, anti-gravity, motor saturation, propeller aerodynamics). For this reason, Deep Tune's direct step response measurements (which observe the actual nonlinear system) produce higher-confidence recommendations.
 
 **Safety Bounds:**
 
@@ -833,6 +859,12 @@ See [SPEC.md](./SPEC.md) for detailed requirements and phase tracking.
 ## License
 
 MIT
+
+## Acknowledgments
+
+- **[Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer)** by Florian Melsheimer — pioneered Wiener deconvolution for FPV PID tuning (2018). PIDlab's Flash Tune mode reimplements this technique: cross-spectral density transfer function estimation with noise-floor-based regularization, 2-second Hanning windows, and Welch averaging. The key insight that normal stick inputs contain sufficient broadband energy to identify the closed-loop transfer function without dedicated test maneuvers is due to Melsheimer's work.
+- **[PIDtoolbox](https://github.com/bw1129/PIDtoolbox)** by bw1129 — extended the Plasmatree approach with an interactive GUI, throttle-dependent spectral analysis, and refined step response visualization. PIDlab's spectral analysis methodology and overshoot ideal ranges draw on PIDtoolbox's work.
+- **[Betaflight](https://betaflight.com/)** — the open-source flight controller firmware that makes all of this possible. PIDlab communicates via MSP protocol and validates against BF Explorer's binary log parser.
 
 ## Contributing
 

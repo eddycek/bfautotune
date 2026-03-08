@@ -26,9 +26,11 @@ Additionally, the **AnalysisOverview** (diagnostic read-only view) currently sho
 
 ## 2. Solution Overview
 
-Add a **Quick Tune** mode that analyzes **both filters and PIDs from a single flight** using:
+Add a **Quick Tune** (now branded **Flash Tune**) mode that analyzes **both filters and PIDs from a single flight** using:
 - **FFT noise analysis** (existing) on hover/cruise segments for filter recommendations
 - **Wiener deconvolution** (new) on the entire flight for PID recommendations via transfer function estimation
+
+The Wiener deconvolution approach is based on [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer (2018) — the first tool to apply frequency-domain system identification to FPV PID tuning. PIDlab reimplements the core technique (cross-spectral density estimation `H(f) = S_xy / (S_xx + ε)` with noise-floor-based regularization, 2-second Hanning windows, 50% Welch overlap) in TypeScript with `fft.js`, extended with automatic PID recommendations and integrated into the tuning workflow.
 
 The user chooses between two tuning modes when starting a session:
 
