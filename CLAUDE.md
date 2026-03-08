@@ -97,9 +97,10 @@ npm run rebuild
 ### MSP Communication
 
 **MSP Protocol Layer** (`src/main/msp/`):
-- `MSPProtocol.ts` - Low-level packet encoding/decoding
+- `MSPProtocol.ts` - Low-level packet encoding/decoding. Jumbo frame support (frames >255 bytes: 2-byte size at offset+4)
 - `MSPConnection.ts` - Serial port handling, CLI mode switching
 - `MSPClient.ts` - High-level API with retry logic
+- `cliUtils.ts` - CLI command response validation (`validateCLIResponse()` throws `CLICommandError` on error patterns: 'Invalid name/value', 'Unknown command', line-level `ERROR`). Used in tuning/snapshot/fcInfo IPC handlers
 
 **Important MSP Behaviors**:
 - FC may be stuck in CLI mode from previous session → `forceExitCLI()` on connect (resets local flag only)
@@ -213,11 +214,13 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 
 **Pipeline**: SegmentSelector → FFTCompute → NoiseAnalyzer → FilterRecommender → FilterAnalyzer
 
-- **SegmentSelector**: Finds stable hover segments (excludes takeoff/landing/acro)
+- **SegmentSelector**: Finds stable hover segments and throttle sweep segments (excludes takeoff/landing/acro)
 - **FFTCompute**: Hanning window, Welch's method (50% overlap), power spectral density
 - **NoiseAnalyzer**: Noise floor estimation, peak detection (prominence-based), source classification (frame resonance 80-200 Hz, motor harmonics, electrical >500 Hz)
-- **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, beginner-friendly explanations
-- **FilterAnalyzer**: Orchestrator with async progress reporting
+- **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, propwash-aware gyro LPF1 floor (100 Hz min, bypass at -15 dB extreme noise), beginner-friendly explanations
+- **ThrottleSpectrogramAnalyzer**: Bins gyro data by throttle level (10 bands), per-band FFT spectra and noise floors. Returns `ThrottleSpectrogramResult`
+- **GroupDelayEstimator**: Per-filter group delay estimation (PT1, biquad, notch). Returns `FilterGroupDelay` with gyroTotalMs, dtermTotalMs, warning if >2ms. Smart `dyn_notch_q` handling: `Q > 10 ? Q / 100 : Q` for BF internal storage quirk
+- **FilterAnalyzer**: Orchestrator with async progress reporting. Returns throttle spectrogram + group delay in result
 - IPC: `ANALYSIS_RUN_FILTER` + `EVENT_ANALYSIS_PROGRESS`
 - Dependency: `fft.js`
 - Constants in `src/main/analysis/constants.ts` (tunable thresholds)
@@ -228,10 +231,12 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 
 **Pipeline**: StepDetector → StepMetrics → PIDRecommender → PIDAnalyzer
 
-- **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation
-- **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement
-- **PIDRecommender**: Flight-PID-anchored P/D recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), safety bounds (P: 20-120, D: 15-80)
-- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
+- **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation. Configurable window parameter (`windowMs?`)
+- **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement. Adaptive two-pass window sizing (`computeAdaptiveWindowMs()` — median-based, clamped 150-500ms). Steady-state error tracking (`steadyStateErrorPercent`)
+- **PIDRecommender**: Flight-PID-anchored P/D/I recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), I-term rules based on `meanSteadyStateError` with flight-style thresholds, D/P damping ratio validation (0.45-0.85 range), safety bounds (P: 20-120, D: 15-80, I: 30-120)
+- **CrossAxisDetector**: Pearson correlation coupling detection between axis pairs. Thresholds: none (<0.15), mild (0.15-0.4), significant (≥0.4). Returns `CrossAxisCoupling`
+- **PropWashDetector**: Throttle-down event detection, post-event FFT in 20-90 Hz band. Returns `PropWashAnalysis` with events, meanSeverity, worstAxis, dominantFrequencyHz
+- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline. Two-pass step detection (first 500ms, then adaptive). Returns cross-axis coupling + propwash in result
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
 ### Transfer Function Analysis Engine (`src/main/analysis/`)
@@ -501,7 +506,7 @@ Renderer components subscribe to events:
 - `src/shared/constants.ts` - MSP codes, Betaflight vendor IDs, preset profiles, size defaults
 - `src/shared/types/*.types.ts` - Shared type definitions (common, profile, pid, blackbox, analysis)
 - `src/shared/constants/flightGuide.ts` - Flight guide phases, tips, and tuning workflow steps
-- `src/main/analysis/constants.ts` - FFT thresholds, peak detection, safety bounds (tunable)
+- `src/main/analysis/constants.ts` - FFT thresholds, peak detection, safety bounds, propwash floor, damping ratio, I-term bounds, adaptive window (tunable)
 - `vitest.config.ts` - Test configuration with jsdom environment
 
 ### Size Defaults

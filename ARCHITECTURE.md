@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 8, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2103 unit tests, 105 files + 23 Playwright E2E tests**
+**Last Updated:** March 8, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2126 unit tests, 105 files + 23 Playwright E2E tests**
 
 ---
 
@@ -57,8 +57,8 @@
 │  │  ┌───┴──────────┐  ┌─────────────────┐  ┌──────────────────┐      │  │
 │  │  │MSPConnection │  │ BlackboxParser  │  │ Analysis Engine │      │  │
 │  │  │ + CLI Mode   │  │ (6 modules,     │  │ FFT + Step Resp │      │  │
-│  │  │ + fcEntered  │  │  227 tests)     │  │ (11 modules,    │      │  │
-│  │  │   CLI flag   │  │                 │  │  231 tests)     │      │  │
+│  │  │ + fcEntered  │  │  227 tests)     │  │ (15 modules,    │      │  │
+│  │  │   CLI flag   │  │                 │  │  329 tests)     │      │  │
 │  │  └───┬──────────┘  └─────────────────┘  └──────────────────┘      │  │
 │  │      │                                                             │  │
 │  │  ┌───┴──────────┐                                                  │  │
@@ -282,12 +282,16 @@ Two independent analysis pipelines: **filter tuning** (FFT noise analysis) and *
 | `FFTCompute.ts` | 171 | 20 | Welch's method, Hanning window |
 | `SegmentSelector.ts` | 195 | 27 | Hover + throttle sweep detection |
 | `NoiseAnalyzer.ts` | 246 | 25 | Peak detection, noise classification |
-| `FilterRecommender.ts` | 330 | 41 | Noise-based filter targets, RPM-aware bounds |
-| `FilterAnalyzer.ts` | 206 | 16 | Filter analysis orchestrator (data quality integration) |
+| `FilterRecommender.ts` | 330 | 48 | Noise-based filter targets, RPM-aware bounds, propwash floor |
+| `FilterAnalyzer.ts` | 206 | 19 | Filter analysis orchestrator (data quality, throttle spectrogram, group delay) |
+| `ThrottleSpectrogramAnalyzer.ts` | — | 19 | Throttle-dependent spectrogram analysis |
+| `GroupDelayEstimator.ts` | — | 23 | Group delay estimation, filter latency measurement |
 | `StepDetector.ts` | 142 | 16 | Derivative-based step input detection |
-| `StepMetrics.ts` | 330 | 22 | Rise time, overshoot, settling, trace, FF contribution classification |
-| `PIDRecommender.ts` | 380 | 40 | Flight-PID-anchored P/D recommendations, FF-aware rules, flight style thresholds |
-| `PIDAnalyzer.ts` | 185 | 19 | PID analysis orchestrator (FF context wiring, flight style, data quality) |
+| `StepMetrics.ts` | 330 | 38 | Rise time, overshoot, settling, trace, FF contribution, adaptive window |
+| `PIDRecommender.ts` | 380 | 69 | Flight-PID-anchored P/D recommendations, FF-aware, damping ratio, I-term |
+| `PIDAnalyzer.ts` | 185 | 21 | PID analysis orchestrator (FF context, data quality, cross-axis, propwash) |
+| `CrossAxisDetector.ts` | — | 20 | Cross-axis coupling detection |
+| `PropWashDetector.ts` | — | 16 | Propwash detection and analysis |
 | `DataQualityScorer.ts` | ~200 | 22 | Flight data quality scoring (0-100), confidence adjustment |
 | `headerValidation.ts` | 94 | 20 | BB header diagnostics, version-aware debug mode, RPM enrichment |
 | `constants.ts` | 177 | — | All tunable thresholds |
@@ -807,15 +811,15 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1964 unit tests across 100 files + 23 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2126 unit tests across 105 files + 23 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
-| FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response + TF (+ Real-data) | 6 | 146 |
+| FFT Analysis (+ Data Quality) | 8 | 193 |
+| Step Response + TF (+ Real-data) | 8 | 210 |
 | Header Validation + Constants | 2 | 31 |
-| MSP Protocol & Client | 3 | 140 |
+| MSP Protocol & Client | 4 | 171 |
 | MSC (Mass Storage) | 2 | 32 |
 | Storage Managers | 7 | 124 |
 | IPC Handlers | 1 | 109 |
@@ -823,7 +827,7 @@ Hardware error (FC timeout, USB disconnect)
 | Contexts | 1 | 10 |
 | React Hooks | 13 | 149 |
 | Charts | 4 | 45 |
-| Shared Constants & Utils | 4 | 43 |
+| Shared Constants & Utils | 4 | 53 |
 | E2E Workflows | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 69 |
 | **Playwright E2E** | **4** | **23** |

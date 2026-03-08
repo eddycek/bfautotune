@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 2103 unit tests across 105 files + 23 Playwright E2E tests** (last verified: March 8, 2026)
+**Total: 2126 unit tests across 105 files + 23 Playwright E2E tests** (last verified: March 8, 2026)
 
 ### UI Components
 
