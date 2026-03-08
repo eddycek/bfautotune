@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 8, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2180 unit tests, 107 files + 23 Playwright E2E tests**
+**Last Updated:** March 8, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2180 unit tests, 107 files + 25 Playwright E2E tests**
 
 ---
 
@@ -57,8 +57,8 @@
 │  │  ┌───┴──────────┐  ┌─────────────────┐  ┌──────────────────┐      │  │
 │  │  │MSPConnection │  │ BlackboxParser  │  │ Analysis Engine │      │  │
 │  │  │ + CLI Mode   │  │ (6 modules,     │  │ FFT + Step Resp │      │  │
-│  │  │ + fcEntered  │  │  227 tests)     │  │ (15 modules,    │      │  │
-│  │  │   CLI flag   │  │                 │  │  329 tests)     │      │  │
+│  │  │ + fcEntered  │  │  227 tests)     │  │ (19 modules,    │      │  │
+│  │  │   CLI flag   │  │                 │  │  525 tests)     │      │  │
 │  │  └───┬──────────┘  └─────────────────┘  └──────────────────┘      │  │
 │  │      │                                                             │  │
 │  │  ┌───┴──────────┐                                                  │  │
@@ -811,26 +811,24 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**2180 unit tests across 107 files + 23 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2180 unit tests across 107 files + 25 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
-| FFT Analysis (+ Data Quality) | 8 | 193 |
-| Step Response + TF (+ Real-data) | 8 | 210 |
+| FFT Analysis (+ Data Quality + Spectrogram + Delay) | 8 | 216 |
+| Step Response + PID + TF + CrossAxis + PropWash + DTerm + Bayesian | 10 | 278 |
 | Header Validation + Constants | 2 | 31 |
-| MSP Protocol & Client | 4 | 171 |
-| MSC (Mass Storage) | 2 | 32 |
-| Storage Managers | 7 | 124 |
-| IPC Handlers | 1 | 109 |
-| UI Components | 40 | 604 |
-| Contexts | 1 | 10 |
-| React Hooks | 13 | 149 |
-| Charts | 4 | 45 |
-| Shared Constants & Utils | 4 | 53 |
-| E2E Workflows | 1 | 30 |
+| MSP Protocol & Client | 4 | 173 |
+| MSC (Mass Storage) | 2 | 43 |
+| Storage Managers | 7 | 125 |
+| IPC Handlers | 1 | 113 |
+| UI Components + Charts + Contexts | 42 | 627 |
+| React Hooks + Utils | 13 | 149 |
+| Shared Constants & Utils | 4 | 54 |
+| E2E Workflows (Vitest) | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 69 |
-| **Playwright E2E** | **4** | **23** |
+| **Playwright E2E** | **4** | **25** |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
 

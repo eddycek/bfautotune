@@ -167,7 +167,7 @@ All UI changes must include tests. Tests automatically run before commits. Cover
 
 **Unit tests:** 2180 tests across 107 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
-**Playwright E2E:** 23 tests across 4 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (guided and quick tune).
+**Playwright E2E:** 25 tests across 4 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (guided and quick tune).
 
 ```bash
 # Run unit tests in watch mode
@@ -230,7 +230,7 @@ pidlab/
 │   │   │   ├── commands.ts      # MSP command definitions
 │   │   │   └── types.ts         # MSP type definitions
 │   │   ├── blackbox/            # BBL binary log parser (6 modules, 245 tests)
-│   │   ├── analysis/            # FFT noise + step response analysis (15 modules, FF-aware)
+│   │   ├── analysis/            # FFT noise + step response analysis (19 modules, FF-aware)
 │   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
 │   │   │   ├── SegmentSelector.ts   # Hover segment detection
 │   │   │   ├── NoiseAnalyzer.ts     # Peak detection, noise classification
@@ -708,7 +708,7 @@ The autotuning rules and thresholds are based on established FPV community pract
 - **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect, verification flight, tuning history
 - **Phase 5**: ⬜ Complete manual testing & UX polish (real hardware validation)
 - **Phase 6**: ✅ CI/CD & cross-platform releases (macOS/Windows/Linux installers)
-- **Phase 7a**: ✅ Playwright E2E tests (demo mode, 23 tests)
+- **Phase 7a**: ✅ Playwright E2E tests (demo mode, 25 tests)
 - **Phase 7b**: ⬜ E2E tests on real FC in CI pipeline
 
 See [SPEC.md](./SPEC.md) for detailed requirements and phase tracking.
