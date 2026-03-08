@@ -1,9 +1,11 @@
 /**
  * Generates 5 completed tuning sessions in demo mode.
  *
- * Wipes the demo state, then clicks through 5 full tuning cycles
- * (filter + PID, skipping verification) to populate tuning history
- * with progressive quality scores.
+ * Wipes the demo state, then clicks through 5 tuning cycles
+ * alternating between guided (filter + PID) and quick (single flight)
+ * to populate tuning history with progressive quality scores and mixed types.
+ *
+ * Pattern: guided → quick → guided → quick → guided (3 guided + 2 quick)
  *
  * Run: npm run demo:generate-history
  */
@@ -125,9 +127,77 @@ async function runTuningCycle(cycleNum: number): Promise<void> {
   console.log(`  Cycle ${cycleNum}: complete and dismissed`);
 }
 
+/**
+ * Run one complete Quick Tune cycle: quick flight → apply all → skip verify → dismiss.
+ */
+async function runQuickTuneCycle(cycleNum: number): Promise<void> {
+  const page = demo.page;
+  const WAIT = 30_000;
+  const ANALYSIS_WAIT = 60_000;
+
+  console.log(`\n=== Starting Quick Tune cycle ${cycleNum} ===`);
+
+  // 1. Start Quick Tune Session (modal → Quick Tune)
+  await demo.clickButton('Start Tuning Session');
+  await demo.clickButton('Quick Tune');
+  await demo.waitForText('Erase Blackbox data', WAIT);
+
+  // 2. Quick flight: erase → auto-flight → download → quick wizard → apply
+  await demo.clickButton('Erase Flash');
+  await demo.waitForText('Flight done', WAIT);
+  await demo.clickButton('Download Log');
+  await demo.waitForText('Open Quick Wizard', WAIT);
+  await demo.clickButton('Open Quick Wizard');
+
+  // Quick wizard auto-runs both analyses — wait for Continue to Summary
+  await page
+    .getByRole('button', { name: /Continue to Summary/i })
+    .waitFor({ state: 'visible', timeout: ANALYSIS_WAIT });
+  await demo.clickButton(/Continue to Summary/i);
+
+  // Apply All Changes
+  await page
+    .getByRole('button', { name: 'Apply All Changes' })
+    .waitFor({ state: 'visible', timeout: WAIT });
+  await demo.clickButton('Apply All Changes');
+  const applyBtns = page.getByRole('button', { name: 'Apply Changes' });
+  await applyBtns.last().waitFor({ state: 'visible', timeout: 5_000 });
+  await applyBtns.last().click();
+  await page
+    .getByRole('button', { name: 'Close Wizard' })
+    .waitFor({ state: 'visible', timeout: WAIT });
+  await demo.clickButton('Close Wizard');
+
+  console.log(`  Cycle ${cycleNum}: all changes applied, completing...`);
+
+  // 3. Skip verification → complete → dismiss
+  await page
+    .getByRole('button', { name: 'Skip & Complete' })
+    .waitFor({ state: 'visible', timeout: WAIT });
+  await demo.clickButton('Skip & Complete');
+  await demo.waitForText(/Tune Complete/i, 15_000);
+
+  await demo.screenshot(`history-cycle-${cycleNum}-quick-complete`);
+
+  const dismissBtn = page.getByRole('button', { name: 'Dismiss', exact: true });
+  await dismissBtn.waitFor({ state: 'visible', timeout: 10_000 });
+  await dismissBtn.click();
+
+  await page
+    .getByRole('button', { name: /start tuning/i })
+    .waitFor({ state: 'visible', timeout: WAIT });
+
+  console.log(`  Cycle ${cycleNum}: quick tune complete and dismissed`);
+}
+
 test('generate 5 tuning sessions', async () => {
+  // Alternate: guided → quick → guided → quick → guided
   for (let i = 1; i <= 5; i++) {
-    await runTuningCycle(i);
+    if (i % 2 === 0) {
+      await runQuickTuneCycle(i);
+    } else {
+      await runTuningCycle(i);
+    }
   }
 
   // Verify history shows 5 sessions
