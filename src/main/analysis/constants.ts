@@ -130,6 +130,17 @@ export const RESONANCE_ACTION_THRESHOLD_DB = 12;
 /** Margin below a resonance peak when lowering cutoff (Hz) */
 export const RESONANCE_CUTOFF_MARGIN_HZ = 20;
 
+// ---- Propwash Safety Floor ----
+
+/** Propwash-aware minimum gyro LPF1 cutoff (Hz). Prevents excessive phase delay
+ * that degrades propwash recovery during aggressive maneuvers (flips, rolls).
+ * Only applies to noise-floor-based recommendations, not resonance-based. */
+export const PROPWASH_GYRO_LPF1_FLOOR_HZ = 100;
+
+/** Noise floor threshold (dB) above which the propwash floor is bypassed.
+ * When noise is this severe, aggressive filtering takes priority over propwash handling. */
+export const PROPWASH_FLOOR_BYPASS_DB = -15;
+
 // ---- Step Detection ----
 
 /** Minimum setpoint change to count as a step (deg/s) */
