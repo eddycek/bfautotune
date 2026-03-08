@@ -698,22 +698,22 @@ After snapshot, transition `quick_applied → verification_pending` (reuses exis
 
 | # | Task | Files | Tests |
 |---|------|-------|-------|
-| D1 | StartTuningModal component | `src/renderer/components/StartTuningModal/StartTuningModal.tsx`, `.css`, `.test.tsx` | Component test: mode selection, cancel, triggers correct start |
-| D2 | Dashboard integration | `src/renderer/components/Dashboard/Dashboard.tsx` (or equivalent) | Component test: modal opens on "Start Tuning", passes tuningType |
-| D3 | useTuningSession.startSession update | `src/renderer/hooks/useTuningSession.ts` | Hook test: passes tuningType parameter |
+| D1 | ✅ StartTuningModal component | `src/renderer/components/StartTuningModal/StartTuningModal.tsx`, `.css`, `.test.tsx` | Component test: mode selection, cancel, triggers correct start |
+| D2 | ✅ Dashboard integration | `src/renderer/components/Dashboard/Dashboard.tsx` (or equivalent) | Component test: modal opens on "Start Tuning", passes tuningType |
+| D3 | ✅ useTuningSession.startSession update | `src/renderer/hooks/useTuningSession.ts` | Hook test: passes tuningType parameter |
 
 ### Phase E: UI — Banner & Wizard
 
 | # | Task | Files | Tests |
 |---|------|-------|-------|
-| E1 | TuningStatusBanner quick phases | `src/renderer/components/TuningStatusBanner/TuningStatusBanner.tsx`, `.test.tsx` | Component test: correct step labels, text, buttons for all quick_* phases |
-| E2 | Quick flight guide constants | `src/shared/constants/flightGuide.ts` | No runtime tests (constants) |
-| E3 | FlightGuideContent quick mode | `src/renderer/components/TuningWizard/FlightGuideContent.tsx`, `.test.tsx` | Component test: renders quick flight phases |
-| E4 | QuickAnalysisStep component | `src/renderer/components/TuningWizard/QuickAnalysisStep.tsx`, `.test.tsx` | Component test: parallel analysis, combined results display |
-| E5 | WizardProgress quick steps | `src/renderer/components/TuningWizard/WizardProgress.tsx`, `.test.tsx` | Component test: 3-step progress for quick mode |
-| E6 | TuningSummaryStep quick mode | `src/renderer/components/TuningWizard/TuningSummaryStep.tsx`, `.test.tsx` | Component test: "Apply All Changes" label, combined changes |
-| E7 | TuningWizard mode='quick' routing | `src/renderer/components/TuningWizard/TuningWizard.tsx`, `.test.tsx` | Component test: step routing for quick mode |
-| E8 | TuningWorkflowModal dual mode | `src/renderer/components/TuningWizard/TuningWorkflowModal.tsx`, `.test.tsx` | Component test: shows both workflows |
+| E1 | ✅ TuningStatusBanner quick phases | `src/renderer/components/TuningStatusBanner/TuningStatusBanner.tsx`, `.test.tsx` | Component test: correct step labels, text, buttons for all quick_* phases |
+| E2 | ✅ Quick flight guide constants | `src/shared/constants/flightGuide.ts` | No runtime tests (constants) |
+| E3 | ✅ FlightGuideContent quick mode | `src/renderer/components/TuningWizard/FlightGuideContent.tsx`, `.test.tsx` | Component test: renders quick flight phases |
+| E4 | ✅ QuickAnalysisStep component | `src/renderer/components/TuningWizard/QuickAnalysisStep.tsx`, `.test.tsx` | Component test: parallel analysis, combined results display |
+| E5 | ✅ WizardProgress quick steps | `src/renderer/components/TuningWizard/WizardProgress.tsx`, `.test.tsx` | Component test: 3-step progress for quick mode |
+| E6 | ✅ TuningSummaryStep quick mode | `src/renderer/components/TuningWizard/TuningSummaryStep.tsx`, `.test.tsx` | Component test: "Apply All Changes" label, combined changes |
+| E7 | ✅ TuningWizard mode='quick' routing | `src/renderer/components/TuningWizard/TuningWizard.tsx`, `.test.tsx` | Component test: step routing for quick mode |
+| E8 | ✅ TuningWorkflowModal dual mode | `src/renderer/components/TuningWorkflowModal/TuningWorkflowModal.tsx`, `.test.tsx` | Component test: shows both workflows |
 
 ### Phase F: UI — History & Completion
 
