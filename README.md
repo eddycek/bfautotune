@@ -6,7 +6,7 @@ Most pilots tune their drones by hand — changing PID numbers, test flying, rea
 
 PIDlab connects to your Betaflight flight controller over USB, guides you through two short test flights, analyzes the Blackbox data automatically (FFT noise analysis for filters, step response metrics for PIDs), and applies optimized settings with one click. No graph reading, no spreadsheets, no guesswork.
 
-**How it works:** Connect FC → Fly hover + throttle sweeps → App tunes filters → Fly stick snaps → App tunes PIDs → Done.
+**How it works:** Connect FC → Fly hover + throttle sweeps → App tunes filters → Fly stick snaps → App tunes PIDs → Done. Or use **Quick Tune** to analyze filters and PIDs from any single flight.
 
 ## Download
 
@@ -81,6 +81,12 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Mode-aware wizard adapts UI for filter vs PID analysis
 - Optional verification hover after PID apply for before/after noise comparison
 - Tuning completion summary with applied changes, noise metrics, and PID response data
+
+### Quick Tune (Single Flight)
+- Analyze filters and PIDs from any single flight (freestyle, cruise, etc.)
+- Transfer function estimation via Wiener deconvolution for PID recommendations
+- Parallel filter + PID analysis with combined apply
+- Faster iteration for experienced pilots with an existing tune
 
 ### Tuning History
 - Archived tuning records per profile (persistent across sessions)
@@ -159,9 +165,9 @@ Demo mode auto-connects to a virtual FC, creates a demo profile, and generates r
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Unit tests:** 1877 tests across 96 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Unit tests:** 1964 tests across 100 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
 
-**Playwright E2E:** 16 tests across 3 spec files — launches real Electron app in demo mode, walks through complete tuning cycles.
+**Playwright E2E:** 23 tests across 4 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (guided and quick tune).
 
 ```bash
 # Run unit tests in watch mode
@@ -296,7 +302,7 @@ pidlab/
 │   │   │   ├── ProfileCard.tsx        # Individual profile display
 │   │   │   ├── ProfileEditModal.tsx   # Profile editing dialog
 │   │   │   └── ProfileDeleteModal.tsx # Profile deletion confirmation
-│   │   ├── hooks/               # React hooks (11)
+│   │   ├── hooks/               # React hooks (12)
 │   │   │   ├── useConnection.ts       # Connection state management
 │   │   │   ├── useProfiles.ts         # Profile CRUD operations
 │   │   │   ├── useSnapshots.ts        # Snapshot management
@@ -323,7 +329,8 @@ pidlab/
 ├── e2e/                         # Playwright E2E tests (demo mode)
 │   ├── electron-app.ts          # Shared fixture (launchDemoApp, helpers)
 │   ├── demo-smoke.spec.ts       # 4 smoke tests
-│   ├── demo-tuning-cycle.spec.ts  # 11 tuning cycle tests
+│   ├── demo-tuning-cycle.spec.ts  # 11 guided tuning cycle tests
+│   ├── demo-quick-tune-cycle.spec.ts  # 7 quick tune cycle tests
 │   └── demo-generate-history.spec.ts  # 5-cycle history generator
 │
 └── docs/                        # Design docs (see docs/README.md for full index)
@@ -701,7 +708,7 @@ The autotuning rules and thresholds are based on established FPV community pract
 - **Phase 4**: ✅ Stateful two-flight tuning workflow with smart reconnect, verification flight, tuning history
 - **Phase 5**: ⬜ Complete manual testing & UX polish (real hardware validation)
 - **Phase 6**: ✅ CI/CD & cross-platform releases (macOS/Windows/Linux installers)
-- **Phase 7a**: ✅ Playwright E2E tests (demo mode, 16 tests)
+- **Phase 7a**: ✅ Playwright E2E tests (demo mode, 23 tests)
 - **Phase 7b**: ⬜ E2E tests on real FC in CI pipeline
 
 See [SPEC.md](./SPEC.md) for detailed requirements and phase tracking.

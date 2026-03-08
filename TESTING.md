@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 1884 unit tests across 96 files + 16 Playwright E2E tests** (last verified: February 27, 2026)
+**Total: 1964 unit tests across 100 files + 23 Playwright E2E tests** (last verified: March 7, 2026)
 
 ### UI Components
 
@@ -181,31 +181,33 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `SnapshotManager/snapshotDiffUtils.test.ts` | 24 | CLI diff parsing, change computation |
 | `Toast/Toast.test.tsx` | 14 | Toast notification rendering and lifecycle |
 | `Toast/ToastContainer.test.tsx` | 6 | Toast container layout and stacking |
-| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 62 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow, flashUsedSize-based erased state, import file, skip erase, SD card labels + eraseCompleted |
+| `StartTuningModal.test.tsx` | 6 | Start tuning modal, guided/quick tune selection, cancel |
+| `TuningStatusBanner/TuningStatusBanner.test.tsx` | 62 | Workflow banner, step indicator, actions, downloading, applied phases, BB settings pre-flight warning, verification flow, flashUsedSize-based erased state, import file, skip erase, SD card labels + eraseCompleted, quick tune phases |
 | `TuningWizard/TuningWizard.test.tsx` | 46 | Multi-step wizard flow, results display, apply, mode-aware routing, onApplyComplete with metrics, FF warning, RPM status, flight style display |
 | `TuningWizard/FlightGuideContent.test.tsx` | 9 | Flight guide content rendering, version-aware tip filtering |
 | `TuningWizard/TestFlightGuideStep.test.tsx` | 5 | Flight guide step integration |
 | `TuningWizard/PhaseIllustration.test.tsx` | 11 | Phase illustration SVG rendering, custom size, aria-hidden, unknown title fallback |
 | `TuningWorkflowModal/TuningWorkflowModal.test.tsx` | 19 | Workflow preparation modal, mode-aware step filtering (filter/pid/verification), flight guide sections |
-| `AnalysisOverview/AnalysisOverview.test.tsx` | 28 | Diagnostic-only analysis view, auto-parse, session picker, breadcrumb navigation, session metadata, FF warning, RPM status, data quality pill |
+| `AnalysisOverview/AnalysisOverview.test.tsx` | 32 | Diagnostic-only analysis view, auto-parse, session picker, breadcrumb navigation, session metadata, FF warning, RPM status, data quality pill, TF analysis |
 | `TuningWizard/PIDAnalysisStep.test.tsx` | 7 | PID results display, flight style pill, step count pluralization, data quality pill |
 | `TuningWizard/RecommendationCard.test.tsx` | 11 | Setting label lookup, value display, change percentage, confidence, feedforward labels |
 | `TuningWizard/ApplyConfirmationModal.test.tsx` | 9 | Change counts, snapshot checkbox, confirm/cancel, reboot warning |
-| `TuningWizard/WizardProgress.test.tsx` | 8 | Step indicator, mode-aware filtering, current/done/upcoming states |
+| `TuningWizard/QuickAnalysisStep.test.tsx` | 6 | Quick analysis dual-panel (filter + TF), auto-run, progress, retry |
+| `TuningWizard/WizardProgress.test.tsx` | 10 | Step indicator, mode-aware filtering (filter/pid/quick), current/done/upcoming states |
 | `TuningWizard/SessionSelectStep.test.tsx` | 8 | Session picker, auto-parse, parsing/error/empty states, reverse order |
-| `TuningWizard/TuningSummaryStep.test.tsx` | 14 | Recommendations table, mode-aware labels, apply/progress/success/error states |
+| `TuningWizard/TuningSummaryStep.test.tsx` | 17 | Recommendations table, mode-aware labels (filter/pid/quick), apply/progress/success/error states, tfResult for quick mode |
 | `TuningWizard/charts/AxisTabs.test.tsx` | 6 | Tab rendering, selection, aria-selected, onChange callback |
 | `TuningHistory/AppliedChangesTable.test.tsx` | 7 | Setting changes table, percent formatting, empty state, zero value handling |
 | `TuningHistory/NoiseComparisonChart.test.tsx` | 7 | Before/after spectrum overlay, delta pill, axis tabs, empty state |
-| `TuningHistory/TuningCompletionSummary.test.tsx` | 14 | Completion summary with/without verification, noise chart, changes, PID metrics, actions, quality score badge with tier label, re-analyze button |
-| `TuningHistory/TuningHistoryPanel.test.tsx` | 16 | History list, expand/collapse, detail view with duration/flights, empty/loading states, quality score badge with tier label, trend chart, re-analyze verification visibility and callback |
+| `TuningHistory/TuningCompletionSummary.test.tsx` | 16 | Completion summary with/without verification, noise chart, changes, PID metrics, actions, quality score badge with tier label, re-analyze button, quick tune title |
+| `TuningHistory/TuningHistoryPanel.test.tsx` | 17 | History list, expand/collapse, detail view with duration/flights, empty/loading states, quality score badge with tier label, trend chart, re-analyze verification, quick tune label |
 | `TuningHistory/VerificationSessionModal.test.tsx` | 7 | Auto-analyze single session, multi-session picker, reverse order, cancel, error/parsing states |
 | `TuningHistory/QualityTrendChart.test.tsx` | 5 | Trend chart rendering, minimum data threshold, null score handling |
 | `ProfileWizard.test.tsx` | 6 | Profile creation wizard, flight style selector, preset mapping |
 | `ProfileCard.test.tsx` | 17 | Profile card rendering, badges (Active/Recent), relative time, click handlers, locked state, CSS classes |
 | `PresetSelector.test.tsx` | 11 | Preset dropdown rendering, selection callback, flight style mapping |
 | `ErrorBoundary.test.tsx` | 6 | Error catch, fallback UI, try again reset, custom fallback, normal render |
-| `App.test.tsx` | 7 | App render, title, version, BF compat badge, help button, ErrorBoundary integration |
+| `App.test.tsx` | 10 | App render, title, version, BF compat badge, help button, ErrorBoundary integration, start tuning modal |
 
 ### Charts
 
@@ -214,6 +216,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/charts/chartUtils.test.ts` | 20 | Data conversion, downsampling, findBestStep, robust Y domain |
 | `TuningWizard/charts/SpectrumChart.test.tsx` | 5 | FFT spectrum chart rendering |
 | `TuningWizard/charts/StepResponseChart.test.tsx` | 10 | Step response chart rendering, navigation |
+| `TuningWizard/charts/BodePlot.test.tsx` | 4 | Bode plot (magnitude + phase) rendering for transfer function |
 
 ### Contexts
 
@@ -228,7 +231,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useConnection.test.ts` | 14 | Connection state, port management, error handling |
 | `hooks/useProfiles.test.ts` | 15 | Profile CRUD, event subscriptions |
 | `hooks/useSnapshots.test.ts` | 19 | Snapshot management, restore, event-driven updates |
-| `hooks/useTuningWizard.test.ts` | 23 | Wizard state, parse/analyze/apply lifecycle, PID/FF split |
+| `hooks/useTuningWizard.test.ts` | 23 | Wizard state, parse/analyze/apply lifecycle, PID/FF split, quick mode TF analysis |
 | `hooks/useTuningSession.test.ts` | 10 | Tuning session lifecycle, IPC events, reload on profile change |
 | `hooks/useTuningHistory.test.ts` | 5 | History loading, profile/session change reload, error handling |
 | `hooks/useAnalysisOverview.test.ts` | 12 | Auto-parse, dual analysis, session picker |
@@ -236,13 +239,14 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useToast.test.tsx` | 5 | Toast helper methods, context requirement |
 | `hooks/useBlackboxInfo.test.ts` | 8 | Auto-load, refresh, concurrent request prevention |
 | `hooks/useBlackboxLogs.test.ts` | 9 | Log list, profile change subscription, delete, openFolder |
+| `hooks/useDemoMode.test.ts` | 3 | Demo mode detection, reset demo |
 | `utils/bbSettingsUtils.test.ts` | 18 | BB settings status computation, version-aware debug mode, fix/reset commands |
 
 ### IPC Handlers
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `ipc/handlers.test.ts` | 105 | All 43 IPC handler channels: connection, FC info, profiles, snapshots, blackbox, PID config, analysis, tuning apply (PID+filter+FF), snapshot restore, tuning session, BB settings fix, handler registration |
+| `ipc/handlers.test.ts` | 109 | All 50 IPC handler channels: connection, FC info, profiles, snapshots, blackbox, PID config, analysis (filter+PID+TF), tuning apply (PID+filter+FF), snapshot restore, tuning session, BB settings fix, handler registration |
 
 ### MSP Protocol & Client
 
@@ -268,8 +272,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `storage/ProfileManager.test.ts` | 23 | Profile CRUD, preset creation, current profile, link/unlink snapshots, export |
 | `storage/SnapshotManager.test.ts` | 16 | Snapshot creation via MSP, baseline management, server-side filtering, delete protection |
 | `storage/BlackboxManager.test.ts` | 18 | Log save/list/get/delete/export, profile filtering, soft delete, initialization |
-| `storage/TuningSessionManager.test.ts` | 15 | Session CRUD, phase transitions, per-profile persistence |
-| `storage/TuningHistoryManager.test.ts` | 21 | History archive, retrieval ordering, corrupted data handling, per-profile isolation, delete, updateLatestVerification, updateRecordVerification |
+| `storage/TuningSessionManager.test.ts` | 20 | Session CRUD, phase transitions, per-profile persistence, quick tune phases |
+| `storage/TuningHistoryManager.test.ts` | 25 | History archive, retrieval ordering, corrupted data handling, per-profile isolation, delete, updateLatestVerification, updateRecordVerification, tuningType field |
 
 ### Blackbox Parser
 
@@ -293,7 +297,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/SegmentSelector.test.ts` | 27 | Hover detection, throttle normalization |
 | `analysis/NoiseAnalyzer.test.ts` | 25 | Peak detection, classification, noise floor |
 | `analysis/FilterRecommender.test.ts` | 41 | Noise-based targets, convergence, safety bounds, RPM-aware bounds, dynamic notch, motor diagnostic |
-| `analysis/DataQualityScorer.test.ts` | 22 | Filter/PID data quality scoring, tier mapping, warnings, confidence adjustment |
+| `analysis/DataQualityScorer.test.ts` | 36 | Filter/PID data quality scoring, tier mapping, warnings, confidence adjustment, TF data quality |
 | `analysis/FilterAnalyzer.test.ts` | 16 | End-to-end pipeline, progress reporting, segment fallback warnings, RPM context propagation, data quality scoring |
 
 ### Step Response Analysis
@@ -302,8 +306,9 @@ npm run test:ui           # Visual interface with DOM snapshots
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
 | `analysis/StepMetrics.test.ts` | 27 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS computation and aggregation |
-| `analysis/PIDRecommender.test.ts` | 43 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling |
+| `analysis/PIDRecommender.test.ts` | 54 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling, TF-based recommendations |
 | `analysis/PIDAnalyzer.test.ts` | 19 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring |
+| `analysis/TransferFunctionEstimator.test.ts` | 21 | Wiener deconvolution, frequency response estimation, Bode plot data, PID recommendations from transfer function |
 | `analysis/AnalysisPipeline.realdata.test.ts` | 20 | End-to-end filter+PID analysis with bf45-reference fixture and real_flight.bbl, safety bounds, determinism, performance |
 
 ### E2E Workflow Tests
@@ -322,7 +327,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `shared/utils/metricsExtract.test.ts` | 13 | Spectrum downsampling, filter/PID metrics extraction, boundary handling, trackingErrorRMS extraction |
+| `shared/utils/metricsExtract.test.ts` | 17 | Spectrum downsampling, filter/PID/TF metrics extraction, boundary handling, trackingErrorRMS extraction |
 | `shared/utils/tuneQualityScore.test.ts` | 15 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping, TIER_LABELS |
 | `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
 | `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |
@@ -337,8 +342,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `demo/MockMSPClient.test.ts` | 47 | Mock FC connection, state management, FC info, PID/filter/FF config, blackbox, CLI, save/reboot, flags, flight type cycling, advancePastVerification |
-| `demo/DemoDataGenerator.test.ts` | 22 | BBL generation for filter/PID analysis, multi-session, header metadata, step inputs, throttle sweeps, progressive noise reduction |
+| `demo/MockMSPClient.test.ts` | 47 | Mock FC connection, state management, FC info, PID/filter/FF config, blackbox, CLI, save/reboot, flags, flight type cycling, advancePastVerification, quick tune mode |
+| `demo/DemoDataGenerator.test.ts` | 22 | BBL generation for filter/PID/quick analysis, multi-session, header metadata, step inputs, throttle sweeps, progressive noise reduction |
 
 ### Playwright E2E Tests (Demo Mode)
 
@@ -347,7 +352,8 @@ End-to-end tests that launch the real Electron app in demo mode and walk through
 | File | Tests | Description |
 |------|-------|-------------|
 | `e2e/demo-smoke.spec.ts` | 4 | App launch, auto-connect, dashboard elements (blackbox, start tuning, reset demo) |
-| `e2e/demo-tuning-cycle.spec.ts` | 11 | Full tuning cycle: start → erase → download → filter wizard → apply → PID wizard → apply → skip verify → complete → dismiss → check history |
+| `e2e/demo-tuning-cycle.spec.ts` | 11 | Full guided tuning cycle: start → modal → erase → download → filter wizard → apply → PID wizard → apply → skip verify → complete → dismiss → check history |
+| `e2e/demo-quick-tune-cycle.spec.ts` | 7 | Full quick tune cycle: start → modal (Quick) → erase → download → quick wizard (auto-analysis) → apply all → skip verify → complete → dismiss → check history |
 | `e2e/demo-generate-history.spec.ts` | 1 | Generates 5 completed tuning sessions (excluded from normal `test:e2e` runs, run via `npm run demo:generate-history`) |
 
 **E2E infrastructure:**

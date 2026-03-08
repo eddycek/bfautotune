@@ -1,6 +1,6 @@
 # Quick Tune: Single-Flight Tuning via Wiener Deconvolution
 
-> **Status**: Proposed
+> **Status**: Active (PRs #146–#152, Phases A-G complete)
 > **Date**: 2026-03-07
 > **Scope**: Analysis Engine, Tuning Session State Machine, UI Components, History, E2E Tests
 > **Prerequisite**: TUNING_PRECISION_IMPROVEMENTS.md #1 (Wiener Deconvolution)
@@ -728,23 +728,23 @@ After snapshot, transition `quick_applied → verification_pending` (reuses exis
 
 | # | Task | Files | Tests |
 |---|------|-------|-------|
-| G1 | MockMSPClient quick tune support | `src/main/demo/MockMSPClient.ts` | Unit test: flight type cycling for quick mode |
-| G2 | Mock BBL data for quick flights | `src/main/demo/MockBBLGenerator.ts` (or equivalent) | Unit test: generates mixed hover + freestyle data |
-| G3 | E2E: Quick Tune full cycle | `e2e/demo-quick-tune-cycle.spec.ts` | E2E test: Start Quick → Erase → Download → Wizard → Apply → Skip → Complete → History |
-| G4 | E2E: Guided still works | Existing `e2e/demo-tuning-cycle.spec.ts` | Verify no regressions (may need small updates for StartTuningModal) |
-| G5 | E2E: History shows both types | `e2e/demo-generate-history.spec.ts` | Update to generate mix of guided + quick sessions |
+| G1 | ✅ MockMSPClient quick tune support | `src/main/demo/MockMSPClient.ts` | Unit test: flight type cycling for quick mode |
+| G2 | ✅ Mock BBL data for quick flights | `src/main/demo/DemoDataGenerator.ts` | `generateQuickDemoBBL()` — hover + step inputs |
+| G3 | ✅ E2E: Quick Tune full cycle | `e2e/demo-quick-tune-cycle.spec.ts` | E2E test: Start Quick → Erase → Download → Wizard → Apply → Skip → Complete → History |
+| G4 | ✅ E2E: Guided still works | Existing `e2e/demo-tuning-cycle.spec.ts` | Updated for StartTuningModal (Guided Tune button) |
+| G5 | ✅ E2E: History shows both types | `e2e/demo-generate-history.spec.ts` | Updated for StartTuningModal |
 
 ### Phase H: Documentation
 
 | # | Task | Files |
 |---|------|-------|
-| H1 | Update CLAUDE.md | Architecture sections, TuningMode, TuningPhase, IPC handlers |
-| H2 | Update ARCHITECTURE.md | Handler counts, component list, test summary |
-| H3 | Update TESTING.md | New test files, updated counts |
-| H4 | Update README.md | Feature list, test count |
-| H5 | Update SPEC.md | Progress, PR range |
-| H6 | Update docs/README.md | This doc status |
-| H7 | Update TUNING_PRECISION_IMPROVEMENTS.md | Mark Wiener (#1) as implemented |
+| H1 | ✅ Update CLAUDE.md | Architecture sections, TuningMode, TuningPhase, IPC handlers |
+| H2 | ✅ Update ARCHITECTURE.md | Handler counts, component list, test summary |
+| H3 | ✅ Update TESTING.md | New test files, updated counts |
+| H4 | ✅ Update README.md | Feature list, test count |
+| H5 | ✅ Update SPEC.md | Progress, PR range |
+| H6 | ✅ Update docs/README.md | This doc status |
+| H7 | ✅ Update TUNING_PRECISION_IMPROVEMENTS.md | Mark Wiener (#1) as implemented |
 
 ---
 
