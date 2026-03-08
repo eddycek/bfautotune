@@ -154,12 +154,14 @@ describe('TuningHistoryPanel', () => {
     expect(headers[1]).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('shows "(Quick Tune)" suffix for quick tune records', () => {
-    const record = makeRecord('r1', '2026-02-10T00:00:00Z');
-    record.tuningType = 'quick';
-    render(<TuningHistoryPanel history={[record]} loading={false} />);
+  it('shows tuning type badge for all records', () => {
+    const guided = makeRecord('r1', '2026-02-10T00:00:00Z');
+    const quick = makeRecord('r2', '2026-02-01T00:00:00Z');
+    quick.tuningType = 'quick';
+    render(<TuningHistoryPanel history={[guided, quick]} loading={false} />);
 
-    expect(screen.getByText(/Quick Tune/)).toBeInTheDocument();
+    expect(screen.getByText('Deep Tune')).toBeInTheDocument();
+    expect(screen.getByText('Flash Tune')).toBeInTheDocument();
   });
 
   it('shows noise level in summary', () => {

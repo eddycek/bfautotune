@@ -92,7 +92,7 @@ describe('TuningCompletionSummary', () => {
       />
     );
 
-    expect(screen.getByText(/Tuning Complete/)).toBeInTheDocument();
+    expect(screen.getByText(/Deep Tune Complete/)).toBeInTheDocument();
     expect(screen.getByText(/Duration:/)).toBeInTheDocument();
     expect(screen.getByText(/2 flights/)).toBeInTheDocument();
   });
@@ -269,7 +269,7 @@ describe('TuningCompletionSummary', () => {
     expect(badge!.textContent).toMatch(/\d+\s+(Excellent|Good|Fair|Poor)/);
   });
 
-  it('shows "Quick Tune Complete" for quick tuning sessions', () => {
+  it('shows "Flash Tune Complete" for quick tuning sessions', () => {
     const quickSession: TuningSession = {
       ...baseSession,
       tuningType: 'quick',
@@ -285,8 +285,20 @@ describe('TuningCompletionSummary', () => {
       />
     );
 
-    expect(screen.getByText(/Quick Tune Complete/)).toBeInTheDocument();
+    expect(screen.getByText(/Flash Tune Complete/)).toBeInTheDocument();
     expect(screen.getByText(/1 flight/)).toBeInTheDocument();
+  });
+
+  it('shows "Deep Tune Complete" for guided tuning sessions', () => {
+    render(
+      <TuningCompletionSummary
+        session={baseSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
+
+    expect(screen.getByText(/Deep Tune Complete/)).toBeInTheDocument();
   });
 
   it('includes pidMetrics in quality score (higher score than filter-only)', () => {

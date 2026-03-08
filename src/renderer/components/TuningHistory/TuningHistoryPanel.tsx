@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { CompletedTuningRecord, TuneQualityScore } from '@shared/types/tuning-history.types';
 import { computeTuneQualityScore, TIER_LABELS } from '@shared/utils/tuneQualityScore';
+import { TUNING_TYPE_LABELS } from '@shared/constants';
 import { TuningSessionDetail } from './TuningSessionDetail';
 import { QualityTrendChart } from './QualityTrendChart';
 import './TuningHistoryPanel.css';
@@ -27,11 +28,10 @@ function recordSummary(record: CompletedTuningRecord): string {
   if (fc > 0) parts.push(`${fc} filter`);
   if (pc > 0) parts.push(`${pc} PID`);
   const changes = parts.length > 0 ? `${parts.join(' + ')} changes` : 'No changes';
-  const suffix = record.tuningType === 'quick' ? ' (Quick Tune)' : '';
 
   const noise = record.filterMetrics ? `Noise: ${record.filterMetrics.noiseLevel}` : '';
 
-  return noise ? `${changes}${suffix} \u2022 ${noise}` : `${changes}${suffix}`;
+  return noise ? `${changes} \u2022 ${noise}` : changes;
 }
 
 export function TuningHistoryPanel({
@@ -81,6 +81,11 @@ export function TuningHistoryPanel({
                   <span className="tuning-history-card-summary">{recordSummary(record)}</span>
                 </div>
                 <div className="tuning-history-card-right">
+                  <span
+                    className={`tuning-type-badge tuning-type-${record.tuningType === 'quick' ? 'flash' : 'deep'}`}
+                  >
+                    {TUNING_TYPE_LABELS[record.tuningType ?? 'guided']}
+                  </span>
                   {score && (
                     <span className={`quality-score-badge quality-score-${score.tier}`}>
                       {score.overall} {TIER_LABELS[score.tier]}

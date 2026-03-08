@@ -37,11 +37,11 @@ async function runGuidedCycle(cycleNum: number): Promise<void> {
 
   console.log(`\n=== Starting guided cycle ${cycleNum} ===`);
 
-  // 1. Start Tuning Session (modal → Guided Tune)
+  // 1. Start Tuning Session (modal → Deep Tune)
   await demo.clickButton('Start Tuning Session');
-  // Use modal-scoped locator to avoid strict mode violation when history has "Quick Tune" text
+  // Use modal-scoped locator to avoid strict mode violation when history has "Flash Tune" text
   const modal = page.locator('.start-tuning-overlay');
-  await modal.getByRole('button', { name: 'Guided Tune' }).click();
+  await modal.getByRole('button', { name: 'Deep Tune' }).click();
   await demo.waitForText('Erase Blackbox data', WAIT);
 
   // 2. Filter flight: erase → auto-flight → download → analysis → apply
@@ -144,20 +144,20 @@ async function runQuickCycle(cycleNum: number): Promise<void> {
 
   console.log(`\n=== Starting quick tune cycle ${cycleNum} ===`);
 
-  // 1. Start Quick Tune Session (modal → Quick Tune)
+  // 1. Start Flash Tune Session (modal → Flash Tune)
   await demo.clickButton('Start Tuning Session');
   // Use modal-scoped locator to avoid strict mode violation
-  // (Tuning History may also contain "Quick Tune" text)
+  // (Tuning History may also contain "Flash Tune" text)
   const modal = page.locator('.start-tuning-overlay');
-  await modal.getByRole('button', { name: 'Quick Tune' }).click();
+  await modal.getByRole('button', { name: 'Flash Tune' }).click();
   await demo.waitForText('Erase Blackbox data', WAIT);
 
   // 2. Quick flight: erase → auto-flight → download → quick wizard → apply
   await demo.clickButton('Erase Flash');
   await demo.waitForText('Flight done', WAIT);
   await demo.clickButton('Download Log');
-  await demo.waitForText('Open Quick Wizard', WAIT);
-  await demo.clickButton('Open Quick Wizard');
+  await demo.waitForText('Open Flash Tune Wizard', WAIT);
+  await demo.clickButton('Open Flash Tune Wizard');
 
   // Quick wizard auto-runs both analyses — wait for Continue to Summary
   await page

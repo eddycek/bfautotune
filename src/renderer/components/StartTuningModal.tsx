@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TuningType } from '@shared/types/tuning.types';
+import { TUNING_TYPE_LABELS } from '@shared/constants';
 import './StartTuningModal.css';
 
 interface StartTuningModalProps {
@@ -17,7 +18,7 @@ export function StartTuningModal({ onStart, onCancel }: StartTuningModalProps) {
         <div className="start-tuning-options">
           <button className="start-tuning-option" onClick={() => onStart('guided')}>
             <div className="start-tuning-option-header">
-              <span className="start-tuning-option-title">Guided Tune</span>
+              <span className="start-tuning-option-title">{TUNING_TYPE_LABELS.guided}</span>
               <span className="start-tuning-option-badge">2 flights</span>
             </div>
             <p className="start-tuning-option-desc">
@@ -31,7 +32,7 @@ export function StartTuningModal({ onStart, onCancel }: StartTuningModalProps) {
             onClick={() => onStart('quick')}
           >
             <div className="start-tuning-option-header">
-              <span className="start-tuning-option-title">Quick Tune</span>
+              <span className="start-tuning-option-title">{TUNING_TYPE_LABELS.quick}</span>
               <span className="start-tuning-option-badge start-tuning-badge-quick">1 flight</span>
             </div>
             <p className="start-tuning-option-desc">

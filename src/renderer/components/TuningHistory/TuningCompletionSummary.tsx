@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { TuningSession } from '@shared/types/tuning.types';
 import { computeTuneQualityScore, TIER_LABELS } from '@shared/utils/tuneQualityScore';
+import { TUNING_TYPE_LABELS } from '@shared/constants';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
 import { AppliedChangesTable } from './AppliedChangesTable';
 import './TuningCompletionSummary.css';
@@ -39,7 +40,8 @@ function flightCount(session: TuningSession): number {
 }
 
 function completionTitle(session: TuningSession): string {
-  return session.tuningType === 'quick' ? 'Quick Tune Complete' : 'Tuning Complete';
+  const label = TUNING_TYPE_LABELS[session.tuningType ?? 'guided'];
+  return `${label} Complete`;
 }
 
 export function TuningCompletionSummary({

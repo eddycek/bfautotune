@@ -6,6 +6,7 @@ import type {
   FlightGuideMode,
 } from '@shared/types/tuning.types';
 import type { BlackboxStorageType } from '@shared/types/blackbox.types';
+import { TUNING_TYPE_LABELS } from '@shared/constants';
 import './TuningStatusBanner.css';
 
 export type TuningAction =
@@ -111,14 +112,14 @@ function getPhaseUI(
     },
     quick_log_ready: {
       stepIndex: 1,
-      text: 'Flight done! Download the Blackbox log to start Quick Tune analysis.',
+      text: `Flight done! Download the Blackbox log to start ${TUNING_TYPE_LABELS.quick} analysis.`,
       buttonLabel: 'Download Log',
       action: 'download_log',
     },
     quick_analysis: {
       stepIndex: 2,
-      text: 'Log downloaded. Run the Quick Tune Wizard to analyze and apply all changes.',
-      buttonLabel: 'Open Quick Wizard',
+      text: `Log downloaded. Run the ${TUNING_TYPE_LABELS.quick} Wizard to analyze and apply all changes.`,
+      buttonLabel: `Open ${TUNING_TYPE_LABELS.quick} Wizard`,
       action: 'open_quick_wizard',
     },
     completed: {
@@ -211,7 +212,7 @@ export function TuningStatusBanner({
     ((isFlightPending || isVerification) && !!session.eraseCompleted);
   const flightType =
     session.phase === 'quick_flight_pending'
-      ? 'Quick Tune'
+      ? TUNING_TYPE_LABELS.quick
       : session.phase === 'filter_flight_pending'
         ? 'filter'
         : 'PID';

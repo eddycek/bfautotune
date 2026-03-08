@@ -8,27 +8,27 @@ describe('StartTuningModal', () => {
   it('renders both tuning mode options', () => {
     render(<StartTuningModal onStart={vi.fn()} onCancel={vi.fn()} />);
 
-    expect(screen.getByText('Guided Tune')).toBeInTheDocument();
-    expect(screen.getByText('Quick Tune')).toBeInTheDocument();
+    expect(screen.getByText('Deep Tune')).toBeInTheDocument();
+    expect(screen.getByText('Flash Tune')).toBeInTheDocument();
     expect(screen.getByText('2 flights')).toBeInTheDocument();
     expect(screen.getByText('1 flight')).toBeInTheDocument();
   });
 
-  it('calls onStart with guided when Guided Tune clicked', async () => {
+  it('calls onStart with guided when Deep Tune clicked', async () => {
     const onStart = vi.fn();
     const user = userEvent.setup();
     render(<StartTuningModal onStart={onStart} onCancel={vi.fn()} />);
 
-    await user.click(screen.getByText('Guided Tune'));
+    await user.click(screen.getByText('Deep Tune'));
     expect(onStart).toHaveBeenCalledWith('guided');
   });
 
-  it('calls onStart with quick when Quick Tune clicked', async () => {
+  it('calls onStart with quick when Flash Tune clicked', async () => {
     const onStart = vi.fn();
     const user = userEvent.setup();
     render(<StartTuningModal onStart={onStart} onCancel={vi.fn()} />);
 
-    await user.click(screen.getByText('Quick Tune'));
+    await user.click(screen.getByText('Flash Tune'));
     expect(onStart).toHaveBeenCalledWith('quick');
   });
 

@@ -47,7 +47,7 @@ export function QuickAnalysisStep({
 
   return (
     <div className="analysis-section">
-      <h3>Quick Tune Analysis</h3>
+      <h3>Flash Tune Analysis</h3>
       <p className="analysis-description">
         Analyzing filters (noise spectrum) and PIDs (transfer function) from your flight data...
       </p>

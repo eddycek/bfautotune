@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TUNING_WORKFLOW } from '@shared/constants/flightGuide';
+import { TUNING_TYPE_LABELS } from '@shared/constants';
 import type { FlightGuideMode } from '@shared/types/tuning.types';
 import { useConnection } from '../../hooks/useConnection';
 import { FlightGuideContent } from '../TuningWizard/FlightGuideContent';
@@ -19,6 +20,8 @@ function isGyroScaledNotNeeded(version?: string): boolean {
   if (!match) return false;
   return parseInt(match[1]) > 4 || (parseInt(match[1]) === 4 && parseInt(match[2]) >= 6);
 }
+
+type WorkflowTab = 'deep' | 'flash';
 
 interface TuningWorkflowModalProps {
   onClose: () => void;
@@ -49,33 +52,116 @@ function getWorkflowSteps(mode?: FlightGuideMode) {
   return TUNING_WORKFLOW;
 }
 
+function DeepTuneContent({
+  hideGyroScaled,
+  fcVersion,
+}: {
+  hideGyroScaled: boolean;
+  fcVersion?: string;
+}) {
+  const steps = getWorkflowSteps(undefined);
+  return (
+    <>
+      <p className="workflow-tab-subtitle">{getSubtitle(undefined)}</p>
+
+      <div className="workflow-steps">
+        {steps.map((step, i) => (
+          <div key={i} className="workflow-step">
+            <div className="workflow-step-number">{i + 1}</div>
+            <div className="workflow-step-content">
+              <div className="workflow-step-title">{step.title}</div>
+              <div className="workflow-step-desc">
+                {filterWorkflowDescription(step.description, hideGyroScaled)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <hr className="workflow-divider" />
+      <h3 className="workflow-subheading">Flight 1: Filter Test Flight</h3>
+      <FlightGuideContent mode="filter" fcVersion={fcVersion} />
+
+      <hr className="workflow-divider" />
+      <h3 className="workflow-subheading">Flight 2: PID Test Flight</h3>
+      <FlightGuideContent mode="pid" fcVersion={fcVersion} />
+
+      <hr className="workflow-divider" />
+      <h3 className="workflow-subheading">Optional: Verification Hover</h3>
+      <FlightGuideContent mode="verification" fcVersion={fcVersion} />
+    </>
+  );
+}
+
+function FlashTuneContent({ fcVersion }: { fcVersion?: string }) {
+  return (
+    <>
+      <p className="workflow-tab-subtitle">
+        One flight covers both filters and PIDs. Fly freely — no special maneuvers needed.
+      </p>
+      <FlightGuideContent mode="quick" fcVersion={fcVersion} />
+    </>
+  );
+}
+
 export function TuningWorkflowModal({ onClose, mode }: TuningWorkflowModalProps) {
   const { status } = useConnection();
   const fcVersion = status.fcInfo?.version;
   const hideGyroScaled = isGyroScaledNotNeeded(fcVersion);
-  const steps = getWorkflowSteps(mode);
+  const isOverviewMode = mode === undefined;
+  const [activeTab, setActiveTab] = useState<WorkflowTab>('deep');
+
+  // Non-overview modes: original behavior (single-mode view)
+  const steps = !isOverviewMode ? getWorkflowSteps(mode) : [];
   const isQuickMode = mode === 'quick';
-  const showFilter = !isQuickMode && (mode === undefined || mode === 'filter');
-  const showPid = !isQuickMode && (mode === undefined || mode === 'pid');
-  const showQuick = isQuickMode;
-  const showVerification = mode === undefined;
+  const showFilter = !isOverviewMode && !isQuickMode && mode === 'filter';
+  const showPid = !isOverviewMode && !isQuickMode && mode === 'pid';
+  const showQuick = !isOverviewMode && isQuickMode;
   const isVerificationMode = mode === 'verification';
 
-  const title = isVerificationMode
-    ? 'Verification Hover'
-    : isQuickMode
-      ? 'Quick Tune Flight Guide'
-      : 'How to Prepare Blackbox Data';
+  const title = isOverviewMode
+    ? 'How to Tune'
+    : isVerificationMode
+      ? 'Verification Hover'
+      : isQuickMode
+        ? `${TUNING_TYPE_LABELS.quick} Flight Guide`
+        : 'How to Prepare Blackbox Data';
 
   return (
     <div className="profile-wizard-overlay" onClick={onClose}>
       <div className="profile-wizard-modal" onClick={(e) => e.stopPropagation()}>
         <div className="profile-wizard-header">
           <h2>{title}</h2>
-          <p>{getSubtitle(mode)}</p>
+          {!isOverviewMode && <p>{getSubtitle(mode)}</p>}
         </div>
 
-        {steps.length > 0 && (
+        {isOverviewMode && (
+          <>
+            <div className="workflow-tabs">
+              <button
+                className={`workflow-tab ${activeTab === 'deep' ? 'active' : ''}`}
+                onClick={() => setActiveTab('deep')}
+              >
+                {TUNING_TYPE_LABELS.guided}
+                <span className="workflow-tab-meta">2 flights</span>
+              </button>
+              <button
+                className={`workflow-tab ${activeTab === 'flash' ? 'active' : ''}`}
+                onClick={() => setActiveTab('flash')}
+              >
+                {TUNING_TYPE_LABELS.quick}
+                <span className="workflow-tab-meta">1 flight</span>
+              </button>
+            </div>
+
+            {activeTab === 'deep' && (
+              <DeepTuneContent hideGyroScaled={hideGyroScaled} fcVersion={fcVersion} />
+            )}
+            {activeTab === 'flash' && <FlashTuneContent fcVersion={fcVersion} />}
+          </>
+        )}
+
+        {!isOverviewMode && steps.length > 0 && (
           <div className="workflow-steps">
             {steps.map((step, i) => (
               <div key={i} className="workflow-step">
@@ -113,14 +199,6 @@ export function TuningWorkflowModal({ onClose, mode }: TuningWorkflowModalProps)
             <hr className="workflow-divider" />
             <h3 className="workflow-subheading">Flight 2: PID Test Flight</h3>
             <FlightGuideContent mode="pid" fcVersion={fcVersion} />
-          </>
-        )}
-
-        {showVerification && (
-          <>
-            <hr className="workflow-divider" />
-            <h3 className="workflow-subheading">Optional: Verification Hover</h3>
-            <FlightGuideContent mode="verification" fcVersion={fcVersion} />
           </>
         )}
 

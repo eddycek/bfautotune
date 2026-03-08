@@ -10,12 +10,18 @@ describe('TuningWorkflowModal', () => {
     vi.clearAllMocks();
   });
 
-  it('renders title', () => {
+  it('renders title with tabs in overview mode', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
-    expect(screen.getByText('How to Prepare Blackbox Data')).toBeInTheDocument();
+    expect(screen.getByText('How to Tune')).toBeInTheDocument();
   });
 
-  it('shows all 10 workflow steps for two-flight process', () => {
+  it('shows Deep Tune and Flash Tune tabs in overview mode', () => {
+    render(<TuningWorkflowModal onClose={onClose} />);
+    expect(screen.getByText('Deep Tune')).toBeInTheDocument();
+    expect(screen.getByText('Flash Tune')).toBeInTheDocument();
+  });
+
+  it('defaults to Deep Tune tab showing all 10 workflow steps', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
     expect(screen.getByText('Connect your drone')).toBeInTheDocument();
     expect(screen.getByText('Create a backup')).toBeInTheDocument();
@@ -29,31 +35,55 @@ describe('TuningWorkflowModal', () => {
     expect(screen.getByText('Optional: Verification hover')).toBeInTheDocument();
   });
 
-  it('shows all three flight guide sections', () => {
+  it('shows all three flight guide sections in Deep Tune tab', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
     expect(screen.getByText('Flight 1: Filter Test Flight')).toBeInTheDocument();
     expect(screen.getByText('Flight 2: PID Test Flight')).toBeInTheDocument();
     expect(screen.getByText('Optional: Verification Hover')).toBeInTheDocument();
   });
 
-  it('shows filter flight guide phases', () => {
+  it('shows filter flight guide phases in Deep Tune tab', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
-    // Throttle Sweep appears in both filter and verification guides
     expect(screen.getAllByText('Throttle Sweep').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Final Hover').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows PID flight guide phases', () => {
+  it('shows PID flight guide phases in Deep Tune tab', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
     expect(screen.getByText('Roll Snaps')).toBeInTheDocument();
     expect(screen.getByText('Pitch Snaps')).toBeInTheDocument();
     expect(screen.getByText('Yaw Snaps')).toBeInTheDocument();
   });
 
-  it('shows tips for all three guides', () => {
+  it('shows tips for all three guides in Deep Tune tab', () => {
     render(<TuningWorkflowModal onClose={onClose} />);
     const tipHeaders = screen.getAllByText('Tips');
     expect(tipHeaders.length).toBe(3);
+  });
+
+  it('switches to Flash Tune tab on click', async () => {
+    const user = userEvent.setup();
+    render(<TuningWorkflowModal onClose={onClose} />);
+
+    await user.click(screen.getByText('Flash Tune'));
+
+    // Deep Tune content should be hidden
+    expect(screen.queryByText('Connect your drone')).not.toBeInTheDocument();
+    expect(screen.queryByText('Flight 1: Filter Test Flight')).not.toBeInTheDocument();
+
+    // Flash Tune content should be visible
+    expect(screen.getByText(/One flight covers both filters and PIDs/)).toBeInTheDocument();
+  });
+
+  it('switches back to Deep Tune tab', async () => {
+    const user = userEvent.setup();
+    render(<TuningWorkflowModal onClose={onClose} />);
+
+    await user.click(screen.getByText('Flash Tune'));
+    await user.click(screen.getByText('Deep Tune'));
+
+    expect(screen.getByText('Connect your drone')).toBeInTheDocument();
+    expect(screen.getByText('Flight 1: Filter Test Flight')).toBeInTheDocument();
   });
 
   it('calls onClose when "Got it" is clicked', async () => {
@@ -111,6 +141,12 @@ describe('TuningWorkflowModal', () => {
       expect(
         screen.getByText('Follow these steps for the filter tuning flight.')
       ).toBeInTheDocument();
+    });
+
+    it('does not show tabs', () => {
+      render(<TuningWorkflowModal onClose={onClose} mode="filter" />);
+      expect(screen.queryByText('Deep Tune')).not.toBeInTheDocument();
+      expect(screen.queryByText('Flash Tune')).not.toBeInTheDocument();
     });
   });
 

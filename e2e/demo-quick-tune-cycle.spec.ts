@@ -1,11 +1,11 @@
 /**
- * Demo mode Quick Tune cycle E2E test.
+ * Demo mode Flash Tune cycle E2E test.
  *
- * Walks through one complete Quick Tune cycle:
+ * Walks through one complete Flash Tune cycle:
  *   Start (Quick) → Erase → (auto-flight) → Download → Quick Wizard
  *   (auto-runs filter + TF analysis) → Apply All → Skip verification → Complete → Dismiss
  *
- * Then verifies the tuning history shows the completed session with "(Quick Tune)" label.
+ * Then verifies the tuning history shows the completed session with "(Flash Tune)" label.
  */
 import { test, expect } from '@playwright/test';
 import { launchDemoApp, type DemoApp } from './electron-app';
@@ -25,8 +25,8 @@ test.describe.serial('quick tune cycle', () => {
   test('start quick tune session', async () => {
     await demo.clickButton('Start Tuning Session');
 
-    // StartTuningModal opens — select Quick Tune
-    await demo.clickButton('Quick Tune');
+    // StartTuningModal opens — select Flash Tune
+    await demo.clickButton('Flash Tune');
 
     // Should show quick_flight_pending phase
     await demo.waitForText('Erase Blackbox data');
@@ -45,12 +45,12 @@ test.describe.serial('quick tune cycle', () => {
     await demo.clickButton('Download Log');
 
     // Wait for download + parse → quick_analysis phase
-    await demo.waitForText('Open Quick Wizard', 20_000);
+    await demo.waitForText('Open Flash Tune Wizard', 20_000);
     await demo.screenshot('quick-03-log-downloaded');
   });
 
   test('run quick analysis in wizard', async () => {
-    await demo.clickButton('Open Quick Wizard');
+    await demo.clickButton('Open Flash Tune Wizard');
 
     // Quick wizard auto-runs both analyses in parallel
     // Wait for "Continue to Summary" to appear (both analyses done)
@@ -94,8 +94,8 @@ test.describe.serial('quick tune cycle', () => {
 
     await demo.clickButton('Skip & Complete');
 
-    // Session completed — shows "Quick Tune Complete"
-    await demo.waitForText(/Quick Tune Complete/i, 15_000);
+    // Session completed — shows "Flash Tune Complete"
+    await demo.waitForText(/Flash Tune Complete/i, 15_000);
     await demo.screenshot('quick-07-complete');
   });
 
@@ -106,7 +106,7 @@ test.describe.serial('quick tune cycle', () => {
 
     // Tuning History should show the completed quick tune session
     await demo.waitForText('Tuning History', 10_000);
-    await demo.waitForText('Quick Tune', 10_000);
+    await demo.waitForText('Flash Tune', 10_000);
     await demo.screenshot('quick-08-history');
   });
 });
