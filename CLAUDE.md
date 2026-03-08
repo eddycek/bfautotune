@@ -132,14 +132,14 @@ IPC handlers are split into domain modules under `src/main/ipc/handlers/`:
 |--------|----------|---------|
 | `types.ts` | — | `HandlerDependencies` interface, `createResponse`, `parseDiffSetting` |
 | `events.ts` | — | 7 event broadcast functions |
-| `connectionHandlers.ts` | 4 | Port scanning, connect, disconnect, status |
+| `connectionHandlers.ts` | 6 | Port scanning, connect, disconnect, status, demo mode, reset demo |
 | `fcInfoHandlers.ts` | 5 | FC info, CLI export, BB settings, FF config, fix settings |
 | `snapshotHandlers.ts` | 6 | Snapshot CRUD, export, restore |
 | `profileHandlers.ts` | 10 | Profile CRUD, presets, FC serial |
 | `pidHandlers.ts` | 3 | PID get/set/save |
 | `blackboxHandlers.ts` | 9 | Info, download, list, delete, erase, folder, test, parse, import |
-| `analysisHandlers.ts` | 2 | Filter and PID analysis |
-| `tuningHandlers.ts` | 8 | Apply, session CRUD, history, update verification, update history verification |
+| `analysisHandlers.ts` | 3 | Filter, PID, and transfer function analysis |
+| `tuningHandlers.ts` | 8 | Apply, session CRUD (guided + quick), history, update verification, update history verification |
 | `index.ts` | — | DI container, `registerIPCHandlers()` |
 
 **Request-Response Pattern**:
@@ -234,6 +234,16 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 - **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
+### Transfer Function Analysis Engine (`src/main/analysis/`)
+
+Analyzes system transfer function via Wiener deconvolution for PID recommendations from any flight data.
+
+**Pipeline**: TransferFunctionEstimator (setpoint → gyro deconvolution → H(f) = S_xy(f) / S_xx(f))
+
+- **TransferFunctionEstimator**: Cross-spectral density estimation, bandwidth/phase margin extraction, PID recommendations based on frequency response characteristics
+- Used in Quick Tune mode for combined filter + PID analysis from a single flight
+- IPC: `ANALYSIS_RUN_TRANSFER_FUNCTION` + `EVENT_ANALYSIS_PROGRESS`
+
 ### Data Quality Scoring (`src/main/analysis/DataQualityScorer.ts`)
 
 Rates flight data quality 0-100 before generating recommendations. Integrated into both FilterAnalyzer and PIDAnalyzer.
@@ -249,17 +259,21 @@ Rates flight data quality 0-100 before generating recommendations. Integrated in
 
 ### Stateful Tuning Session
 
-Two-flight iterative tuning approach: filters first (hover + throttle sweeps), then PIDs (stick snaps).
+Two tuning modes: **Guided** (2-flight, filters then PIDs) and **Quick** (1-flight, combined analysis via Wiener deconvolution).
 
-**State Machine** (`TuningPhase`): filter_flight_pending → filter_log_ready → filter_analysis → filter_applied → pid_flight_pending → pid_log_ready → pid_analysis → pid_applied → verification_pending → completed
+**TuningType**: `'guided' | 'quick'` — selected at session start via `StartTuningModal`
+
+**Guided State Machine** (`TuningPhase`): filter_flight_pending → filter_log_ready → filter_analysis → filter_applied → pid_flight_pending → pid_log_ready → pid_analysis → pid_applied → verification_pending → completed
+
+**Quick State Machine** (`TuningPhase`): quick_flight_pending → quick_log_ready → quick_analysis → quick_applied → verification_pending → completed
 
 - **TuningSessionManager** (`src/main/storage/`): CRUD for per-profile session files at `{userData}/data/tuning/{profileId}.json`
 - **useTuningSession hook**: Manages session lifecycle with IPC and event subscription
 - **TuningStatusBanner**: Dashboard banner showing current phase, 6-step indicator (Prepare → Filter Flight → Filter Tune → PID Flight → PID Tune → Verify), action buttons
-- **TuningMode**: `'filter' | 'pid' | 'full'` — wizard components adapt UI/flow per mode
+- **TuningMode**: `'filter' | 'pid' | 'full' | 'quick'` — wizard components adapt UI/flow per mode
 - **Verification flow**: After PID apply → "Erase & Verify" → erase flash → fly hover → download → analyze → completed. Or "Skip & Complete" to skip.
 - **Archive on completion**: When phase transitions to `completed`, session is archived to `TuningHistoryManager` before becoming dismissable
-- IPC: `TUNING_GET_SESSION`, `TUNING_START_SESSION`, `TUNING_UPDATE_PHASE`, `TUNING_RESET_SESSION`, `TUNING_GET_HISTORY` + `EVENT_TUNING_SESSION_CHANGED`
+- IPC: `TUNING_GET_SESSION`, `TUNING_START_SESSION`, `TUNING_UPDATE_PHASE`, `TUNING_RESET_SESSION`, `TUNING_GET_HISTORY`, `TUNING_UPDATE_VERIFICATION`, `TUNING_UPDATE_HISTORY_VERIFICATION` + `EVENT_TUNING_SESSION_CHANGED`
 - Design doc: `docs/TUNING_WORKFLOW_REVISION.md`
 
 ### Analysis Overview (`src/renderer/components/AnalysisOverview/`)
@@ -279,6 +293,7 @@ Guided multi-step wizard for active tuning sessions. Supports mode-aware step ro
 **Steps by mode** (used only during active tuning sessions):
 - `filter`: Flight Guide → Session → Filters → Summary (skips PIDs)
 - `pid`: Flight Guide → Session → PIDs → Summary (skips Filters)
+- `quick`: Session → Quick Analysis (filter + TF in parallel, auto-runs) → Summary
 
 - **useTuningWizard hook**: State management for parse/filter/PID analysis and apply lifecycle, mode-aware auto-advance and apply
 - **WizardProgress**: Visual step indicator with done/current/upcoming states, dynamic step filtering by mode
@@ -380,7 +395,7 @@ Completed tuning sessions are archived with self-contained metrics for compariso
 E2E tests launch the real Electron app in demo mode via Playwright's `_electron.launch()`.
 
 ```bash
-npm run test:e2e              # Build + run 15 E2E tests
+npm run test:e2e              # Build + run 22 E2E tests
 npm run test:e2e:ui           # Build + Playwright UI
 npm run demo:generate-history # Build + generate 5 tuning sessions (~2 min)
 ```
@@ -390,6 +405,7 @@ npm run demo:generate-history # Build + generate 5 tuning sessions (~2 min)
 - `E2E_USER_DATA_DIR` env var → `app.setPath('userData', ...)` in `src/main/index.ts` for test isolation
 - Clean state: `.e2e-userdata/` is wiped before each test file
 - `test:e2e` uses `--grep-invert 'generate 5'` to exclude slow generator
+- 4 spec files: smoke (4), guided cycle (11), quick tune cycle (7), history generator (1)
 - `vitest.config.ts` excludes `e2e/` to prevent Vitest from picking up Playwright specs
 - `advancePastVerification()` in MockMSPClient keeps flight type cycling correct when verification is skipped
 
@@ -462,7 +478,7 @@ await waitFor(() => {
 - Shared logic in `src/renderer/utils/bbSettingsUtils.ts` (`computeBBSettingsStatus`)
 
 ### Smart Reconnect Detection
-- On reconnect with existing profile, checks if tuning session is in `*_flight_pending` phase
+- On reconnect with existing profile, checks if tuning session is in `*_flight_pending` phase (including `quick_flight_pending`)
 - If flash has data (`bbInfo.hasLogs && bbInfo.usedSize > 0`), auto-transitions to `*_log_ready`
 - Implemented in `src/main/index.ts` after `createBaselineIfMissing()`
 

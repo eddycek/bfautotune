@@ -1,6 +1,6 @@
 # Tuning Precision Improvements
 
-> **Status**: Active (PR #119 — Data Quality Scoring implemented)
+> **Status**: Active (PRs #119–#120, #137, #146–#152)
 
 Research-based analysis of techniques to improve tuning recommendation accuracy. Prioritized by impact and implementation effort.
 
@@ -19,7 +19,7 @@ This document catalogs improvements that would make recommendations more precise
 
 ## High Priority
 
-### 1. Wiener Deconvolution (Transfer Function Estimation)
+### 1. ✅ Wiener Deconvolution (Transfer Function Estimation) — PRs #146–#152
 
 **Problem**: Current PID analysis requires dedicated stick-snap flights and depends on step detection quality. General freestyle/race flights produce no PID recommendations.
 

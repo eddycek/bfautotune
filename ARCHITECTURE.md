@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** February 26, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1884 unit tests, 96 files + 16 Playwright E2E tests**
+**Last Updated:** March 7, 2026 | **Phase 4 Complete, Phase 6 Complete** | **1964 unit tests, 100 files + 23 Playwright E2E tests**
 
 ---
 
@@ -37,7 +37,7 @@
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
 │  │              Preload Script (contextBridge, 527 lines)              │  │
 │  └───────────────────────────────┼──────────────────────────────────────┘  │
-│                                  │ IPC (44 channels, 14 event types)       │
+│                                  │ IPC (50 channels, 14 event types)       │
 │                                  │                                         │
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
 │  │                     Main Process (Node.js)                          │  │
@@ -111,7 +111,7 @@ const tuningHistoryManager = new TuningHistoryManager(`${userData}/data`); // {u
 
 **Smart reconnect detection** (after step 4):
 ```
-If tuning session exists AND phase is filter_flight_pending or pid_flight_pending:
+If tuning session exists AND phase is filter_flight_pending, pid_flight_pending, or quick_flight_pending:
   Read flash info via MSP_DATAFLASH_SUMMARY
   If flash has data (usedSize > 0):
     Transition to filter_log_ready or pid_log_ready
@@ -479,17 +479,17 @@ TuningSession {
 
 ### IPC Layer (`src/main/ipc/`)
 
-**44 IPC channels** organized by domain:
+**50 IPC channels** organized by domain:
 
 | Domain | Channels | Key Operations |
 |--------|----------|---------------|
-| Connection (4) | `list_ports`, `connect`, `disconnect`, `get_status` | Port scanning, connect/disconnect |
+| Connection (6) | `list_ports`, `connect`, `disconnect`, `get_status`, `is_demo_mode`, `reset_demo` | Port scanning, connect/disconnect, demo mode |
 | FC Info (5) | `get_info`, `export_cli`, `get_blackbox_settings`, `get_feedforward_config`, `fix_blackbox_settings` | FC data, CLI export, FF config, BB settings fix |
 | Profiles (10) | `create`, `create_from_preset`, `update`, `delete`, `list`, `get`, `get_current`, `set_current`, `export`, `get_fc_serial` | Full profile CRUD |
 | Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
-| Blackbox (8) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log` | Flash ops + parsing |
-| Analysis (2) | `run_filter`, `run_pid` | FFT + step response analysis |
-| Tuning (7) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session`, `get_history`, `update_verification` | Apply + session state + history + re-analyze verification |
+| Blackbox (9) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log`, `import_log` | Flash ops + parsing + import |
+| Analysis (3) | `run_filter`, `run_pid`, `run_transfer_function` | FFT + step response + Wiener deconvolution |
+| Tuning (8) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session`, `get_history`, `update_verification`, `update_history_verification` | Apply + session state + history + verification |
 | PID (3) | `get_config`, `update_config`, `save_config` | MSP PID read/write |
 
 **14 Event types** (Main → Renderer):
@@ -621,7 +621,7 @@ App (ToastProvider wrapper)
 │   └── ToastContainer
 ```
 
-### React Hooks (11 hooks)
+### React Hooks (12 hooks)
 
 | Hook | Key Returns | Purpose |
 |------|-------------|---------|
@@ -635,6 +635,7 @@ App (ToastProvider wrapper)
 | `useTuningWizard` | `{parseResult, filterResult, pidResult, applying, ...}` | Wizard state machine |
 | `useTuningHistory` | `{history, loading, reload}` | Tuning history loading + auto-reload |
 | `useAnalysisOverview` | `{parseResult, filterResult, pidResult, ...}` | Auto-parse + dual analysis |
+| `useDemoMode` | `{isDemoMode, resetDemo}` | Demo mode detection + reset |
 | `useToast` | `{success, error, warning, info}` | Toast notifications |
 
 ### Interactive Charts (`TuningWizard/charts/`)
@@ -650,34 +651,36 @@ Built with **Recharts** (SVG):
 
 ## Tuning State Machine
 
-10-phase state machine persisted per-profile in `{userData}/data/tuning/{profileId}.json`.
+State machine persisted per-profile in `{userData}/data/tuning/{profileId}.json`. Two modes: **Guided** (2 flights, 10 phases) and **Quick** (1 flight, 6 phases).
 
 ```
-                       START SESSION
-                            │
-                 filter_flight_pending ◄──── Erase flash, disconnect, fly
-                            │
-              [smart reconnect: flash has data]
-                            │
-                  filter_log_ready ◄──────── Download log from FC
-                            │
-                   filter_analysis ◄──────── Open wizard (mode='filter')
-                            │
-                   filter_applied ───────── Apply filters → auto-advance
-                            │
-                  pid_flight_pending ◄────── Erase flash, disconnect, fly
-                            │
-              [smart reconnect: flash has data]
-                            │
-                    pid_log_ready ◄───────── Download log from FC
-                            │
-                     pid_analysis ◄───────── Open wizard (mode='pid')
-                            │
-                     pid_applied ─────────── Apply PIDs → auto-advance
-                            │
-                 verification_pending
-                            │
-                       completed
+Guided mode:                                Quick mode:
+
+       START SESSION                              START SESSION
+            │                                          │
+ filter_flight_pending                        quick_flight_pending
+            │                                          │
+ [smart reconnect]                            [smart reconnect]
+            │                                          │
+  filter_log_ready                              quick_log_ready
+            │                                          │
+   filter_analysis                              quick_analysis (filter + TF)
+            │                                          │
+   filter_applied                               quick_applied
+            │                                          │
+  pid_flight_pending                          verification_pending
+            │                                          │
+ [smart reconnect]                                completed
+            │
+    pid_log_ready
+            │
+     pid_analysis
+            │
+     pid_applied
+            │
+ verification_pending
+            │
+       completed
 ```
 
 **TuningStatusBanner** renders per-phase:
@@ -803,27 +806,27 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**1884 unit tests across 96 files + 16 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**1964 unit tests across 100 files + 23 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
 | FFT Analysis (+ Data Quality) | 6 | 151 |
-| Step Response (+ Real-data) | 5 | 125 |
+| Step Response + TF (+ Real-data) | 6 | 146 |
 | Header Validation + Constants | 2 | 31 |
 | MSP Protocol & Client | 3 | 140 |
 | MSC (Mass Storage) | 2 | 32 |
-| Storage Managers | 7 | 115 |
-| IPC Handlers | 1 | 105 |
-| UI Components | 36 | 549 |
+| Storage Managers | 7 | 124 |
+| IPC Handlers | 1 | 109 |
+| UI Components | 40 | 604 |
 | Contexts | 1 | 10 |
-| React Hooks | 12 | 146 |
-| Charts | 3 | 41 |
-| Shared Constants & Utils | 4 | 39 |
+| React Hooks | 13 | 149 |
+| Charts | 4 | 45 |
+| Shared Constants & Utils | 4 | 43 |
 | E2E Workflows | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 69 |
-| **Playwright E2E** | **3** | **16** |
+| **Playwright E2E** | **4** | **23** |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
 
-**Playwright E2E** (demo mode): Launches real Electron app with mock FC, clicks through full tuning workflow. Run via `npm run test:e2e` (15 tests) or `npm run demo:generate-history` (5-cycle generator). See `e2e/` directory and [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).
+**Playwright E2E** (demo mode): Launches real Electron app with mock FC, clicks through full tuning workflow (guided and quick tune). Run via `npm run test:e2e` (22 tests) or `npm run demo:generate-history` (5-cycle generator). See `e2e/` directory and [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).
