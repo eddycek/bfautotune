@@ -170,7 +170,8 @@ async function initialize(): Promise<void> {
             // Auto-transition from *_flight_pending → *_log_ready if flash has data
             if (
               session.phase === 'filter_flight_pending' ||
-              session.phase === 'pid_flight_pending'
+              session.phase === 'pid_flight_pending' ||
+              session.phase === 'quick_flight_pending'
             ) {
               const bbInfo = await mspClient.getBlackboxInfo();
 
@@ -179,7 +180,11 @@ async function initialize(): Promise<void> {
               // so we skip auto-transition for SD card — user confirms via UI
               if (bbInfo.storageType === 'flash' && bbInfo.hasLogs && bbInfo.usedSize > 0) {
                 const nextPhase =
-                  session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
+                  session.phase === 'quick_flight_pending'
+                    ? 'quick_log_ready'
+                    : session.phase === 'filter_flight_pending'
+                      ? 'filter_log_ready'
+                      : 'pid_log_ready';
                 logger.info(
                   `Smart reconnect: flash has data, transitioning ${session.phase} → ${nextPhase}`
                 );
@@ -191,7 +196,11 @@ async function initialize(): Promise<void> {
               } else if (bbInfo.storageType === 'sdcard' && session.eraseSkipped) {
                 // User skipped erase — treat reconnect as "flew and came back"
                 const nextPhase =
-                  session.phase === 'filter_flight_pending' ? 'filter_log_ready' : 'pid_log_ready';
+                  session.phase === 'quick_flight_pending'
+                    ? 'quick_log_ready'
+                    : session.phase === 'filter_flight_pending'
+                      ? 'filter_log_ready'
+                      : 'pid_log_ready';
                 logger.info(
                   `Smart reconnect: SD card + eraseSkipped, transitioning ${session.phase} → ${nextPhase}`
                 );
@@ -233,7 +242,11 @@ async function initialize(): Promise<void> {
             }
 
             // Create post-apply snapshot on first reconnect after tuning apply
-            if (session.phase === 'filter_applied' || session.phase === 'pid_applied') {
+            if (
+              session.phase === 'filter_applied' ||
+              session.phase === 'pid_applied' ||
+              session.phase === 'quick_applied'
+            ) {
               const snapshotField =
                 session.phase === 'filter_applied'
                   ? 'postFilterSnapshotId'

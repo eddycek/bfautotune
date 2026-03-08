@@ -46,8 +46,10 @@ export class TuningHistoryManager {
       baselineSnapshotId: session.baselineSnapshotId ?? null,
       postFilterSnapshotId: session.postFilterSnapshotId ?? null,
       postTuningSnapshotId: session.postTuningSnapshotId ?? null,
+      tuningType: session.tuningType,
       filterLogId: session.filterLogId ?? null,
       pidLogId: session.pidLogId ?? null,
+      quickLogId: session.quickLogId ?? null,
       verificationLogId: session.verificationLogId ?? null,
       appliedFilterChanges: session.appliedFilterChanges ?? [],
       appliedPIDChanges: session.appliedPIDChanges ?? [],
@@ -55,6 +57,7 @@ export class TuningHistoryManager {
       filterMetrics: session.filterMetrics ?? null,
       pidMetrics: session.pidMetrics ?? null,
       verificationMetrics: session.verificationMetrics ?? null,
+      transferFunctionMetrics: session.transferFunctionMetrics ?? null,
     };
 
     const existing = await this.loadRecords(session.profileId);

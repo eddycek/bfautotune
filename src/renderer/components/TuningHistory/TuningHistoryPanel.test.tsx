@@ -53,6 +53,8 @@ const makeRecord = (
   },
   pidMetrics: null,
   verificationMetrics: null,
+  quickLogId: null,
+  transferFunctionMetrics: null,
 });
 
 describe('TuningHistoryPanel', () => {

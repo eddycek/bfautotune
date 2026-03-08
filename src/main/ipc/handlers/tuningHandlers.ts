@@ -6,7 +6,7 @@ import {
   ApplyRecommendationsProgress,
   IPCResponse,
 } from '@shared/types/ipc.types';
-import { TuningSession, TuningPhase } from '@shared/types/tuning.types';
+import { TuningSession, TuningPhase, TuningType } from '@shared/types/tuning.types';
 import { CompletedTuningRecord, FilterMetricsSummary } from '@shared/types/tuning-history.types';
 import { PIDConfiguration } from '@shared/types/pid.types';
 import { HandlerDependencies, createResponse } from './types';
@@ -195,43 +195,50 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
     }
   );
 
-  ipcMain.handle(IPCChannel.TUNING_START_SESSION, async (): Promise<IPCResponse<TuningSession>> => {
-    try {
-      if (!tuningSessionManager || !profileManager) {
-        return createResponse<TuningSession>(undefined, 'Tuning session manager not initialized');
-      }
-      const profileId = profileManager.getCurrentProfileId();
-      if (!profileId) {
-        return createResponse<TuningSession>(undefined, 'No active profile');
-      }
+  ipcMain.handle(
+    IPCChannel.TUNING_START_SESSION,
+    async (_event, tuningType?: TuningType): Promise<IPCResponse<TuningSession>> => {
+      try {
+        const resolvedType: TuningType = tuningType ?? 'guided';
 
-      // Create safety snapshot before starting tuning
-      let baselineSnapshotId: string | undefined;
-      if (snapshotManager && mspClient?.isConnected()) {
-        try {
-          const snapshot = await snapshotManager.createSnapshot('Pre-tuning (auto)', 'auto');
-          baselineSnapshotId = snapshot.id;
-          logger.info(`Pre-tuning backup created: ${snapshot.id}`);
-        } catch (e) {
-          logger.warn('Could not create pre-tuning snapshot:', e);
+        if (!tuningSessionManager || !profileManager) {
+          return createResponse<TuningSession>(undefined, 'Tuning session manager not initialized');
         }
-      }
+        const profileId = profileManager.getCurrentProfileId();
+        if (!profileId) {
+          return createResponse<TuningSession>(undefined, 'No active profile');
+        }
 
-      const session = await tuningSessionManager.createSession(profileId);
-      if (baselineSnapshotId) {
-        await tuningSessionManager.updatePhase(profileId, 'filter_flight_pending', {
-          baselineSnapshotId,
-        });
-      }
+        // Create safety snapshot before starting tuning
+        let baselineSnapshotId: string | undefined;
+        if (snapshotManager && mspClient?.isConnected()) {
+          try {
+            const snapshot = await snapshotManager.createSnapshot('Pre-tuning (auto)', 'auto');
+            baselineSnapshotId = snapshot.id;
+            logger.info(`Pre-tuning backup created: ${snapshot.id}`);
+          } catch (e) {
+            logger.warn('Could not create pre-tuning snapshot:', e);
+          }
+        }
 
-      const updated = await tuningSessionManager.getSession(profileId);
-      sendTuningSessionChanged(updated);
-      return createResponse<TuningSession>(updated || session);
-    } catch (error) {
-      logger.error('Failed to start tuning session:', error);
-      return createResponse<TuningSession>(undefined, getErrorMessage(error));
+        const session = await tuningSessionManager.createSession(profileId, resolvedType);
+        const initialPhase =
+          resolvedType === 'quick' ? 'quick_flight_pending' : 'filter_flight_pending';
+        if (baselineSnapshotId) {
+          await tuningSessionManager.updatePhase(profileId, initialPhase, {
+            baselineSnapshotId,
+          });
+        }
+
+        const updated = await tuningSessionManager.getSession(profileId);
+        sendTuningSessionChanged(updated);
+        return createResponse<TuningSession>(updated || session);
+      } catch (error) {
+        logger.error('Failed to start tuning session:', error);
+        return createResponse<TuningSession>(undefined, getErrorMessage(error));
+      }
     }
-  });
+  );
 
   ipcMain.handle(
     IPCChannel.TUNING_UPDATE_PHASE,

@@ -68,6 +68,8 @@ function makeRecord(id: string, date: string, noiseFloorDb = -50): CompletedTuni
       summary: 'OK',
     },
     verificationMetrics: null,
+    quickLogId: null,
+    transferFunctionMetrics: null,
   };
 }
 
@@ -121,6 +123,8 @@ describe('QualityTrendChart', () => {
       filterMetrics: null,
       pidMetrics: null,
       verificationMetrics: null,
+      quickLogId: null,
+      transferFunctionMetrics: null,
     };
     const records = [
       makeRecord('r1', '2026-02-10T00:00:00Z'),

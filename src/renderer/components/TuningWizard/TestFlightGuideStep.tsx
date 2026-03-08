@@ -12,6 +12,8 @@ const INTRO_TEXT: Record<TuningMode, string> = {
   filter: 'Follow this flight plan to collect noise data for filter tuning.',
   pid: 'Follow this flight plan to collect step response data for PID tuning. Your filters have been tuned — this flight will produce cleaner data.',
   full: "Your Blackbox log has been downloaded. Here's what the analysis needs from your flight data — if you haven't flown yet, follow these steps for the best results.",
+  quick:
+    'Fly any normal flight (freestyle, cruise, race). Quick Tune analyzes both filters and PIDs from a single flight.',
 };
 
 export function TestFlightGuideStep({ onContinue, mode = 'full' }: TestFlightGuideStepProps) {

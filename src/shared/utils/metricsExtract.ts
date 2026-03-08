@@ -9,6 +9,7 @@ import type {
   CompactSpectrum,
   FilterMetricsSummary,
   PIDMetricsSummary,
+  TransferFunctionMetricsSummary,
 } from '../types/tuning-history.types';
 
 /**
@@ -124,6 +125,40 @@ export function extractFilterMetrics(result: FilterAnalysisResult): FilterMetric
     ...(result.dataQuality
       ? { dataQuality: { overall: result.dataQuality.overall, tier: result.dataQuality.tier } }
       : {}),
+  };
+}
+
+/** Per-axis transfer function metrics input (matches TransferFunctionEstimator.TransferFunctionMetrics) */
+interface TFMetricsInput {
+  bandwidthHz: number;
+  phaseMarginDeg: number;
+  gainMarginDb: number;
+  overshootPercent: number;
+  settlingTimeMs: number;
+  riseTimeMs: number;
+}
+
+/**
+ * Extract compact transfer function metrics for history storage.
+ */
+export function extractTransferFunctionMetrics(
+  metrics: { roll: TFMetricsInput; pitch: TFMetricsInput; yaw: TFMetricsInput },
+  dataQuality?: { overall: number; tier: string }
+): TransferFunctionMetricsSummary {
+  const extract = (m: TFMetricsInput) => ({
+    bandwidthHz: round2(m.bandwidthHz),
+    phaseMarginDeg: round2(m.phaseMarginDeg),
+    gainMarginDb: round2(m.gainMarginDb),
+    overshootPercent: round2(m.overshootPercent),
+    settlingTimeMs: round2(m.settlingTimeMs),
+    riseTimeMs: round2(m.riseTimeMs),
+  });
+
+  return {
+    roll: extract(metrics.roll),
+    pitch: extract(metrics.pitch),
+    yaw: extract(metrics.yaw),
+    ...(dataQuality ? { dataQuality } : {}),
   };
 }
 

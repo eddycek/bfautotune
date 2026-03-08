@@ -26,6 +26,8 @@ describe('useTuningHistory', () => {
         filterMetrics: null,
         pidMetrics: null,
         verificationMetrics: null,
+        quickLogId: null,
+        transferFunctionMetrics: null,
       },
     ];
     vi.mocked(window.betaflight.getTuningHistory).mockResolvedValue(mockRecords);
