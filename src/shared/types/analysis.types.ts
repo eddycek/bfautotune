@@ -116,6 +116,36 @@ export interface FilterAnalysisResult {
   warnings?: AnalysisWarning[];
   /** Data quality score for the input flight data */
   dataQuality?: DataQualityScore;
+  /** Throttle-indexed spectrogram (noise vs throttle level) */
+  throttleSpectrogram?: ThrottleSpectrogramResult;
+}
+
+// ---- Throttle Spectrogram Types ----
+
+/** A single throttle band with its per-axis noise spectra */
+export interface ThrottleBand {
+  /** Lower bound of this throttle band (0-1 range) */
+  throttleMin: number;
+  /** Upper bound of this throttle band (0-1 range) */
+  throttleMax: number;
+  /** Number of gyro samples that fell into this band */
+  sampleCount: number;
+  /** Per-axis power spectra [roll, pitch, yaw] (undefined if too few samples) */
+  spectra?: [PowerSpectrum, PowerSpectrum, PowerSpectrum];
+  /** Per-axis noise floor in dB [roll, pitch, yaw] */
+  noiseFloorDb?: [number, number, number];
+}
+
+/** Complete throttle spectrogram result */
+export interface ThrottleSpectrogramResult {
+  /** Throttle bands from low to high */
+  bands: ThrottleBand[];
+  /** Number of bands requested */
+  numBands: number;
+  /** Minimum samples required per band for FFT */
+  minSamplesPerBand: number;
+  /** Number of bands with sufficient data for spectra */
+  bandsWithData: number;
 }
 
 /** A steady flight segment identified from throttle/gyro data */
