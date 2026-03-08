@@ -28,6 +28,8 @@ interface TuningWorkflowModalProps {
 function getSubtitle(mode?: FlightGuideMode): string {
   if (mode === 'filter') return 'Follow these steps for the filter tuning flight.';
   if (mode === 'pid') return 'Follow these steps for the PID tuning flight.';
+  if (mode === 'quick')
+    return 'One flight covers both filters and PIDs. Fly freely — no special maneuvers needed.';
   if (mode === 'verification') return 'Fly a short hover to verify noise improvement after tuning.';
   return 'Follow this workflow each time you tune. Repeat until your quad feels dialed in.';
 }
@@ -41,7 +43,7 @@ function getWorkflowSteps(mode?: FlightGuideMode) {
     // Steps 6–8: Erase again → Analyze & apply PIDs
     return TUNING_WORKFLOW.slice(6, 9);
   }
-  if (mode === 'verification') {
+  if (mode === 'quick' || mode === 'verification') {
     return [];
   }
   return TUNING_WORKFLOW;
@@ -52,12 +54,18 @@ export function TuningWorkflowModal({ onClose, mode }: TuningWorkflowModalProps)
   const fcVersion = status.fcInfo?.version;
   const hideGyroScaled = isGyroScaledNotNeeded(fcVersion);
   const steps = getWorkflowSteps(mode);
-  const showFilter = mode === undefined || mode === 'filter';
-  const showPid = mode === undefined || mode === 'pid';
+  const isQuickMode = mode === 'quick';
+  const showFilter = !isQuickMode && (mode === undefined || mode === 'filter');
+  const showPid = !isQuickMode && (mode === undefined || mode === 'pid');
+  const showQuick = isQuickMode;
   const showVerification = mode === undefined;
   const isVerificationMode = mode === 'verification';
 
-  const title = isVerificationMode ? 'Verification Hover' : 'How to Prepare Blackbox Data';
+  const title = isVerificationMode
+    ? 'Verification Hover'
+    : isQuickMode
+      ? 'Quick Tune Flight Guide'
+      : 'How to Prepare Blackbox Data';
 
   return (
     <div className="profile-wizard-overlay" onClick={onClose}>
@@ -84,6 +92,13 @@ export function TuningWorkflowModal({ onClose, mode }: TuningWorkflowModalProps)
         )}
 
         {isVerificationMode && <FlightGuideContent mode="verification" fcVersion={fcVersion} />}
+
+        {showQuick && (
+          <>
+            <hr className="workflow-divider" />
+            <FlightGuideContent mode="quick" fcVersion={fcVersion} />
+          </>
+        )}
 
         {showFilter && (
           <>

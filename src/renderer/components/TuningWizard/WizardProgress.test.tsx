@@ -83,4 +83,23 @@ describe('WizardProgress', () => {
     expect(screen.getByText('PIDs')).toBeInTheDocument();
     expect(screen.getByText('Filters')).toBeInTheDocument();
   });
+
+  it('renders 3 steps in quick mode (Session, Analysis, Summary)', () => {
+    render(<WizardProgress currentStep="quick_analysis" mode="quick" />);
+
+    expect(screen.getByText('Session')).toBeInTheDocument();
+    expect(screen.getByText('Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Summary')).toBeInTheDocument();
+    expect(screen.queryByText('Flight Guide')).not.toBeInTheDocument();
+    expect(screen.queryByText('Filters')).not.toBeInTheDocument();
+    expect(screen.queryByText('PIDs')).not.toBeInTheDocument();
+  });
+
+  it('quick mode marks session as done when on analysis step', () => {
+    const { container } = render(<WizardProgress currentStep="quick_analysis" mode="quick" />);
+
+    const doneSteps = container.querySelectorAll('.wizard-progress-step.done');
+    expect(doneSteps).toHaveLength(1);
+    expect(doneSteps[0].textContent).toContain('Session');
+  });
 });

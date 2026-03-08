@@ -366,6 +366,81 @@ describe('TuningSummaryStep', () => {
     expect(screen.getByText(/Fly a normal flight to verify/)).toBeInTheDocument();
   });
 
+  it('apply button shows "Apply All Changes" in quick mode', () => {
+    render(
+      <TuningSummaryStep
+        filterResult={mockFilterResult}
+        pidResult={null}
+        tfResult={mockPidResult}
+        mode="quick"
+        onExit={vi.fn()}
+        onApply={vi.fn()}
+        applyState="idle"
+        applyProgress={null}
+        applyResult={null}
+        applyError={null}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Apply All Changes' })).toBeInTheDocument();
+  });
+
+  it('quick mode uses tfResult for PID recommendations', () => {
+    const tfResult: PIDAnalysisResult = {
+      ...mockPidResult,
+      summary: 'TF summary',
+      recommendations: [
+        {
+          setting: 'pid_roll_p',
+          currentValue: 45,
+          recommendedValue: 50,
+          reason: 'Increase P',
+          impact: 'response' as const,
+          confidence: 'high' as const,
+        },
+      ],
+    };
+
+    render(
+      <TuningSummaryStep
+        filterResult={mockFilterResult}
+        pidResult={null}
+        tfResult={tfResult}
+        mode="quick"
+        onExit={vi.fn()}
+        onApply={vi.fn()}
+        applyState="idle"
+        applyProgress={null}
+        applyResult={null}
+        applyError={null}
+      />
+    );
+
+    expect(screen.getByText('1 filter change')).toBeInTheDocument();
+    expect(screen.getByText('1 PID change')).toBeInTheDocument();
+    expect(screen.getByText('TF summary')).toBeInTheDocument();
+  });
+
+  it('shows quick mode success message', () => {
+    render(
+      <TuningSummaryStep
+        filterResult={mockFilterResult}
+        pidResult={null}
+        tfResult={mockPidResult}
+        mode="quick"
+        onExit={vi.fn()}
+        onApply={vi.fn()}
+        applyState="done"
+        applyProgress={null}
+        applyResult={mockApplyResult}
+        applyError={null}
+      />
+    );
+
+    expect(screen.getByText(/All changes applied!/)).toBeInTheDocument();
+    expect(screen.getByText(/verification hover/)).toBeInTheDocument();
+  });
+
   it('apply button disabled when no recommendations', () => {
     const emptyFilterResult: FilterAnalysisResult = {
       ...mockFilterResult,

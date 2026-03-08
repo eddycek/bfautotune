@@ -1,7 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { useTuningWizard } from '../../hooks/useTuningWizard';
 import type { TuningMode, AppliedChange } from '@shared/types/tuning.types';
-import type { FilterMetricsSummary, PIDMetricsSummary } from '@shared/types/tuning-history.types';
+import type {
+  FilterMetricsSummary,
+  PIDMetricsSummary,
+  TransferFunctionMetricsSummary,
+} from '@shared/types/tuning-history.types';
 import { extractFilterMetrics, extractPIDMetrics } from '@shared/utils/metricsExtract';
 import { WizardProgress } from './WizardProgress';
 import { TestFlightGuideStep } from './TestFlightGuideStep';
@@ -9,6 +13,7 @@ import { SessionSelectStep } from './SessionSelectStep';
 import { FilterAnalysisStep } from './FilterAnalysisStep';
 import { PIDAnalysisStep } from './PIDAnalysisStep';
 import { TuningSummaryStep } from './TuningSummaryStep';
+import { QuickAnalysisStep } from './QuickAnalysisStep';
 import { ApplyConfirmationModal } from './ApplyConfirmationModal';
 import './TuningWizard.css';
 
@@ -22,6 +27,7 @@ interface TuningWizardProps {
     feedforwardChanges?: AppliedChange[];
     filterMetrics?: FilterMetricsSummary;
     pidMetrics?: PIDMetricsSummary;
+    transferFunctionMetrics?: TransferFunctionMetricsSummary;
   }) => void;
 }
 
@@ -44,7 +50,10 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
               }))
             : undefined;
 
-        const allPidRecs = mode !== 'filter' ? (wizard.pidResult?.recommendations ?? []) : [];
+        // In quick mode, PID recs come from transfer function analysis
+        const pidSource =
+          mode === 'quick' ? wizard.tfResult : mode !== 'filter' ? wizard.pidResult : null;
+        const allPidRecs = pidSource?.recommendations ?? [];
 
         const pidChanges = allPidRecs
           .filter((r) => r.setting.startsWith('pid_'))
@@ -68,7 +77,12 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
             : undefined;
 
         const pidMetrics =
-          mode !== 'filter' && wizard.pidResult ? extractPIDMetrics(wizard.pidResult) : undefined;
+          mode !== 'filter' && mode !== 'quick' && wizard.pidResult
+            ? extractPIDMetrics(wizard.pidResult)
+            : undefined;
+
+        // TF metrics will be populated once Wiener deconvolution engine is complete
+        const transferFunctionMetrics = undefined;
 
         onApplyComplete({
           filterChanges,
@@ -76,6 +90,7 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
           feedforwardChanges: feedforwardChanges.length > 0 ? feedforwardChanges : undefined,
           filterMetrics,
           pidMetrics,
+          transferFunctionMetrics,
         });
       }
     }
@@ -83,7 +98,14 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
     if (wizard.applyState === 'idle' || wizard.applyState === 'error') {
       applyCalled.current = false;
     }
-  }, [wizard.applyState, wizard.filterResult, wizard.pidResult, mode, onApplyComplete]);
+  }, [
+    wizard.applyState,
+    wizard.filterResult,
+    wizard.pidResult,
+    wizard.tfResult,
+    mode,
+    onApplyComplete,
+  ]);
 
   const renderStep = () => {
     switch (wizard.step) {
@@ -100,7 +122,9 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
             sessionIndex={wizard.sessionIndex}
             onSelectSession={(idx) => {
               wizard.selectSession(idx);
-              wizard.setStep(mode === 'pid' ? 'pid' : 'filter');
+              wizard.setStep(
+                mode === 'quick' ? 'quick_analysis' : mode === 'pid' ? 'pid' : 'filter'
+              );
             }}
           />
         );
@@ -127,11 +151,27 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
             onContinue={() => wizard.setStep('summary')}
           />
         );
+      case 'quick_analysis':
+        return (
+          <QuickAnalysisStep
+            filterResult={wizard.filterResult}
+            filterAnalyzing={wizard.filterAnalyzing}
+            filterProgress={wizard.filterProgress}
+            filterError={wizard.filterError}
+            tfResult={wizard.tfResult}
+            tfAnalyzing={wizard.tfAnalyzing}
+            tfError={wizard.tfError}
+            runQuickAnalysis={wizard.runQuickAnalysis}
+            quickAnalyzing={wizard.quickAnalyzing}
+            onContinue={() => wizard.setStep('summary')}
+          />
+        );
       case 'summary':
         return (
           <TuningSummaryStep
             filterResult={wizard.filterResult}
             pidResult={wizard.pidResult}
+            tfResult={wizard.tfResult}
             mode={mode}
             onExit={onExit}
             onApply={wizard.startApply}
