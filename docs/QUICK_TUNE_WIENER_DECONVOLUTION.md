@@ -719,10 +719,10 @@ After snapshot, transition `quick_applied → verification_pending` (reuses exis
 
 | # | Task | Files | Tests |
 |---|------|-------|-------|
-| F1 | TuningCompletionSummary quick mode | `src/renderer/components/TuningHistory/TuningCompletionSummary.tsx`, `.test.tsx` | Component test: "Quick Tune Complete", 1 flight count, bandwidth metrics |
-| F2 | TuningHistoryPanel tuning type badge | `src/renderer/components/TuningHistory/TuningHistoryPanel.tsx`, `.test.tsx` | Component test: "Guided"/"Quick" badge, summary text |
-| F3 | TuningSessionDetail Bode display | `src/renderer/components/TuningHistory/TuningSessionDetail.tsx`, `.test.tsx` | Component test: shows Bode plot for quick records |
-| F4 | Quality score with TF metrics | `src/shared/utils/tuneQualityScore.ts`, `.test.ts` | Unit test: score computation with synthetic step metrics |
+| F1 | ✅ TuningCompletionSummary quick mode | `src/renderer/components/TuningHistory/TuningCompletionSummary.tsx`, `.test.tsx` | Component test: "Quick Tune Complete", 1 flight count |
+| F2 | ✅ TuningHistoryPanel tuning type badge | `src/renderer/components/TuningHistory/TuningHistoryPanel.tsx`, `.test.tsx` | Component test: "(Quick Tune)" summary suffix |
+| F3 | ✅ TuningSessionDetail quick flight count | `src/renderer/components/TuningHistory/TuningSessionDetail.tsx` | quickLogId counted in flight total |
+| F4 | ✅ Quality score with TF metrics | `src/shared/utils/tuneQualityScore.ts` | Existing dynamic redistribution already handles missing PID metrics — no changes needed |
 
 ### Phase G: Demo Mode & E2E
 
