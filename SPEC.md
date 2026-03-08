@@ -328,7 +328,7 @@ Automated Playwright E2E tests that launch the real Electron app in demo mode (m
 - 7 quick tune cycle tests: single-flight quick tune cycle with parallel analysis, apply all, history check
 - 5-cycle history generator: `npm run demo:generate-history` for populating tuning history with progressive quality scores
 - `advancePastVerification()` fix: keeps mock FC flight type cycle in sync when verification is skipped across multiple cycles
-- Total: 23 Playwright E2E tests (22 in normal runs + 1 generator)
+- Total: 25 Playwright E2E tests (22 in normal runs + 1 generator)
 
 #### 7b: Real FC E2E :x:
 Automated end-to-end tests running in CI pipeline against a real FC connected to a dedicated machine.
@@ -351,7 +351,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** March 8, 2026 | **Tests:** 2180 unit tests across 107 files + 23 Playwright E2E tests | **PRs Merged:** #1–#160
+**Last Updated:** March 8, 2026 | **Tests:** 2180 unit tests across 107 files + 25 Playwright E2E tests | **PRs Merged:** #1–#160
 
 | Phase | Status | Notes |
 |-------|--------|-------|
