@@ -20,6 +20,7 @@ import {
   computeStepResponse,
   aggregateAxisMetrics,
   classifyFFContribution,
+  computeFFEnergyRatio,
   computeAdaptiveWindowMs,
 } from './StepMetrics';
 import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
@@ -109,16 +110,28 @@ export async function analyzePID(
       flightData.sampleRateHz
     );
 
-    // Classify FF contribution at overshoot point when pidP/pidF available
+    // Classify FF contribution when pidP/pidF available
     if (flightData.pidP[step.axis] && flightData.pidF[step.axis]) {
-      const ffResult = classifyFFContribution(
-        response,
+      // Energy-based FF ratio (robust, uses entire response window)
+      const energyRatio = computeFFEnergyRatio(
+        step,
         flightData.pidP[step.axis],
-        flightData.pidF[step.axis],
-        flightData.gyro[step.axis]
+        flightData.pidF[step.axis]
       );
-      if (ffResult !== undefined) {
-        response.ffDominated = ffResult;
+      if (energyRatio !== undefined) {
+        response.ffEnergyRatio = energyRatio;
+        response.ffDominated = energyRatio > 0.6;
+      } else {
+        // Fallback: single-sample peak comparison (legacy)
+        const ffResult = classifyFFContribution(
+          response,
+          flightData.pidP[step.axis],
+          flightData.pidF[step.axis],
+          flightData.gyro[step.axis]
+        );
+        if (ffResult !== undefined) {
+          response.ffDominated = ffResult;
+        }
       }
     }
 

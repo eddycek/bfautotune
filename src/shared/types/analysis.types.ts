@@ -295,6 +295,8 @@ export interface StepResponse {
   trace?: StepResponseTrace;
   /** Whether overshoot is dominated by feedforward (|pidF| > |pidP| at peak) */
   ffDominated?: boolean;
+  /** Energy ratio of FF vs PID-P over the response window (0-1, higher = more FF) */
+  ffEnergyRatio?: number;
   /** RMS of (setpoint−gyro)/|magnitude| over the response window (dimensionless) */
   trackingErrorRMS?: number;
   /** Mean |setpoint−gyro|/|magnitude| during hold phase (last 20% of window), as percentage */
@@ -317,6 +319,8 @@ export interface AxisStepProfile {
   meanTrackingErrorRMS: number;
   /** Mean steady-state error during hold phase across all steps (percentage) */
   meanSteadyStateError: number;
+  /** Mean FF energy ratio across steps that have ffEnergyRatio (0-1) */
+  meanFFEnergyRatio?: number;
 }
 
 /** A single PID recommendation */

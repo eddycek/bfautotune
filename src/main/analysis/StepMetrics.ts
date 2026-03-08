@@ -233,7 +233,16 @@ export function aggregateAxisMetrics(responses: StepResponse[]): AxisStepProfile
       0,
       src.length
     ),
+    ...computeMeanFFEnergyRatio(src),
   };
+}
+
+/** Compute meanFFEnergyRatio from responses that have ffEnergyRatio defined. */
+function computeMeanFFEnergyRatio(responses: StepResponse[]): { meanFFEnergyRatio?: number } {
+  const withRatio = responses.filter((r) => r.ffEnergyRatio !== undefined);
+  if (withRatio.length === 0) return {};
+  const sum = withRatio.reduce((acc, r) => acc + r.ffEnergyRatio!, 0);
+  return { meanFFEnergyRatio: sum / withRatio.length };
 }
 
 /**
@@ -280,6 +289,40 @@ export function classifyFFContribution(
   const fMag = Math.abs(pidF.values[peakIdx]);
 
   return fMag > pMag;
+}
+
+/**
+ * Compute FF energy ratio over a step response window.
+ *
+ * Energy ratio = ffEnergy / (ffEnergy + pidPEnergy), where energy = sum(x[i]^2).
+ * Returns undefined if pidF data is all zeros (no FF contribution) or data unavailable.
+ */
+export function computeFFEnergyRatio(
+  step: StepEvent,
+  pidP: TimeSeries,
+  pidF: TimeSeries
+): number | undefined {
+  const { startIndex, endIndex } = step;
+
+  if (startIndex >= pidP.values.length || startIndex >= pidF.values.length) return undefined;
+
+  const safeEnd = Math.min(endIndex, pidP.values.length, pidF.values.length);
+
+  let ffEnergy = 0;
+  let pidPEnergy = 0;
+
+  for (let i = startIndex; i < safeEnd; i++) {
+    ffEnergy += pidF.values[i] * pidF.values[i];
+    pidPEnergy += pidP.values[i] * pidP.values[i];
+  }
+
+  // If both are zero, no meaningful ratio
+  if (ffEnergy + pidPEnergy === 0) return undefined;
+
+  // If FF energy is zero, return undefined (no FF contribution to classify)
+  if (ffEnergy === 0) return undefined;
+
+  return ffEnergy / (ffEnergy + pidPEnergy);
 }
 
 /** Check if value has crossed a threshold in the correct direction */

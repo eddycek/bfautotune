@@ -3,6 +3,7 @@ import {
   computeStepResponse,
   aggregateAxisMetrics,
   classifyFFContribution,
+  computeFFEnergyRatio,
   computeAdaptiveWindowMs,
 } from './StepMetrics';
 import type { TimeSeries } from '@shared/types/blackbox.types';
@@ -608,6 +609,182 @@ describe('StepMetrics', () => {
 
       const result = classifyFFContribution(response, pidP, pidF, gyro);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('computeFFEnergyRatio', () => {
+    it('should return undefined when pidF data is all zeros', () => {
+      const numSamples = 2000;
+      const step = makeStep(200, 600, 300);
+      const pidP = makeSeries(() => 50, numSamples);
+      const pidF = makeSeries(() => 0, numSamples);
+
+      const result = computeFFEnergyRatio(step, pidP, pidF);
+      expect(result).toBeUndefined();
+    });
+
+    it('should compute ffEnergyRatio when pidF has non-zero data', () => {
+      const numSamples = 2000;
+      const step = makeStep(200, 600, 300);
+      // Equal energy: pidP and pidF both have constant magnitude
+      const pidP = makeSeries(() => 50, numSamples);
+      const pidF = makeSeries(() => 50, numSamples);
+
+      const result = computeFFEnergyRatio(step, pidP, pidF);
+      expect(result).toBeDefined();
+      // Equal energy → ratio = 0.5
+      expect(result!).toBeCloseTo(0.5, 2);
+    });
+
+    it('should return a value between 0 and 1', () => {
+      const numSamples = 2000;
+      const step = makeStep(200, 600, 300);
+      const pidP = makeSeries((i) => (i >= 200 ? 30 + Math.sin(i * 0.1) * 10 : 5), numSamples);
+      const pidF = makeSeries((i) => (i >= 200 ? 70 + Math.cos(i * 0.1) * 10 : 2), numSamples);
+
+      const result = computeFFEnergyRatio(step, pidP, pidF);
+      expect(result).toBeDefined();
+      expect(result!).toBeGreaterThanOrEqual(0);
+      expect(result!).toBeLessThanOrEqual(1);
+    });
+
+    it('should return > 0.6 when FF energy dominates', () => {
+      const numSamples = 2000;
+      const step = makeStep(200, 600, 300);
+      const pidP = makeSeries(() => 10, numSamples);
+      const pidF = makeSeries(() => 80, numSamples);
+
+      const result = computeFFEnergyRatio(step, pidP, pidF);
+      expect(result).toBeDefined();
+      expect(result!).toBeGreaterThan(0.6);
+    });
+
+    it('should return < 0.6 when PID-P energy dominates', () => {
+      const numSamples = 2000;
+      const step = makeStep(200, 600, 300);
+      const pidP = makeSeries(() => 80, numSamples);
+      const pidF = makeSeries(() => 10, numSamples);
+
+      const result = computeFFEnergyRatio(step, pidP, pidF);
+      expect(result).toBeDefined();
+      expect(result!).toBeLessThan(0.6);
+    });
+
+    it('should return undefined when both pidP and pidF are all zeros', () => {
+      const numSamples = 2000;
+      const step = makeStep(200, 600, 300);
+      const pidP = makeSeries(() => 0, numSamples);
+      const pidF = makeSeries(() => 0, numSamples);
+
+      const result = computeFFEnergyRatio(step, pidP, pidF);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('ffDominated with energy ratio', () => {
+    it('should set ffDominated=true when ffEnergyRatio > 0.6', () => {
+      // This tests the integration pattern: when ffEnergyRatio is available,
+      // ffDominated should be derived from it (ratio > 0.6 → true)
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => {
+        if (i < stepAt) return 0;
+        if (i === stepAt + 50) return stepMag * 1.3;
+        return stepMag;
+      }, numSamples);
+      const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      // FF-dominated: large pidF, small pidP
+      const pidP = makeSeries(() => 10, numSamples);
+      const pidF = makeSeries(() => 80, numSamples);
+      const ratio = computeFFEnergyRatio(step, pidP, pidF);
+
+      expect(ratio).toBeDefined();
+      expect(ratio!).toBeGreaterThan(0.6);
+      // In the analyzer, this would set ffDominated = true
+      response.ffEnergyRatio = ratio;
+      response.ffDominated = ratio! > 0.6;
+      expect(response.ffDominated).toBe(true);
+    });
+
+    it('should fall back to legacy classifyFFContribution when pidF is all zeros', () => {
+      const numSamples = 2000;
+      const stepAt = 200;
+      const stepMag = 300;
+      const step = makeStep(stepAt, stepAt + 400, stepMag);
+
+      const setpoint = makeSeries((i) => (i >= stepAt ? stepMag : 0), numSamples);
+      const gyro = makeSeries((i) => {
+        if (i < stepAt) return 0;
+        if (i === stepAt + 50) return stepMag * 1.3;
+        return stepMag;
+      }, numSamples);
+      const response = computeStepResponse(setpoint, gyro, step, SAMPLE_RATE);
+
+      const pidP = makeSeries(() => 50, numSamples);
+      const pidF = makeSeries(() => 0, numSamples);
+
+      // Energy ratio is undefined (pidF all zeros)
+      const ratio = computeFFEnergyRatio(step, pidP, pidF);
+      expect(ratio).toBeUndefined();
+
+      // Legacy fallback should still work
+      const legacy = classifyFFContribution(response, pidP, pidF, gyro);
+      // With zero pidF at peak, pidP dominates → false
+      expect(legacy).toBe(false);
+    });
+  });
+
+  describe('aggregateAxisMetrics with meanFFEnergyRatio', () => {
+    function makeResponseWithFF(
+      overshoot: number,
+      riseTime: number,
+      settling: number,
+      latency: number,
+      ffEnergyRatio?: number
+    ): StepResponse {
+      return {
+        step: makeStep(0, 100, 300),
+        riseTimeMs: riseTime,
+        overshootPercent: overshoot,
+        settlingTimeMs: settling,
+        latencyMs: latency,
+        ringingCount: 0,
+        peakValue: 300,
+        steadyStateValue: 300,
+        ffEnergyRatio,
+      };
+    }
+
+    it('should compute meanFFEnergyRatio from responses', () => {
+      const responses = [
+        makeResponseWithFF(10, 20, 50, 5, 0.3),
+        makeResponseWithFF(20, 40, 100, 10, 0.7),
+        makeResponseWithFF(30, 60, 150, 15, 0.5),
+      ];
+      const profile = aggregateAxisMetrics(responses);
+      expect(profile.meanFFEnergyRatio).toBeCloseTo(0.5, 2);
+    });
+
+    it('should be undefined when no responses have ffEnergyRatio', () => {
+      const responses = [makeResponseWithFF(10, 20, 50, 5), makeResponseWithFF(20, 40, 100, 10)];
+      const profile = aggregateAxisMetrics(responses);
+      expect(profile.meanFFEnergyRatio).toBeUndefined();
+    });
+
+    it('should only average responses that have ffEnergyRatio', () => {
+      const responses = [
+        makeResponseWithFF(10, 20, 50, 5, 0.8),
+        makeResponseWithFF(20, 40, 100, 10), // no ratio
+        makeResponseWithFF(30, 60, 150, 15, 0.4),
+      ];
+      const profile = aggregateAxisMetrics(responses);
+      // Only 0.8 and 0.4 → mean = 0.6
+      expect(profile.meanFFEnergyRatio).toBeCloseTo(0.6, 2);
     });
   });
 

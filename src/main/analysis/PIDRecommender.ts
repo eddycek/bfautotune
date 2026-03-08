@@ -81,6 +81,9 @@ export function recommendPID(
     const ffDominatedCount = ffClassified.filter((r) => r.ffDominated === true).length;
     const axisFFDominated = ffClassified.length > 0 && ffDominatedCount > ffClassified.length / 2;
 
+    // Compute mean FF energy ratio for this axis (used to modulate P recommendations)
+    const meanFFEnergyRatio = profile.meanFFEnergyRatio;
+
     // Yaw is analyzed with relaxed thresholds
     const isYaw = axis === 2;
     const overshootThreshold = isYaw ? thresholds.overshootMax * 1.5 : thresholds.overshootMax;
@@ -126,13 +129,17 @@ export function recommendPID(
         const pStep = severity > 4 ? 10 : 5;
         const targetP = clamp(base.P - pStep, P_GAIN_MIN, P_GAIN_MAX);
         if (targetP !== pids.P) {
+          const ffNote =
+            meanFFEnergyRatio !== undefined && meanFFEnergyRatio > 0.6
+              ? ' Overshoot appears feedforward-dominated — consider reducing FF before lowering P.'
+              : '';
           recommendations.push({
             setting: `pid_${axisName}_p`,
             currentValue: pids.P,
             recommendedValue: targetP,
-            reason: `${severity > 4 ? 'Extreme' : 'Significant'} overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%). Reducing P-term helps prevent the quad from overshooting its target.`,
+            reason: `${severity > 4 ? 'Extreme' : 'Significant'} overshoot on ${axisName} (${Math.round(profile.meanOvershoot)}%). Reducing P-term helps prevent the quad from overshooting its target.${ffNote}`,
             impact: 'both',
-            confidence: 'high',
+            confidence: meanFFEnergyRatio !== undefined && meanFFEnergyRatio > 0.6 ? 'low' : 'high',
           });
         }
       }
