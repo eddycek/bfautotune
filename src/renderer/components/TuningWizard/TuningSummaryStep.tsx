@@ -16,6 +16,8 @@ import type { ApplyState } from '../../hooks/useTuningWizard';
 interface TuningSummaryStepProps {
   filterResult: FilterAnalysisResult | null;
   pidResult: PIDAnalysisResult | null;
+  /** Transfer function result — used as PID source in quick mode */
+  tfResult?: PIDAnalysisResult | null;
   mode?: TuningMode;
   onExit: () => void;
   onApply: () => void;
@@ -44,6 +46,8 @@ function getApplyButtonLabel(mode: TuningMode, applyState: ApplyState): string {
       return 'Apply Filters';
     case 'pid':
       return 'Apply PIDs';
+    case 'quick':
+      return 'Apply All Changes';
     default:
       return 'Apply Changes';
   }
@@ -80,6 +84,18 @@ function getSuccessMessage(
           Fly a normal flight to verify the feel, then reconnect to download the verification log.
         </>
       );
+    case 'quick':
+      return (
+        <>
+          <strong>All changes applied!</strong>
+          <br />
+          {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} and{' '}
+          {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} written to FC.
+          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
+          <br />
+          Fly a verification hover to confirm noise improvement, then reconnect to download the log.
+        </>
+      );
     default:
       return (
         <>
@@ -99,6 +115,7 @@ function getSuccessMessage(
 export function TuningSummaryStep({
   filterResult,
   pidResult,
+  tfResult,
   mode = 'full',
   onExit,
   onApply,
@@ -110,7 +127,9 @@ export function TuningSummaryStep({
   const showFilter = mode !== 'pid';
   const showPid = mode !== 'filter';
   const filterRecs = showFilter ? (filterResult?.recommendations ?? []) : [];
-  const pidRecs = showPid ? (pidResult?.recommendations ?? []) : [];
+  // In quick mode, PID recs come from transfer function analysis
+  const pidSource = mode === 'quick' ? tfResult : pidResult;
+  const pidRecs = showPid ? (pidSource?.recommendations ?? []) : [];
   const allRecs: (FilterRecommendation | PIDRecommendation)[] = [...filterRecs, ...pidRecs];
   const totalRecs = allRecs.length;
 
@@ -218,7 +237,7 @@ export function TuningSummaryStep({
       {pidRecs.length > 0 && (
         <div className="summary-section">
           <h4>PID Recommendations</h4>
-          <p className="summary-section-subtitle">{pidResult?.summary}</p>
+          <p className="summary-section-subtitle">{pidSource?.summary}</p>
           <div className="recommendation-list">
             {pidRecs.map((rec) => (
               <RecommendationCard

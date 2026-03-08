@@ -14,7 +14,7 @@ import { markIntentionalDisconnect } from './useConnection';
 
 export type ApplyState = 'idle' | 'confirming' | 'applying' | 'done' | 'error';
 
-export type WizardStep = 'guide' | 'session' | 'filter' | 'pid' | 'summary';
+export type WizardStep = 'guide' | 'session' | 'filter' | 'pid' | 'quick_analysis' | 'summary';
 
 export interface UseTuningWizardReturn {
   mode: TuningMode;
@@ -45,6 +45,16 @@ export interface UseTuningWizardReturn {
   pidProgress: AnalysisProgress | null;
   pidError: string | null;
   runPIDAnalysis: () => Promise<void>;
+
+  // Transfer function analysis (Quick Tune)
+  tfResult: PIDAnalysisResult | null;
+  tfAnalyzing: boolean;
+  tfError: string | null;
+  runTransferFunctionAnalysis: () => Promise<void>;
+
+  // Quick analysis (filter + TF in parallel)
+  runQuickAnalysis: () => Promise<void>;
+  quickAnalyzing: boolean;
 
   // Apply
   applyState: ApplyState;
@@ -80,6 +90,11 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
   const [pidProgress, setPidProgress] = useState<AnalysisProgress | null>(null);
   const [pidError, setPidError] = useState<string | null>(null);
 
+  // Transfer function analysis state (Quick Tune)
+  const [tfResult, setTfResult] = useState<PIDAnalysisResult | null>(null);
+  const [tfAnalyzing, setTfAnalyzing] = useState(false);
+  const [tfError, setTfError] = useState<string | null>(null);
+
   // Apply state
   const [applyState, setApplyState] = useState<ApplyState>('idle');
   const [applyProgress, setApplyProgress] = useState<ApplyRecommendationsProgress | null>(null);
@@ -113,7 +128,9 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
         setSessionIndex(0);
         setSessionSelected(true);
         // Skip to the correct step based on mode
-        if (mode === 'pid') {
+        if (mode === 'quick') {
+          setStep('quick_analysis');
+        } else if (mode === 'pid') {
           setStep('pid');
         } else {
           setStep('filter');
@@ -175,6 +192,28 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
     }
   }, [logId, sessionIndex]);
 
+  const runTransferFunctionAnalysis = useCallback(async () => {
+    setTfAnalyzing(true);
+    setTfError(null);
+
+    try {
+      const result = await window.betaflight.analyzeTransferFunction(logId, sessionIndex);
+      setTfResult(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to analyze transfer function';
+      setTfError(message);
+    } finally {
+      setTfAnalyzing(false);
+    }
+  }, [logId, sessionIndex]);
+
+  const runQuickAnalysis = useCallback(async () => {
+    // Run filter + transfer function analyses in parallel
+    await Promise.all([runFilterAnalysis(), runTransferFunctionAnalysis()]);
+  }, [runFilterAnalysis, runTransferFunctionAnalysis]);
+
+  const quickAnalyzing = filterAnalyzing || tfAnalyzing;
+
   // Subscribe to apply progress events
   useEffect(() => {
     const cleanup = window.betaflight.onApplyProgress((progress) => {
@@ -205,7 +244,13 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
       try {
         // In mode-specific modes, only send relevant recommendations
         const filterRecs = mode === 'pid' ? [] : (filterResult?.recommendations ?? []);
-        const allPidRecs = mode === 'filter' ? [] : (pidResult?.recommendations ?? []);
+        // For quick mode, PID recs come from transfer function analysis
+        const allPidRecs =
+          mode === 'filter'
+            ? []
+            : mode === 'quick'
+              ? (tfResult?.recommendations ?? [])
+              : (pidResult?.recommendations ?? []);
         const pidRecs = allPidRecs.filter((r) => r.setting.startsWith('pid_'));
         const ffRecs = allPidRecs.filter((r) => r.setting.startsWith('feedforward_'));
 
@@ -224,7 +269,7 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
         setApplyState('error');
       }
     },
-    [filterResult, pidResult]
+    [filterResult, pidResult, tfResult, mode]
   );
 
   return {
@@ -250,6 +295,12 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
     pidProgress,
     pidError,
     runPIDAnalysis,
+    tfResult,
+    tfAnalyzing,
+    tfError,
+    runTransferFunctionAnalysis,
+    runQuickAnalysis,
+    quickAnalyzing,
     applyState,
     applyProgress,
     applyResult,

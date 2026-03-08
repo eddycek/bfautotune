@@ -7,6 +7,8 @@ import {
   FILTER_FLIGHT_TIPS,
   PID_FLIGHT_PHASES,
   PID_FLIGHT_TIPS,
+  QUICK_FLIGHT_PHASES,
+  QUICK_FLIGHT_TIPS,
   VERIFICATION_FLIGHT_PHASES,
   VERIFICATION_FLIGHT_TIPS,
 } from '@shared/constants/flightGuide';
@@ -33,6 +35,8 @@ function getPhasesForMode(mode: FlightGuideMode) {
       return FILTER_FLIGHT_PHASES;
     case 'pid':
       return PID_FLIGHT_PHASES;
+    case 'quick':
+      return QUICK_FLIGHT_PHASES;
     case 'verification':
       return VERIFICATION_FLIGHT_PHASES;
     default:
@@ -46,6 +50,8 @@ function getTipsForMode(mode: FlightGuideMode) {
       return FILTER_FLIGHT_TIPS;
     case 'pid':
       return PID_FLIGHT_TIPS;
+    case 'quick':
+      return QUICK_FLIGHT_TIPS;
     case 'verification':
       return VERIFICATION_FLIGHT_TIPS;
     default:
