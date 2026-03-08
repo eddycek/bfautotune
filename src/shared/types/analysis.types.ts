@@ -309,6 +309,8 @@ export interface PIDAnalysisResult {
   analysisMethod?: 'step_response' | 'wiener_deconvolution';
   /** Cross-axis coupling analysis */
   crossAxisCoupling?: CrossAxisCoupling;
+  /** Prop wash analysis results */
+  propWash?: PropWashAnalysis;
 }
 
 // ---- Cross-Axis Coupling Types ----
@@ -333,4 +335,36 @@ export interface CrossAxisCoupling {
   hasSignificantCoupling: boolean;
   /** Human-readable summary */
   summary: string;
+}
+
+// ---- Prop Wash Detection Types ----
+
+/** A single detected prop wash event */
+export interface PropWashEvent {
+  /** Timestamp of throttle-down event in milliseconds from flight start */
+  timestampMs: number;
+  /** Rate of throttle decrease (units/s, negative) */
+  throttleDropRate: number;
+  /** Duration of prop wash oscillation in ms */
+  durationMs: number;
+  /** Dominant oscillation frequency in Hz */
+  peakFrequencyHz: number;
+  /** Ratio of prop wash band energy to baseline noise */
+  severityRatio: number;
+  /** Per-axis energy in the prop wash band */
+  axisEnergy: { roll: number; pitch: number; yaw: number };
+}
+
+/** Complete prop wash analysis result */
+export interface PropWashAnalysis {
+  /** Detected prop wash events */
+  events: PropWashEvent[];
+  /** Average severity ratio across all events */
+  meanSeverity: number;
+  /** Axis with highest prop wash energy */
+  worstAxis: 'roll' | 'pitch' | 'yaw';
+  /** Most common peak frequency across events */
+  dominantFrequencyHz: number;
+  /** Human-readable recommendation */
+  recommendation: string;
 }
