@@ -60,6 +60,7 @@ function makeProfile(count: number, withTrace: boolean = true): AxisStepProfile 
     meanSettlingTimeMs: 50,
     meanLatencyMs: 5.5,
     meanTrackingErrorRMS: 0,
+    meanSteadyStateError: 0,
   };
 }
 
@@ -74,6 +75,7 @@ const emptyProfile: AxisStepProfile = {
   meanSettlingTimeMs: 0,
   meanLatencyMs: 0,
   meanTrackingErrorRMS: 0,
+  meanSteadyStateError: 0,
 };
 
 describe('StepResponseChart', () => {

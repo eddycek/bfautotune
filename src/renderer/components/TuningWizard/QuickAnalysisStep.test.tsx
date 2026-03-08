@@ -50,6 +50,7 @@ const makeTFResult = (): PIDAnalysisResult =>
       meanSettlingTimeMs: 80,
       meanLatencyMs: 5,
       meanTrackingErrorRMS: 0.1,
+      meanSteadyStateError: 0,
     },
     pitch: {
       responses: [],
@@ -58,6 +59,7 @@ const makeTFResult = (): PIDAnalysisResult =>
       meanSettlingTimeMs: 80,
       meanLatencyMs: 5,
       meanTrackingErrorRMS: 0.1,
+      meanSteadyStateError: 0,
     },
     yaw: {
       responses: [],
@@ -66,6 +68,7 @@ const makeTFResult = (): PIDAnalysisResult =>
       meanSettlingTimeMs: 80,
       meanLatencyMs: 5,
       meanTrackingErrorRMS: 0.1,
+      meanSteadyStateError: 0,
     },
     recommendations: [
       {

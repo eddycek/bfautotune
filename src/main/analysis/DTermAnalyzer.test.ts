@@ -31,24 +31,29 @@ function makeFlightData(
   } = opts;
 
   const zero = makeSeries(length, () => 0);
-  const gyro = [makeSeries(length, gyroFn), makeSeries(length, gyroFn), makeSeries(length, gyroFn)];
-  const setpoint = [
+  const gyro: [TimeSeries, TimeSeries, TimeSeries] = [
+    makeSeries(length, gyroFn),
+    makeSeries(length, gyroFn),
+    makeSeries(length, gyroFn),
+  ];
+  const setpoint: [TimeSeries, TimeSeries, TimeSeries, TimeSeries] = [
     makeSeries(length, setpointFn),
     makeSeries(length, setpointFn),
     makeSeries(length, setpointFn),
     makeSeries(length, () => 0.5),
   ];
+  const pidDData: [TimeSeries, TimeSeries, TimeSeries] = hasPidD
+    ? [makeSeries(length, pidDFn), makeSeries(length, pidDFn), makeSeries(length, pidDFn)]
+    : [zero, zero, zero];
 
   return {
     gyro,
     setpoint,
-    pidP: [zero, zero, zero],
-    pidI: [zero, zero, zero],
-    pidD: hasPidD
-      ? [makeSeries(length, pidDFn), makeSeries(length, pidDFn), makeSeries(length, pidDFn)]
-      : [],
-    pidF: [zero, zero, zero],
-    motor: [zero, zero, zero, zero],
+    pidP: [zero, zero, zero] as [TimeSeries, TimeSeries, TimeSeries],
+    pidI: [zero, zero, zero] as [TimeSeries, TimeSeries, TimeSeries],
+    pidD: pidDData,
+    pidF: [zero, zero, zero] as [TimeSeries, TimeSeries, TimeSeries],
+    motor: [zero, zero, zero, zero] as [TimeSeries, TimeSeries, TimeSeries, TimeSeries],
     debug: [],
     sampleRateHz: 4000,
     durationSeconds: length / 4000,
@@ -59,6 +64,8 @@ function makeFlightData(
 describe('analyzeDTermEffectiveness', () => {
   it('should return undefined when pidD data is empty', () => {
     const data = makeFlightData({ hasPidD: false });
+    // Simulate runtime scenario where pidD is actually empty (e.g. corrupted data)
+    (data as unknown as Record<string, unknown>).pidD = [];
     expect(analyzeDTermEffectiveness(data)).toBeUndefined();
   });
 

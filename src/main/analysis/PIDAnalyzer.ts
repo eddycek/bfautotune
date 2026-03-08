@@ -297,6 +297,7 @@ export async function analyzeTransferFunction(
       meanSettlingTimeMs: m.settlingTimeMs,
       meanLatencyMs: 0, // Not directly measurable from transfer function
       meanTrackingErrorRMS: 0, // Not applicable for synthetic response
+      meanSteadyStateError: 0, // Not applicable for synthetic response
     };
   }
 
@@ -361,7 +362,6 @@ export async function analyzeTransferFunction(
     analysisMethod: 'wiener_deconvolution',
     ...(warnings.length > 0 ? { warnings } : {}),
     transferFunction: tfResult,
-    ...(propWash ? { propWash } : {}),
   };
 }
 

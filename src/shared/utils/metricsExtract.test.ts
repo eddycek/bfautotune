@@ -158,6 +158,7 @@ function makePIDResult(overrides?: Partial<PIDAnalysisResult>): PIDAnalysisResul
       meanSettlingTimeMs: 25.123,
       meanLatencyMs: 3.789,
       meanTrackingErrorRMS: 0.1234,
+      meanSteadyStateError: 0,
     },
     pitch: {
       responses: [],
@@ -166,6 +167,7 @@ function makePIDResult(overrides?: Partial<PIDAnalysisResult>): PIDAnalysisResul
       meanSettlingTimeMs: 22.333,
       meanLatencyMs: 4.444,
       meanTrackingErrorRMS: 0.0987,
+      meanSteadyStateError: 0,
     },
     yaw: {
       responses: [],
@@ -174,6 +176,7 @@ function makePIDResult(overrides?: Partial<PIDAnalysisResult>): PIDAnalysisResul
       meanSettlingTimeMs: 30.777,
       meanLatencyMs: 5.888,
       meanTrackingErrorRMS: 0.1567,
+      meanSteadyStateError: 0,
     },
     recommendations: [],
     summary: 'Good PID response.',
@@ -217,6 +220,7 @@ describe('extractPIDMetrics', () => {
         meanSettlingTimeMs: 0,
         meanLatencyMs: 0,
         meanTrackingErrorRMS: 0,
+        meanSteadyStateError: 0,
       },
       pitch: {
         responses: [],
@@ -225,6 +229,7 @@ describe('extractPIDMetrics', () => {
         meanSettlingTimeMs: 0,
         meanLatencyMs: 0,
         meanTrackingErrorRMS: 0,
+        meanSteadyStateError: 0,
       },
       yaw: {
         responses: [],
@@ -233,6 +238,7 @@ describe('extractPIDMetrics', () => {
         meanSettlingTimeMs: 0,
         meanLatencyMs: 0,
         meanTrackingErrorRMS: 0,
+        meanSteadyStateError: 0,
       },
     });
     const metrics = extractPIDMetrics(result);
