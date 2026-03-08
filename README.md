@@ -1,12 +1,20 @@
 # PIDlab
 
-**Desktop application that takes the guesswork out of FPV drone tuning.**
+**The first open-source desktop app that auto-tunes Betaflight PID and filter settings from Blackbox data.**
 
-Most pilots tune their drones by hand — changing PID numbers, test flying, reading Blackbox graphs, and repeating. It's slow, confusing, and error-prone.
+Most FPV pilots tune their quads by hand — tweaking PID numbers, test flying, staring at Blackbox graphs, and repeating. It takes dozens of flights, deep BF knowledge, and a lot of patience. Tools like PIDtoolbox show you the data but don't tell you what to change. PIDlab closes that gap: it reads your Blackbox log, runs signal processing (FFT noise analysis, step response detection, Wiener deconvolution), and produces concrete Betaflight CLI commands — with plain-English explanations — that you apply with one click.
 
-PIDlab connects to your Betaflight flight controller over USB, guides you through two short test flights, analyzes the Blackbox data automatically (FFT noise analysis for filters, step response metrics for PIDs), and applies optimized settings with one click. No graph reading, no spreadsheets, no guesswork.
+**What makes it different:**
+- **Fully automated recommendations** — not just graphs, but actual filter cutoffs and PID values ready to flash
+- **Two tuning modes** — Guided (2 dedicated flights, max accuracy) or Quick Tune (any single flight via transfer function estimation)
+- **Convergent by design** — re-analyzing the same log always produces the same result, no recommendation drift
+- **Safety-first** — every apply creates an automatic rollback snapshot, all values clamped to proven safe bounds
+- **Multi-quad profiles** — auto-detects each FC by serial number, stores configs and tuning history per quad
+- **Flight style adaptation** — Smooth (cinematic), Balanced (freestyle), Aggressive (racing) thresholds
+- **19 analysis modules** — FFT, step response, Wiener deconvolution, Bode plots, prop wash detection, D-term effectiveness, cross-axis coupling, throttle spectrograms, group delay estimation, Bayesian PID optimizer framework
+- **Works offline** — demo mode with simulated FC for testing without hardware
 
-**How it works:** Connect FC → Fly hover + throttle sweeps → App tunes filters → Fly stick snaps → App tunes PIDs → Done. Or use **Quick Tune** to analyze filters and PIDs from any single flight.
+**How it works:** Connect FC via USB → Erase flash → Fly → Download log → PIDlab analyzes and applies optimized settings → Done.
 
 ## Download
 
@@ -28,7 +36,7 @@ Pre-built binaries are available on the [Releases](https://github.com/eddycek/pi
 | **Recommended** | BF 4.5+ (API 1.46) | Best feature coverage |
 | **Actively tested** | BF 4.5.x, 2025.12.x | User's fleet |
 
-Connecting with BF 4.2 or earlier will show an error and auto-disconnect. See [BF Version Policy](./docs/BF_VERSION_POLICY.md) for detailed rationale and version-specific notes.
+Connecting with BF 4.2 or earlier will show an error and auto-disconnect. See [BF Version Policy](./docs/complete/BF_VERSION_POLICY.md) for detailed rationale and version-specific notes.
 
 ## Current Status
 
@@ -45,7 +53,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 
 ### Connection & Profiles
 - USB serial connection to Betaflight flight controllers (MSP protocol)
-- Multi-drone profile management with automatic FC detection by serial number
+- Multi-quad profile management with automatic FC detection by serial number
 - Profile auto-selection on connect, profile locking while FC is connected
 - 10 preset profiles (Tiny Whoop, 5" Freestyle, 7" Long Range, etc.)
 - Cross-platform (Windows, macOS, Linux)
@@ -56,22 +64,61 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Snapshot restore/rollback via CLI command replay
 - GitHub-style diff view for snapshot comparison
 
-### Blackbox Analysis
-- Blackbox log download from FC flash storage (adaptive chunking)
+### Blackbox Storage
+- **Flash storage**: Download via MSP with adaptive chunking
+- **SD card storage**: Download via MSC (Mass Storage Class) mode — FC re-enumerates as USB drive, app copies `.bbl` files automatically
 - Binary BBL log parser (validated against BF Explorer, 245 tests)
 - Multi-session support (multiple flights per file)
 - FC diagnostics: debug_mode, logging rate, and feedforward configuration display with warnings + one-click fix
 
-### Automated Tuning
-- **Filter tuning**: FFT noise analysis (Welch's method, Hanning window, peak detection)
-- **PID tuning**: Step response analysis (rise time, overshoot, settling, ringing)
-- **Flight style preferences**: Smooth (cinematic), Balanced (freestyle), or Aggressive (racing) — PID thresholds adapt to pilot preference
-- **RPM filter awareness**: Detects RPM filter state via MSP or BBL headers, widens safety bounds when active (gyro LPF1 up to 500 Hz), recommends dynamic notch optimization (count/Q), diagnoses motor harmonic anomalies
-- **Feedforward awareness**: Detects FF state from BBL headers, classifies FF-dominated overshoot, adjusts P/D recommendations accordingly
-- **Data quality scoring**: Rates input flight data 0-100 (excellent/good/fair/poor), adjusts recommendation confidence based on data quality, warns about insufficient hover time, missing axes, or too few steps
-- Convergent recommendations (idempotent - rerunning produces same result)
-- Safety bounds prevent extreme values, plain-English explanations
-- One-click apply with automatic safety snapshot
+### Automated Filter Tuning
+- FFT noise analysis (Welch's method, Hanning window, peak detection)
+- Noise source classification (frame resonance, motor harmonics, electrical)
+- Noise-floor-based filter cutoff targeting with linear interpolation
+- RPM filter awareness: widens safety bounds (gyro LPF1 up to 500 Hz), optimizes dynamic notch (count/Q), diagnoses motor harmonic anomalies
+- Propwash floor protection (never pushes gyro LPF1 below 100 Hz)
+- Group delay estimation for filter chain latency visualization
+
+### Automated PID Tuning
+- Step response analysis (rise time, overshoot, settling time, latency, ringing)
+- I-term rules: steady-state error detection with I increase/decrease recommendations
+- Damping ratio validation: D/P ratio check (0.45–0.85 range) with automatic correction
+- D-term effectiveness analysis: measures D dampening vs noise amplification ratio
+- Prop wash detection: throttle-down event analysis with severity scoring per axis
+- Cross-axis coupling detection: measures roll↔pitch interference
+- Feedforward awareness: detects FF-dominated overshoot, recommends `feedforward_boost` reduction instead of P/D changes
+- FF energy ratio integration: downgrades P-decrease confidence when feedforward contributes >60% of overshoot energy
+- Proportional step sizing: D +5/+10/+15 based on overshoot severity for faster convergence
+
+### Transfer Function Analysis (Wiener Deconvolution)
+- Computes closed-loop transfer function H(f) from any flight data (no dedicated maneuvers needed)
+- Bode plot visualization (magnitude + phase vs frequency)
+- Synthetic step response derived from IFFT of H(f)
+- Bandwidth, gain margin, and phase margin metrics
+- Frequency-domain PID rules: low phase margin → D increase, low bandwidth → P increase
+- Confidence capped at medium (less precise than dedicated stick snaps)
+
+### Bayesian PID Optimizer (Framework)
+- Gaussian Process surrogate with RBF kernel
+- Expected Improvement acquisition function
+- Latin Hypercube Sampling for initial exploration
+- Multi-session history-based optimization (available for future integration)
+
+### Throttle Spectrogram Analysis
+- Per-throttle-bin FFT computation (10 bins, 0–100%)
+- Reveals motor harmonic tracking, frame resonance, and electrical noise patterns
+- Available as diagnostic module (UI visualization pending)
+
+### Flight Style Preferences
+- Smooth (cinematic), Balanced (freestyle), or Aggressive (racing)
+- PID thresholds adapt to pilot preference (overshoot tolerances, rise time targets, settling limits)
+- Style set per-profile, preset profiles include sensible defaults
+
+### Data Quality Scoring
+- Rates input flight data 0-100 (excellent/good/fair/poor)
+- Adjusts recommendation confidence based on data quality
+- Warns about insufficient hover time, missing axes, too few steps
+- Flight quality score: composite 0-100 metric tracking tuning progress across sessions
 
 ### Two-Flight Guided Workflow
 - Stateful tuning session: filters first (hover + throttle sweeps), then PIDs (stick snaps)
@@ -85,6 +132,7 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 ### Quick Tune (Single Flight)
 - Analyze filters and PIDs from any single flight (freestyle, cruise, etc.)
 - Transfer function estimation via Wiener deconvolution for PID recommendations
+- Bode plot (magnitude + phase) with bandwidth/margin indicators
 - Parallel filter + PID analysis with combined apply
 - Faster iteration for experienced pilots with an existing tune
 
@@ -92,12 +140,14 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Archived tuning records per profile (persistent across sessions)
 - Before/after noise spectrum overlay with dB delta indicators
 - Applied filter and PID changes table with old → new values
+- Flight quality score badge and trend chart across sessions
 - Expandable history cards on the dashboard
 
 ### Interactive Charts
 - FFT spectrum chart (noise per axis, floor lines, peak markers)
 - Step response chart (setpoint vs gyro trace, metrics overlay)
-- Axis tabs (Roll/Pitch/Yaw/All) for both chart types
+- Bode plot chart (magnitude + phase, bandwidth/margin markers)
+- Axis tabs (Roll/Pitch/Yaw/All) for all chart types
 
 ## Tech Stack
 
@@ -159,40 +209,48 @@ Start the app with a simulated flight controller for offline UX testing:
 npm run dev:demo
 ```
 
-Demo mode auto-connects to a virtual FC, creates a demo profile, and generates realistic blackbox data. The full 10-phase tuning workflow is functional — real FFT and step response analysis runs on the simulated data. See [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md) for details.
+Demo mode auto-connects to a virtual FC, creates a demo profile, and generates realistic blackbox data. The full tuning workflow is functional — real FFT and step response analysis runs on the simulated data. See [docs/complete/OFFLINE_UX_TESTING.md](./docs/complete/OFFLINE_UX_TESTING.md) for details.
+
+### Available Commands
+
+```bash
+# Development
+npm run dev                          # Start with hot reload
+npm run dev:demo                     # Start with simulated FC (no hardware needed)
+
+# Testing
+npm test                             # Unit tests in watch mode
+npm run test:run                     # Unit tests once (pre-commit)
+npm run test:ui                      # Interactive test UI
+npm run test:coverage                # Generate coverage report
+npm run test:e2e                     # Build + run Playwright E2E tests
+npm run test:e2e:ui                  # Build + Playwright UI
+
+# Demo data generation
+npm run demo:generate-history        # Generate 5 mixed tuning sessions (~2 min)
+npm run demo:generate-history:full   # Generate 5 guided sessions
+npm run demo:generate-history:quick  # Generate 5 quick tune sessions
+
+# Code quality
+npm run lint                         # ESLint check
+npm run lint:fix                     # ESLint auto-fix
+npm run format                       # Prettier format
+npm run format:check                 # Prettier check
+
+# Build
+npm run build                        # Production build
+npm run rebuild                      # Rebuild native modules (serialport)
+```
 
 ### Testing
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Unit tests:** 2180 tests across 107 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, E2E workflows.
+**Unit tests:** 2180 tests across 107 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation.
 
 **Playwright E2E:** 25 tests across 4 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (guided and quick tune).
 
-```bash
-# Run unit tests in watch mode
-npm test
-
-# Run unit tests once
-npm run test:run
-
-# Open interactive test UI
-npm run test:ui
-
-# Generate coverage report
-npm run test:coverage
-
-# Run E2E tests (builds app, then runs Playwright)
-npm run test:e2e
-
-# Run E2E with Playwright UI
-npm run test:e2e:ui
-
-# Generate 5 tuning sessions for demo screenshots (~2 min)
-npm run demo:generate-history
-```
-
-See [TESTING.md](./TESTING.md) for complete testing guidelines, test inventory, and best practices. See [docs/COMPREHENSIVE_TESTING_PLAN.md](./docs/COMPREHENSIVE_TESTING_PLAN.md) for the full testing plan and architecture.
+See [TESTING.md](./TESTING.md) for complete testing guidelines, test inventory, and best practices.
 
 ## Building
 
@@ -227,46 +285,57 @@ pidlab/
 │   │   │   ├── MSPClient.ts     # High-level MSP API (connect, read/write, download)
 │   │   │   ├── MSPConnection.ts # Serial port + CLI mode + reboot handling
 │   │   │   ├── MSPProtocol.ts   # Protocol encoding/decoding (MSP v1)
+│   │   │   ├── cliUtils.ts      # CLI diff parsing, command extraction
 │   │   │   ├── commands.ts      # MSP command definitions
 │   │   │   └── types.ts         # MSP type definitions
 │   │   ├── blackbox/            # BBL binary log parser (6 modules, 245 tests)
-│   │   ├── analysis/            # FFT noise + step response analysis (19 modules, FF-aware)
-│   │   │   ├── FFTCompute.ts        # Welch's method, Hanning window
-│   │   │   ├── SegmentSelector.ts   # Hover segment detection
-│   │   │   ├── NoiseAnalyzer.ts     # Peak detection, noise classification
-│   │   │   ├── FilterRecommender.ts # Noise-based filter targets
-│   │   │   ├── FilterAnalyzer.ts    # Filter analysis orchestrator
-│   │   │   ├── StepDetector.ts      # Step input detection in setpoint
-│   │   │   ├── StepMetrics.ts       # Rise time, overshoot, settling, FF classification
-│   │   │   ├── PIDRecommender.ts    # Flight-PID-anchored P/D recommendations, FF-aware
-│   │   │   ├── PIDAnalyzer.ts       # PID analysis orchestrator (FF context wiring)
-│   │   │   ├── DataQualityScorer.ts # Flight data quality scoring (0-100)
-│   │   │   ├── headerValidation.ts  # BB header diagnostics
-│   │   │   └── constants.ts         # Tunable thresholds
+│   │   ├── analysis/            # Signal processing & tuning engine (19 modules)
+│   │   │   ├── FFTCompute.ts              # Welch's method, Hanning window
+│   │   │   ├── SegmentSelector.ts         # Hover/sweep segment detection
+│   │   │   ├── NoiseAnalyzer.ts           # Peak detection, noise classification
+│   │   │   ├── FilterRecommender.ts       # Noise-based filter targets
+│   │   │   ├── FilterAnalyzer.ts          # Filter analysis orchestrator
+│   │   │   ├── StepDetector.ts            # Step input detection in setpoint
+│   │   │   ├── StepMetrics.ts             # Rise time, overshoot, settling, FF classification
+│   │   │   ├── PIDRecommender.ts          # Rule-based P/I/D recommendations
+│   │   │   ├── PIDAnalyzer.ts             # PID analysis orchestrator
+│   │   │   ├── TransferFunctionEstimator.ts # Wiener deconvolution engine
+│   │   │   ├── DataQualityScorer.ts       # Flight data quality scoring (0-100)
+│   │   │   ├── PropWashDetector.ts        # Throttle-down event detection + severity
+│   │   │   ├── DTermAnalyzer.ts           # D-term effectiveness ratio analysis
+│   │   │   ├── CrossAxisDetector.ts       # Roll↔pitch coupling detection
+│   │   │   ├── ThrottleSpectrogramAnalyzer.ts # Per-throttle-bin FFT
+│   │   │   ├── GroupDelayEstimator.ts     # Filter chain latency estimation
+│   │   │   ├── BayesianPIDOptimizer.ts    # GP-based multi-session optimizer
+│   │   │   ├── headerValidation.ts        # BB header diagnostics
+│   │   │   └── constants.ts               # Tunable thresholds
 │   │   ├── storage/             # Data managers
-│   │   │   ├── ProfileManager.ts        # Multi-drone profile CRUD
+│   │   │   ├── ProfileManager.ts        # Multi-quad profile CRUD
 │   │   │   ├── ProfileStorage.ts        # File-based profile storage
 │   │   │   ├── SnapshotManager.ts       # Configuration snapshots
 │   │   │   ├── BlackboxManager.ts       # BB log file management
 │   │   │   ├── TuningSessionManager.ts  # Tuning session state machine
-│   │   │   ├── TuningHistoryManager.ts # Tuning history archive
+│   │   │   ├── TuningHistoryManager.ts  # Tuning history archive
 │   │   │   └── FileStorage.ts           # Generic file storage utilities
+│   │   ├── msc/                 # SD card Mass Storage Class support
+│   │   │   ├── MSCManager.ts          # MSC download/erase orchestration
+│   │   │   └── driveDetector.ts       # Cross-platform drive mount detection
 │   │   ├── demo/               # Demo mode (offline UX testing)
 │   │   │   ├── MockMSPClient.ts       # Simulated FC (47 tests)
 │   │   │   └── DemoDataGenerator.ts   # Realistic BBL generation (22 tests)
-│   │   ├── ipc/                 # IPC handlers
-│   │   │   ├── handlers/       # Domain-split handler modules (11 files)
+│   │   ├── ipc/                 # IPC handlers (50 handlers across 8 modules)
+│   │   │   ├── handlers/       # Domain-split handler modules
 │   │   │   │   ├── index.ts            # DI container, registerIPCHandlers
 │   │   │   │   ├── types.ts            # HandlerDependencies interface
 │   │   │   │   ├── events.ts           # Event broadcast functions
-│   │   │   │   ├── connectionHandlers.ts
-│   │   │   │   ├── fcInfoHandlers.ts
-│   │   │   │   ├── snapshotHandlers.ts
-│   │   │   │   ├── profileHandlers.ts
-│   │   │   │   ├── pidHandlers.ts
-│   │   │   │   ├── blackboxHandlers.ts
-│   │   │   │   ├── analysisHandlers.ts
-│   │   │   │   └── tuningHandlers.ts
+│   │   │   │   ├── connectionHandlers.ts   # 6 handlers
+│   │   │   │   ├── fcInfoHandlers.ts       # 5 handlers
+│   │   │   │   ├── snapshotHandlers.ts     # 6 handlers
+│   │   │   │   ├── profileHandlers.ts      # 10 handlers
+│   │   │   │   ├── pidHandlers.ts          # 3 handlers
+│   │   │   │   ├── blackboxHandlers.ts     # 9 handlers
+│   │   │   │   ├── analysisHandlers.ts     # 3 handlers
+│   │   │   │   └── tuningHandlers.ts       # 8 handlers
 │   │   │   └── channels.ts     # Channel definitions
 │   │   └── utils/               # Logger, error types
 │   │
@@ -278,31 +347,35 @@ pidlab/
 │   │   ├── components/
 │   │   │   ├── ConnectionPanel/       # Port selection, connect/disconnect
 │   │   │   ├── FCInfo/                # FC details + BB diagnostics + FixSettingsConfirmModal
-│   │   │   ├── BlackboxStatus/        # Flash storage, download, erase
+│   │   │   ├── BlackboxStatus/        # Flash/SD card storage, download, erase
 │   │   │   ├── SnapshotManager/       # Snapshot CRUD, diff view, restore
 │   │   │   ├── TuningWizard/          # Multi-step guided wizard
-│   │   │   │   ├── charts/            # SpectrumChart, StepResponseChart, AxisTabs
+│   │   │   │   ├── charts/            # SpectrumChart, StepResponseChart, BodePlot, AxisTabs
 │   │   │   │   ├── FilterAnalysisStep, PIDAnalysisStep  # Analysis result views
+│   │   │   │   ├── QuickAnalysisStep  # Combined filter+PID for Quick Tune
 │   │   │   │   ├── SessionSelectStep, TestFlightGuideStep # Pre-analysis steps
 │   │   │   │   ├── TuningSummaryStep, WizardProgress     # Summary + progress
 │   │   │   │   ├── RecommendationCard, ApplyConfirmationModal
 │   │   │   │   └── FlightGuideContent # Flight phase instructions
 │   │   │   ├── TuningStatusBanner/    # Workflow progress banner
-│   │   │   ├── AnalysisOverview/      # Read-only analysis view
+│   │   │   ├── AnalysisOverview/      # Read-only analysis view (+ Bode plot fallback)
 │   │   │   ├── TuningHistory/         # History panel + completion summary
 │   │   │   │   ├── TuningHistoryPanel, TuningSessionDetail
 │   │   │   │   ├── TuningCompletionSummary  # Replaces banner on completion
 │   │   │   │   ├── NoiseComparisonChart     # Before/after spectrum overlay
+│   │   │   │   ├── QualityTrendChart        # Flight quality score progression
 │   │   │   │   └── AppliedChangesTable      # Setting changes with % diff
 │   │   │   ├── TuningWorkflowModal/   # Two-flight workflow help
+│   │   │   ├── StartTuningModal.tsx   # Guided vs Quick Tune mode selector
 │   │   │   ├── Toast/                 # Toast notification system
 │   │   │   ├── ProfileWizard.tsx      # New FC profile creation wizard
+│   │   │   ├── PresetSelector.tsx     # Preset profile picker
 │   │   │   ├── ProfileSelector.tsx    # Profile switching dropdown
 │   │   │   ├── ErrorBoundary.tsx      # React error boundary (crash recovery)
 │   │   │   ├── ProfileCard.tsx        # Individual profile display
 │   │   │   ├── ProfileEditModal.tsx   # Profile editing dialog
 │   │   │   └── ProfileDeleteModal.tsx # Profile deletion confirmation
-│   │   ├── hooks/               # React hooks (12)
+│   │   ├── hooks/               # React hooks (13)
 │   │   │   ├── useConnection.ts       # Connection state management
 │   │   │   ├── useProfiles.ts         # Profile CRUD operations
 │   │   │   ├── useSnapshots.ts        # Snapshot management
@@ -313,6 +386,7 @@ pidlab/
 │   │   │   ├── useBlackboxInfo.ts     # BB flash info
 │   │   │   ├── useBlackboxLogs.ts     # BB log list
 │   │   │   ├── useFCInfo.ts           # FC info polling
+│   │   │   ├── useDemoMode.ts         # Demo mode detection
 │   │   │   └── useToast.ts            # Toast context consumer
 │   │   ├── utils/               # Renderer utilities
 │   │   │   └── bbSettingsUtils.ts     # BB settings status computation
@@ -322,29 +396,25 @@ pidlab/
 │   │       └── setup.ts         # window.betaflight mock
 │   │
 │   └── shared/                  # Shared types & constants
-│       ├── types/               # TypeScript interfaces (9 type files)
-│       ├── utils/               # Shared utilities (metrics extraction, spectrum downsampling)
+│       ├── types/               # TypeScript interfaces (10 type files)
+│       ├── utils/               # Shared utilities
+│       │   ├── metricsExtract.ts      # Metrics extraction, spectrum downsampling
+│       │   └── tuneQualityScore.ts    # Composite flight quality score (0-100)
 │       └── constants/           # MSP codes, presets, flight guides
 │
 ├── e2e/                         # Playwright E2E tests (demo mode)
-│   ├── electron-app.ts          # Shared fixture (launchDemoApp, helpers)
-│   ├── demo-smoke.spec.ts       # 4 smoke tests
-│   ├── demo-tuning-cycle.spec.ts  # 11 guided tuning cycle tests
+│   ├── electron-app.ts                # Shared fixture (launchDemoApp, helpers)
+│   ├── demo-smoke.spec.ts             # 4 smoke tests
+│   ├── demo-tuning-cycle.spec.ts      # 11 guided tuning cycle tests
 │   ├── demo-quick-tune-cycle.spec.ts  # 7 quick tune cycle tests
-│   └── demo-generate-history.spec.ts  # 5-cycle history generator
+│   └── demo-generate-history.spec.ts  # Mixed history generator
 │
-└── docs/                        # Design docs (see docs/README.md for full index)
-    ├── BBL_PARSER_VALIDATION.md             # Parser validation against BF Explorer
-    ├── BF_VERSION_POLICY.md                 # BF version compatibility policy
-    ├── COMPREHENSIVE_TESTING_PLAN.md        # 9-phase testing plan
-    ├── FEEDFORWARD_AWARENESS.md             # FF detection, warnings, recommendations
-    ├── FLIGHT_STYLE_PROFILES.md             # Smooth/Balanced/Aggressive flight styles
-    ├── RPM_FILTER_AWARENESS.md              # RPM filter detection and bounds
-    ├── TUNING_HISTORY_AND_COMPARISON.md     # Session history + before/after comparison
-    ├── TUNING_WORKFLOW_REVISION.md          # Two-flight tuning workflow design
-    ├── TUNING_WORKFLOW_FIXES.md             # Download/analyze fix + phase transitions
-    ├── TUNING_PRECISION_IMPROVEMENTS.md     # Research: tuning accuracy improvements
-    └── UX_IMPROVEMENT_IDEAS.md              # UX improvement backlog
+└── docs/                        # Design documents (see docs/README.md for index)
+    ├── README.md                          # Document index
+    ├── PROPWASH_AND_DTERM_DIAGNOSTICS.md  # Active — backend done, UI pending
+    ├── TUNING_PRECISION_IMPROVEMENTS.md   # Active — 4/15 improvements done
+    ├── UX_IMPROVEMENT_IDEAS.md            # Active — 4/7 ideas done
+    └── complete/                          # Completed design docs (13 historical records)
 ```
 
 ## Usage
@@ -356,7 +426,7 @@ pidlab/
 3. Select your FC from the dropdown and click **Connect**
 4. On first connection with a new FC, the **Profile Wizard** opens automatically:
    - Choose a preset profile (e.g., "5 inch Freestyle") or create a custom one
-   - Enter drone name, size, weight, motor KV, battery config
+   - Enter quad name, size, weight, motor KV, battery config
    - Profile is linked to the FC's unique serial number
 5. A **baseline snapshot** is created automatically, capturing the FC's current configuration
 
@@ -374,7 +444,7 @@ If settings are wrong, click **Fix Settings** in the FC info panel — the app s
 
 ### 3. Guided Two-Flight Tuning
 
-Click **Start Tuning Session** to begin the guided workflow. The status banner at the top tracks your progress through 10 phases:
+Click **Start Tuning Session** and select **Guided Tuning**. The status banner at the top tracks your progress through 10 phases:
 
 #### Flight 1: Filter Tuning
 1. **Erase Flash** — Clear old Blackbox data before flying
@@ -401,16 +471,28 @@ Click **Start Tuning Session** to begin the guided workflow. The status banner a
 
 The session shows a **completion summary** with all applied changes, noise metrics, and PID response data. You can start a new tuning cycle to iterate further. Past sessions are archived in the **Tuning History** panel on the dashboard.
 
-### 4. Quick Analysis (No Tuning Session)
+### 4. Quick Tune (Single Flight)
+
+Click **Start Tuning Session** and select **Quick Tune**:
+
+1. **Erase Flash** — Clear old data
+2. **Fly any flight** — Freestyle, cruise, stick snaps — any 30-60s flight works
+3. **Download & analyze** — App runs FFT (for filters) + Wiener deconvolution (for PIDs) in parallel
+4. **Apply all** — Combined filter + PID changes in one click
+5. **Optional verification** — Same as guided mode
+
+Quick Tune uses transfer function estimation instead of step detection, so it works with any flight style. Confidence is capped at medium (less precise than dedicated stick snaps). Best for experienced pilots iterating on an existing tune.
+
+### 5. Quick Analysis (No Tuning Session)
 
 If you just want to analyze a log without applying changes:
 
 1. Connect FC and download a Blackbox log
 2. Click **Analyze** on any downloaded log (without starting a tuning session)
-3. Opens a **read-only Analysis Overview** — shows both filter and PID analysis on a single page
+3. Opens a **read-only Analysis Overview** — shows filter analysis (noise spectrum), PID analysis (step response or Bode plot), and diagnostic data on a single page
 4. No Apply buttons — purely informational, great for reviewing flight data
 
-### 5. Managing Snapshots
+### 6. Managing Snapshots
 
 Snapshots capture the FC's full CLI configuration at a point in time.
 
@@ -421,19 +503,19 @@ Snapshots capture the FC's full CLI configuration at a point in time.
 - **Restore** — Roll back to any snapshot (creates a safety backup first, sends CLI commands, reboots FC)
 - **Export** — Download as `.txt` file
 
-### 6. Exporting Configuration
+### 7. Exporting Configuration
 
 The FC Info panel provides two export options:
 
 - **Export CLI Diff** — Only changed settings (recommended for sharing/backup)
 - **Export CLI Dump** — Full configuration dump
 
-### 7. Blackbox Storage Management
+### 8. Blackbox Storage Management
 
-The Blackbox Storage panel shows flash usage and downloaded logs:
+The Blackbox Storage panel shows flash/SD card usage and downloaded logs:
 
-- **Download** — Downloads all flight data from FC flash to local storage
-- **Erase Flash** — Permanently deletes all data from FC flash (required before each test flight)
+- **Download** — Downloads flight data from FC flash or SD card (MSC mode for SD)
+- **Erase** — Permanently deletes all data from FC storage (required before each test flight)
 - **Test Read** — Diagnostic tool to verify FC flash communication
 - **Open Folder** — Opens the local log storage directory
 
@@ -492,6 +574,8 @@ The app uses the MultiWii Serial Protocol (MSP) v1 to communicate with Betafligh
 - **MSP_DATAFLASH_SUMMARY** - Flash storage information
 - **MSP_DATAFLASH_READ** - Download Blackbox data
 - **MSP_DATAFLASH_ERASE** - Erase flash storage
+- **MSP_SDCARD_SUMMARY** - SD card storage information
+- **MSP_REBOOT** - Reboot FC (type=2 for MSC mode — SD card as USB drive)
 - **CLI Mode** - For configuration export, snapshot restore, and filter tuning
 
 ## Configuration Storage
@@ -503,7 +587,7 @@ All data is stored locally per platform:
 - **Linux**: `~/.config/pidlab/data/`
 
 Subdirectories:
-- `profiles/` — Drone profile JSON files + metadata index
+- `profiles/` — Quad profile JSON files + metadata index
 - `snapshots/` — Configuration snapshot JSON files
 - `blackbox/` — Downloaded Blackbox log files (`.bbl`)
 - `tuning/` — Tuning session state files (per profile)
@@ -511,7 +595,7 @@ Subdirectories:
 
 ## How Autotuning Works
 
-PIDlab automates the two core aspects of FPV drone tuning: **filter tuning** (reducing noise) and **PID tuning** (improving flight response). Both use Blackbox log analysis to produce data-driven recommendations.
+PIDlab automates the two core aspects of FPV quad tuning: **filter tuning** (reducing noise) and **PID tuning** (improving flight response). Both use Blackbox log analysis to produce data-driven recommendations.
 
 ### Filter Tuning (FFT Analysis)
 
@@ -519,7 +603,7 @@ The filter tuning pipeline analyzes gyro noise to determine optimal lowpass filt
 
 **Pipeline:** `SegmentSelector` → `FFTCompute` → `NoiseAnalyzer` → `FilterRecommender`
 
-1. **Segment selection** — Identifies stable hover segments from throttle and gyro data, excluding takeoff, landing, and aggressive maneuvers
+1. **Segment selection** — Identifies stable hover segments from throttle and gyro data, excluding takeoff, landing, and aggressive maneuvers. Detects both hover and throttle sweep segments.
 2. **FFT computation** — Applies Welch's method (Hanning window, 50% overlap, 4096-sample windows) to compute power spectral density for each axis
 3. **Noise analysis** — Estimates the noise floor (lower quartile), detects prominent peaks (>6 dB above local floor), and classifies noise sources:
    - Frame resonance (80–200 Hz)
@@ -535,6 +619,8 @@ The filter tuning pipeline analyzes gyro noise to determine optimal lowpass filt
 | D-term LPF1 | 70 Hz | 200 Hz | 300 Hz | [BF Filtering Wiki](https://github.com/betaflight/betaflight/wiki/Gyro-&-Dterm-filtering-recommendations): "70–90 Hz range" for D-term |
 
 The **minimum cutoffs** are derived from the official Betaflight guides. The **maximum cutoffs** represent the point where further relaxation provides negligible latency benefit. With RPM filter active, maximums are raised because 36 per-motor notch filters already handle motor noise, so the lowpass can afford to be more relaxed.
+
+**Propwash floor:** Gyro LPF1 is never pushed below 100 Hz (configurable per flight style) to preserve D-term responsiveness in the 50–100 Hz prop wash frequency range.
 
 #### Noise-Based Targeting (Linear Interpolation)
 
@@ -583,9 +669,9 @@ The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs acros
 
 ### PID Tuning (Step Response Analysis)
 
-PID tuning works by detecting sharp stick inputs ("steps") in the Blackbox log and measuring how the drone's gyro (actual rotation) tracks the pilot's command (setpoint).
+PID tuning works by detecting sharp stick inputs ("steps") in the Blackbox log and measuring how the quad's gyro (actual rotation) tracks the pilot's command (setpoint).
 
-**Pipeline:** `StepDetector` → `StepMetrics` → `PIDRecommender`
+**Pipeline:** `StepDetector` → `StepMetrics` → `PIDRecommender` (+ `PropWashDetector`, `DTermAnalyzer`, `CrossAxisDetector`)
 
 #### Step 1: Detect Step Inputs
 
@@ -605,11 +691,13 @@ For each valid step, the algorithm extracts a 300 ms response window and compute
 
 | Metric | Definition | How It's Measured |
 |--------|-----------|-------------------|
-| **Rise time** | How fast the drone responds | Time from 10% to 90% of final gyro value |
+| **Rise time** | How fast the quad responds | Time from 10% to 90% of final gyro value |
 | **Overshoot** | How much gyro exceeds the target | Peak deviation beyond steady-state, as % of step magnitude |
 | **Settling time** | How quickly oscillations die out | Last time gyro exits the ±2% band around steady-state |
 | **Latency** | Delay before first movement | Time until gyro moves >5% of step magnitude from baseline |
 | **Ringing** | Post-step oscillation count | Zero-crossings around steady-state, counted as full cycles |
+| **Steady-state error** | Accuracy after settling | Difference between target and actual position after settling |
+| **FF energy ratio** | Feedforward vs P contribution | Sum-of-squares energy ratio `FF/(FF+P)` over step response window |
 
 These metrics follow standard control theory definitions (consistent with MATLAB `stepinfo`).
 
@@ -617,33 +705,54 @@ These metrics follow standard control theory definitions (consistent with MATLAB
 
 The recommendation engine applies rule-based tuning logic anchored to the PID values from the Blackbox log header (the PIDs that were active during the flight). This anchoring makes recommendations **convergent** — applying them and re-analyzing the same log produces no further changes.
 
-**Decision Table:**
-
-The thresholds below show the **Balanced** (default) values. These adapt based on the pilot's **flight style preference** (set in the profile):
+**Flight Style Thresholds:**
 
 | Threshold | Smooth | Balanced | Aggressive |
 |-----------|--------|----------|------------|
 | Overshoot ideal | 3% | 10% | 18% |
 | Overshoot max | 12% | 25% | 35% |
+| Moderate overshoot | 8% | 15% | 25% |
 | Settling max | 250 ms | 200 ms | 150 ms |
 | Ringing max | 1 cycle | 2 cycles | 3 cycles |
-| Moderate overshoot | 8% | 15% | 25% |
 | Sluggish rise time | 120 ms | 80 ms | 50 ms |
+| Steady-state error max | 8% | 5% | 3% |
 
-**Decision Table (Balanced thresholds shown):**
+*Yaw axis uses relaxed thresholds (1.5× overshoot limit, 1.5× sluggish threshold).*
 
-| Condition | Action | Step Size | Confidence | Rationale |
-|-----------|--------|-----------|------------|-----------|
-| Overshoot > 25% (severity 1–2×) | Increase D | +5 | High | D-term dampens bounce-back (Betaflight guide) |
-| Overshoot > 25% (severity 2–4×) | Increase D | +10 | High | Proportional step for faster convergence |
-| Overshoot > 25% (severity > 4×) | Increase D | +15 | High | Extreme overshoot needs aggressive dampening |
-| Overshoot > 25% AND (severity > 2× OR D ≥ 60% of max) | Also decrease P | -5 / -10 | High | D alone insufficient at extreme overshoot |
-| Overshoot 15–25% | Increase D | +5 | Medium | Moderate overshoot, D-first strategy |
-| Overshoot < 10% AND rise time > 80 ms | Increase P | +5 | Medium | Sluggish response needs more authority (FPVSIM) |
-| Ringing > 2 cycles | Increase D | +5 | Medium | Oscillation = underdamped response |
-| Settling > 200 ms AND overshoot < 15% | Increase D | +5 | Low | Slow convergence, may have other causes |
+**PID Decision Table (Balanced thresholds shown):**
 
-*Yaw axis uses relaxed thresholds (1.5x overshoot limit, 1.5x sluggish threshold).*
+| Rule | Condition | Action | Step Size | Confidence | Rationale |
+|------|-----------|--------|-----------|------------|-----------|
+| **1a** | Overshoot > 25% (severity 1–2×) | D ↑ | +5 | High | D-term dampens bounce-back |
+| **1a** | Overshoot > 25% (severity 2–4×) | D ↑ | +10 | High | Proportional step for faster convergence |
+| **1a** | Overshoot > 25% (severity > 4×) | D ↑ | +15 | High | Extreme overshoot needs aggressive dampening |
+| **1a** | Overshoot > 25% AND (severity > 2× OR D ≥ 60% of max) | P ↓ | -5 / -10 | High | D alone insufficient at extreme overshoot |
+| **1b** | Overshoot 15–25% | D ↑ | +5 | Medium | Moderate overshoot, D-first strategy |
+| **1c** | FF-dominated overshoot (FF > P at peak) | FF boost ↓ | -5 | Medium | Overshoot caused by feedforward, not P/D |
+| **2** | Overshoot < 10% AND rise time > 80 ms | P ↑ | +5 | Medium | Sluggish response needs more authority |
+| **3** | Ringing > 2 cycles | D ↑ | +5 | Medium | Oscillation = underdamped response |
+| **4** | Settling > 200 ms AND overshoot < 15% | D ↑ | +5 | Low | Slow convergence, may have other causes |
+| **5a** | Steady-state error > 5% | I ↑ | +5 / +10 | Medium / High | Tracking drift during holds, improves wind resistance |
+| **5b** | Low error + slow settling + overshoot | I ↓ | -5 | Low | I-term oscillation pattern |
+
+**Post-Processing Rules:**
+
+| Rule | Condition | Action | Rationale |
+|------|-----------|--------|-----------|
+| **Damping ratio (underdamped)** | D/P < 0.45, no existing D rec | D ↑ to reach 0.45 ratio | Maintains healthy D/P balance |
+| **Damping ratio (overdamped)** | D/P > 0.85, D was increased | P ↑ proportionally | Prevents excessive damping after D adjustment |
+| **Damping ratio (overdamped)** | D/P > 0.85, no recs exist | D ↓ to reach 0.85 ratio | Reduces motor heat and noise |
+| **D-term effectiveness (critical)** | D increase rec + dCritical flag | Upgrade confidence → High | D-term is doing useful dampening work, increase is safe |
+| **D-term effectiveness (low)** | D decrease rec + effectiveness < 0.3 | Advisory note appended | D may not be doing much dampening — filter issue? |
+| **FF energy ratio** | P decrease rec + meanFFEnergyRatio > 0.6 | Downgrade confidence → Low | Overshoot is feedforward-dominated, not P-caused |
+
+**Transfer Function Rules (Wiener deconvolution, when no step data):**
+
+| Rule | Condition | Action | Step Size | Confidence |
+|------|-----------|--------|-----------|------------|
+| **TF-1** | Phase margin < 45° | D ↑ | +5 / +10 | Medium |
+| **TF-2** | Synthetic overshoot > threshold | Same as Rule 1a | varies | Medium |
+| **TF-3** | Bandwidth < 40 Hz, no overshoot | P ↑ | +5 | Medium |
 
 **Safety Bounds:**
 
@@ -655,21 +764,26 @@ The thresholds below show the **Balanced** (default) values. These adapt based o
 
 **Key design decisions:**
 
-- **D-first strategy for overshoot** — Increasing D (dampening) is always the first action. P is only reduced as a supplement when overshoot is extreme (>2× threshold) or D is already near its ceiling (≥60% of max). This is safer for beginners because lowering P too aggressively can make the drone feel unresponsive.
-- **Proportional step sizing** — Step sizes scale with overshoot severity: ±5 for mild issues (baseline, consistent with FPVSIM guidance), ±10 for significant overshoot (2–4× threshold), and ±15 for extreme cases (>4× threshold). This reduces the number of tuning flights needed while staying within safety bounds. All changes are clamped to safe min/max ranges (P: 20–120, D: 15–80).
+- **D-first strategy for overshoot** — Increasing D (dampening) is always the first action. P is only reduced as a supplement when overshoot is extreme (>2× threshold) or D is already near its ceiling (≥60% of max). This is safer for beginners because lowering P too aggressively can make the quad feel unresponsive.
+- **Proportional step sizing** — Step sizes scale with overshoot severity: ±5 for mild issues (baseline, consistent with FPVSIM guidance), ±10 for significant overshoot (2–4× threshold), and ±15 for extreme cases (>4× threshold). This reduces the number of tuning flights needed while staying within safety bounds. All changes are clamped to safe min/max ranges.
 - **Flight-PID anchoring** — Recommendations target values relative to the PIDs recorded in the Blackbox header, not the FC's current values. This prevents recommendation drift when PIDs are changed between flights and log analysis.
-- **Feedforward awareness** — The recommender detects whether feedforward is active from BBL headers (`feedforward_boost > 0`). At each step's overshoot peak, it compares `|pidF|` vs `|pidP|` magnitude. When overshoot is FF-dominated (FF contributes more than P), the engine skips P/D changes and instead recommends reducing `feedforward_boost`. This prevents misattributing FF-caused overshoot to P/D imbalance.
-- **Flight style adaptation** — PID thresholds adjust based on the user's profile flight style. Smooth (cinematic) pilots get tighter overshoot tolerances and accept slower response. Aggressive (racing) pilots tolerate more overshoot in exchange for maximum snap. The Balanced default matches the standard thresholds. Style is set per-profile and preset profiles include sensible defaults (e.g., 5" Race → Aggressive).
+- **Feedforward awareness** — The recommender detects whether feedforward is active from BBL headers (`feedforward_boost > 0`). At each step's overshoot peak, it compares `|pidF|` vs `|pidP|` magnitude. When overshoot is FF-dominated (FF contributes more than P), the engine skips P/D changes and instead recommends reducing `feedforward_boost`. The FF energy ratio (sum-of-squares over the response window) provides additional confidence gating for P-decrease recommendations.
+- **Flight style adaptation** — PID thresholds adjust based on the user's profile flight style. Smooth (cinematic) pilots get tighter overshoot tolerances and accept slower response. Aggressive (racing) pilots tolerate more overshoot in exchange for maximum snap. The Balanced default matches the standard thresholds.
+- **Damping ratio validation** — After all per-axis rules run, a post-processing step checks the D/P ratio stays within the 0.45–0.85 range. This ensures D and P remain balanced regardless of which individual rules fired.
+- **D-term effectiveness gating** — When D-term effectiveness data is available (from `DTermAnalyzer`), D-increase recommendations get confidence boosted if D is doing critical dampening work (`dCritical`), and D-decrease recommendations get annotated if D effectiveness is low (< 0.3), suggesting the real issue may be filter configuration rather than excessive D.
 
 ### Interactive Analysis Charts
 
 Analysis results are visualized with interactive SVG charts (Recharts):
 
 - **Spectrum Chart** — FFT noise spectrum per axis (roll/pitch/yaw), with noise floor reference lines and peak frequency markers. Helps users visually understand where noise lives in the frequency domain.
-- **Step Response Chart** — Overlaid setpoint vs. gyro traces for individual steps, with prev/next navigation and a metrics overlay (overshoot %, rise time, settling time, latency). Shows exactly how the drone tracked each stick input.
-- **Axis Tabs** — Shared roll/pitch/yaw/all tab selector for both chart types.
+- **Step Response Chart** — Overlaid setpoint vs. gyro traces for individual steps, with prev/next navigation and a metrics overlay (overshoot %, rise time, settling time, latency). Shows exactly how the quad tracked each stick input.
+- **Bode Plot** — Transfer function magnitude (dB) and phase (degrees) vs frequency. Shows bandwidth, gain margin, and phase margin from Wiener deconvolution. Available in Quick Tune wizard and AnalysisOverview.
+- **Noise Comparison Chart** — Before/after spectrum overlay with per-axis dB delta indicators. Shows tuning improvement on completion.
+- **Quality Trend Chart** — Flight quality score progression across tuning sessions. Minimum 2 data points to render.
+- **Axis Tabs** — Shared roll/pitch/yaw/all tab selector for all chart types.
 
-Charts are integrated directly into the tuning wizard steps (filter analysis and PID analysis) as collapsible sections, open by default.
+Charts are integrated directly into the tuning wizard steps (filter analysis, PID analysis, quick analysis) as collapsible sections, open by default.
 
 ### Safety & Rollback
 - All tuning changes create an automatic safety snapshot before applying
@@ -685,19 +799,22 @@ The autotuning rules and thresholds are based on established FPV community pract
 |--------|----------|
 | [Betaflight PID Tuning Guide](https://www.betaflight.com/docs/wiki/guides/current/PID-Tuning-Guide) | P/I/D role definitions, overshoot→D rule, bounce-back diagnostics |
 | [FPVSIM Step Response Guide](https://fpvsim.com/how-tos/step-response-pd-balance) | P/D balance via step response graphs, ±5 step size, baseline values |
+| [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) | Wiener deconvolution reference implementation, transfer function approach |
 | [Oscar Liang: PID Filter Tuning](https://oscarliang.com/pid-filter-tuning-blackbox/) | Blackbox-based tuning workflow, PIDToolBox methodology |
-| [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) | Step response as PID performance metric, deconvolution approach |
-| [PIDtoolbox](https://pidtoolbox.com/home) | Overshoot 10–15% as ideal range for multirotors |
+| [PIDtoolbox](https://pidtoolbox.com/home) | Overshoot 10–15% as ideal range for multirotors, spectral analysis |
 | [UAV Tech Tuning Principles](https://theuavtech.com/tuning/) | D-gain as damper, P-gain authority, safety-first approach |
+| [FPVtune](https://dev.to/fpvtune/i-built-an-auto-pid-tuning-tool-for-betaflight-heres-how-it-works-under-the-hood-okg) | Prop wash detection, D-term effectiveness ratio concepts |
 | Standard control theory (rise time, settling, overshoot definitions) | Metric definitions consistent with MATLAB `stepinfo` |
 
 ## Known Limitations
 
 - MSP v1 only (v2 support planned)
-- Blackbox analysis supports both onboard flash and SD card storage (SD card uses MSC mode for download)
 - Requires test flights in a safe environment
 - Huffman-compressed Blackbox data not yet supported (rare, BF 4.1+ feature)
 - Feedforward: detection and FF-aware PID recommendations implemented; direct FF parameter tuning (writing `feedforward_boost` via MSP) not yet supported
+- Prop wash detection and D-term effectiveness: backend analysis complete, UI visualization pending
+- Bayesian PID optimizer: framework and tests complete, integration into recommendation pipeline pending
+- Throttle spectrogram: analysis module complete, UI visualization pending
 
 ## Development Roadmap
 
