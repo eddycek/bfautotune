@@ -316,6 +316,17 @@ export class MockMSPClient extends EventEmitter {
   }
 
   /**
+   * Set the next flight type for guided (Deep Tune) sessions.
+   * Called when a guided tuning session is started.
+   * Ensures correct flight cycling after a previous Flash Tune session.
+   */
+  setGuidedTuneMode(): void {
+    this._nextFlightType = 'filter';
+    this._lastSessionType = 'guided';
+    logger.info('[DEMO] Guided tune mode set — next flight: filter');
+  }
+
+  /**
    * Configure stress-test scenario overrides per cycle.
    * When a cycle matches, the stress generator is used instead of the default.
    *

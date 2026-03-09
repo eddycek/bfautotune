@@ -19,6 +19,8 @@ interface QualityTrendChartProps {
 }
 
 interface TrendDataPoint {
+  index: number;
+  label: string;
   date: string;
   score: number;
   tier: string;
@@ -26,37 +28,74 @@ interface TrendDataPoint {
   noiseLevel: string;
   filterChanges: number;
   pidChanges: number;
+  components: string;
 }
 
-function formatDateShort(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const TIER_COLORS: Record<string, string> = {
+  Excellent: '#51cf66',
+  Good: '#ffd43b',
+  Fair: '#ff922b',
+  Poor: '#ff6b6b',
+};
+
+function formatDateFull(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatDateAxis(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.[0]) return null;
   const d = payload[0].payload as TrendDataPoint;
+  const tierColor = TIER_COLORS[d.tier] ?? '#aaa';
+  const totalChanges = d.filterChanges + d.pidChanges;
+
   return (
     <div className="quality-trend-tooltip">
-      <div className="quality-trend-tooltip-score">
-        {d.score} <span className={`quality-trend-tooltip-tier tier-${d.tier}`}>{d.tier}</span>
+      <div className="quality-trend-tooltip-header">
+        <span className="quality-trend-tooltip-session">#{d.index}</span>
+        <span className="quality-trend-tooltip-date">{d.date}</span>
       </div>
-      <div className="quality-trend-tooltip-type">{d.tuningType}</div>
-      <div className="quality-trend-tooltip-detail">
-        Noise: {d.noiseLevel}
-        {d.filterChanges + d.pidChanges > 0 && (
-          <>
-            {' '}
-            &middot;{' '}
-            {[
-              d.filterChanges > 0 ? `${d.filterChanges} filter` : '',
-              d.pidChanges > 0 ? `${d.pidChanges} PID` : '',
-            ]
-              .filter(Boolean)
-              .join(' + ')}{' '}
-            changes
-          </>
-        )}
+      <div className="quality-trend-tooltip-score-row">
+        <span className="quality-trend-tooltip-score-value" style={{ color: tierColor }}>
+          {d.score}
+        </span>
+        <span className="quality-trend-tooltip-score-max">/100</span>
+        <span className="quality-trend-tooltip-tier" style={{ color: tierColor }}>
+          {d.tier}
+        </span>
       </div>
+      <div className="quality-trend-tooltip-meta">
+        <span className="quality-trend-tooltip-type">{d.tuningType}</span>
+        <span className="quality-trend-tooltip-noise">Noise: {d.noiseLevel}</span>
+      </div>
+      {totalChanges > 0 && (
+        <div className="quality-trend-tooltip-changes">
+          {[
+            d.filterChanges > 0 ? `${d.filterChanges} filter` : '',
+            d.pidChanges > 0 ? `${d.pidChanges} PID` : '',
+          ]
+            .filter(Boolean)
+            .join(' + ')}{' '}
+          changes applied
+        </div>
+      )}
+      {totalChanges === 0 && (
+        <div className="quality-trend-tooltip-changes muted">No changes applied</div>
+      )}
+      {d.components && <div className="quality-trend-tooltip-components">{d.components}</div>}
     </div>
   );
 }
@@ -73,14 +112,20 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
         verificationMetrics: record.verificationMetrics,
       });
       if (score) {
+        const componentLabels = score.components
+          .map((c) => `${c.label}: ${c.score}/${c.maxPoints}`)
+          .join(', ');
         points.push({
-          date: formatDateShort(record.completedAt),
+          index: points.length + 1,
+          label: `#${points.length + 1}`,
+          date: formatDateFull(record.completedAt),
           score: score.overall,
           tier: TIER_LABELS[score.tier],
           tuningType: record.tuningType ? TUNING_TYPE_LABELS[record.tuningType] : 'Tuning',
           noiseLevel: record.filterMetrics?.noiseLevel ?? 'unknown',
           filterChanges: record.appliedFilterChanges.length,
           pidChanges: record.appliedPIDChanges.length,
+          components: componentLabels,
         });
       }
     }
@@ -96,7 +141,7 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
         <ResponsiveContainer width="100%" height={180}>
           <LineChart data={data} margin={{ top: 8, right: 56, left: 8, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#aaa' }} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#aaa' }} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#aaa' }} width={32} />
             <Tooltip content={<CustomTooltip />} />
             <ReferenceLine
