@@ -72,6 +72,8 @@ interface DemoSessionConfig {
   iInterval?: number;
   /** Per-axis step response parameters (overrides DEFAULT_RESPONSE_PARAMS) */
   responseParams?: [AxisResponseParams, AxisResponseParams, AxisResponseParams];
+  /** Roll noise multiplier relative to pitch/yaw (for axis asymmetry simulation) */
+  axisAsymmetry?: number;
 }
 
 /** Step event for gyro response simulation */
@@ -188,6 +190,7 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
     injectSteps,
     iInterval = 2,
     responseParams = DEFAULT_RESPONSE_PARAMS,
+    axisAsymmetry = 1.0,
   } = config;
 
   const parts: Buffer[] = [];
@@ -305,7 +308,9 @@ function buildDemoSession(config: DemoSessionConfig): Buffer {
       let value = gyroBase[axis];
 
       // Broadband gyro noise (simulates natural vibration)
-      value += gaussianNoise(noiseAmplitude);
+      // axisAsymmetry multiplies roll (axis 0) noise to simulate bent prop / damaged motor
+      const axisNoiseMult = axis === 0 ? axisAsymmetry : 1.0;
+      value += gaussianNoise(noiseAmplitude * axisNoiseMult);
 
       // Motor harmonic (strong peak in spectrum)
       value += motorHarmonicAmplitude * Math.sin(2 * Math.PI * motorHarmonicHz * timeSec + axis);
@@ -576,4 +581,66 @@ export function generateCombinedDemoBBL(cycle = 0): Buffer {
   });
 
   return Buffer.concat([filterSession, garbage, pidSession]);
+}
+
+// ── Stress-test BBL generators ──────────────────────────────────
+
+/**
+ * Generate a short, poor-quality BBL with few data points.
+ * Triggers low data quality warnings (few_segments, short_hover_time, few_steps_per_axis).
+ */
+export function generatePoorQualityBBL(): Buffer {
+  logger.info('[DEMO] Generating poor quality BBL (short, few steps)...');
+  return buildDemoSession({
+    frameCount: 8000, // 2s at 4000 Hz — very short
+    gyroBase: [2, -1, 0],
+    noiseAmplitude: 20,
+    motorHarmonicHz: 160,
+    motorHarmonicAmplitude: 50,
+    electricalNoiseHz: 600,
+    electricalNoiseAmplitude: 10,
+    injectSteps: true,
+    iInterval: 2,
+    responseParams: computeCycleResponseParams(0),
+  });
+}
+
+/**
+ * Generate a BBL with extreme noise and asymmetric axes.
+ * Triggers mechanical health warnings (extreme_noise, axis_asymmetry).
+ */
+export function generateMechanicalIssueBBL(): Buffer {
+  logger.info('[DEMO] Generating mechanical issue BBL (extreme noise, asymmetry)...');
+  return buildDemoSession({
+    frameCount: 40000, // 10s
+    gyroBase: [2, -1, 0],
+    noiseAmplitude: 60, // Very high noise → extreme noise floor
+    motorHarmonicHz: 140, // Lower motor harmonic (bent prop)
+    motorHarmonicAmplitude: 120, // Massive harmonic
+    electricalNoiseHz: 500,
+    electricalNoiseAmplitude: 25,
+    injectSteps: false,
+    iInterval: 2,
+    axisAsymmetry: 3.0, // Roll noise 3x higher than pitch
+  });
+}
+
+/**
+ * Generate a BBL with very high noise — simulates windy conditions.
+ * High gyro variance during hover triggers wind disturbance detection.
+ */
+export function generateWindyFlightBBL(): Buffer {
+  logger.info('[DEMO] Generating windy flight BBL (high hover variance)...');
+  return buildDemoSession({
+    frameCount: 40000, // 10s
+    gyroBase: [2, -1, 0],
+    noiseAmplitude: 35, // High noise in hover
+    motorHarmonicHz: 160,
+    motorHarmonicAmplitude: 30,
+    electricalNoiseHz: 600,
+    electricalNoiseAmplitude: 8,
+    injectSteps: true,
+    iInterval: 2,
+    responseParams: computeCycleResponseParams(0),
+  });
 }

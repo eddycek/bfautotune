@@ -347,11 +347,57 @@ export class MockMSPClient extends EventEmitter {
   }
 
   async getFilterConfiguration(): Promise<CurrentFilterSettings> {
-    return { ...DEMO_FILTER_CONFIG };
+    // Return current state reflecting any applied changes
+    const s = this.connection.appliedSettings;
+    return {
+      gyro_lpf1_static_hz: intOr(
+        s.get('gyro_lpf1_static_hz'),
+        DEMO_FILTER_CONFIG.gyro_lpf1_static_hz
+      ),
+      gyro_lpf2_static_hz: intOr(
+        s.get('gyro_lpf2_static_hz'),
+        DEMO_FILTER_CONFIG.gyro_lpf2_static_hz
+      ),
+      dterm_lpf1_static_hz: intOr(
+        s.get('dterm_lpf1_static_hz'),
+        DEMO_FILTER_CONFIG.dterm_lpf1_static_hz
+      ),
+      dterm_lpf2_static_hz: intOr(
+        s.get('dterm_lpf2_static_hz'),
+        DEMO_FILTER_CONFIG.dterm_lpf2_static_hz
+      ),
+      dyn_notch_min_hz: intOr(s.get('dyn_notch_min_hz'), DEMO_FILTER_CONFIG.dyn_notch_min_hz),
+      dyn_notch_max_hz: intOr(s.get('dyn_notch_max_hz'), DEMO_FILTER_CONFIG.dyn_notch_max_hz),
+      rpm_filter_harmonics: intOr(
+        s.get('rpm_filter_harmonics'),
+        DEMO_FILTER_CONFIG.rpm_filter_harmonics!
+      ),
+      rpm_filter_min_hz: intOr(s.get('rpm_filter_min_hz'), DEMO_FILTER_CONFIG.rpm_filter_min_hz!),
+      dyn_notch_count: intOr(s.get('dyn_notch_count'), DEMO_FILTER_CONFIG.dyn_notch_count!),
+      dyn_notch_q: intOr(s.get('dyn_notch_q'), DEMO_FILTER_CONFIG.dyn_notch_q!),
+    };
   }
 
   async getPIDConfiguration(): Promise<PIDConfiguration> {
-    return JSON.parse(JSON.stringify(DEMO_PID_CONFIG));
+    // Return current state reflecting any applied changes
+    const s = this.connection.appliedSettings;
+    return {
+      roll: {
+        P: intOr(s.get('p_roll'), DEMO_PID_CONFIG.roll.P),
+        I: intOr(s.get('i_roll'), DEMO_PID_CONFIG.roll.I),
+        D: intOr(s.get('d_roll'), DEMO_PID_CONFIG.roll.D),
+      },
+      pitch: {
+        P: intOr(s.get('p_pitch'), DEMO_PID_CONFIG.pitch.P),
+        I: intOr(s.get('i_pitch'), DEMO_PID_CONFIG.pitch.I),
+        D: intOr(s.get('d_pitch'), DEMO_PID_CONFIG.pitch.D),
+      },
+      yaw: {
+        P: intOr(s.get('p_yaw'), DEMO_PID_CONFIG.yaw.P),
+        I: intOr(s.get('i_yaw'), DEMO_PID_CONFIG.yaw.I),
+        D: intOr(s.get('d_yaw'), DEMO_PID_CONFIG.yaw.D),
+      },
+    };
   }
 
   async setPIDConfiguration(config: PIDConfiguration): Promise<void> {
@@ -371,7 +417,17 @@ export class MockMSPClient extends EventEmitter {
   }
 
   async getFeedforwardConfiguration(): Promise<FeedforwardConfiguration> {
-    return { ...DEMO_FF_CONFIG };
+    const s = this.connection.appliedSettings;
+    return {
+      transition: intOr(s.get('feedforward_transition'), DEMO_FF_CONFIG.transition),
+      rollGain: intOr(s.get('f_roll'), DEMO_FF_CONFIG.rollGain),
+      pitchGain: intOr(s.get('f_pitch'), DEMO_FF_CONFIG.pitchGain),
+      yawGain: intOr(s.get('f_yaw'), DEMO_FF_CONFIG.yawGain),
+      boost: intOr(s.get('feedforward_boost'), DEMO_FF_CONFIG.boost),
+      smoothFactor: intOr(s.get('feedforward_smooth_factor'), DEMO_FF_CONFIG.smoothFactor),
+      jitterFactor: intOr(s.get('feedforward_jitter_factor'), DEMO_FF_CONFIG.jitterFactor),
+      maxRateLimit: intOr(s.get('feedforward_max_rate_limit'), DEMO_FF_CONFIG.maxRateLimit),
+    };
   }
 
   async getPidProcessDenom(): Promise<number> {
@@ -586,4 +642,11 @@ export class MockMSPClient extends EventEmitter {
   async validateFirmwareVersion(): Promise<void> {
     // Demo FC is always compatible
   }
+}
+
+/** Parse int from string, fallback to default if missing/NaN */
+function intOr(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? fallback : n;
 }

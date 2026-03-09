@@ -18,6 +18,7 @@
     "demo:generate-history": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'mixed'",
     "demo:generate-history:deep": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'deep'",
     "demo:generate-history:flash": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'flash'",
+    "demo:generate-history:stress": "vite build && npx playwright test e2e/demo-generate-stress.spec.ts",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
