@@ -697,13 +697,17 @@ The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs acros
 | [PIDtoolbox](https://pidtoolbox.com/home) | Spectral analysis methodology, noise floor percentile approach |
 | Real Blackbox logs (3"–7" quads) | Calibration of -10 dB / -70 dB noise anchor points |
 
-### PID Tuning (Step Response Analysis)
+### PID Tuning (Unified Pipeline)
 
-PID tuning works by detecting sharp stick inputs ("steps") in the Blackbox log and measuring how the quad's gyro (actual rotation) tracks the pilot's command (setpoint).
+PID tuning uses a unified pipeline that supports two extraction methods feeding into shared post-processing. Deep Tune detects sharp stick inputs and measures direct step response. Flash Tune estimates the transfer function via Wiener deconvolution and derives synthetic step response metrics. Both methods produce the same `AxisStepProfile` structure, which flows into the same recommendation engine.
 
-**Pipeline:** `StepDetector` → `StepMetrics` → `PIDRecommender` (+ `PropWashDetector`, `DTermAnalyzer`, `CrossAxisDetector`)
+**Unified Pipeline:** Mode-specific extraction → `PIDRecommender` → Post-processing (D-term gating, prop wash, FF energy, data quality, Bayesian, sliders)
 
-#### Step 1: Detect Step Inputs
+**Deep Tune extraction:** `StepDetector` → `StepMetrics` → profiles + `CrossAxisDetector` + `FeedforwardAnalyzer`
+**Flash Tune extraction:** `TransferFunctionEstimator` (Wiener deconvolution) → synthetic metrics + `ThrottleTFAnalyzer`
+**Shared analyses (both modes):** `PropWashDetector`, `DTermAnalyzer`, `DataQualityScorer`, `SliderMapper`, `BayesianPIDOptimizer`
+
+#### Deep Tune: Step Detection
 
 A "step" is a rapid, decisive stick movement. The detector scans setpoint data for each axis (roll, pitch, yaw):
 
@@ -715,7 +719,7 @@ A "step" is a rapid, decisive stick movement. The detector scans setpoint data f
    - **Hold time**: setpoint must hold near the new value for ≥ 50 ms (not just a transient spike)
    - **Cooldown**: at least 100 ms gap between consecutive steps (avoids rapid stick reversals)
 
-#### Step 2: Measure Response Metrics
+#### Deep Tune: Response Metrics
 
 For each valid step, the algorithm extracts a 300 ms response window and computes:
 
@@ -731,9 +735,13 @@ For each valid step, the algorithm extracts a 300 ms response window and compute
 
 These metrics follow standard control theory definitions (consistent with MATLAB `stepinfo`).
 
-#### Step 3: Generate PID Recommendations
+#### Flash Tune: Transfer Function Extraction
 
-The recommendation engine applies rule-based tuning logic anchored to the PID values from the Blackbox log header (the PIDs that were active during the flight). This anchoring makes recommendations **convergent** — applying them and re-analyzing the same log produces no further changes.
+Flash Tune uses Wiener deconvolution to estimate the closed-loop transfer function H(f) = S_xy(f) / (S_xx(f) + ε) from any flight data — no dedicated maneuvers needed. A synthetic step response is derived via IFFT cumulative integration. Key metrics extracted: bandwidth (-3 dB), phase margin, gain margin, overshoot, settling time, DC gain. Additionally, `ThrottleTFAnalyzer` bins flight data by throttle level (5 bands) and estimates TF per band, revealing TPA tuning problems when metrics vary significantly across throttle range.
+
+#### Shared Recommendation Engine
+
+The recommendation engine applies rule-based tuning logic anchored to the PID values from the Blackbox log header (the PIDs that were active during the flight). This anchoring makes recommendations **convergent** — applying them and re-analyzing the same log produces no further changes. Both Deep Tune and Flash Tune feed into the same `recommendPID()` call — step-response rules and TF rules run together, with deduplication preventing conflicting recommendations on the same setting.
 
 **Flight Style Thresholds:**
 
@@ -780,18 +788,18 @@ The recommendation engine applies rule-based tuning logic anchored to the PID va
 | **Prop wash (severe, no D rec)** | Severe prop wash (≥ 5×) on worst axis, no D rec | D ↑ +5 on worst axis | Medium | Prop wash oscillation during descents needs more dampening |
 | **FF energy ratio** | P decrease rec + meanFFEnergyRatio > 0.6 | Downgrade confidence → Low | Overshoot is feedforward-dominated, not P-caused |
 
-**Transfer Function Rules (Wiener deconvolution — used in Flash Tune and as fallback when no step inputs detected):**
+**Transfer Function Rules (Wiener deconvolution — primary source for Flash Tune, supplementary for Deep Tune when TF data available):**
 
-The transfer function approach is based on [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer (2018). PIDlab estimates the closed-loop transfer function H(f) from setpoint→gyro data via cross-spectral density: `H(f) = S_xy(f) / (S_xx(f) + ε)`, where ε is a noise-floor-based regularization term. A synthetic step response is derived by inverse-FFT of H(f) followed by cumulative integration (impulse → step). Classical control stability metrics (bandwidth, phase margin, gain margin) are extracted from the Bode plot representation.
+The transfer function approach is based on [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer (2018). PIDlab estimates the closed-loop transfer function H(f) from setpoint→gyro data via cross-spectral density: `H(f) = S_xy(f) / (S_xx(f) + ε)`, where ε is a noise-floor-based regularization term. A synthetic step response is derived by inverse-FFT of H(f) followed by cumulative integration (impulse → step). Classical control stability metrics (bandwidth, phase margin, gain margin) are extracted from the Bode plot representation. Since the unified pipeline (PR #203), TF rules run alongside step-response rules in a single `recommendPID()` call — both contribute recommendations which are then subject to the same post-processing (D-term effectiveness gating, prop wash integration, data quality adjustment).
 
-| Rule | Condition | Action | Step Size | Confidence |
-|------|-----------|--------|-----------|------------|
+| Rule | Condition | Action | Step Size | Base Confidence |
+|------|-----------|--------|-----------|-----------------|
 | **TF-1** | Phase margin < 45° (critical: < 30°) | D ↑ | +5 / +10 | Medium |
 | **TF-2** | Synthetic overshoot > threshold | Same as Rule 1a | varies | Medium |
 | **TF-3** | Bandwidth < 40 Hz (yaw: < 28 Hz), no overshoot | P ↑ | +5 | Medium |
 | **TF-4** | DC gain < -1 dB (poor steady-state tracking) | I ↑ | +5 / +10 | Low / Medium |
 
-TF rules are integrated into the unified pipeline alongside step-response rules. Confidence is determined by the same data quality and D-term effectiveness gating as Deep Tune — no blanket caps. Flash Tune also benefits from prop wash integration, feedforward analysis, and Bayesian optimization.
+Base confidence is then adjusted by the same post-processing as step-response rules: D-term effectiveness gating can upgrade (→ High) or downgrade (→ Low), prop wash integration can boost D-increase confidence, and data quality scoring can further downgrade for poor-quality data. There is no blanket confidence cap for Flash Tune — the gating logic handles it identically to Deep Tune.
 
 **Safety Bounds:**
 
@@ -803,6 +811,7 @@ TF rules are integrated into the unified pipeline alongside step-response rules.
 
 **Key design decisions:**
 
+- **Unified pipeline** — Both Deep Tune (step response) and Flash Tune (Wiener deconvolution) share the same post-processing: D-term effectiveness gating, prop wash integration, damping ratio validation, data quality scoring, and safety bounds. The only difference is how raw metrics are extracted — step detection vs transfer function estimation. This ensures recommendation consistency regardless of tuning mode.
 - **D-first strategy for overshoot** — Increasing D (dampening) is always the first action. P is only reduced as a supplement when overshoot is extreme (>2× threshold) or D is already near its ceiling (≥60% of max). This is safer for beginners because lowering P too aggressively can make the quad feel unresponsive.
 - **Proportional step sizing** — Step sizes scale with overshoot severity: ±5 for mild issues (baseline, consistent with FPVSIM guidance), ±10 for significant overshoot (2–4× threshold), and ±15 for extreme cases (>4× threshold). This reduces the number of tuning flights needed while staying within safety bounds. All changes are clamped to safe min/max ranges.
 - **Flight-PID anchoring** — Recommendations target values relative to the PIDs recorded in the Blackbox header, not the FC's current values. This prevents recommendation drift when PIDs are changed between flights and log analysis.
