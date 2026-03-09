@@ -1,6 +1,6 @@
 # Flash Tune Recommendation Parity
 
-> **Status**: Proposed
+> **Status**: Active (PRs #203–#205: Tasks 1, 2, 3, 4, 5, 6 done)
 
 ## Problem Statement
 
@@ -193,7 +193,7 @@ Everything else is shared: propWash, dTermEffectiveness, recommendPID, recommend
 
 ## Implementation Plan
 
-### Task 1: Unify PIDAnalyzer into Single Pipeline
+### Task 1: Unify PIDAnalyzer into Single Pipeline ✅ (PR #203)
 
 **Files**: `src/main/analysis/PIDAnalyzer.ts`
 
@@ -241,7 +241,7 @@ async function analyzePIDCore(
 - New tests: verify Flash Tune result now includes `propWash`, `dTermEffectiveness`, `dataQuality`, FF recommendations
 - New test: verify no blanket confidence cap — HIGH confidence possible when gating supports it
 
-### Task 2: Feedforward Recommendations for Flash Tune
+### Task 2: Feedforward Recommendations for Flash Tune ✅ (PR #203)
 
 **Files**: `src/main/analysis/FeedforwardAnalyzer.ts`
 
@@ -293,7 +293,7 @@ interface ThrottleTFBand {
 - Unit test: test with uniform response (low variance) vs throttle-dependent response (high variance)
 - Unit test: test graceful skip when insufficient throttle coverage
 
-### Task 4: Unified Quality Score — Add TF Components
+### Task 4: Unified Quality Score — Add TF Components ✅ (PR #204)
 
 **Files**: `src/shared/utils/tuneQualityScore.ts`
 
@@ -339,7 +339,7 @@ Current Flash Tune scores use only 2-3 components (Noise Floor, Overshoot, optio
 - Unit test: verify component count parity (4-5 for both types)
 - Unit test: verify mixed-type history produces valid trend data
 
-### Task 5: I-Term Approximation from Transfer Function
+### Task 5: I-Term Approximation from Transfer Function ✅ (PR #204)
 
 **Files**: `src/main/analysis/TransferFunctionEstimator.ts`, `src/main/analysis/PIDRecommender.ts`
 
@@ -360,7 +360,7 @@ Map DC gain deficit to approximate steady-state error in `PIDRecommender` TF pat
 - Unit test: `TransferFunctionEstimator.test.ts` — verify DC gain extraction
 - Unit test: `PIDRecommender.test.ts` — verify I-term rec from TF DC gain deficit
 
-### Task 6: Update Demo Data Generator
+### Task 6: Update Demo Data Generator ✅ (PR #204)
 
 **Files**: `src/main/demo/DemoDataGenerator.ts`, `src/main/demo/DemoDataGenerator.test.ts`
 

@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 2301 unit tests across 113 files + 23 Playwright E2E tests** (last verified: March 9, 2026)
+**Total: 2331 unit tests across 114 files + 23 Playwright E2E tests** (last verified: March 9, 2026)
 
 ### UI Components
 
@@ -310,7 +310,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
 | `analysis/StepMetrics.test.ts` | 53 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS computation and aggregation, adaptive window, FF energy ratio |
-| `analysis/PIDRecommender.test.ts` | 80 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling, TF-based recommendations, damping ratio, I-term, D-term effectiveness gating, prop wash integration |
+| `analysis/PIDRecommender.test.ts` | 84 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling, TF-based recommendations, damping ratio, I-term, D-term effectiveness gating, prop wash integration, Rule TF-4 DC gain I-term |
 | `analysis/PIDAnalyzer.test.ts` | 21 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring, cross-axis, propwash integration |
 | `analysis/CrossAxisDetector.test.ts` | 20 | Cross-axis coupling detection, axis interaction analysis |
 | `analysis/PropWashDetector.test.ts` | 15 | Propwash detection, wash-out frequency analysis |
@@ -321,7 +321,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/SliderMapper.test.ts` | 16 | Slider-aligned PID mapping, master multiplier, PD ratio, buildRecommendedPIDs, slider delta computation |
 | `analysis/FeedforwardAnalyzer.test.ts` | 24 | Extended FF analysis, leading-edge overshoot detection, small-step jitter analysis, RC link rate extraction, smooth/jitter factor recommendations |
 | `analysis/BayesianPIDOptimizer.test.ts` | 31 | Gaussian Process surrogate, Expected Improvement, Latin Hypercube Sampling, bounds |
-| `analysis/TransferFunctionEstimator.test.ts` | 21 | Wiener deconvolution, frequency response estimation, Bode plot data, PID recommendations from transfer function |
+| `analysis/TransferFunctionEstimator.test.ts` | 23 | Wiener deconvolution, frequency response estimation, Bode plot data, PID recommendations from transfer function, DC gain extraction |
+| `analysis/ThrottleTFAnalyzer.test.ts` | 8 | Per-band TF analysis, throttle binning, variance computation, TPA warning, band boundaries |
 | `analysis/AnalysisPipeline.realdata.test.ts` | 20 | End-to-end filter+PID analysis with bf45-reference fixture and real_flight.bbl, safety bounds, determinism, performance |
 
 ### E2E Workflow Tests
@@ -341,7 +342,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `shared/utils/metricsExtract.test.ts` | 27 | Spectrum downsampling, filter/PID/TF metrics extraction, boundary handling, trackingErrorRMS extraction, step response downsampling |
-| `shared/utils/tuneQualityScore.test.ts` | 35 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping, TIER_LABELS, verification quality, transfer function metrics (bandwidth, phase margin) |
+| `shared/utils/tuneQualityScore.test.ts` | 36 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping, TIER_LABELS, verification quality, transfer function metrics (bandwidth, phase margin, quality parity) |
 | `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
 | `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |
 
