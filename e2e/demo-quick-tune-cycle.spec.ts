@@ -21,7 +21,7 @@ test.afterAll(async () => {
   await demo?.close();
 });
 
-test.describe.serial('quick tune cycle', () => {
+test.describe.serial('Flash Tune cycle', () => {
   test('start flash tune session', async () => {
     await demo.clickButton('Start Tuning Session');
 

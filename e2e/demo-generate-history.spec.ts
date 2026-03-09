@@ -36,7 +36,7 @@ async function runGuidedCycle(cycleNum: number): Promise<void> {
   const WAIT = 30_000;
   const ANALYSIS_WAIT = 60_000;
 
-  console.log(`\n=== Starting guided cycle ${cycleNum} ===`);
+  console.log(`\n=== Starting Deep Tune cycle ${cycleNum} ===`);
 
   // 1. Start Tuning Session (modal → Deep Tune)
   await demo.clickButton('Start Tuning Session');
@@ -125,7 +125,7 @@ async function runGuidedCycle(cycleNum: number): Promise<void> {
   await demo.clickButton('Skip & Complete');
   await demo.waitForText(/Deep Tune Complete/i, 15_000);
 
-  await demo.screenshot(`history-cycle-${cycleNum}-guided-complete`);
+  await demo.screenshot(`history-cycle-${cycleNum}-deep-complete`);
 
   const dismissBtn = page.getByRole('button', { name: 'Dismiss', exact: true });
   await dismissBtn.waitFor({ state: 'visible', timeout: 10_000 });
@@ -135,7 +135,7 @@ async function runGuidedCycle(cycleNum: number): Promise<void> {
     .getByRole('button', { name: /start tuning/i })
     .waitFor({ state: 'visible', timeout: WAIT });
 
-  console.log(`  Cycle ${cycleNum}: guided complete and dismissed`);
+  console.log(`  Cycle ${cycleNum}: Deep Tune complete and dismissed`);
 }
 
 async function runQuickCycle(cycleNum: number): Promise<void> {
@@ -143,7 +143,7 @@ async function runQuickCycle(cycleNum: number): Promise<void> {
   const WAIT = 30_000;
   const ANALYSIS_WAIT = 60_000;
 
-  console.log(`\n=== Starting quick tune cycle ${cycleNum} ===`);
+  console.log(`\n=== Starting Flash Tune cycle ${cycleNum} ===`);
 
   // 1. Start Flash Tune Session (modal → Flash Tune)
   await demo.clickButton('Start Tuning Session');
@@ -203,7 +203,7 @@ async function runQuickCycle(cycleNum: number): Promise<void> {
     .getByRole('button', { name: /start tuning/i })
     .waitFor({ state: 'visible', timeout: WAIT });
 
-  console.log(`  Cycle ${cycleNum}: quick tune complete and dismissed`);
+  console.log(`  Cycle ${cycleNum}: Flash Tune complete and dismissed`);
 }
 
 async function verifyHistory(): Promise<void> {
