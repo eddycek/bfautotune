@@ -5,7 +5,7 @@
  * Missing components are redistributed evenly among available ones.
  *
  * Deep Tune (step response): Noise Floor, Tracking RMS, Overshoot, Settling Time, [Noise Delta]
- * Flash Tune (transfer function): Noise Floor, Overshoot (from TF synthetic step), [Noise Delta]
+ * Flash Tune (transfer function): Noise Floor, Overshoot (TF), Phase Margin, Bandwidth, [Noise Delta]
  *
  * Overshoot is a unified metric — Deep Tune sources it from step response measurements,
  * Flash Tune sources it from the TF-derived synthetic step response. Both measure the
@@ -97,6 +97,24 @@ const COMPONENTS: ComponentDef[] = [
     },
     best: 50,
     worst: 500,
+  },
+  {
+    label: 'Phase Margin',
+    getValue: (_filter, _pid, _verification, tf) => {
+      if (!tf) return undefined;
+      return (tf.roll.phaseMarginDeg + tf.pitch.phaseMarginDeg + tf.yaw.phaseMarginDeg) / 3;
+    },
+    best: 60, // 60° = very stable system
+    worst: 20, // 20° = near instability
+  },
+  {
+    label: 'Bandwidth',
+    getValue: (_filter, _pid, _verification, tf) => {
+      if (!tf) return undefined;
+      return (tf.roll.bandwidthHz + tf.pitch.bandwidthHz + tf.yaw.bandwidthHz) / 3;
+    },
+    best: 80, // 80 Hz = fast, responsive
+    worst: 20, // 20 Hz = sluggish
   },
   {
     label: 'Noise Delta',

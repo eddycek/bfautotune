@@ -675,6 +675,30 @@ function generateFrequencyDomainRecs(
       }
     }
   }
+
+  // Rule TF-4: DC gain deficit → I-term too low (poor steady-state tracking)
+  if (tf.dcGainDb < -1.0) {
+    // DC gain below -1 dB means system doesn't fully track setpoint at steady state
+    const deficit = Math.abs(tf.dcGainDb);
+    const iStep = deficit > 3 ? 10 : 5;
+    const targetI = clamp(base.I + iStep, I_GAIN_MIN, I_GAIN_MAX);
+    if (targetI !== pids.I) {
+      const existingIRec = recommendations.find((r) => r.setting === `pid_${axisName}_i`);
+      if (!existingIRec) {
+        recommendations.push({
+          setting: `pid_${axisName}_i`,
+          currentValue: pids.I,
+          recommendedValue: targetI,
+          reason:
+            `DC gain on ${axisName} is ${tf.dcGainDb.toFixed(1)} dB (below 0 dB), ` +
+            'indicating the system does not fully track the target at steady state. ' +
+            'Increasing I-term improves long-term tracking accuracy.',
+          impact: 'response',
+          confidence: deficit > 3 ? 'medium' : 'low',
+        });
+      }
+    }
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
