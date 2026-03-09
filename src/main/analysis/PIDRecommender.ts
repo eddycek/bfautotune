@@ -10,6 +10,7 @@ import type {
   DTermEffectiveness,
   FeedforwardContext,
   PIDRecommendation,
+  PropWashAnalysis,
 } from '@shared/types/analysis.types';
 import type { FlightStyle } from '@shared/types/profile.types';
 import type { TransferFunctionMetrics } from './TransferFunctionEstimator';
@@ -55,7 +56,8 @@ export function recommendPID(
   feedforwardContext?: FeedforwardContext,
   flightStyle: FlightStyle = 'balanced',
   tfMetrics?: TransferFunctionContext,
-  dTermEffectiveness?: DTermEffectiveness
+  dTermEffectiveness?: DTermEffectiveness,
+  propWash?: PropWashAnalysis
 ): PIDRecommendation[] {
   const recommendations: PIDRecommendation[] = [];
   const profiles = [roll, pitch, yaw] as const;
@@ -266,6 +268,11 @@ export function recommendPID(
     applyDTermEffectiveness(recommendations, dTermEffectiveness);
   }
 
+  // Post-process: prop wash context — boost D confidence or suggest D when severe
+  if (propWash) {
+    applyPropWashContext(recommendations, propWash, currentPIDs, flightPIDs);
+  }
+
   return recommendations;
 }
 
@@ -342,8 +349,12 @@ function validateDampingRatio(
 /**
  * Post-process D recommendations using D-term effectiveness data.
  *
- * - Boosts confidence on D-increase when D is critical for stability
- * - Adds advisory note when D effectiveness is low (<0.3)
+ * Three tiers of D-increase gating:
+ * - D ratio > 1.5 (dCritical) → D has headroom, boost confidence to high
+ * - D ratio 0.3–1.5 → D increase OK, add caution note about noise cost
+ * - D ratio < 0.3 → D is mostly noise, redirect to "improve filters first"
+ *
+ * For D decreases: annotate when D effectiveness is low.
  */
 function applyDTermEffectiveness(
   recommendations: PIDRecommendation[],
@@ -354,12 +365,80 @@ function applyDTermEffectiveness(
 
     const isIncrease = rec.recommendedValue > rec.currentValue;
 
-    if (isIncrease && dte.dCritical) {
-      rec.confidence = 'high';
+    if (isIncrease) {
+      if (dte.dCritical) {
+        // D is highly effective — safe to increase
+        rec.confidence = 'high';
+      } else if (dte.overall < 0.3) {
+        // D is mostly amplifying noise — redirect recommendation
+        rec.confidence = 'low';
+        rec.reason +=
+          ' However, D-term is mostly amplifying noise (effectiveness ' +
+          `${(dte.overall * 100).toFixed(0)}%) — improve filter configuration first for better results.`;
+      } else {
+        // Balanced range — allow increase but warn about noise cost
+        rec.reason += ` D-term effectiveness is moderate (${(dte.overall * 100).toFixed(0)}%) — monitor motor temperatures after applying.`;
+      }
+    } else {
+      // D decrease
+      if (dte.overall < 0.3) {
+        rec.reason += ' D-term effectiveness is low — D may not be doing much dampening work.';
+      }
     }
+  }
+}
 
-    if (!isIncrease && dte.overall < 0.3) {
-      rec.reason += ' D-term effectiveness is low — D may not be doing much dampening work.';
+/** Prop wash severity thresholds for recommendation integration */
+const PROPWASH_MODERATE_THRESHOLD = 2.0;
+const PROPWASH_SEVERE_THRESHOLD = 5.0;
+
+/**
+ * Post-process recommendations with prop wash context.
+ *
+ * - Severe prop wash + existing D increase → boost confidence
+ * - Severe prop wash + no D recommendation → suggest D increase on worst axis
+ * - Prop wash concentrated on one axis → flag asymmetric issue
+ */
+function applyPropWashContext(
+  recommendations: PIDRecommendation[],
+  pw: PropWashAnalysis,
+  currentPIDs: PIDConfiguration,
+  flightPIDs?: PIDConfiguration
+): void {
+  if (pw.events.length < 3 || pw.meanSeverity < PROPWASH_MODERATE_THRESHOLD) return;
+
+  const isSevere = pw.meanSeverity >= PROPWASH_SEVERE_THRESHOLD;
+  const worstAxis = pw.worstAxis;
+
+  // Boost confidence on existing D increase for worst axis
+  const existingDRec = recommendations.find(
+    (r) => r.setting === `pid_${worstAxis}_d` && r.recommendedValue > r.currentValue
+  );
+
+  if (existingDRec) {
+    if (isSevere) {
+      existingDRec.confidence = 'high';
+      existingDRec.reason += ` Prop wash is severe on ${worstAxis} (${pw.meanSeverity.toFixed(1)}× baseline at ~${Math.round(pw.dominantFrequencyHz)} Hz) — D increase will help.`;
+    }
+    return;
+  }
+
+  // No D recommendation exists for worst axis — suggest one if prop wash is severe
+  if (isSevere) {
+    const pids = currentPIDs[worstAxis];
+    const base = flightPIDs ? flightPIDs[worstAxis] : pids;
+    const targetD = clamp(base.D + 5, D_GAIN_MIN, D_GAIN_MAX);
+    if (targetD !== pids.D) {
+      recommendations.push({
+        setting: `pid_${worstAxis}_d`,
+        currentValue: pids.D,
+        recommendedValue: targetD,
+        reason:
+          `Severe prop wash detected on ${worstAxis} (${pw.meanSeverity.toFixed(1)}× baseline at ~${Math.round(pw.dominantFrequencyHz)} Hz). ` +
+          'Increasing D-term will help dampen the oscillation during descents.',
+        impact: 'stability',
+        confidence: 'medium',
+      });
     }
   }
 }

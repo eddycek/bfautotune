@@ -194,7 +194,8 @@ export async function analyzePID(
     feedforwardContext,
     flightStyle,
     undefined, // tfMetrics
-    dTermEffectiveness
+    dTermEffectiveness,
+    propWash
   );
 
   // Add FF-specific recommendations

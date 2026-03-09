@@ -233,10 +233,10 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 
 - **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation. Configurable window parameter (`windowMs?`)
 - **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement. Adaptive two-pass window sizing (`computeAdaptiveWindowMs()` — median-based, clamped 150-500ms). Steady-state error tracking (`steadyStateErrorPercent`)
-- **PIDRecommender**: Flight-PID-anchored P/D/I recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), I-term rules based on `meanSteadyStateError` with flight-style thresholds, D/P damping ratio validation (0.45-0.85 range), safety bounds (P: 20-120, D: 15-80, I: 30-120)
+- **PIDRecommender**: Flight-PID-anchored P/D/I recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), I-term rules based on `meanSteadyStateError` with flight-style thresholds, D/P damping ratio validation (0.45-0.85 range), safety bounds (P: 20-120, D: 15-80, I: 30-120). **D-term effectiveness gating**: 3-tier D-increase gating (>0.7 boost confidence, 0.3-0.7 allow+warn, <0.3 redirect to filters). **Prop wash integration**: severe prop wash (≥5×) boosts D-increase confidence or generates new D+5 recommendation on worst axis
 - **CrossAxisDetector**: Pearson correlation coupling detection between axis pairs. Thresholds: none (<0.15), mild (0.15-0.4), significant (≥0.4). Returns `CrossAxisCoupling`
-- **PropWashDetector**: Throttle-down event detection, post-event FFT in 20-90 Hz band. Returns `PropWashAnalysis` with events, meanSeverity, worstAxis, dominantFrequencyHz
-- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline. Two-pass step detection (first 500ms, then adaptive). Returns cross-axis coupling + propwash in result
+- **PropWashDetector**: Throttle-down event detection, post-event FFT in 20-90 Hz band. Returns `PropWashAnalysis` with events, meanSeverity, worstAxis, dominantFrequencyHz. Passed to `recommendPID()` for prop wash-aware D recommendations
+- **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline. Two-pass step detection (first 500ms, then adaptive). Passes both `dTermEffectiveness` and `propWash` to `recommendPID()` for integrated D-gain gating
 - IPC: `ANALYSIS_RUN_PID` + `EVENT_ANALYSIS_PROGRESS`
 
 ### Transfer Function Analysis Engine (`src/main/analysis/`)

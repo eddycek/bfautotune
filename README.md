@@ -263,7 +263,7 @@ npm run rebuild                      # Rebuild native modules (serialport)
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Unit tests:** 2272 tests across 112 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation.
+**Unit tests:** 2301 tests across 113 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation.
 
 **Playwright E2E:** 25 tests across 4 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (Deep Tune and Flash Tune).
 
@@ -765,7 +765,11 @@ The recommendation engine applies rule-based tuning logic anchored to the PID va
 | **Damping ratio (overdamped)** | D/P > 0.85, D was increased | P ↑ proportionally | Prevents excessive damping after D adjustment |
 | **Damping ratio (overdamped)** | D/P > 0.85, no recs exist | D ↓ to reach 0.85 ratio | Reduces motor heat and noise |
 | **D-term effectiveness (critical)** | D increase rec + dCritical flag | Upgrade confidence → High | D-term is doing useful dampening work, increase is safe |
-| **D-term effectiveness (low)** | D decrease rec + effectiveness < 0.3 | Advisory note appended | D may not be doing much dampening — filter issue? |
+| **D-term effectiveness (balanced)** | D increase rec + effectiveness 0.3–0.7 | Advisory note: monitor temps | D has some noise cost, user should check motor heat |
+| **D-term effectiveness (low)** | D increase rec + effectiveness < 0.3 | Downgrade confidence → Low + redirect | D is mostly noise — improve filters before increasing D |
+| **D-term effectiveness (low, decrease)** | D decrease rec + effectiveness < 0.3 | Advisory note appended | D may not be doing much dampening — filter issue? |
+| **Prop wash (severe + D rec)** | Severe prop wash (≥ 5×) on axis with existing D ↑ | Upgrade confidence → High | Prop wash confirms D increase will help |
+| **Prop wash (severe, no D rec)** | Severe prop wash (≥ 5×) on worst axis, no D rec | D ↑ +5 on worst axis | Medium | Prop wash oscillation during descents needs more dampening |
 | **FF energy ratio** | P decrease rec + meanFFEnergyRatio > 0.6 | Downgrade confidence → Low | Overshoot is feedforward-dominated, not P-caused |
 
 **Transfer Function Rules (Wiener deconvolution — used in Flash Tune and as fallback when no step inputs detected):**
@@ -796,7 +800,8 @@ All TF-derived recommendations are capped at "medium" confidence because Wiener 
 - **Feedforward awareness** — The recommender detects whether feedforward is active from BBL headers (`feedforward_boost > 0`). At each step's overshoot peak, it compares `|pidF|` vs `|pidP|` magnitude. When overshoot is FF-dominated (FF contributes more than P), the engine skips P/D changes and instead recommends reducing `feedforward_boost`. The FF energy ratio (sum-of-squares over the response window) provides additional confidence gating for P-decrease recommendations.
 - **Flight style adaptation** — PID thresholds adjust based on the user's profile flight style. Smooth (cinematic) pilots get tighter overshoot tolerances and accept slower response. Aggressive (racing) pilots tolerate more overshoot in exchange for maximum snap. The Balanced default matches the standard thresholds.
 - **Damping ratio validation** — After all per-axis rules run, a post-processing step checks the D/P ratio stays within the 0.45–0.85 range. This ensures D and P remain balanced regardless of which individual rules fired.
-- **D-term effectiveness gating** — When D-term effectiveness data is available (from `DTermAnalyzer`), D-increase recommendations get confidence boosted if D is doing critical dampening work (`dCritical`), and D-decrease recommendations get annotated if D effectiveness is low (< 0.3), suggesting the real issue may be filter configuration rather than excessive D.
+- **D-term effectiveness gating** — When D-term effectiveness data is available (from `DTermAnalyzer`), D recommendations are gated in three tiers: ratio > 0.7 (dCritical) → confidence boosted to high; ratio 0.3–0.7 → allowed with "monitor motor temps" advisory; ratio < 0.3 → D increase downgraded to low confidence with "improve filters first" redirect. This prevents the common failure mode of blindly increasing D when the real problem is noise from inadequate filtering.
+- **Prop wash integration** — When `PropWashDetector` finds severe oscillation (≥ 5× baseline energy in the 20–90 Hz band), the recommender either boosts confidence on an existing D-increase for the worst axis, or generates a new D +5 recommendation if none exists. Events below the moderate threshold (< 2×) or with fewer than 3 detections are ignored to avoid false positives. This directly connects the pilot's most common complaint ("my quad shakes when I descend") to an actionable PID change.
 
 ### Interactive Analysis Charts
 

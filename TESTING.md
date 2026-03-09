@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 2293 unit tests across 113 files + 25 Playwright E2E tests** (last verified: March 9, 2026)
+**Total: 2301 unit tests across 113 files + 23 Playwright E2E tests** (last verified: March 9, 2026)
 
 ### UI Components
 
@@ -310,7 +310,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 |------|-------|-------------|
 | `analysis/StepDetector.test.ts` | 16 | Derivative-based step detection, hold/cooldown |
 | `analysis/StepMetrics.test.ts` | 53 | Rise time, overshoot, settling, latency, ringing, FF contribution classification, trackingErrorRMS computation and aggregation, adaptive window, FF energy ratio |
-| `analysis/PIDRecommender.test.ts` | 73 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling, TF-based recommendations, damping ratio, I-term, D-term effectiveness |
+| `analysis/PIDRecommender.test.ts` | 80 | Flight PID anchoring, convergence, safety bounds, FF context, FF-aware recommendations, flight style thresholds, proportional severity scaling, TF-based recommendations, damping ratio, I-term, D-term effectiveness gating, prop wash integration |
 | `analysis/PIDAnalyzer.test.ts` | 21 | End-to-end pipeline, progress reporting, FF context wiring, flight style propagation, data quality scoring, cross-axis, propwash integration |
 | `analysis/CrossAxisDetector.test.ts` | 20 | Cross-axis coupling detection, axis interaction analysis |
 | `analysis/PropWashDetector.test.ts` | 15 | Propwash detection, wash-out frequency analysis |
