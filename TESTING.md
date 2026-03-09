@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 2272 unit tests across 112 files + 25 Playwright E2E tests** (last verified: March 9, 2026)
+**Total: 2293 unit tests across 113 files + 25 Playwright E2E tests** (last verified: March 9, 2026)
 
 ### UI Components
 
@@ -217,6 +217,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/charts/SpectrumChart.test.tsx` | 5 | FFT spectrum chart rendering |
 | `TuningWizard/charts/StepResponseChart.test.tsx` | 10 | Step response chart rendering, navigation |
 | `TuningWizard/charts/BodePlot.test.tsx` | 4 | Bode plot (magnitude + phase) rendering for transfer function |
+| `TuningWizard/charts/TFStepResponseChart.test.tsx` | 6 | TF synthetic step response chart, single/comparison modes, overshoot metrics, delta pill |
 
 ### Contexts
 
@@ -339,7 +340,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `shared/utils/metricsExtract.test.ts` | 17 | Spectrum downsampling, filter/PID/TF metrics extraction, boundary handling, trackingErrorRMS extraction |
+| `shared/utils/metricsExtract.test.ts` | 27 | Spectrum downsampling, filter/PID/TF metrics extraction, boundary handling, trackingErrorRMS extraction, step response downsampling |
 | `shared/utils/tuneQualityScore.test.ts` | 35 | Quality score computation, tier boundaries, partial metrics, backward compat, clamping, TIER_LABELS, verification quality, transfer function metrics (bandwidth, phase margin) |
 | `shared/constants.test.ts` | 7 | Preset profile flight style mapping validation |
 | `shared/types/profile.types.test.ts` | 5 | FlightStyle type compilation, DroneProfileOptional inheritance |

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 8, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2272 unit tests, 112 files + 25 Playwright E2E tests**
+**Last Updated:** March 9, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2293 unit tests, 113 files + 25 Playwright E2E tests**
 
 ---
 
@@ -649,6 +649,7 @@ Built with **Recharts** (SVG):
 
 - **SpectrumChart** — FFT noise spectrum per axis (roll/pitch/yaw). Shows noise floor reference lines, detected peak frequency markers, color-coded axes.
 - **StepResponseChart** — Overlaid setpoint vs gyro trace for individual steps. Prev/Next navigation, metrics overlay (overshoot %, rise time, settling, latency).
+- **TFStepResponseChart** — Synthetic step response from Transfer Function (Wiener deconvolution). Single mode for Flash Analysis, before/after comparison for verification. Per-axis overshoot metrics, delta pill.
 - **AxisTabs** — Shared Roll/Pitch/Yaw/All tab selector for both charts.
 - **chartUtils** — `toRechartsData()` conversion, `downsampleData()`, `findBestStep()` scoring, `computeRobustYDomain()` (outlier-resistant Y axis).
 
@@ -805,13 +806,13 @@ Hardware error (FC timeout, USB disconnect)
 
 | File | Key Exports |
 |------|-------------|
-| `metricsExtract.ts` | `downsampleSpectrum()`, `extractFilterMetrics()`, `extractPIDMetrics()` — compact metrics for history storage |
+| `metricsExtract.ts` | `downsampleSpectrum()`, `downsampleStepResponse()`, `extractFilterMetrics()`, `extractPIDMetrics()` — compact metrics for history storage |
 
 ---
 
 ## Testing Strategy
 
-**2272 unit tests across 112 files + 25 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2293 unit tests across 113 files + 25 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -823,9 +824,9 @@ Hardware error (FC timeout, USB disconnect)
 | MSC (Mass Storage) | 2 | 43 |
 | Storage Managers | 7 | 125 |
 | IPC Handlers | 1 | 113 |
-| UI Components + Charts + Contexts | 42 | 627 |
+| UI Components + Charts + Contexts | 43 | 633 |
 | React Hooks + Utils | 13 | 149 |
-| Shared Constants & Utils | 4 | 54 |
+| Shared Constants & Utils | 4 | 64 |
 | E2E Workflows (Vitest) | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 69 |
 | **Playwright E2E** | **4** | **25** |

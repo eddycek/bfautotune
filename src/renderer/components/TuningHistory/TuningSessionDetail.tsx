@@ -3,6 +3,8 @@ import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
 import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
 import { OvershootComparison } from './TuningCompletionSummary';
+import { TFStepResponseChart } from '../TuningWizard/charts/TFStepResponseChart';
+import { compactToPerAxisStepResponse } from '../TuningWizard/charts/chartUtils';
 import { AppliedChangesTable } from './AppliedChangesTable';
 
 interface TuningSessionDetailProps {
@@ -77,12 +79,24 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
       {hasComparison && record.filterMetrics && record.verificationMetrics && (
         <>
           <NoiseComparisonChart before={record.filterMetrics} after={record.verificationMetrics} />
-          {record.transferFunctionMetrics && record.verificationTransferFunctionMetrics && (
-            <OvershootComparison
-              before={record.transferFunctionMetrics}
-              after={record.verificationTransferFunctionMetrics}
-            />
-          )}
+          {record.transferFunctionMetrics &&
+            record.verificationTransferFunctionMetrics &&
+            (record.transferFunctionMetrics.stepResponse &&
+            record.verificationTransferFunctionMetrics.stepResponse ? (
+              <TFStepResponseChart
+                stepResponse={compactToPerAxisStepResponse(
+                  record.verificationTransferFunctionMetrics.stepResponse
+                )}
+                beforeStepResponse={compactToPerAxisStepResponse(
+                  record.transferFunctionMetrics.stepResponse
+                )}
+              />
+            ) : (
+              <OvershootComparison
+                before={record.transferFunctionMetrics}
+                after={record.verificationTransferFunctionMetrics}
+              />
+            ))}
           {onReanalyzeVerification && (
             <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
               Re-analyze with different session

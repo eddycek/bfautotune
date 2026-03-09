@@ -7,6 +7,7 @@
 import type { FilterAnalysisResult, PIDAnalysisResult } from '../types/analysis.types';
 import type {
   CompactSpectrum,
+  CompactStepResponse,
   FilterMetricsSummary,
   PIDMetricsSummary,
   TransferFunctionMetricsSummary,
@@ -136,6 +137,80 @@ export function extractFilterMetrics(result: FilterAnalysisResult): FilterMetric
   };
 }
 
+/** Per-axis synthetic step response input */
+interface SyntheticStepResponseInput {
+  roll: { timeMs: number[]; response: number[] };
+  pitch: { timeMs: number[]; response: number[] };
+  yaw: { timeMs: number[]; response: number[] };
+}
+
+/**
+ * Downsample a per-axis synthetic step response to a fixed number of uniformly-spaced points.
+ *
+ * All 3 axes share the same time base (taken from the roll axis).
+ * Uses linear interpolation for accurate resampling.
+ *
+ * @param input - Per-axis step response data (timeMs + response per axis)
+ * @param targetPoints - Number of output points (default 64)
+ */
+export function downsampleStepResponse(
+  input: SyntheticStepResponseInput,
+  targetPoints = 64
+): CompactStepResponse {
+  const refTime = input.roll.timeMs;
+  if (refTime.length === 0) {
+    return { timeMs: [], roll: [], pitch: [], yaw: [] };
+  }
+
+  if (refTime.length === 1) {
+    return {
+      timeMs: [round2(refTime[0])],
+      roll: [round2(input.roll.response[0])],
+      pitch: [round2(input.pitch.response[0])],
+      yaw: [round2(input.yaw.response[0])],
+    };
+  }
+
+  const tMin = refTime[0];
+  const tMax = refTime[refTime.length - 1];
+  const step = (tMax - tMin) / (targetPoints - 1);
+
+  const outTime: number[] = [];
+  const outRoll: number[] = [];
+  const outPitch: number[] = [];
+  const outYaw: number[] = [];
+
+  for (let i = 0; i < targetPoints; i++) {
+    const t = tMin + i * step;
+    outTime.push(round2(t));
+    outRoll.push(interpolateLinear(input.roll.timeMs, input.roll.response, t));
+    outPitch.push(interpolateLinear(input.pitch.timeMs, input.pitch.response, t));
+    outYaw.push(interpolateLinear(input.yaw.timeMs, input.yaw.response, t));
+  }
+
+  return { timeMs: outTime, roll: outRoll, pitch: outPitch, yaw: outYaw };
+}
+
+/** Linear interpolation with binary search on sorted time array */
+function interpolateLinear(times: number[], values: number[], targetT: number): number {
+  if (times.length === 0) return 0;
+  if (targetT <= times[0]) return round2(values[0]);
+  if (targetT >= times[times.length - 1]) return round2(values[values.length - 1]);
+
+  let lo = 0;
+  let hi = times.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >>> 1;
+    if (times[mid] <= targetT) lo = mid;
+    else hi = mid;
+  }
+
+  const tLo = times[lo];
+  const tHi = times[hi];
+  const t = (targetT - tLo) / (tHi - tLo);
+  return round2(values[lo] + t * (values[hi] - values[lo]));
+}
+
 /** Per-axis transfer function metrics input (matches TransferFunctionEstimator.TransferFunctionMetrics) */
 interface TFMetricsInput {
   bandwidthHz: number;
@@ -148,10 +223,15 @@ interface TFMetricsInput {
 
 /**
  * Extract compact transfer function metrics for history storage.
+ *
+ * @param metrics - Per-axis transfer function metrics
+ * @param dataQuality - Optional data quality summary
+ * @param syntheticStepResponse - Optional synthetic step response data to downsample for history
  */
 export function extractTransferFunctionMetrics(
   metrics: { roll: TFMetricsInput; pitch: TFMetricsInput; yaw: TFMetricsInput },
-  dataQuality?: { overall: number; tier: string }
+  dataQuality?: { overall: number; tier: string },
+  syntheticStepResponse?: SyntheticStepResponseInput
 ): TransferFunctionMetricsSummary {
   const extract = (m: TFMetricsInput) => ({
     bandwidthHz: round2(m.bandwidthHz),
@@ -167,6 +247,9 @@ export function extractTransferFunctionMetrics(
     pitch: extract(metrics.pitch),
     yaw: extract(metrics.yaw),
     ...(dataQuality ? { dataQuality } : {}),
+    ...(syntheticStepResponse
+      ? { stepResponse: downsampleStepResponse(syntheticStepResponse) }
+      : {}),
   };
 }
 

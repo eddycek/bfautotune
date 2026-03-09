@@ -4,6 +4,8 @@ import type { TransferFunctionMetricsSummary } from '@shared/types/tuning-histor
 import { computeTuneQualityScore, TIER_LABELS } from '@shared/utils/tuneQualityScore';
 import { TUNING_TYPE, TUNING_TYPE_LABELS } from '@shared/constants';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
+import { TFStepResponseChart } from '../TuningWizard/charts/TFStepResponseChart';
+import { compactToPerAxisStepResponse } from '../TuningWizard/charts/chartUtils';
 import { AppliedChangesTable } from './AppliedChangesTable';
 import './TuningCompletionSummary.css';
 
@@ -155,12 +157,24 @@ export function TuningCompletionSummary({
             before={session.filterMetrics}
             after={session.verificationMetrics}
           />
-          {session.transferFunctionMetrics && session.verificationTransferFunctionMetrics && (
-            <OvershootComparison
-              before={session.transferFunctionMetrics}
-              after={session.verificationTransferFunctionMetrics}
-            />
-          )}
+          {session.transferFunctionMetrics &&
+            session.verificationTransferFunctionMetrics &&
+            (session.transferFunctionMetrics.stepResponse &&
+            session.verificationTransferFunctionMetrics.stepResponse ? (
+              <TFStepResponseChart
+                stepResponse={compactToPerAxisStepResponse(
+                  session.verificationTransferFunctionMetrics.stepResponse
+                )}
+                beforeStepResponse={compactToPerAxisStepResponse(
+                  session.transferFunctionMetrics.stepResponse
+                )}
+              />
+            ) : (
+              <OvershootComparison
+                before={session.transferFunctionMetrics}
+                after={session.verificationTransferFunctionMetrics}
+              />
+            ))}
           {onReanalyzeVerification && session.verificationLogId && (
             <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
               Re-analyze with different session

@@ -1,0 +1,83 @@
+.tf-step-response-chart {
+  margin: 12px 0;
+}
+
+.tf-step-response-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.tf-step-response-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.tf-step-response-container {
+  background: var(--bg-tertiary, #1e1e1e);
+  border-radius: 6px;
+  padding: 12px 8px 4px 0;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.tf-step-response-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary, #aaa);
+  font-size: 13px;
+}
+
+.tf-step-metrics-overlay {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.tf-step-metric {
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+  background: var(--bg-tertiary, #333);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.tf-step-metric strong {
+  color: var(--text-primary, #fff);
+}
+
+.tf-overshoot-delta-pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.tf-overshoot-delta-pill.improved {
+  background: rgba(81, 207, 102, 0.15);
+  color: #51cf66;
+}
+
+.tf-overshoot-delta-pill.regressed {
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff6b6b;
+}
+
+.tf-overshoot-delta-pill.neutral {
+  background: rgba(170, 170, 170, 0.15);
+  color: #aaa;
+}
+
+/* Override Recharts defaults for dark theme */
+.tf-step-response-chart .recharts-tooltip-cursor {
+  stroke: #555;
+}
+
+.tf-step-response-chart .recharts-cartesian-grid-horizontal line,
+.tf-step-response-chart .recharts-cartesian-grid-vertical line {
+  stroke: #2a2a2a;
+}

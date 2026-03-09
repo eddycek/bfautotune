@@ -97,6 +97,14 @@ export interface AxisTransferFunctionSummary {
   riseTimeMs: number;
 }
 
+/** Downsampled synthetic step response for history chart rendering */
+export interface CompactStepResponse {
+  timeMs: number[];
+  roll: number[];
+  pitch: number[];
+  yaw: number[];
+}
+
 /** Compact transfer function metrics for history storage */
 export interface TransferFunctionMetricsSummary {
   roll: AxisTransferFunctionSummary;
@@ -104,6 +112,8 @@ export interface TransferFunctionMetricsSummary {
   yaw: AxisTransferFunctionSummary;
   /** Data quality score summary */
   dataQuality?: { overall: number; tier: string };
+  /** Downsampled synthetic step response for history chart rendering */
+  stepResponse?: CompactStepResponse;
 }
 
 /** A completed tuning session archived for history/comparison */

@@ -750,7 +750,43 @@ After snapshot, transition `quick_applied → verification_pending` (reuses exis
 
 ---
 
-## 13. Risk Assessment
+## 13. Step Response Visualization
+
+### 13.1 TFStepResponseChart Component
+
+A new Recharts chart component (`src/renderer/components/TuningWizard/charts/TFStepResponseChart.tsx`) visualizes the synthetic step response derived from the IFFT of the transfer function H(f). Inspired by the [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) step response visualization.
+
+**Two rendering modes:**
+
+- **Single mode**: Used in `QuickAnalysisStep` during Flash Tune analysis. Shows the synthetic step response per axis with overshoot metrics overlay.
+- **Comparison mode**: Used in `TuningCompletionSummary` and `TuningSessionDetail` for verification. Overlays "before" and "after" step responses with a delta pill showing overshoot improvement/regression. Falls back to text display for old history records without step response data.
+
+### 13.2 Integration Points
+
+- **QuickAnalysisStep**: Shows TFStepResponseChart (defaults open) alongside collapsible Bode plot and noise spectrum chart.
+- **TuningCompletionSummary**: Verification comparison uses step response chart when `CompactStepResponse` data is available.
+- **TuningSessionDetail**: Expanded history view shows step response comparison for Flash Tune records.
+- **Bode plot**: Available as a collapsible detail section for advanced users who want to inspect the full frequency response.
+
+### 13.3 History Persistence
+
+**New type**: `CompactStepResponse` — a downsampled representation (64 points) of the synthetic step response for compact storage in tuning history records.
+
+**New utility**: `downsampleStepResponse()` in `src/shared/utils/metricsExtract.ts` — reduces the full synthetic step response to 64 evenly-spaced points for history storage.
+
+The `CompactStepResponse` is stored on `FilterMetricsSummary` (for verification) and `PIDMetricsSummary` (for analysis), enabling before/after comparison in the history view without storing full-resolution data.
+
+### 13.4 PIDAnalysisResult Extension
+
+`PIDAnalysisResult` now includes an optional `transferFunction?: TransferFunctionResult` field, providing type-safe access to the full transfer function data (Bode plot + synthetic step response) for UI components that need it.
+
+### 13.5 "Start New Tuning Cycle" Behavior
+
+When the user clicks "Start New Tuning Cycle" from the completion summary, the app auto-starts a new session of the same tuning type (Deep Tune or Flash Tune) without showing the mode selection modal. This reduces friction for iterative tuning.
+
+---
+
+## 14. Risk Assessment
 
 ### 12.1 Wiener Deconvolution Accuracy
 

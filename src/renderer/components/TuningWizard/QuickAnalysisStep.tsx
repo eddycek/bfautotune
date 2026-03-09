@@ -3,6 +3,8 @@ import type { FilterAnalysisResult, PIDAnalysisResult } from '@shared/types/anal
 import type { AnalysisProgress } from '@shared/types/analysis.types';
 import { RecommendationCard } from './RecommendationCard';
 import { SpectrumChart } from './charts/SpectrumChart';
+import { TFStepResponseChart } from './charts/TFStepResponseChart';
+import { BodePlot } from './charts/BodePlot';
 
 const PEAK_TYPE_LABELS: Record<string, string> = {
   motor_harmonic: 'Motor',
@@ -37,7 +39,8 @@ export function QuickAnalysisStep({
   onContinue,
 }: QuickAnalysisStepProps) {
   const autoRunRef = useRef(false);
-  const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(false);
+  const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(true);
+  const [bodeOpen, setBodeOpen] = useState(false);
 
   // Auto-run on mount
   useEffect(() => {
@@ -168,6 +171,39 @@ export function QuickAnalysisStep({
             <div className="summary-section">
               <h4>PID Recommendations</h4>
               <p className="summary-section-subtitle">{tfResult.summary}</p>
+
+              {tfResult.transferFunction?.syntheticStepResponse && (
+                <TFStepResponseChart
+                  stepResponse={tfResult.transferFunction.syntheticStepResponse}
+                />
+              )}
+
+              <button className="noise-details-toggle" onClick={() => setBodeOpen(!bodeOpen)}>
+                {bodeOpen ? 'Hide frequency response (Bode)' : 'Show frequency response (Bode)'}
+              </button>
+
+              {bodeOpen && tfResult.transferFunction && (
+                <BodePlot
+                  bode={{
+                    roll: {
+                      frequencies: tfResult.transferFunction.roll.frequencies,
+                      magnitude: tfResult.transferFunction.roll.magnitude,
+                      phase: tfResult.transferFunction.roll.phase,
+                    },
+                    pitch: {
+                      frequencies: tfResult.transferFunction.pitch.frequencies,
+                      magnitude: tfResult.transferFunction.pitch.magnitude,
+                      phase: tfResult.transferFunction.pitch.phase,
+                    },
+                    yaw: {
+                      frequencies: tfResult.transferFunction.yaw.frequencies,
+                      magnitude: tfResult.transferFunction.yaw.magnitude,
+                      phase: tfResult.transferFunction.yaw.phase,
+                    },
+                  }}
+                />
+              )}
+
               {tfRecs.length === 0 && (
                 <p className="analysis-no-recs">No PID changes recommended.</p>
               )}

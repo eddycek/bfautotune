@@ -315,6 +315,7 @@ Interactive visualization of analysis results using Recharts (SVG).
 
 - **SpectrumChart**: FFT noise spectrum with per-axis color coding, noise floor reference lines, peak frequency markers. Integrated in FilterAnalysisStep noise details (collapsible).
 - **StepResponseChart**: Setpoint vs gyro trace for individual steps, Prev/Next step navigation, metrics overlay (overshoot, rise time, settling, latency). Integrated in PIDAnalysisStep (collapsible).
+- **TFStepResponseChart**: Synthetic step response from Transfer Function analysis (Wiener deconvolution). Single mode for Flash Analysis in QuickAnalysisStep, before/after comparison mode for verification in TuningCompletionSummary and TuningSessionDetail. Plasmatree PID-Analyzer inspired. Shows per-axis overshoot metrics and delta pill.
 - **AxisTabs**: Shared tab selector (Roll/Pitch/Yaw/All) for both charts
 - **chartUtils**: Data conversion utilities (Float64Array → Recharts format), downsampling, findBestStep scoring
 - **StepResponseTrace**: Raw trace data (timeMs, setpoint, gyro arrays) extracted in `StepMetrics.computeStepResponse()` and attached to each `StepResponse`

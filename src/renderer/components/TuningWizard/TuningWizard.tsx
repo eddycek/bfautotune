@@ -94,7 +94,11 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
 
         const transferFunctionMetrics =
           mode === TUNING_MODE.FLASH && wizard.tfResult?.transferFunctionMetrics
-            ? extractTransferFunctionMetrics(wizard.tfResult.transferFunctionMetrics)
+            ? extractTransferFunctionMetrics(
+                wizard.tfResult.transferFunctionMetrics,
+                undefined,
+                wizard.tfResult.transferFunction?.syntheticStepResponse
+              )
             : undefined;
 
         onApplyComplete({

@@ -425,6 +425,30 @@ export interface PIDAnalysisResult {
   sliderDelta?: { masterMultiplierDelta: number; pdRatioDelta: number; summary: string };
   /** Extended feedforward analysis (leading-edge, jitter, RC rate) */
   feedforwardAnalysis?: FeedforwardAnalysis;
+  /** Full transfer function data (present only for Flash Tune / Wiener deconvolution analysis).
+   * Arrays may be Float64Array (from main process) or number[] (after IPC serialization). */
+  transferFunction?: {
+    syntheticStepResponse: {
+      roll: { timeMs: number[]; response: number[] };
+      pitch: { timeMs: number[]; response: number[] };
+      yaw: { timeMs: number[]; response: number[] };
+    };
+    roll: {
+      frequencies: Float64Array | number[];
+      magnitude: Float64Array | number[];
+      phase: Float64Array | number[];
+    };
+    pitch: {
+      frequencies: Float64Array | number[];
+      magnitude: Float64Array | number[];
+      phase: Float64Array | number[];
+    };
+    yaw: {
+      frequencies: Float64Array | number[];
+      magnitude: Float64Array | number[];
+      phase: Float64Array | number[];
+    };
+  };
   /** Per-axis transfer function metrics (only present for Wiener deconvolution analysis) */
   transferFunctionMetrics?: {
     roll: {

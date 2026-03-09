@@ -11,14 +11,20 @@ import {
 } from 'recharts';
 import { AxisTabs, type AxisSelection } from './AxisTabs';
 import { AXIS_COLORS, type Axis } from './chartUtils';
-import type { BodeResult } from '../../../../main/analysis/TransferFunctionEstimator';
 import './BodePlot.css';
+
+/** Accepts both Float64Array (from main process) and number[] (from IPC serialization) */
+interface BodeData {
+  frequencies: Float64Array | number[];
+  magnitude: Float64Array | number[];
+  phase: Float64Array | number[];
+}
 
 interface BodePlotProps {
   bode: {
-    roll: BodeResult;
-    pitch: BodeResult;
-    yaw: BodeResult;
+    roll: BodeData;
+    pitch: BodeData;
+    yaw: BodeData;
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   downsampleSpectrum,
+  downsampleStepResponse,
   extractFilterMetrics,
   extractPIDMetrics,
   extractTransferFunctionMetrics,
@@ -314,5 +315,130 @@ describe('extractTransferFunctionMetrics', () => {
   it('omits dataQuality when not provided', () => {
     const metrics = extractTransferFunctionMetrics(makeTFMetrics());
     expect(metrics.dataQuality).toBeUndefined();
+  });
+
+  it('includes stepResponse when syntheticStepResponse provided', () => {
+    const stepData = {
+      roll: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i),
+        response: Array.from({ length: 100 }, (_, i) =>
+          i < 10 ? 0 : 1 + 0.1 * Math.exp(-i * 0.05)
+        ),
+      },
+      pitch: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i),
+        response: Array.from({ length: 100 }, (_, i) =>
+          i < 10 ? 0 : 1 + 0.08 * Math.exp(-i * 0.05)
+        ),
+      },
+      yaw: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i),
+        response: Array.from({ length: 100 }, (_, i) =>
+          i < 10 ? 0 : 1 + 0.12 * Math.exp(-i * 0.05)
+        ),
+      },
+    };
+    const metrics = extractTransferFunctionMetrics(makeTFMetrics(), undefined, stepData);
+    expect(metrics.stepResponse).toBeDefined();
+    expect(metrics.stepResponse!.timeMs).toHaveLength(64);
+    expect(metrics.stepResponse!.roll).toHaveLength(64);
+    expect(metrics.stepResponse!.pitch).toHaveLength(64);
+    expect(metrics.stepResponse!.yaw).toHaveLength(64);
+  });
+
+  it('omits stepResponse when not provided', () => {
+    const metrics = extractTransferFunctionMetrics(makeTFMetrics());
+    expect(metrics.stepResponse).toBeUndefined();
+  });
+});
+
+describe('downsampleStepResponse', () => {
+  it('produces correct number of points', () => {
+    const input = {
+      roll: {
+        timeMs: Array.from({ length: 200 }, (_, i) => i * 0.5),
+        response: Array.from({ length: 200 }, (_, i) => Math.sin(i * 0.1)),
+      },
+      pitch: {
+        timeMs: Array.from({ length: 200 }, (_, i) => i * 0.5),
+        response: Array.from({ length: 200 }, (_, i) => Math.cos(i * 0.1)),
+      },
+      yaw: {
+        timeMs: Array.from({ length: 200 }, (_, i) => i * 0.5),
+        response: Array.from({ length: 200 }, () => 0.5),
+      },
+    };
+    const result = downsampleStepResponse(input);
+    expect(result.timeMs).toHaveLength(64);
+    expect(result.roll).toHaveLength(64);
+    expect(result.pitch).toHaveLength(64);
+    expect(result.yaw).toHaveLength(64);
+  });
+
+  it('respects custom targetPoints parameter', () => {
+    const input = {
+      roll: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i),
+        response: Array.from({ length: 100 }, () => 1),
+      },
+      pitch: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i),
+        response: Array.from({ length: 100 }, () => 1),
+      },
+      yaw: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i),
+        response: Array.from({ length: 100 }, () => 1),
+      },
+    };
+    const result = downsampleStepResponse(input, 32);
+    expect(result.timeMs).toHaveLength(32);
+  });
+
+  it('handles single point input', () => {
+    const input = {
+      roll: { timeMs: [5], response: [1.2] },
+      pitch: { timeMs: [5], response: [1.1] },
+      yaw: { timeMs: [5], response: [1.3] },
+    };
+    const result = downsampleStepResponse(input);
+    expect(result.timeMs).toHaveLength(1);
+    expect(result.roll).toEqual([1.2]);
+    expect(result.pitch).toEqual([1.1]);
+    expect(result.yaw).toEqual([1.3]);
+  });
+
+  it('handles empty input', () => {
+    const input = {
+      roll: { timeMs: [] as number[], response: [] as number[] },
+      pitch: { timeMs: [] as number[], response: [] as number[] },
+      yaw: { timeMs: [] as number[], response: [] as number[] },
+    };
+    const result = downsampleStepResponse(input);
+    expect(result.timeMs).toHaveLength(0);
+    expect(result.roll).toHaveLength(0);
+  });
+
+  it('rounds values to 2 decimal places', () => {
+    const input = {
+      roll: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i * 1.333),
+        response: Array.from({ length: 100 }, (_, i) => 1 + i * 0.00123),
+      },
+      pitch: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i * 1.333),
+        response: Array.from({ length: 100 }, () => 1),
+      },
+      yaw: {
+        timeMs: Array.from({ length: 100 }, (_, i) => i * 1.333),
+        response: Array.from({ length: 100 }, () => 1),
+      },
+    };
+    const result = downsampleStepResponse(input);
+    for (const t of result.timeMs) {
+      expect(Math.round(t * 100) / 100).toBe(t);
+    }
+    for (const v of result.roll) {
+      expect(Math.round(v * 100) / 100).toBe(v);
+    }
   });
 });

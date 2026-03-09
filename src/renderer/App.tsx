@@ -320,7 +320,8 @@ function AppContent() {
       case 'start_new_cycle':
         try {
           setErasedForPhase(null);
-          await tuning.startSession();
+          const previousType = tuning.session?.tuningType;
+          await tuning.startSession(previousType);
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to start new cycle');
         }
@@ -431,7 +432,9 @@ function AppContent() {
           const tfResult = await window.betaflight.analyzeTransferFunction(verLogId, sessionIndex);
           if (tfResult.transferFunctionMetrics) {
             verificationTFMetrics = extractTransferFunctionMetrics(
-              tfResult.transferFunctionMetrics
+              tfResult.transferFunctionMetrics,
+              undefined,
+              tfResult.transferFunction?.syntheticStepResponse
             );
           }
         } catch {

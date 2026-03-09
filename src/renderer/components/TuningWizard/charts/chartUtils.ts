@@ -1,4 +1,5 @@
 import type { PowerSpectrum, AxisNoiseProfile, StepResponse } from '@shared/types/analysis.types';
+import type { CompactStepResponse } from '@shared/types/tuning-history.types';
 
 export type Axis = 'roll' | 'pitch' | 'yaw';
 
@@ -88,9 +89,7 @@ export function findBestStep(responses: StepResponse[]): number {
     if (!r.trace) continue;
 
     const isDegenerate = r.riseTimeMs === 0 || r.overshootPercent >= 500;
-    const score = isDegenerate
-      ? -1000
-      : r.overshootPercent + r.ringingCount * 5;
+    const score = isDegenerate ? -1000 : r.overshootPercent + r.ringingCount * 5;
 
     if (score > bestScore) {
       bestScore = score;
@@ -135,4 +134,16 @@ export function downsampleData<T>(data: T[], maxPoints: number): T[] {
     result.push(data[data.length - 1]);
   }
   return result;
+}
+
+/**
+ * Convert a CompactStepResponse (shared timeMs) to the per-axis format
+ * used by TFStepResponseChart.
+ */
+export function compactToPerAxisStepResponse(compact: CompactStepResponse) {
+  return {
+    roll: { timeMs: compact.timeMs, response: compact.roll },
+    pitch: { timeMs: compact.timeMs, response: compact.pitch },
+    yaw: { timeMs: compact.timeMs, response: compact.yaw },
+  };
 }
