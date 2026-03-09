@@ -352,6 +352,30 @@ describe('extractMetrics', () => {
     const metrics = extractMetrics(bode, step, 4000);
     expect(metrics.phaseMarginDeg).toBe(90); // Default
   });
+
+  it('should extract dcGainDb from first Bode magnitude bin', () => {
+    const bode: BodeResult = {
+      frequencies: new Float64Array([0, 50, 100]),
+      magnitude: new Float64Array([-2.5, -1.0, -5.0]),
+      phase: new Float64Array([0, -45, -90]),
+    };
+
+    const step: SyntheticStepResponse = { timeMs: [0], response: [1] };
+    const metrics = extractMetrics(bode, step, 4000);
+    expect(metrics.dcGainDb).toBe(-2.5);
+  });
+
+  it('should return dcGainDb 0 for empty Bode magnitude', () => {
+    const bode: BodeResult = {
+      frequencies: new Float64Array([]),
+      magnitude: new Float64Array([]),
+      phase: new Float64Array([]),
+    };
+
+    const step: SyntheticStepResponse = { timeMs: [0], response: [1] };
+    const metrics = extractMetrics(bode, step, 4000);
+    expect(metrics.dcGainDb).toBe(0);
+  });
 });
 
 describe('estimateAllAxes', () => {

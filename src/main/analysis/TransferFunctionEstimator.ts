@@ -65,6 +65,8 @@ export interface TransferFunctionMetrics {
   settlingTimeMs: number;
   /** Rise time from synthetic step response (ms) */
   riseTimeMs: number;
+  /** DC gain in dB — 0 dB = perfect steady-state tracking */
+  dcGainDb: number;
 }
 
 export interface TransferFunctionResult {
@@ -392,6 +394,7 @@ export function extractMetrics(
     overshootPercent: computeOvershoot(stepResponse),
     settlingTimeMs: computeSettlingTime(stepResponse),
     riseTimeMs: computeRiseTime(stepResponse),
+    dcGainDb: bode.magnitude.length > 0 ? bode.magnitude[0] : 0,
   };
 }
 

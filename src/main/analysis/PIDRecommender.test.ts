@@ -666,6 +666,7 @@ describe('PIDRecommender', () => {
         overshootPercent: 5,
         settlingTimeMs: 80,
         riseTimeMs: 30,
+        dcGainDb: 0,
         ...overrides,
       };
     }
@@ -898,6 +899,94 @@ describe('PIDRecommender', () => {
       for (const rec of recs) {
         expect(rec.confidence).toBe('medium');
       }
+    });
+
+    it('Rule TF-4: should recommend I increase when DC gain is below -1 dB', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ dcGainDb: -2.5 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const iRec = recs.find((r) => r.setting === 'pid_roll_i');
+      expect(iRec).toBeDefined();
+      expect(iRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.I + 5);
+      expect(iRec!.confidence).toBe('low');
+      expect(iRec!.reason).toContain('DC gain');
+    });
+
+    it('Rule TF-4: should recommend I +10 for severe DC gain deficit (>3 dB)', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ dcGainDb: -5.0 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const iRec = recs.find((r) => r.setting === 'pid_roll_i');
+      expect(iRec).toBeDefined();
+      expect(iRec!.recommendedValue).toBe(DEFAULT_PIDS.roll.I + 10);
+      expect(iRec!.confidence).toBe('medium');
+    });
+
+    it('Rule TF-4: should not recommend I increase when DC gain is 0 dB', () => {
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ dcGainDb: 0 }),
+      };
+
+      const recs = recommendPID(
+        emptyProfile(),
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const iRec = recs.find((r) => r.setting === 'pid_roll_i');
+      expect(iRec).toBeUndefined();
+    });
+
+    it('Rule TF-4: should not duplicate I rec when step-based I rec already exists', () => {
+      // Roll has steady-state error (triggers step-based I rec) + DC gain deficit (triggers TF-4)
+      const profile = makeProfile({ meanOvershoot: 5, meanSteadyStateError: 8 });
+      const tf: TransferFunctionContext = {
+        roll: makeTFMetrics({ dcGainDb: -3.0 }),
+      };
+
+      const recs = recommendPID(
+        profile,
+        emptyProfile(),
+        emptyProfile(),
+        DEFAULT_PIDS,
+        undefined,
+        undefined,
+        'balanced',
+        tf
+      );
+
+      const iRecs = recs.filter((r) => r.setting === 'pid_roll_i');
+      // Only one I rec — step-based takes priority, TF-4 skipped
+      expect(iRecs).toHaveLength(1);
     });
   });
 
