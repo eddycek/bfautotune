@@ -233,7 +233,7 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 
 - **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation. Configurable window parameter (`windowMs?`)
 - **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement. Adaptive two-pass window sizing (`computeAdaptiveWindowMs()` — median-based, clamped 150-500ms). Steady-state error tracking (`steadyStateErrorPercent`)
-- **PIDRecommender**: Flight-PID-anchored P/D/I recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), I-term rules based on `meanSteadyStateError` with flight-style thresholds, D/P damping ratio validation (0.45-0.85 range), safety bounds (P: 20-120, D: 15-80, I: 30-120). **D-term effectiveness gating**: 3-tier D-increase gating (>0.7 boost confidence, 0.3-0.7 allow+warn, <0.3 redirect to filters). **Prop wash integration**: severe prop wash (≥5×) boosts D-increase confidence or generates new D+5 recommendation on worst axis
+- **PIDRecommender**: Flight-PID-anchored P/D/I recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), I-term rules based on `meanSteadyStateError` with flight-style thresholds, D/P damping ratio validation (0.45-0.85 range), safety bounds (P: 20-120, D: 15-80, I: 30-120). **D-term effectiveness gating**: 3-tier D-increase gating (>0.7 boost confidence, 0.3-0.7 allow+warn, <0.3 redirect to filters). **Prop wash integration**: severe prop wash (≥5×) boosts D-increase confidence or generates new D+5 recommendation on worst axis. **Rule TF-4**: DC gain deficit from transfer function → I-term increase recommendation (Flash Tune equivalent of steady-state error detection)
 - **CrossAxisDetector**: Pearson correlation coupling detection between axis pairs. Thresholds: none (<0.15), mild (0.15-0.4), significant (≥0.4). Returns `CrossAxisCoupling`
 - **PropWashDetector**: Throttle-down event detection, post-event FFT in 20-90 Hz band. Returns `PropWashAnalysis` with events, meanSeverity, worstAxis, dominantFrequencyHz. Passed to `recommendPID()` for prop wash-aware D recommendations
 - **PIDAnalyzer**: Orchestrator with async progress reporting, threads `flightPIDs` through pipeline. Two-pass step detection (first 500ms, then adaptive). Passes both `dTermEffectiveness` and `propWash` to `recommendPID()` for integrated D-gain gating
@@ -245,7 +245,7 @@ Analyzes system transfer function via Wiener deconvolution for PID recommendatio
 
 **Pipeline**: TransferFunctionEstimator (setpoint → gyro deconvolution → H(f) = S_xy(f) / S_xx(f))
 
-- **TransferFunctionEstimator**: Cross-spectral density estimation, bandwidth/phase margin extraction, PID recommendations based on frequency response characteristics
+- **TransferFunctionEstimator**: Cross-spectral density estimation, bandwidth/phase margin extraction, `dcGainDb` field for I-term approximation, PID recommendations based on frequency response characteristics
 - Used in Flash Tune mode for combined filter + PID analysis from a single flight
 - IPC: `ANALYSIS_RUN_TRANSFER_FUNCTION` + `EVENT_ANALYSIS_PROGRESS`
 
@@ -260,7 +260,7 @@ Rates flight data quality 0-100 before generating recommendations. Integrated in
 - Quality warnings: `few_segments`, `short_hover_time`, `narrow_throttle_coverage`, `few_steps_per_axis`, `missing_axis_coverage`, `low_step_magnitude`
 - UI: quality pill in FilterAnalysisStep, PIDAnalysisStep, AnalysisOverview
 - History: compact `dataQuality` in `FilterMetricsSummary` / `PIDMetricsSummary`
-- **Flight quality score** (`src/shared/utils/tuneQualityScore.ts`): Composite 0-100 score with type-aware components. Deep Tune: noise floor, tracking RMS, overshoot (step response), settling time. Flash Tune: noise floor, overshoot (TF synthetic step response). Optional Noise Delta as 5th component when verification present. Points redistributed evenly among available components. Displayed as badge in TuningCompletionSummary and TuningHistoryPanel. Trend chart (QualityTrendChart) shows progression across sessions.
+- **Flight quality score** (`src/shared/utils/tuneQualityScore.ts`): Composite 0-100 score with type-aware components. Deep Tune: noise floor, tracking RMS, overshoot (step response), settling time (4 components). Flash Tune: noise floor, overshoot (TF synthetic step response), phase margin, bandwidth (4 components). When both step data AND TF are present, 6 components are available. Optional Noise Delta component when verification present. Points redistributed evenly among available components. Displayed as badge in TuningCompletionSummary and TuningHistoryPanel. Trend chart (QualityTrendChart) shows progression across sessions.
 
 ### Stateful Tuning Session
 
