@@ -402,6 +402,7 @@ function AppContent() {
         appliedPIDChanges: changes.pidChanges,
         appliedFeedforwardChanges: changes.feedforwardChanges,
         filterMetrics: changes.filterMetrics,
+        pidMetrics: changes.pidMetrics,
         transferFunctionMetrics: changes.transferFunctionMetrics,
       });
     }

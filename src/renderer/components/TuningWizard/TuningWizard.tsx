@@ -76,12 +76,12 @@ export function TuningWizard({ logId, mode = 'full', onExit, onApplyComplete }: 
             ? extractFilterMetrics(wizard.filterResult)
             : undefined;
 
-        const pidMetrics =
-          mode !== 'filter' && mode !== 'quick' && wizard.pidResult
-            ? extractPIDMetrics(wizard.pidResult)
-            : undefined;
+        // For quick mode, PID-like metrics come from transfer function analysis
+        const pidMetricsSource =
+          mode === 'quick' ? wizard.tfResult : mode !== 'filter' ? wizard.pidResult : null;
+        const pidMetrics = pidMetricsSource ? extractPIDMetrics(pidMetricsSource) : undefined;
 
-        // TF metrics will be populated once Wiener deconvolution engine is complete
+        // TODO: Extract full TF metrics once TransferFunctionEstimator exposes them on PIDAnalysisResult
         const transferFunctionMetrics = undefined;
 
         onApplyComplete({
