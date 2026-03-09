@@ -46,6 +46,53 @@ Plasmatree is a **diagnostic/visualization tool** — it does NOT generate autom
 
 Our Flash Tune extends Plasmatree's technique by **extracting metrics and generating automatic recommendations**. This design doc brings those recommendations to parity with Deep Tune.
 
+## Validation: Why the Same Recommendations Work for Both Modes
+
+Before unifying the pipeline, we validated that shared recommendations genuinely make sense for both tuning modes. The key insight: **time-domain and frequency-domain analysis detect the same physical problems through different lenses.**
+
+### Shared Post-Processing (raw flight data — identical in both modes)
+
+| Analysis | Input | Mode-dependent? |
+|----------|-------|-----------------|
+| PropWash detection | throttle + gyro from flight data | No — identical raw data |
+| D-term effectiveness | gyro + pidD from flight data | No — identical raw data |
+| Damping ratio validation | recommended P/D values (output) | No — validates output, not input |
+| FF context (headers) | BBL headers | No — same source |
+| Bayesian optimizer | history (PID → score) | No — method-agnostic |
+
+### PID Rules: Already Branched by Mode
+
+`recommendPID()` already branches on `responses.length`:
+- `responses.length > 0` → **time-domain rules** (Deep Tune)
+- `responses.length === 0 && tfMetrics` → **frequency-domain rules** (Flash Tune)
+
+These never mix. Each physical problem is detected through the appropriate lens:
+
+| Physical Problem | Deep Tune Detection | Flash Tune Detection |
+|-----------------|--------------------|--------------------|
+| Overshoot | Measured from real stick snaps | TF-2: synthetic step overshoot |
+| Sluggish response | Slow rise time from steps | TF-3: bandwidth < 40 Hz |
+| Ringing/oscillation | Bounce-back in individual steps | TF-1: phase margin < 45° |
+| Slow settling | Settling time measurement | TF-2: settling from synthetic step |
+| I-term tracking | Steady-state error from steps | DC gain proxy (Task 5) |
+
+### What Flash Tune Cannot See (and why it's OK)
+
+| Analysis | Why unavailable | Flash Tune alternative |
+|----------|----------------|----------------------|
+| Per-step variance | No individual steps | Per-band TF (Task 3) reveals throttle-dependent behavior |
+| FF energy ratio | Needs step-local pidP/pidF | Header-based FF heuristics (boost, transition) |
+| Cross-axis coupling | Needs step events | None — less critical, gracefully skipped |
+| Ringing (bounce-back) | Synthetic response is smoothed | Phase margin detects same phenomenon from frequency domain |
+
+### Averaging Equivalence
+
+Deep Tune has per-step data but `PIDRecommender` works with **means** (`meanOvershoot`, `meanRiseTimeMs`). Flash Tune's Wiener deconvolution is also an average over the entire flight. Both modes produce aggregated metrics — functionally equivalent for recommendation generation.
+
+### Confidence: Gating Replaces Blanket Cap
+
+The original MEDIUM confidence cap was a workaround for missing D-term gating and prop wash integration. With unified post-processing, the same gating logic that protects Deep Tune (D-term effectiveness 3-tier, prop wash boost, damping ratio) protects Flash Tune. No blanket cap needed.
+
 ## Core Design Decision: Unified Pipeline
 
 Instead of patching `analyzeTransferFunction()` with missing calls, **extract shared post-processing into a single function** that both modes use. The only mode-specific code is step extraction (how we get `AxisStepProfile`).
