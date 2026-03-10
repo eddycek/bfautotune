@@ -302,9 +302,9 @@ export interface QuadSizeBounds {
  * large (6-7"), ultra (10").
  */
 export const QUAD_SIZE_BOUNDS: Record<DroneSize, QuadSizeBounds> = {
-  '1"': { pMin: 20, pMax: 80, dMin: 15, dMax: 50, iMin: 40, iMax: 100, pTypical: 40 },
-  '2"': { pMin: 20, pMax: 80, dMin: 15, dMax: 50, iMin: 40, iMax: 100, pTypical: 40 },
-  '2.5"': { pMin: 20, pMax: 90, dMin: 15, dMax: 55, iMin: 40, iMax: 110, pTypical: 42 },
+  '1"': { pMin: 30, pMax: 80, dMin: 15, dMax: 50, iMin: 40, iMax: 100, pTypical: 40 },
+  '2"': { pMin: 30, pMax: 80, dMin: 15, dMax: 50, iMin: 40, iMax: 100, pTypical: 40 },
+  '2.5"': { pMin: 25, pMax: 90, dMin: 15, dMax: 55, iMin: 40, iMax: 110, pTypical: 42 },
   '3"': { pMin: 20, pMax: 100, dMin: 15, dMax: 60, iMin: 40, iMax: 110, pTypical: 45 },
   '4"': { pMin: 20, pMax: 110, dMin: 15, dMax: 70, iMin: 40, iMax: 120, pTypical: 46 },
   '5"': { pMin: 20, pMax: 120, dMin: 15, dMax: 80, iMin: 40, iMax: 120, pTypical: 48 },

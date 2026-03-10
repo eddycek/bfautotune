@@ -68,7 +68,9 @@ export function recommendPID(
   tfMetrics?: TransferFunctionContext,
   dTermEffectiveness?: DTermEffectiveness,
   propWash?: PropWashAnalysis,
-  droneSize?: DroneSize
+  droneSize?: DroneSize,
+  dMinContext?: DMinContext,
+  tpaContext?: TPAContext
 ): PIDRecommendation[] {
   const recommendations: PIDRecommendation[] = [];
   const profiles = [roll, pitch, yaw] as const;
@@ -121,7 +123,7 @@ export function recommendPID(
       // Only emit feedforward_boost recommendation once (not per-axis)
       const existingFFRec = recommendations.find((r) => r.setting === 'feedforward_boost');
       if (!existingFFRec && boost !== undefined && boost > 0) {
-        const targetBoost = Math.max(0, boost - 5);
+        const targetBoost = Math.max(0, boost - 3);
         recommendations.push({
           setting: 'feedforward_boost',
           currentValue: boost,
@@ -281,12 +283,14 @@ export function recommendPID(
     }
   }
 
-  // Post-process: P-too-high informational warning
-  detectHighP(recommendations, currentPIDs, bounds);
-
   // Post-process: validate D/P damping ratio for coordinated P/D recommendations.
   // Only applies to roll and pitch (yaw often has D=0).
+  // Must run BEFORE informational P warnings so damping ratio recs take priority.
   validateDampingRatio(recommendations, currentPIDs, bounds);
+
+  // Post-process: P informational warnings (after damping ratio to avoid conflicts)
+  detectHighP(recommendations, currentPIDs, bounds);
+  detectLowP(recommendations, currentPIDs, bounds);
 
   // Post-process: apply D-term effectiveness context to D recommendations
   // (runs after damping ratio to annotate all D recs including ratio-generated ones)
@@ -297,6 +301,16 @@ export function recommendPID(
   // Post-process: prop wash context — boost D confidence or suggest D when severe
   if (propWash) {
     applyPropWashContext(recommendations, propWash, currentPIDs, flightPIDs, bounds);
+  }
+
+  // Post-process: D-min/D-max advisory notes
+  if (dMinContext?.active) {
+    applyDMinAdvisory(recommendations, dMinContext);
+  }
+
+  // Post-process: TPA advisory notes
+  if (tpaContext?.active) {
+    applyTPAAdvisory(recommendations, tpaContext);
   }
 
   return recommendations;
@@ -339,6 +353,42 @@ function detectHighP(
           'Step response looks fine, but monitor motor temperatures — high P amplifies noise and can cause motor heating.',
         impact: 'both',
         confidence: 'low',
+        informational: true,
+      });
+    }
+  }
+}
+
+/**
+ * Detect P values significantly below the quad's typical range.
+ * Emits an informational (low confidence) recommendation — counterpart to detectHighP.
+ * Especially important for micro quads where P=20-25 is dangerously unresponsive.
+ */
+function detectLowP(
+  recommendations: PIDRecommendation[],
+  currentPIDs: PIDConfiguration,
+  bounds: QuadSizeBounds
+): void {
+  const lowPThreshold = bounds.pTypical * 0.7; // 30% below typical
+
+  for (const axisName of ['roll', 'pitch'] as const) {
+    const pids = currentPIDs[axisName];
+
+    // Skip if we already have a P recommendation for this axis
+    const existingPRec = recommendations.find((r) => r.setting === `pid_${axisName}_p`);
+    if (existingPRec) continue;
+
+    if (pids.P < lowPThreshold) {
+      recommendations.push({
+        setting: `pid_${axisName}_p`,
+        currentValue: pids.P,
+        recommendedValue: pids.P, // informational — same value
+        reason:
+          `P-term on ${axisName} (${pids.P}) is lower than typical for this quad size (${bounds.pTypical}). ` +
+          'The quad may feel sluggish or unresponsive. Consider increasing P for better stick feel.',
+        impact: 'response',
+        confidence: 'low',
+        informational: true,
       });
     }
   }
@@ -612,6 +662,59 @@ export function extractFeedforwardContext(rawHeaders: Map<string, string>): Feed
   };
 }
 
+/**
+ * Extract D-min context from BBL raw headers (BF 4.3+).
+ *
+ * When d_min is active (d_min_roll/pitch > 0), the D value in PID config
+ * represents d_max. The actual D varies between d_min and d_max based on
+ * stick input. PIDlab's D recommendations target d_max only.
+ */
+export interface DMinContext {
+  active: boolean;
+  roll?: number;
+  pitch?: number;
+  yaw?: number;
+}
+
+export function extractDMinContext(rawHeaders: Map<string, string>): DMinContext {
+  const dMinRoll = parseIntOr(rawHeaders.get('d_min_roll'));
+  const dMinPitch = parseIntOr(rawHeaders.get('d_min_pitch'));
+  const dMinYaw = parseIntOr(rawHeaders.get('d_min_yaw'));
+  const active = (dMinRoll ?? 0) > 0 || (dMinPitch ?? 0) > 0;
+
+  return {
+    active,
+    ...(dMinRoll !== undefined ? { roll: dMinRoll } : {}),
+    ...(dMinPitch !== undefined ? { pitch: dMinPitch } : {}),
+    ...(dMinYaw !== undefined ? { yaw: dMinYaw } : {}),
+  };
+}
+
+/**
+ * Extract TPA (Throttle PID Attenuation) context from BBL raw headers.
+ *
+ * TPA attenuates D (and optionally P) at high throttle. When active,
+ * step responses at high throttle may show less damping than the configured
+ * D value suggests, because effective D is reduced.
+ */
+export interface TPAContext {
+  active: boolean;
+  rate?: number; // 0-100, percentage of attenuation
+  breakpoint?: number; // throttle value where TPA starts (0-2000)
+}
+
+export function extractTPAContext(rawHeaders: Map<string, string>): TPAContext {
+  const tpaRate = parseIntOr(rawHeaders.get('tpa_rate'));
+  const tpaBreakpoint = parseIntOr(rawHeaders.get('tpa_breakpoint'));
+  const active = (tpaRate ?? 0) > 0;
+
+  return {
+    active,
+    ...(tpaRate !== undefined ? { rate: tpaRate } : {}),
+    ...(tpaBreakpoint !== undefined ? { breakpoint: tpaBreakpoint } : {}),
+  };
+}
+
 /** Parse an integer from a string, returning undefined if missing or NaN. */
 function parseIntOr(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
@@ -760,6 +863,40 @@ function generateFrequencyDomainRecs(
         });
       }
     }
+  }
+}
+
+/**
+ * Annotate D recommendations when D-min/D-max is active.
+ * PIDlab adjusts the D value (d_max in BF terms); d_min is separate.
+ */
+function applyDMinAdvisory(recommendations: PIDRecommendation[], dMin: DMinContext): void {
+  for (const rec of recommendations) {
+    if (!rec.setting.includes('_d')) continue;
+
+    const axis = rec.setting.includes('roll')
+      ? 'roll'
+      : rec.setting.includes('pitch')
+        ? 'pitch'
+        : 'yaw';
+    const dMinValue = dMin[axis as keyof Pick<DMinContext, 'roll' | 'pitch' | 'yaw'>];
+    if (dMinValue && dMinValue > 0) {
+      rec.reason += ` Note: D-min is active on ${axis} (d_min=${dMinValue}). This change adjusts the maximum D value — D-min may also need adjustment for consistent feel.`;
+    }
+  }
+}
+
+/**
+ * Annotate D recommendations when TPA is active.
+ * TPA reduces effective D at high throttle, which may affect step response analysis.
+ */
+function applyTPAAdvisory(recommendations: PIDRecommendation[], tpa: TPAContext): void {
+  if (!tpa.rate || tpa.rate === 0) return;
+
+  for (const rec of recommendations) {
+    if (!rec.setting.includes('_d') || rec.recommendedValue <= rec.currentValue) continue;
+
+    rec.reason += ` Note: TPA is active (${tpa.rate}% attenuation above ${tpa.breakpoint ?? 1350}). Effective D is reduced at high throttle — step responses from high-throttle maneuvers may show less damping than the configured D value.`;
   }
 }
 

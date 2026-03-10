@@ -495,7 +495,8 @@ Per-axis rules anchored to **flight PIDs from BBL header** (convergent design �
 - **Severity-scaled P increase**: `slugSeverity = meanRiseTime / sluggishRise`
   - If severity > 2× threshold: P increase by +10 (very sluggish)
   - Otherwise: P increase by +5 (per FPVSIM guidance: "if too sluggish, raise P")
-- **P-too-high informational warning**: If P > pTypical × 1.3 for quad size, emit low-confidence warning (no value change). Alerts the user that P is unusually high for their quad type without forcing a reduction.
+- **P-too-high informational warning**: If P > pTypical × 1.3 for quad size, emit low-confidence warning with `informational: true` (no value change). Alerts the user that P is unusually high for their quad type without forcing a reduction.
+- **P-too-low informational warning**: If P < pTypical × 0.7 for quad size, emit low-confidence warning with `informational: true` (no value change). Especially important for micro quads where P=20-25 is dangerously unresponsive.
 
 **Rule 4: Excessive Ringing** (maxRinging > ringingMax)
 - D increase by 5 (skipped if D already increased for overshoot)
@@ -533,8 +534,26 @@ Per-axis rules anchored to **flight PIDs from BBL header** (convergent design �
 - Moderate prop wash (2-5×): annotate only
 
 **FF Domination Detection:**
-- If >50% of steps show FF-dominated leading edge on an axis: skip P/D rules, recommend reducing `feedforward_boost` instead
-- *Rationale*: What looks like P overshoot may be FF doing its job — misdiagnosing it would harm tune.
+- If >50% of steps show FF-dominated leading edge on an axis: skip P/D rules, recommend reducing `feedforward_boost` by 3 (not 5) instead
+- *Rationale*: What looks like P overshoot may be FF doing its job — misdiagnosing it would harm tune. Step size of 3 is finer than P/D steps because FF boost has a narrower useful range.
+
+**Informational Recommendations:**
+- Recommendations with `informational: true` flag have `recommendedValue === currentValue` (no change applied)
+- Used for P-too-high and P-too-low warnings — advisory-only, displayed as notes in UI
+- *Rationale*: These conditions may or may not be problems depending on the pilot's setup. Alerting without forcing action prevents unwanted changes while keeping the pilot informed.
+
+**D-Min/D-Max Awareness** (PIDlab-specific):
+- `extractDMinContext(rawHeaders)` reads `d_min_roll`, `d_min_pitch`, `d_min_yaw` from BBL headers
+- When D-min is active (d_min > 0), D recommendations annotate that the change targets d_max only
+- Advisory note: "D-min may also need adjustment for consistent feel"
+- *Rationale*: BF's D-min/D-max system means the configured D value is actually d_max. Pilots need to know that PIDlab adjusts d_max, and that d_min may need manual tweaking for consistent hover-to-maneuver feel.
+
+**TPA Awareness** (PIDlab-specific):
+- `extractTPAContext(rawHeaders)` reads `tpa_rate` and `tpa_breakpoint` from BBL headers
+- When TPA is active (rate > 0), D *increase* recommendations are annotated with TPA context
+- Advisory note: explains that effective D is reduced at high throttle, so step responses from high-throttle maneuvers may show less damping than configured
+- D *decrease* recommendations are not annotated (TPA doesn't affect the reasoning)
+- *Rationale*: TPA can explain why step response data from high-throttle maneuvers shows insufficient damping. Without this annotation, pilots might blame D tuning when TPA is the actual cause.
 
 ### Transfer Function Rules (Flash Tune)
 
@@ -562,9 +581,9 @@ Default bounds (used when drone size is unknown) match standard 5" values. When 
 
 | Size | P min | P max | D min | D max | I min | I max | P typical |
 |------|-------|-------|-------|-------|-------|-------|-----------|
-| 1" | 20 | 80 | 15 | 50 | 40 | 100 | 40 |
-| 2" | 20 | 80 | 15 | 50 | 40 | 100 | 40 |
-| 2.5" | 20 | 90 | 15 | 55 | 40 | 110 | 42 |
+| 1" | 30 | 80 | 15 | 50 | 40 | 100 | 40 |
+| 2" | 30 | 80 | 15 | 50 | 40 | 100 | 40 |
+| 2.5" | 25 | 90 | 15 | 55 | 40 | 110 | 42 |
 | 3" | 20 | 100 | 15 | 60 | 40 | 110 | 45 |
 | 4" | 20 | 110 | 15 | 70 | 40 | 120 | 46 |
 | **5"** (default) | **20** | **120** | **15** | **80** | **40** | **120** | **48** |
@@ -574,13 +593,13 @@ Default bounds (used when drone size is unknown) match standard 5" values. When 
 
 | Parameter | Rationale |
 |-----------|-----------|
-| P min = 20 | Below 20 is non-functional for any quad size |
+| P min = 20-30 | Micro quads (1-2"): pMin=30 because P<30 is dangerously unresponsive at their low inertia. Standard+ quads: pMin=20. |
 | P max 80-120 | Micro quads saturate motors at lower P. Standard/large quads tolerate higher P. |
 | D min = 15 | Below 15 provides negligible damping |
 | D max 50-100 | Small quads: high noise, low inertia → D > 50 dangerous. Large quads: high inertia needs more D damping. |
 | I min = 40 | I=30 causes poor wind rejection and attitude drift. BF defaults I=60-90. |
 | I max 100-120 | Micro quads rarely need I > 100. Standard quads: community rarely above 110. |
-| P typical | Size-specific P reference for "P too high" informational warning (triggers at 1.3×) |
+| P typical | Size-specific P reference for informational warnings: "P too high" (triggers at 1.3×) and "P too low" (triggers at 0.7×) |
 
 ### Flight Style Thresholds (PIDlab-Specific)
 

@@ -114,7 +114,9 @@ function recommendNoiseFloorAdjustments(
   const gyroMaxHz = rpmActive ? GYRO_LPF1_MAX_HZ_RPM : GYRO_LPF1_MAX_HZ;
   const dtermMaxHz = rpmActive ? DTERM_LPF1_MAX_HZ_RPM : DTERM_LPF1_MAX_HZ;
 
-  // Compute worst noise floor across roll and pitch (the critical axes)
+  // Compute worst noise floor across roll and pitch (the critical axes).
+  // Yaw is excluded: yaw noise is less critical for motor heating and flight feel,
+  // and yaw gyro often picks up frame vibrations differently than roll/pitch.
   const worstFloor = Math.max(noise.roll.noiseFloorDb, noise.pitch.noiseFloorDb);
 
   // Compute absolute targets from noise data (independent of current settings)
@@ -178,7 +180,7 @@ function recommendNoiseFloorAdjustments(
         currentValue: current.gyro_lpf1_static_hz,
         recommendedValue: targetGyroLpf1,
         reason:
-          'Your quad is very clean with minimal vibrations. Adjusting the gyro filter cutoff will give you ' +
+          'Your quad is very clean with minimal vibrations. Raising the gyro filter cutoff will give you ' +
           'faster response and sharper control with almost no downside.' +
           rpmNote +
           propwashNote,
@@ -193,7 +195,7 @@ function recommendNoiseFloorAdjustments(
         currentValue: current.dterm_lpf1_static_hz,
         recommendedValue: targetDtermLpf1,
         reason:
-          'Low noise means the D-term filter can be relaxed for sharper stick response. ' +
+          'Low noise means the D-term filter cutoff can be raised for sharper stick response. ' +
           'This makes your quad feel more locked-in during fast moves.' +
           rpmNote,
         impact: 'latency',
@@ -258,7 +260,10 @@ function recommendResonanceFixes(
   out: FilterRecommendation[],
   rpmActive: boolean
 ): void {
-  // Collect significant peaks from roll and pitch
+  // Collect significant peaks from roll and pitch.
+  // Note: peak frequency bands are fixed (frame resonance 80-200 Hz, electrical >500 Hz).
+  // These work across quad sizes because the noise analysis detects peaks at their actual
+  // frequencies, which naturally vary by frame size (smaller quads resonate higher).
   const significantPeaks: NoisePeak[] = [];
   for (const axis of [noise.roll, noise.pitch]) {
     for (const peak of axis.peaks) {

@@ -368,7 +368,11 @@ export function computeSyntheticStepResponse(
     response.push(cumSum);
   }
 
-  // Normalize: final value should approach 1.0 for a well-tuned system
+  // Normalize by final value so overshoot is measured relative to the system's own
+  // steady state, not the setpoint. This separates P/D tuning (overshoot) from I-term
+  // issues (DC gain deficit). A system with poor DC gain (I too low) that oscillates
+  // before settling will correctly show overshoot here, while TF-4 handles the DC gain
+  // deficit separately via bode.magnitude[0].
   const finalValue = response[response.length - 1];
   if (Math.abs(finalValue) > 1e-10) {
     for (let i = 0; i < response.length; i++) {

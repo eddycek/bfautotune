@@ -371,6 +371,9 @@ export interface PIDRecommendation {
   impact: 'response' | 'stability' | 'both';
   /** How confident the recommendation is */
   confidence: 'high' | 'medium' | 'low';
+  /** When true, this is an advisory — recommendedValue equals currentValue (no change).
+   * UI should display as a note/warning, not as an actionable recommendation. */
+  informational?: boolean;
 }
 
 /** Bayesian optimizer suggestion for next PID gains to try */

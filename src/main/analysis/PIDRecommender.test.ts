@@ -4,7 +4,10 @@ import {
   generatePIDSummary,
   extractFlightPIDs,
   extractFeedforwardContext,
+  extractDMinContext,
+  extractTPAContext,
 } from './PIDRecommender';
+import type { DMinContext, TPAContext } from './PIDRecommender';
 import type { TransferFunctionContext } from './PIDRecommender';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type {
@@ -400,7 +403,7 @@ describe('PIDRecommender', () => {
 
       const ffRec = recs.find((r) => r.setting === 'feedforward_boost');
       expect(ffRec).toBeDefined();
-      expect(ffRec!.recommendedValue).toBe(10);
+      expect(ffRec!.recommendedValue).toBe(12); // 15 - 3 = 12 (step size reduced from 5 to 3)
       expect(ffRec!.reason).toContain('feedforward');
       // Should NOT have P/D recommendations for this axis
       const dRec = recs.find((r) => r.setting === 'pid_roll_d');
@@ -1688,5 +1691,231 @@ describe('P-too-high informational warning', () => {
       (r) => r.setting === 'pid_roll_p' && r.reason.includes('higher than typical')
     );
     expect(pWarning).toBeUndefined();
+  });
+});
+
+describe('P-too-low informational warning', () => {
+  it('should warn when P is below typical for quad size (1" pTypical=40)', () => {
+    // P=25 on 1" quad (pTypical=40, threshold=40*0.7=28) → informational warning
+    const goodProfile = makeProfile({
+      meanOvershoot: 5,
+      meanRiseTimeMs: 30,
+      meanSettlingTimeMs: 150,
+    });
+    const lowPPids: PIDConfiguration = {
+      roll: { P: 25, I: 60, D: 20 },
+      pitch: { P: 25, I: 60, D: 20 },
+      yaw: { P: 40, I: 60, D: 0 },
+    };
+    const recs = recommendPID(
+      goodProfile,
+      goodProfile,
+      emptyProfile(),
+      lowPPids,
+      undefined,
+      undefined,
+      'balanced',
+      undefined,
+      undefined,
+      undefined,
+      '1"'
+    );
+    const pRec = recs.find(
+      (r) => r.setting === 'pid_roll_p' && r.reason.includes('lower than typical')
+    );
+    expect(pRec).toBeDefined();
+    expect(pRec!.confidence).toBe('low');
+    expect(pRec!.informational).toBe(true);
+    expect(pRec!.recommendedValue).toBe(25); // same value
+  });
+
+  it('should NOT warn when P is within typical range', () => {
+    const goodProfile = makeProfile({
+      meanOvershoot: 5,
+      meanRiseTimeMs: 30,
+      meanSettlingTimeMs: 150,
+    });
+    const normalPPids: PIDConfiguration = {
+      roll: { P: 45, I: 60, D: 20 },
+      pitch: { P: 45, I: 60, D: 20 },
+      yaw: { P: 40, I: 60, D: 0 },
+    };
+    const recs = recommendPID(
+      goodProfile,
+      goodProfile,
+      emptyProfile(),
+      normalPPids,
+      undefined,
+      undefined,
+      'balanced',
+      undefined,
+      undefined,
+      undefined,
+      '1"'
+    );
+    const pWarning = recs.find(
+      (r) => r.setting === 'pid_roll_p' && r.reason.includes('lower than typical')
+    );
+    expect(pWarning).toBeUndefined();
+  });
+});
+
+describe('informational flag', () => {
+  it('should mark P-too-high as informational', () => {
+    const goodProfile = makeProfile({
+      meanOvershoot: 5,
+      meanRiseTimeMs: 30,
+      meanSettlingTimeMs: 150,
+    });
+    const highPPids: PIDConfiguration = {
+      roll: { P: 70, I: 80, D: 30 },
+      pitch: { P: 70, I: 80, D: 30 },
+      yaw: { P: 45, I: 80, D: 0 },
+    };
+    const recs = recommendPID(
+      goodProfile,
+      goodProfile,
+      emptyProfile(),
+      highPPids,
+      undefined,
+      undefined,
+      'balanced',
+      undefined,
+      undefined,
+      undefined,
+      '5"'
+    );
+    const pRec = recs.find((r) => r.setting === 'pid_roll_p' && r.informational === true);
+    expect(pRec).toBeDefined();
+    expect(pRec!.recommendedValue).toBe(pRec!.currentValue);
+  });
+});
+
+describe('FF boost step size', () => {
+  it('should reduce feedforward_boost by 3 (not 5)', () => {
+    const overshootProfile = makeProfile({
+      meanOvershoot: 30,
+      responses: [makeResponse({ overshootPercent: 30, ffDominated: true })],
+    });
+    const pids: PIDConfiguration = {
+      roll: { P: 45, I: 80, D: 30 },
+      pitch: { P: 45, I: 80, D: 30 },
+      yaw: { P: 45, I: 80, D: 0 },
+    };
+    const ffContext: FeedforwardContext = { active: true, boost: 15 };
+    const recs = recommendPID(
+      overshootProfile,
+      emptyProfile(),
+      emptyProfile(),
+      pids,
+      undefined,
+      ffContext
+    );
+    const ffRec = recs.find((r) => r.setting === 'feedforward_boost');
+    expect(ffRec).toBeDefined();
+    expect(ffRec!.recommendedValue).toBe(12); // 15 - 3 = 12
+  });
+});
+
+describe('D-min/D-max advisory', () => {
+  it('should annotate D recommendations when D-min is active', () => {
+    const overshootProfile = makeProfile({ meanOvershoot: 30 });
+    const pids: PIDConfiguration = {
+      roll: { P: 45, I: 80, D: 30 },
+      pitch: { P: 45, I: 80, D: 30 },
+      yaw: { P: 45, I: 80, D: 0 },
+    };
+    const dMin: DMinContext = { active: true, roll: 20, pitch: 20 };
+    const recs = recommendPID(
+      overshootProfile,
+      emptyProfile(),
+      emptyProfile(),
+      pids,
+      undefined,
+      undefined,
+      'balanced',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      dMin
+    );
+    const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+    expect(dRec).toBeDefined();
+    expect(dRec!.reason).toContain('D-min is active');
+    expect(dRec!.reason).toContain('d_min=20');
+  });
+});
+
+describe('TPA advisory', () => {
+  it('should annotate D increase recommendations when TPA is active', () => {
+    const overshootProfile = makeProfile({ meanOvershoot: 30 });
+    const pids: PIDConfiguration = {
+      roll: { P: 45, I: 80, D: 30 },
+      pitch: { P: 45, I: 80, D: 30 },
+      yaw: { P: 45, I: 80, D: 0 },
+    };
+    const tpa: TPAContext = { active: true, rate: 65, breakpoint: 1350 };
+    const recs = recommendPID(
+      overshootProfile,
+      emptyProfile(),
+      emptyProfile(),
+      pids,
+      undefined,
+      undefined,
+      'balanced',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      tpa
+    );
+    const dRec = recs.find((r) => r.setting === 'pid_roll_d');
+    expect(dRec).toBeDefined();
+    expect(dRec!.reason).toContain('TPA is active');
+    expect(dRec!.reason).toContain('65%');
+  });
+});
+
+describe('extractDMinContext', () => {
+  it('should extract D-min values from headers', () => {
+    const headers = new Map([
+      ['d_min_roll', '20'],
+      ['d_min_pitch', '22'],
+      ['d_min_yaw', '0'],
+    ]);
+    const ctx = extractDMinContext(headers);
+    expect(ctx.active).toBe(true);
+    expect(ctx.roll).toBe(20);
+    expect(ctx.pitch).toBe(22);
+  });
+
+  it('should detect inactive D-min', () => {
+    const headers = new Map([
+      ['d_min_roll', '0'],
+      ['d_min_pitch', '0'],
+    ]);
+    const ctx = extractDMinContext(headers);
+    expect(ctx.active).toBe(false);
+  });
+});
+
+describe('extractTPAContext', () => {
+  it('should extract TPA values from headers', () => {
+    const headers = new Map([
+      ['tpa_rate', '65'],
+      ['tpa_breakpoint', '1350'],
+    ]);
+    const ctx = extractTPAContext(headers);
+    expect(ctx.active).toBe(true);
+    expect(ctx.rate).toBe(65);
+    expect(ctx.breakpoint).toBe(1350);
+  });
+
+  it('should detect inactive TPA', () => {
+    const headers = new Map([['tpa_rate', '0']]);
+    const ctx = extractTPAContext(headers);
+    expect(ctx.active).toBe(false);
   });
 });

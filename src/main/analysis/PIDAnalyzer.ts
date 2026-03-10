@@ -31,7 +31,13 @@ import {
   computeFFEnergyRatio,
   computeAdaptiveWindowMs,
 } from './StepMetrics';
-import { recommendPID, generatePIDSummary, extractFeedforwardContext } from './PIDRecommender';
+import {
+  recommendPID,
+  generatePIDSummary,
+  extractFeedforwardContext,
+  extractDMinContext,
+  extractTPAContext,
+} from './PIDRecommender';
 import type { TransferFunctionContext } from './PIDRecommender';
 import {
   scorePIDDataQuality,
@@ -313,6 +319,8 @@ async function analyzePIDCore(params: CoreParams): Promise<PIDAnalysisResult> {
   const propWash = analyzePropWash(flightData);
   const dTermEffectiveness = analyzeDTermEffectiveness(flightData);
   const feedforwardContext = rawHeaders ? extractFeedforwardContext(rawHeaders) : undefined;
+  const dMinContext = rawHeaders ? extractDMinContext(rawHeaders) : undefined;
+  const tpaContext = rawHeaders ? extractTPAContext(rawHeaders) : undefined;
 
   // ── Per-band TF analysis (Flash Tune only) ──
   const throttleTF =
@@ -341,7 +349,9 @@ async function analyzePIDCore(params: CoreParams): Promise<PIDAnalysisResult> {
     extracted.tfMetrics,
     dTermEffectiveness,
     propWash,
-    droneSize
+    droneSize,
+    dMinContext,
+    tpaContext
   );
 
   // FF recommendations (header-based for both; energy-based only when steps exist)
