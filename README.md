@@ -703,14 +703,20 @@ The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs acros
 
 | Rule | Trigger Condition | Action | Confidence | Source / Rationale |
 |------|-------------------|--------|------------|---------------------|
-| **Noise floor → lowpass** | Overall noise = high or low | Set gyro/D-term LPF1 to noise-based target | High (noisy) / Medium (clean) | Linear interpolation from BF guide bounds (see above) |
-| **Dead zone** | \|target − current\| ≤ 5 Hz | No change recommended | — | Prevents micro-adjustments that add no real benefit |
-| **Resonance peak → cutoff** | Peak ≥ 12 dB above local floor AND below current cutoff | Lower cutoff to peakFreq − 20 Hz (clamped to bounds) | High | Strong resonance passing through the filter must be blocked |
-| **Disabled gyro LPF + resonance** | gyro_lpf1 = 0 (disabled) AND resonance peak detected | Enable gyro LPF1 at peakFreq − 20 Hz | High | Common BF 4.4+ config with RPM filter; re-enable when needed |
+| **Noise floor → lowpass (high)** | Noise > -30 dB | Set gyro/D-term LPF1 to noise-based target | High | Linear interpolation from BF guide bounds (see above) |
+| **Noise floor → lowpass (medium)** | Noise -50 to -30 dB, \|target − current\| > 20 Hz | Set gyro/D-term LPF1 to noise-based target | Low | Medium noise: wider deadzone (20 Hz), low confidence to avoid churn |
+| **Dead zone** | \|target − current\| ≤ 5 Hz (high noise) or ≤ 20 Hz (medium noise) | No change recommended | — | Prevents micro-adjustments that add no real benefit |
+| **Resonance peak → cutoff** | Peak ≥ 12 dB above floor AND outside dyn_notch range AND below current cutoff | Lower cutoff to peakFreq − 20 Hz (clamped to bounds) | High | Notch-aware: peaks within dyn_notch_min–max are handled by the notch, not LPF |
+| **Disabled gyro LPF + resonance** | gyro_lpf1 = 0 (disabled) AND resonance peak outside notch range | Enable gyro LPF1 at peakFreq − 20 Hz | High | Common BF 4.4+ config with RPM filter; re-enable when needed |
 | **Dynamic notch range** | Peak below `dyn_notch_min_hz` | Lower dyn_notch_min to peakFreq − 20 Hz (floor: 50 Hz) | Medium | Notch can't track peaks outside its configured range |
 | **Dynamic notch range** | Peak above `dyn_notch_max_hz` | Raise dyn_notch_max to peakFreq + 20 Hz (ceiling: 1000 Hz) | Medium | Same as above, upper bound |
 | **RPM → notch count** | RPM filter active AND dyn_notch_count > 1 | Reduce dyn_notch_count to 1 | High | Motor noise handled by RPM notches; fewer dynamic notches = less CPU + latency |
-| **RPM → notch Q** | RPM filter active AND dyn_notch_q < 500 | Raise dyn_notch_q to 500 | High | Only frame resonances remain; narrower notch = less signal distortion |
+| **RPM → notch Q** | RPM filter active AND no strong frame resonance | Raise dyn_notch_q to 500 | High | Only weak resonances remain; narrower notch = less signal distortion |
+| **RPM → notch Q (resonance)** | RPM filter active AND strong frame resonance (≥ 12 dB, 80-200 Hz) | Keep dyn_notch_q at 300 | High | Broad frame resonance needs wider notch to be effective |
+| **LPF2 disable (gyro)** | RPM active AND noise < -45 dB | Disable gyro LPF2 | Medium | Very clean signal: LPF2 adds latency with no benefit |
+| **LPF2 disable (D-term)** | Noise < -45 dB | Disable D-term LPF2 | Medium | Clean signal: D-term LPF2 latency unnecessary |
+| **LPF2 enable (gyro)** | No RPM AND noise ≥ -30 dB | Enable gyro LPF2 | Medium | Noisy without RPM: extra filtering protects motors |
+| **LPF2 enable (D-term)** | Noise ≥ -30 dB AND LPF2 disabled | Enable D-term LPF2 | Medium | High noise needs additional D-term protection |
 | **RPM motor diagnostic** | RPM filter active AND motor harmonics still detected (≥ 12 dB) | Warning: check motor_poles / ESC telemetry | Medium | Motor harmonics should not exist with working RPM filter |
 | **Dynamic lowpass** | Throttle spectrogram noise increases ≥ 6 dB from low to high throttle AND Pearson correlation ≥ 0.6 | Enable `gyro_lpf1_dyn_min_hz` (current × 0.6) and `gyro_lpf1_dyn_max_hz` (current × 1.4) | Medium | Throttle-ramped cutoff: more filtering at high throttle, less latency at cruise |
 | **Deduplication** | Multiple rules target same setting | Keep more aggressive value, upgrade confidence | — | Ensures a single coherent recommendation per setting |
@@ -805,7 +811,9 @@ All recommendations are anchored to the PID values from the Blackbox log header 
 | **1a** | Overshoot > 25% AND (severity > 2× OR D ≥ 60% of max) | P ↓ | -5 / -10 | High | D alone insufficient at extreme overshoot |
 | **1b** | Overshoot 15–25% | D ↑ | +5 | Medium | Moderate overshoot, D-first strategy |
 | **1c** | FF-dominated overshoot (FF > P at peak) | FF boost ↓ | -5 | Medium | Overshoot caused by feedforward, not P/D |
-| **2** | Overshoot < 10% AND rise time > 80 ms | P ↑ | +5 | Medium | Sluggish response needs more authority |
+| **2** | Overshoot < 10% AND rise time > 80 ms (severity ≤ 2×) | P ↑ | +5 | Medium | Sluggish response needs more authority |
+| **2** | Overshoot < 10% AND rise time > 160 ms (severity > 2×) | P ↑ | +10 | Medium | Very sluggish — larger step for faster convergence |
+| **2b** | P > pTypical × 1.3 for quad size | P (informational) | same | Low | Warning only: P is high for this quad type |
 | **3** | Ringing > 2 cycles | D ↑ | +5 | Medium | Oscillation = underdamped response |
 | **4** | Settling > 200 ms AND overshoot < 15% | D ↑ | +5 | Low | Slow convergence, may have other causes |
 | **5a** | Steady-state error > 5% | I ↑ | +5 / +10 | Medium / High | Tracking drift during holds, improves wind resistance |
@@ -834,18 +842,20 @@ The transfer function approach is based on [Plasmatree PID-Analyzer](https://git
 |------|-----------|--------|-----------|-----------------|
 | **TF-1** | Phase margin < 45° (critical: < 30°) | D ↑ | +5 / +10 | Medium |
 | **TF-2** | Synthetic overshoot > threshold | Same as Rule 1a | varies | Medium |
-| **TF-3** | Bandwidth < 40 Hz (yaw: < 28 Hz), no overshoot | P ↑ | +5 | Medium |
+| **TF-3** | Bandwidth < threshold (smooth: 30, balanced: 40, aggressive: 60 Hz; yaw: × 0.7), no overshoot | P ↑ | +5 | Medium |
 | **TF-4** | DC gain < -1 dB (poor steady-state tracking) | I ↑ | +5 / +10 | Low / Medium |
 
 Base confidence is then adjusted by the same post-processing as step-response rules: D-term effectiveness gating can upgrade (→ High) or downgrade (→ Low), prop wash integration can boost D-increase confidence, and data quality scoring can further downgrade for poor-quality data. There is no blanket confidence cap for Flash Tune — the gating logic handles it identically to Deep Tune.
 
-**Safety Bounds:**
+**Safety Bounds (quad-size-aware):**
 
-| Parameter | Min | Max |
-|-----------|-----|-----|
-| P gain | 20 | 120 |
-| D gain | 15 | 80 |
-| I gain | 30 | 120 |
+Default bounds (5") shown. When drone size is known from the profile, per-size bounds apply — see `QUAD_SIZE_BOUNDS` in `constants.ts`.
+
+| Parameter | Min | Max (1-2") | Max (3-4") | Max (5") | Max (6-10") |
+|-----------|-----|-----------|-----------|---------|------------|
+| P gain | 20 | 80 | 100-110 | 120 | 120 |
+| D gain | 15 | 50 | 60-70 | 80 | 90-100 |
+| I gain | 40 | 100 | 110-120 | 120 | 120 |
 
 **Key design decisions:**
 
