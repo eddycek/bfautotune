@@ -98,7 +98,6 @@ const mockApplyResult: ApplyRecommendationsResult = {
   appliedFilters: 1,
   appliedPIDs: 1,
   appliedFeedforward: 0,
-  snapshotId: 'snap-123',
   rebooted: true,
 };
 

@@ -50,6 +50,9 @@ export interface ConfigurationSnapshot {
     appVersion: string;
     createdBy: 'user' | 'auto';
     notes?: string;
+    tuningSessionNumber?: number;
+    tuningType?: 'guided' | 'quick';
+    snapshotRole?: 'pre-tuning' | 'post-tuning';
   };
 }
 
@@ -64,6 +67,9 @@ export interface SnapshotMetadata {
     version: string;
     boardName: string;
   };
+  tuningSessionNumber?: number;
+  tuningType?: 'guided' | 'quick';
+  snapshotRole?: 'pre-tuning' | 'post-tuning';
 }
 
 export interface ConnectionStatus {

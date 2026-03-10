@@ -92,6 +92,16 @@
   color: white;
 }
 
+.badge.pre-tuning {
+  background-color: #cc6600;
+  color: white;
+}
+
+.badge.post-tuning {
+  background-color: #22863a;
+  color: white;
+}
+
 .restore-warning {
   color: #ff9900;
   font-size: 14px;
@@ -107,7 +117,7 @@
   cursor: pointer;
 }
 
-.restore-checkbox input[type="checkbox"] {
+.restore-checkbox input[type='checkbox'] {
   width: auto;
   margin: 0;
 }

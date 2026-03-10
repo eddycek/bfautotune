@@ -673,7 +673,7 @@ describe('TuningWizard', () => {
     });
   });
 
-  it('confirmation modal shows change counts and snapshot checkbox', async () => {
+  it('confirmation modal shows change counts', async () => {
     vi.mocked(window.betaflight.parseBlackboxLog).mockResolvedValue(mockSingleSessionResult);
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
@@ -687,8 +687,6 @@ describe('TuningWizard', () => {
     await waitFor(() => {
       expect(screen.getByText('1 filter change (via CLI)')).toBeInTheDocument();
       expect(screen.getByText('1 PID change (via MSP)')).toBeInTheDocument();
-      expect(screen.getByText('Create safety snapshot before applying')).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeChecked();
     });
   });
 
@@ -722,7 +720,6 @@ describe('TuningWizard', () => {
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
     vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
       success: true,
-      snapshotId: 'snap-1',
       appliedPIDs: 1,
       appliedFilters: 1,
       appliedFeedforward: 0,
@@ -748,7 +745,6 @@ describe('TuningWizard', () => {
         filterRecommendations: mockFilterResult.recommendations,
         pidRecommendations: mockPIDResult.recommendations,
         feedforwardRecommendations: [],
-        createSnapshot: true,
       });
     });
   });
@@ -759,7 +755,6 @@ describe('TuningWizard', () => {
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
     vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
       success: true,
-      snapshotId: 'snap-1',
       appliedPIDs: 1,
       appliedFilters: 1,
       appliedFeedforward: 0,
@@ -937,7 +932,6 @@ describe('TuningWizard', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
       success: true,
-      snapshotId: 'snap-1',
       appliedPIDs: 0,
       appliedFilters: 1,
       appliedFeedforward: 0,
@@ -1011,7 +1005,6 @@ describe('TuningWizard', () => {
     vi.mocked(window.betaflight.analyzeFilters).mockResolvedValue(mockFilterResult);
     vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
       success: true,
-      snapshotId: 'snap-1',
       appliedPIDs: 0,
       appliedFilters: 1,
       appliedFeedforward: 0,

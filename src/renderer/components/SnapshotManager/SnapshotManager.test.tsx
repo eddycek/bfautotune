@@ -821,6 +821,128 @@ describe('SnapshotManager', () => {
 
   // Demo mode tests
 
+  // Tuning role badge tests
+  describe('tuning role badges', () => {
+    it('displays pre-tuning badge for snapshots with snapshotRole', async () => {
+      const snapshotsWithRoles: SnapshotMetadata[] = [
+        {
+          ...mockSnapshots[0],
+          id: 'snap-pre',
+          label: 'Pre-tuning #1 (Deep Tune)',
+          type: 'auto',
+          snapshotRole: 'pre-tuning',
+          tuningSessionNumber: 1,
+          tuningType: 'guided',
+        },
+      ];
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshotsWithRoles);
+
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        const badge = document.querySelector('.badge.pre-tuning');
+        expect(badge).toBeTruthy();
+        expect(badge?.textContent).toBe('Pre-tuning');
+      });
+    });
+
+    it('displays post-tuning badge for post-tuning snapshots', async () => {
+      const snapshotsWithRoles: SnapshotMetadata[] = [
+        {
+          ...mockSnapshots[0],
+          id: 'snap-post',
+          label: 'Post-tuning #1 (Deep Tune)',
+          type: 'auto',
+          snapshotRole: 'post-tuning',
+          tuningSessionNumber: 1,
+          tuningType: 'guided',
+        },
+      ];
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshotsWithRoles);
+
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        const badge = document.querySelector('.badge.post-tuning');
+        expect(badge).toBeTruthy();
+        expect(badge?.textContent).toBe('Post-tuning');
+      });
+    });
+
+    it('does not show role badges for snapshots without metadata', async () => {
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(screen.getByText('After PID tune')).toBeInTheDocument();
+      });
+
+      expect(document.querySelector('.badge.pre-tuning')).toBeNull();
+      expect(document.querySelector('.badge.post-tuning')).toBeNull();
+    });
+  });
+
+  // Smart compare tests
+  describe('smart compare', () => {
+    it('compares post-tuning with pre-tuning from same session', async () => {
+      const snapshotsWithRoles: SnapshotMetadata[] = [
+        {
+          id: 'snap-post-1',
+          timestamp: new Date('2024-01-02').toISOString(),
+          label: 'Post-tuning #1 (Deep Tune)',
+          type: 'auto',
+          sizeBytes: 2048,
+          fcInfo: { variant: 'BTFL', version: '4.4.0', boardName: 'MATEKF405' },
+          snapshotRole: 'post-tuning',
+          tuningSessionNumber: 1,
+          tuningType: 'guided',
+        },
+        {
+          id: 'snap-pre-1',
+          timestamp: new Date('2024-01-01').toISOString(),
+          label: 'Pre-tuning #1 (Deep Tune)',
+          type: 'auto',
+          sizeBytes: 2048,
+          fcInfo: { variant: 'BTFL', version: '4.4.0', boardName: 'MATEKF405' },
+          snapshotRole: 'pre-tuning',
+          tuningSessionNumber: 1,
+          tuningType: 'guided',
+        },
+      ];
+      vi.mocked(window.betaflight.listSnapshots).mockResolvedValue(snapshotsWithRoles);
+
+      const postSnapshot: ConfigurationSnapshot = {
+        ...mockFullSnapshot,
+        id: 'snap-post-1',
+        label: 'Post-tuning #1',
+      };
+      const preSnapshot: ConfigurationSnapshot = {
+        ...mockFullSnapshot,
+        id: 'snap-pre-1',
+        label: 'Pre-tuning #1',
+      };
+      vi.mocked(window.betaflight.loadSnapshot)
+        .mockResolvedValueOnce(postSnapshot)
+        .mockResolvedValueOnce(preSnapshot);
+
+      const user = userEvent.setup();
+      render(<SnapshotManager />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Post-tuning #1 (Deep Tune)')).toBeInTheDocument();
+      });
+
+      // Click compare on post-tuning (index 0) — should match pre-tuning from same session
+      const compareButtons = screen.getAllByRole('button', { name: /^compare$/i });
+      await user.click(compareButtons[0]);
+
+      await waitFor(() => {
+        // Should load the post-tuning snapshot and then the pre-tuning match
+        expect(window.betaflight.loadSnapshot).toHaveBeenCalledWith('snap-post-1');
+        expect(window.betaflight.loadSnapshot).toHaveBeenCalledWith('snap-pre-1');
+      });
+    });
+  });
+
   it('disables Restore buttons in demo mode', async () => {
     _resetDemoModeCache();
     vi.mocked(window.betaflight.isDemoMode).mockResolvedValue(true);

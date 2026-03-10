@@ -136,7 +136,54 @@ export function SnapshotManager() {
 
       const afterNum = snapshots.length - index;
       const afterWithNum = { ...afterSnapshot, label: `#${afterNum} ${afterSnapshot.label}` };
+      const afterMeta = snapshots[index];
 
+      // Smart compare: match pre-tuning ↔ post-tuning by session number
+      if (afterMeta.snapshotRole && afterMeta.tuningSessionNumber) {
+        const targetRole = afterMeta.snapshotRole === 'post-tuning' ? 'pre-tuning' : 'post-tuning';
+        // For pre-tuning, look for the previous session's post-tuning
+        const targetSessionNum =
+          afterMeta.snapshotRole === 'pre-tuning'
+            ? afterMeta.tuningSessionNumber - 1
+            : afterMeta.tuningSessionNumber;
+
+        if (targetSessionNum > 0) {
+          const matchIdx = snapshots.findIndex(
+            (s) => s.snapshotRole === targetRole && s.tuningSessionNumber === targetSessionNum
+          );
+          if (matchIdx >= 0) {
+            const beforeSnapshot = await loadSnapshot(snapshots[matchIdx].id);
+            if (beforeSnapshot) {
+              const beforeNum = snapshots.length - matchIdx;
+              const beforeWithNum = {
+                ...beforeSnapshot,
+                label: `#${beforeNum} ${beforeSnapshot.label}`,
+              };
+              setDiffSnapshots({ before: beforeWithNum, after: afterWithNum });
+              return;
+            }
+          }
+        }
+
+        // Pre-tuning #1 with no previous post-tuning — compare with baseline
+        if (afterMeta.snapshotRole === 'pre-tuning' && targetSessionNum === 0) {
+          const baselineIdx = snapshots.findIndex((s) => s.type === 'baseline');
+          if (baselineIdx >= 0) {
+            const beforeSnapshot = await loadSnapshot(snapshots[baselineIdx].id);
+            if (beforeSnapshot) {
+              const beforeNum = snapshots.length - baselineIdx;
+              const beforeWithNum = {
+                ...beforeSnapshot,
+                label: `#${beforeNum} ${beforeSnapshot.label}`,
+              };
+              setDiffSnapshots({ before: beforeWithNum, after: afterWithNum });
+              return;
+            }
+          }
+        }
+      }
+
+      // Fallback: chronological compare (for old snapshots without metadata)
       if (index >= snapshots.length - 1) {
         // Oldest snapshot — compare with empty config
         const emptyBefore: ConfigurationSnapshot = {
@@ -249,6 +296,12 @@ export function SnapshotManager() {
                   <span className="snapshot-number">#{snapshots.length - globalIndex}</span>
                   {snapshot.label}
                   {snapshot.type === 'baseline' && <span className="badge baseline">Baseline</span>}
+                  {snapshot.snapshotRole === 'pre-tuning' && (
+                    <span className="badge pre-tuning">Pre-tuning</span>
+                  )}
+                  {snapshot.snapshotRole === 'post-tuning' && (
+                    <span className="badge post-tuning">Post-tuning</span>
+                  )}
                 </div>
                 <div className="snapshot-meta">
                   <span>{new Date(snapshot.timestamp).toLocaleString()}</span>

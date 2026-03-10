@@ -67,12 +67,11 @@ export interface ApplyRecommendationsInput {
   filterRecommendations: FilterRecommendation[];
   pidRecommendations: PIDRecommendation[];
   feedforwardRecommendations: PIDRecommendation[];
-  createSnapshot: boolean;
 }
 
 /** Progress during recommendation application */
 export interface ApplyRecommendationsProgress {
-  stage: 'snapshot' | 'pid' | 'filter' | 'feedforward' | 'save';
+  stage: 'pid' | 'filter' | 'feedforward' | 'save';
   message: string;
   percent: number;
 }
@@ -80,7 +79,6 @@ export interface ApplyRecommendationsProgress {
 /** Result of applying recommendations */
 export interface ApplyRecommendationsResult {
   success: boolean;
-  snapshotId?: string;
   appliedPIDs: number;
   appliedFilters: number;
   appliedFeedforward: number;

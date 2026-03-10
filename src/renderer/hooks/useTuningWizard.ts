@@ -63,7 +63,7 @@ export interface UseTuningWizardReturn {
   applyResult: ApplyRecommendationsResult | null;
   applyError: string | null;
   startApply: () => void;
-  confirmApply: (createSnapshot: boolean) => Promise<void>;
+  confirmApply: () => Promise<void>;
   cancelApply: () => void;
 }
 
@@ -227,59 +227,55 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
     setApplyState('idle');
   }, []);
 
-  const confirmApply = useCallback(
-    async (createSnapshot: boolean) => {
-      setApplyState('applying');
-      setApplyProgress(null);
-      setApplyError(null);
-      setApplyResult(null);
+  const confirmApply = useCallback(async () => {
+    setApplyState('applying');
+    setApplyProgress(null);
+    setApplyError(null);
+    setApplyResult(null);
 
-      try {
-        // In mode-specific modes, only send relevant recommendations
-        const filterRecs =
-          mode === TUNING_MODE.PID
-            ? []
-            : (filterResult?.recommendations ?? []).filter(
-                (r) => r.currentValue !== r.recommendedValue
-              );
-        // For Flash Tune mode, PID recs come from transfer function analysis
-        const allPidRecs =
-          mode === TUNING_MODE.FILTER
-            ? []
-            : mode === TUNING_MODE.FLASH
-              ? (tfResult?.recommendations ?? [])
-              : (pidResult?.recommendations ?? []);
-        const pidRecs = allPidRecs.filter(
-          (r) => r.setting.startsWith('pid_') && r.currentValue !== r.recommendedValue
-        );
-        const ffRecs = allPidRecs.filter(
-          (r) => r.setting.startsWith('feedforward_') && r.currentValue !== r.recommendedValue
-        );
+    try {
+      // In mode-specific modes, only send relevant recommendations
+      const filterRecs =
+        mode === TUNING_MODE.PID
+          ? []
+          : (filterResult?.recommendations ?? []).filter(
+              (r) => r.currentValue !== r.recommendedValue
+            );
+      // For Flash Tune mode, PID recs come from transfer function analysis
+      const allPidRecs =
+        mode === TUNING_MODE.FILTER
+          ? []
+          : mode === TUNING_MODE.FLASH
+            ? (tfResult?.recommendations ?? [])
+            : (pidResult?.recommendations ?? []);
+      const pidRecs = allPidRecs.filter(
+        (r) => r.setting.startsWith('pid_') && r.currentValue !== r.recommendedValue
+      );
+      const ffRecs = allPidRecs.filter(
+        (r) => r.setting.startsWith('feedforward_') && r.currentValue !== r.recommendedValue
+      );
 
-        const hasChanges = filterRecs.length + pidRecs.length + ffRecs.length > 0;
+      const hasChanges = filterRecs.length + pidRecs.length + ffRecs.length > 0;
 
-        // Only mark intentional disconnect when changes will cause a reboot
-        if (hasChanges) {
-          markIntentionalDisconnect();
-        }
-
-        const result = await window.betaflight.applyRecommendations({
-          filterRecommendations: filterRecs,
-          pidRecommendations: pidRecs,
-          feedforwardRecommendations: ffRecs,
-          createSnapshot,
-        });
-
-        setApplyResult(result);
-        setApplyState('done');
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to apply recommendations';
-        setApplyError(message);
-        setApplyState('error');
+      // Only mark intentional disconnect when changes will cause a reboot
+      if (hasChanges) {
+        markIntentionalDisconnect();
       }
-    },
-    [filterResult, pidResult, tfResult, mode]
-  );
+
+      const result = await window.betaflight.applyRecommendations({
+        filterRecommendations: filterRecs,
+        pidRecommendations: pidRecs,
+        feedforwardRecommendations: ffRecs,
+      });
+
+      setApplyResult(result);
+      setApplyState('done');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to apply recommendations';
+      setApplyError(message);
+      setApplyState('error');
+    }
+  }, [filterResult, pidResult, tfResult, mode]);
 
   const startApply = useCallback(() => {
     // Check if there are any recommendations to apply
@@ -294,7 +290,7 @@ export function useTuningWizard(logId: string, mode: TuningMode = 'full'): UseTu
 
     if (totalRecs === 0) {
       // No changes — skip confirmation modal, apply directly (returns immediately)
-      confirmApply(false);
+      confirmApply();
     } else {
       setApplyState('confirming');
     }

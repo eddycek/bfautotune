@@ -630,9 +630,9 @@ describe('E2E Tuning Workflow', () => {
       // At least one more snapshot (the pre-tuning backup)
       expect(snapshotsAfter.data.length).toBeGreaterThan(countBefore);
 
-      // One of the new snapshots should be the auto backup
+      // One of the new snapshots should be the auto backup with session context
       const labels = snapshotsAfter.data.map((s: any) => s.label);
-      expect(labels.some((l: string) => l.includes('Pre-tuning (auto)'))).toBe(true);
+      expect(labels.some((l: string) => l.includes('Pre-tuning #'))).toBe(true);
     });
 
     it('erase flash during tuning session — phase unchanged', async () => {

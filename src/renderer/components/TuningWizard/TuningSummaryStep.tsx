@@ -67,7 +67,6 @@ function getSuccessMessage(
           <br />
           {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written
           to FC.
-          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
           <br />
           Next: erase Blackbox, fly the PID test flight (stick snaps on all axes), then reconnect to
           continue tuning.
@@ -81,7 +80,6 @@ function getSuccessMessage(
           <strong>PIDs applied!</strong>
           <br />
           {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} written to FC.
-          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
           <br />
           Fly a normal flight to verify the feel, then reconnect to download the verification log.
         </>
@@ -93,7 +91,6 @@ function getSuccessMessage(
           <br />
           {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} and{' '}
           {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} written to FC.
-          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
           <br />
           Fly a verification hover to confirm noise improvement, then reconnect to download the log.
         </>
@@ -106,7 +103,6 @@ function getSuccessMessage(
           {applyResult.appliedPIDs} PID{applyResult.appliedPIDs !== 1 ? 's' : ''} and{' '}
           {applyResult.appliedFilters} filter{applyResult.appliedFilters !== 1 ? 's' : ''} written
           to FC.
-          {applyResult.snapshotId && <> Pre-tuning snapshot saved.</>}
           <br />
           Your FC is rebooting. Close the wizard and reconnect via the Connection panel.
         </>

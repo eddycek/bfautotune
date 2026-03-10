@@ -396,7 +396,6 @@ describe('useTuningWizard', () => {
     vi.mocked(window.betaflight.analyzePID).mockResolvedValue(mockPIDResult);
     vi.mocked(window.betaflight.applyRecommendations).mockResolvedValue({
       success: true,
-      snapshotId: 'snap-1',
       appliedPIDs: 1,
       appliedFilters: 1,
       appliedFeedforward: 0,
@@ -414,14 +413,13 @@ describe('useTuningWizard', () => {
     });
 
     await act(async () => {
-      await result.current.confirmApply(true);
+      await result.current.confirmApply();
     });
 
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: mockFilterResult.recommendations,
       pidRecommendations: mockPIDResult.recommendations,
       feedforwardRecommendations: [],
-      createSnapshot: true,
     });
     expect(result.current.applyState).toBe('done');
     expect(result.current.applyResult?.success).toBe(true);
@@ -435,7 +433,7 @@ describe('useTuningWizard', () => {
     const { result } = renderHook(() => useTuningWizard('log-1'));
 
     await act(async () => {
-      await result.current.confirmApply(false);
+      await result.current.confirmApply();
     });
 
     expect(result.current.applyState).toBe('error');
@@ -499,14 +497,13 @@ describe('useTuningWizard', () => {
       await result.current.runPIDAnalysis();
     });
     await act(async () => {
-      await result.current.confirmApply(false);
+      await result.current.confirmApply();
     });
 
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: mockFilterResult.recommendations,
       pidRecommendations: [],
       feedforwardRecommendations: [],
-      createSnapshot: false,
     });
   });
 
@@ -530,14 +527,13 @@ describe('useTuningWizard', () => {
       await result.current.runPIDAnalysis();
     });
     await act(async () => {
-      await result.current.confirmApply(true);
+      await result.current.confirmApply();
     });
 
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: [],
       pidRecommendations: mockPIDResult.recommendations,
       feedforwardRecommendations: [],
-      createSnapshot: true,
     });
   });
 
@@ -571,14 +567,13 @@ describe('useTuningWizard', () => {
       await result.current.runPIDAnalysis();
     });
     await act(async () => {
-      await result.current.confirmApply(false);
+      await result.current.confirmApply();
     });
 
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: [],
       pidRecommendations: [mockPIDResult.recommendations[0]],
       feedforwardRecommendations: [pidWithFF.recommendations[1]],
-      createSnapshot: false,
     });
   });
 
@@ -612,7 +607,7 @@ describe('useTuningWizard', () => {
       await result.current.runFilterAnalysis();
     });
     await act(async () => {
-      await result.current.confirmApply(false);
+      await result.current.confirmApply();
     });
 
     // Diagnostic (0 → 0) should be filtered out, only real change sent
@@ -620,7 +615,6 @@ describe('useTuningWizard', () => {
       filterRecommendations: mockFilterResult.recommendations,
       pidRecommendations: [],
       feedforwardRecommendations: [],
-      createSnapshot: false,
     });
   });
 
@@ -644,14 +638,13 @@ describe('useTuningWizard', () => {
       await result.current.runPIDAnalysis();
     });
     await act(async () => {
-      await result.current.confirmApply(true);
+      await result.current.confirmApply();
     });
 
     expect(window.betaflight.applyRecommendations).toHaveBeenCalledWith({
       filterRecommendations: mockFilterResult.recommendations,
       pidRecommendations: mockPIDResult.recommendations,
       feedforwardRecommendations: [],
-      createSnapshot: true,
     });
   });
 });

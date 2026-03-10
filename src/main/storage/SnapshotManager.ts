@@ -26,7 +26,11 @@ export class SnapshotManager {
     await this.storage.ensureDirectory();
   }
 
-  async createSnapshot(label?: string, type: 'baseline' | 'manual' | 'auto' = 'manual'): Promise<ConfigurationSnapshot> {
+  async createSnapshot(
+    label?: string,
+    type: 'baseline' | 'manual' | 'auto' = 'manual',
+    extraMetadata?: { tuningSessionNumber?: number; tuningType?: string; snapshotRole?: string }
+  ): Promise<ConfigurationSnapshot> {
     if (!this.mspClient.isConnected()) {
       throw new SnapshotError('Not connected to FC');
     }
@@ -46,12 +50,21 @@ export class SnapshotManager {
         type,
         fcInfo,
         configuration: {
-          cliDiff
+          cliDiff,
         },
         metadata: {
           appVersion: APP_VERSION,
-          createdBy: type === 'auto' ? 'auto' : 'user'
-        }
+          createdBy: type === 'auto' ? 'auto' : 'user',
+          ...(extraMetadata?.tuningSessionNumber != null && {
+            tuningSessionNumber: extraMetadata.tuningSessionNumber,
+          }),
+          ...(extraMetadata?.tuningType != null && {
+            tuningType: extraMetadata.tuningType as 'guided' | 'quick',
+          }),
+          ...(extraMetadata?.snapshotRole != null && {
+            snapshotRole: extraMetadata.snapshotRole as 'pre-tuning' | 'post-tuning',
+          }),
+        },
       };
 
       // Save to storage
@@ -61,7 +74,11 @@ export class SnapshotManager {
       if (this.profileManager) {
         const currentProfileId = this.profileManager.getCurrentProfileId();
         if (currentProfileId) {
-          await this.profileManager.linkSnapshot(currentProfileId, snapshot.id, type === 'baseline');
+          await this.profileManager.linkSnapshot(
+            currentProfileId,
+            snapshot.id,
+            type === 'baseline'
+          );
         }
       }
 
@@ -79,7 +96,7 @@ export class SnapshotManager {
 
   async createBaselineIfMissing(): Promise<void> {
     const snapshots = await this.listSnapshots();
-    const hasBaseline = snapshots.some(s => s.type === 'baseline');
+    const hasBaseline = snapshots.some((s) => s.type === 'baseline');
 
     if (!hasBaseline) {
       logger.info('No baseline found, creating one...');
@@ -133,7 +150,7 @@ export class SnapshotManager {
       if (this.profileManager) {
         const currentProfile = await this.profileManager.getCurrentProfile();
         if (currentProfile) {
-          ids = ids.filter(id => currentProfile.snapshotIds.includes(id));
+          ids = ids.filter((id) => currentProfile.snapshotIds.includes(id));
         }
       }
 
@@ -150,8 +167,15 @@ export class SnapshotManager {
           fcInfo: {
             variant: snapshot.fcInfo.variant,
             version: snapshot.fcInfo.version,
-            boardName: snapshot.fcInfo.boardName
-          }
+            boardName: snapshot.fcInfo.boardName,
+          },
+          ...(snapshot.metadata.tuningSessionNumber != null && {
+            tuningSessionNumber: snapshot.metadata.tuningSessionNumber,
+          }),
+          ...(snapshot.metadata.tuningType != null && { tuningType: snapshot.metadata.tuningType }),
+          ...(snapshot.metadata.snapshotRole != null && {
+            snapshotRole: snapshot.metadata.snapshotRole,
+          }),
         });
       }
 
@@ -184,7 +208,7 @@ export class SnapshotManager {
     // Fallback to old method for backward compatibility
     if (!this.baselineId) {
       const snapshots = await this.listSnapshots();
-      const baseline = snapshots.find(s => s.type === 'baseline');
+      const baseline = snapshots.find((s) => s.type === 'baseline');
       if (baseline) {
         this.baselineId = baseline.id;
       }
@@ -203,7 +227,7 @@ export class SnapshotManager {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
 
     switch (type) {

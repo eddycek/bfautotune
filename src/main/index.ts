@@ -23,7 +23,7 @@ import {
   consumePendingSettingsSnapshot,
 } from './ipc/handlers';
 import { logger } from './utils/logger';
-import { SNAPSHOT, PROFILE, TUNING_PHASE } from '@shared/constants';
+import { SNAPSHOT, PROFILE, TUNING_PHASE, TUNING_TYPE_LABELS } from '@shared/constants';
 import { MockMSPClient, DEMO_FC_SERIAL } from './demo/MockMSPClient';
 import { generateFilterDemoBBL } from './demo/DemoDataGenerator';
 import {
@@ -261,38 +261,35 @@ async function initialize(): Promise<void> {
               }
             }
 
-            // Create post-apply snapshot on first reconnect after tuning apply
+            // Create post-tuning snapshot on first reconnect after PID/Quick apply
             if (
-              session.phase === TUNING_PHASE.FILTER_APPLIED ||
               session.phase === TUNING_PHASE.PID_APPLIED ||
               session.phase === TUNING_PHASE.QUICK_APPLIED
             ) {
-              const snapshotField =
-                session.phase === TUNING_PHASE.FILTER_APPLIED
-                  ? 'postFilterSnapshotId'
-                  : 'postTuningSnapshotId';
-
               // Dedup: skip if snapshot already created on a previous reconnect
-              const alreadyExists =
-                snapshotField === 'postFilterSnapshotId'
-                  ? session.postFilterSnapshotId
-                  : session.postTuningSnapshotId;
-
-              if (alreadyExists) {
-                logger.info(`Post-apply snapshot already exists (${snapshotField}), skipping`);
+              if (session.postTuningSnapshotId) {
+                logger.info('Post-tuning snapshot already exists, skipping');
               } else {
-                const label =
-                  session.phase === TUNING_PHASE.FILTER_APPLIED
-                    ? 'Post-filter (auto)'
-                    : 'Post-tuning (auto)';
+                // Compute session number from history (session not yet archived)
+                let sessionNumber = 1;
+                if (tuningHistoryManager) {
+                  const history = await tuningHistoryManager.getHistory(existingProfile.id);
+                  sessionNumber = history.length + 1;
+                }
+                const tuningType = session.tuningType ?? 'guided';
+                const label = `Post-tuning #${sessionNumber} (${TUNING_TYPE_LABELS[tuningType]})`;
                 logger.info(`Creating post-apply snapshot: ${label}`);
-                const snapshot = await snapshotManager.createSnapshot(label, 'auto');
+                const snapshot = await snapshotManager.createSnapshot(label, 'auto', {
+                  tuningSessionNumber: sessionNumber,
+                  tuningType,
+                  snapshotRole: 'post-tuning',
+                });
 
                 // Save snapshot ID to tuning session for history tracking
                 const updated = await tuningSessionManager.updatePhase(
                   existingProfile.id,
                   session.phase, // same phase — just adding data
-                  { [snapshotField]: snapshot.id }
+                  { postTuningSnapshotId: snapshot.id }
                 );
                 sendTuningSessionChanged(updated);
 
