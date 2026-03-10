@@ -316,6 +316,19 @@ describe('TuningHistoryPanel', () => {
     });
   });
 
+  it('shows session numbers matching trend chart order', () => {
+    const records = [
+      makeRecord('r1', '2026-02-10T00:00:00Z'), // newest → #2
+      makeRecord('r2', '2026-01-28T00:00:00Z'), // oldest → #1
+    ];
+    const { container } = render(<TuningHistoryPanel history={records} loading={false} />);
+
+    const numbers = container.querySelectorAll('.tuning-history-session-number');
+    expect(numbers).toHaveLength(2);
+    expect(numbers[0]).toHaveTextContent('#2');
+    expect(numbers[1]).toHaveTextContent('#1');
+  });
+
   it('renders trend chart with 2+ records', () => {
     const r1 = makeRecord('r1', '2026-02-10T00:00:00Z');
     const r2 = makeRecord('r2', '2026-02-01T00:00:00Z');

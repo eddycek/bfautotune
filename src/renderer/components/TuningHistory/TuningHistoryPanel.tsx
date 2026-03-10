@@ -68,9 +68,11 @@ export function TuningHistoryPanel({
       <QualityTrendChart history={history} />
 
       <div className="tuning-history-list">
-        {history.map((record) => {
+        {history.map((record, index) => {
           const isExpanded = expandedId === record.id;
           const score = scoreMap.get(record.id);
+          // history is newest-first, so #1 = oldest = last item
+          const sessionNumber = history.length - index;
           return (
             <div key={record.id} className={`tuning-history-card ${isExpanded ? 'expanded' : ''}`}>
               <button
@@ -79,7 +81,10 @@ export function TuningHistoryPanel({
                 aria-expanded={isExpanded}
               >
                 <div className="tuning-history-card-info">
-                  <span className="tuning-history-card-date">{formatDate(record.completedAt)}</span>
+                  <span className="tuning-history-card-date">
+                    <span className="tuning-history-session-number">#{sessionNumber}</span>
+                    {formatDate(record.completedAt)}
+                  </span>
                   <span className="tuning-history-card-summary">{recordSummary(record)}</span>
                 </div>
                 <div className="tuning-history-card-right">
