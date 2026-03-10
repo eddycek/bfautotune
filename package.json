@@ -4,8 +4,8 @@
   "description": "PIDlab - FPV Quad PID Tuning Assistant",
   "main": "dist/main/index.js",
   "scripts": {
-    "dev": "vite",
-    "dev:demo": "DEMO_MODE=true E2E_USER_DATA_DIR=.demo-userdata vite",
+    "dev": "DEBUG_SERVER=true vite",
+    "dev:demo": "DEMO_MODE=true E2E_USER_DATA_DIR=.demo-userdata DEBUG_SERVER=true vite",
     "build": "tsc && vite build && electron-builder",
     "build:main": "tsc --project tsconfig.main.json",
     "build:renderer": "vite build",

@@ -78,6 +78,7 @@ export async function launchDemoApp(options?: LaunchOptions): Promise<DemoApp> {
     env: {
       ...process.env,
       DEMO_MODE: 'true',
+      DEBUG_SERVER: 'true',
       E2E_USER_DATA_DIR: userDataDir,
       ...(stressMode ? { DEMO_STRESS: 'true' } : {}),
     },

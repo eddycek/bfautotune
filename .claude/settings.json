@@ -4,15 +4,12 @@
       "Bash(git *)",
       "Bash(git status)",
       "Bash(git stash)",
-
       "Bash(gh *)",
-
       "Bash(npm run *)",
       "Bash(npm run)",
       "Bash(npm test *)",
       "Bash(npm test)",
       "Bash(npx *)",
-
       "Bash(find *)",
       "Bash(ls *)",
       "Bash(ls)",
@@ -54,7 +51,6 @@
       "Bash(rm -rf /private/tmp/*)",
       "Bash(rm -f *)",
       "Bash(rm *)",
-
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
@@ -106,7 +102,6 @@
       "Read(**/apikey*)",
       "Read(**/*apikey*)",
       "Read(**/.htpasswd)",
-
       "Write(**/.env)",
       "Write(**/.env.*)",
       "Write(**/credentials*)",
@@ -116,7 +111,6 @@
       "Write(**/*.pem)",
       "Write(**/*.key)",
       "Write(**/.ssh/*)",
-
       "Edit(**/.env)",
       "Edit(**/.env.*)",
       "Edit(**/credentials*)",
@@ -126,7 +120,6 @@
       "Edit(**/*.pem)",
       "Edit(**/*.key)",
       "Edit(**/.ssh/*)",
-
       "Bash(cat **/.env)",
       "Bash(cat **/.env.*)",
       "Bash(cat **/credentials*)",
@@ -145,7 +138,6 @@
       "Bash(grep *api_key*)",
       "Bash(grep *apikey*)",
       "Bash(grep *token*)",
-
       "Bash(node -e *)",
       "Bash(node --eval *)",
       "Bash(python*)",
@@ -157,5 +149,8 @@
       "Bash(docker *)",
       "Bash(kubectl *)"
     ]
+  },
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true
   }
 }

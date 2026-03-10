@@ -26,6 +26,11 @@ import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE, TUNING_PHASE } from '@shared/constants';
 import { MockMSPClient, DEMO_FC_SERIAL } from './demo/MockMSPClient';
 import { generateFilterDemoBBL } from './demo/DemoDataGenerator';
+import {
+  startDebugServer,
+  setDebugDependencies,
+  captureRendererConsole,
+} from './debug/DebugServer';
 
 /** Whether the app is running in demo mode (DEMO_MODE env var or --demo flag) */
 const isDemoMode = process.env.DEMO_MODE === 'true' || process.argv.includes('--demo');
@@ -103,6 +108,21 @@ async function initialize(): Promise<void> {
   setTuningHistoryManager(tuningHistoryManager);
   setDemoMode(isDemoMode);
   registerIPCHandlers();
+
+  // Start debug HTTP server if enabled (dev only)
+  if (process.env.DEBUG_SERVER === 'true') {
+    setDebugDependencies({
+      mspClient,
+      profileManager,
+      snapshotManager,
+      tuningSessionManager,
+      blackboxManager,
+      tuningHistoryManager,
+      isDemoMode,
+    });
+    const port = parseInt(process.env.DEBUG_SERVER_PORT || '9300', 10);
+    startDebugServer(port);
+  }
 
   // Listen for connection changes
   mspClient.on('connection-changed', (status) => {
@@ -381,6 +401,11 @@ async function ensureDemoProfile(): Promise<void> {
 app.whenReady().then(async () => {
   await initialize();
   createWindow();
+
+  // Start capturing renderer console for debug server
+  if (process.env.DEBUG_SERVER === 'true') {
+    captureRendererConsole();
+  }
 
   // In demo mode, auto-connect after window is ready
   if (isDemoMode && mspClient instanceof MockMSPClient) {

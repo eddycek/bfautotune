@@ -50,6 +50,7 @@ e2e-report/
 e2e-screenshots/
 .e2e-userdata/
 .demo-userdata/
+debug-screenshots/
 playwright-report/
 test-results/
 
