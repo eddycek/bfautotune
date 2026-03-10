@@ -19,15 +19,24 @@
  *   GET /tuning-session — active tuning session state
  *   GET /snapshots      — configuration snapshots for current profile
  *   GET /blackbox-logs  — list downloaded blackbox logs for current profile
+ *   GET /analyze?logId=X — run full analysis pipeline on a log (filter + PID + TF)
+ *   GET /analyze         — run on latest log
  *   GET /health         — simple health check
  */
 
 import http from 'http';
+import * as fsPromises from 'fs/promises';
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { app } from 'electron';
 import { getMainWindow } from '../window';
 import { logger } from '../utils/logger';
+import { BlackboxParser } from '../blackbox/BlackboxParser';
+import { analyze as analyzeFilters } from '../analysis/FilterAnalyzer';
+import { analyzePID, analyzeTransferFunction } from '../analysis/PIDAnalyzer';
+import { extractFlightPIDs } from '../analysis/PIDRecommender';
+import { validateBBLHeader, enrichSettingsFromBBLHeaders } from '../analysis/headerValidation';
+import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
 
 const DEFAULT_PORT = 9300;
 const MAX_LOG_LINES = 500;
@@ -125,6 +134,12 @@ export function startDebugServer(port: number = DEFAULT_PORT): void {
         case '/blackbox-logs':
           return json(res, await getBlackboxLogs());
 
+        case '/analyze': {
+          const logId = url.searchParams.get('logId') || undefined;
+          const sessionIdx = parseInt(url.searchParams.get('session') || '0', 10);
+          return json(res, await runFullAnalysis(logId, sessionIdx));
+        }
+
         default:
           res.statusCode = 404;
           return json(res, {
@@ -140,6 +155,7 @@ export function startDebugServer(port: number = DEFAULT_PORT): void {
               '/tuning-session',
               '/snapshots',
               '/blackbox-logs',
+              '/analyze',
             ],
           });
       }
@@ -397,6 +413,201 @@ async function getSnapshots() {
   } catch (err: any) {
     return { error: err.message, snapshots: [] };
   }
+}
+
+async function runFullAnalysis(logId?: string, sessionIndex: number = 0) {
+  if (!deps) return { error: 'Dependencies not initialized' };
+
+  const { blackboxManager, profileManager, mspClient } = deps;
+
+  // Find log: specific ID or latest
+  let logMeta: any;
+  try {
+    if (logId) {
+      logMeta = await blackboxManager.getLog(logId);
+    } else {
+      const currentProfile = profileManager?.getCurrentProfile?.() ?? null;
+      if (!currentProfile) return { error: 'No active profile — specify logId parameter' };
+      const logs = await blackboxManager.listLogs(currentProfile.id);
+      if (logs.length === 0) return { error: 'No blackbox logs found for current profile' };
+      logMeta = logs[0]; // Most recent
+    }
+  } catch (err: any) {
+    return { error: `Failed to find log: ${err.message}` };
+  }
+
+  if (!logMeta) return { error: `Log not found: ${logId}` };
+
+  // Parse BBL
+  let parseResult: any;
+  try {
+    const data = await fsPromises.readFile(logMeta.filepath);
+    parseResult = await BlackboxParser.parse(data);
+  } catch (err: any) {
+    return { error: `Parse failed: ${err.message}`, log: logMeta.filename };
+  }
+
+  if (!parseResult.success || parseResult.sessions.length === 0) {
+    return { error: 'Parse failed or no sessions found', log: logMeta.filename };
+  }
+
+  if (sessionIndex >= parseResult.sessions.length) {
+    return {
+      error: `Session ${sessionIndex} out of range (log has ${parseResult.sessions.length})`,
+      log: logMeta.filename,
+    };
+  }
+
+  const session = parseResult.sessions[sessionIndex];
+  const headerWarnings = validateBBLHeader(session.header);
+  const flightPIDs = extractFlightPIDs(session.header.rawHeaders);
+
+  // Get current settings from FC or BBL headers
+  let filterSettings: any = null;
+  let pidConfig: any = null;
+  const connected = mspClient?.isConnected?.() ?? false;
+
+  if (connected) {
+    try {
+      filterSettings = await mspClient.getFilterConfiguration();
+    } catch {
+      /* ignore */
+    }
+    try {
+      pidConfig = await mspClient.getPIDConfiguration();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Enrich filter settings from BBL headers
+  if (filterSettings) {
+    const enriched = enrichSettingsFromBBLHeaders(filterSettings, session.header.rawHeaders);
+    if (enriched) filterSettings = enriched;
+  } else {
+    const enriched = enrichSettingsFromBBLHeaders(
+      DEFAULT_FILTER_SETTINGS,
+      session.header.rawHeaders
+    );
+    if (enriched) filterSettings = enriched;
+  }
+
+  // Get flight style
+  let flightStyle: 'smooth' | 'balanced' | 'aggressive' = 'balanced';
+  try {
+    const profile = profileManager?.getCurrentProfile?.();
+    if (profile?.flightStyle) flightStyle = profile.flightStyle;
+  } catch {
+    /* ignore */
+  }
+
+  // Run all analyses in parallel
+  const noProgress = () => {};
+  const results: any = {
+    log: {
+      filename: logMeta.filename,
+      id: logMeta.id,
+      size: logMeta.size,
+      sessionCount: parseResult.sessions.length,
+      analyzedSession: sessionIndex,
+    },
+    parse: {
+      success: true,
+      parseTimeMs: parseResult.parseTimeMs,
+      headerWarnings,
+      sampleRate: session.header.sysConfig?.looptime
+        ? Math.round(1000000 / session.header.sysConfig.looptime)
+        : null,
+      duration: session.flightData.gyro?.[0]
+        ? `${((session.flightData.gyro[0].length / (session.header.sysConfig?.looptime ? 1000000 / session.header.sysConfig.looptime : 4000)) * 1000).toFixed(0)}ms`
+        : null,
+      flightPIDs,
+    },
+    currentSettings: {
+      filters: filterSettings,
+      pids: pidConfig,
+      source: connected ? 'FC (live)' : 'BBL headers (estimated)',
+    },
+    filter: null as any,
+    pid: null as any,
+    transferFunction: null as any,
+  };
+
+  // Run analyses in parallel
+  const [filterResult, pidResult, tfResult] = await Promise.allSettled([
+    analyzeFilters(session.flightData, sessionIndex, filterSettings, noProgress),
+    analyzePID(
+      session.flightData,
+      sessionIndex,
+      pidConfig,
+      noProgress,
+      flightPIDs,
+      session.header.rawHeaders,
+      flightStyle
+    ),
+    analyzeTransferFunction(
+      session.flightData,
+      sessionIndex,
+      pidConfig,
+      noProgress,
+      flightPIDs,
+      session.header.rawHeaders,
+      flightStyle
+    ),
+  ]);
+
+  if (filterResult.status === 'fulfilled') {
+    const r = filterResult.value;
+    results.filter = {
+      noise: r.noise,
+      recommendations: r.recommendations,
+      dataQuality: r.dataQuality,
+      throttleSpectrogram: r.throttleSpectrogram
+        ? { bands: r.throttleSpectrogram.bands?.length }
+        : null,
+      groupDelay: r.groupDelay,
+      warnings: [...headerWarnings, ...(r.warnings || [])],
+      analysisTimeMs: r.analysisTimeMs,
+    };
+  } else {
+    results.filter = { error: filterResult.reason?.message || 'Filter analysis failed' };
+  }
+
+  if (pidResult.status === 'fulfilled') {
+    const r = pidResult.value;
+    results.pid = {
+      stepsDetected: r.stepsDetected,
+      axisMetrics: r.axisMetrics,
+      recommendations: r.recommendations,
+      dataQuality: r.dataQuality,
+      crossAxisCoupling: r.crossAxisCoupling,
+      propWash: r.propWash,
+      dTermEffectiveness: r.dTermEffectiveness,
+      warnings: [...headerWarnings, ...(r.warnings || [])],
+      analysisTimeMs: r.analysisTimeMs,
+    };
+  } else {
+    results.pid = { error: pidResult.reason?.message || 'PID analysis failed' };
+  }
+
+  if (tfResult.status === 'fulfilled') {
+    const r = tfResult.value;
+    results.transferFunction = {
+      recommendations: r.recommendations,
+      bandwidth: r.bandwidth,
+      phaseMargin: r.phaseMargin,
+      gainMargin: r.gainMargin,
+      dcGainDb: r.dcGainDb,
+      dataQuality: r.dataQuality,
+      analysisTimeMs: r.analysisTimeMs,
+    };
+  } else {
+    results.transferFunction = {
+      error: tfResult.reason?.message || 'Transfer function analysis failed',
+    };
+  }
+
+  return results;
 }
 
 async function getBlackboxLogs() {
