@@ -88,14 +88,18 @@ See [SPEC.md](./SPEC.md) for detailed phase tracking and test counts.
 - Quad-size-aware PID safety bounds: per-size P/D/I min/max/typical for 9 drone sizes (1"–10"), prevents dangerous values on micros and allows higher D on large quads
 - Severity-scaled sluggish P increase: P+5 for mild, P+10 for very sluggish (rise time > 2× threshold)
 - P-too-high informational warning: alerts when P exceeds typical value for quad size (1.3× pTypical)
+- P-too-low informational warning: alerts when P is below typical range for quad size (0.7× pTypical), especially important for micro quads
 - I-term rules: steady-state error detection with I increase/decrease recommendations (I min = 40)
 - Damping ratio validation: D/P ratio check (0.45–0.85 range) with automatic correction
 - D-term effectiveness analysis: measures D dampening vs noise amplification ratio
 - Prop wash detection: throttle-down event analysis with severity scoring per axis
 - Cross-axis coupling detection: measures roll↔pitch interference
-- Feedforward awareness: detects FF-dominated overshoot, recommends `feedforward_boost` reduction instead of P/D changes
+- Feedforward awareness: detects FF-dominated overshoot, recommends `feedforward_boost` reduction (step size 3) instead of P/D changes
 - FF energy ratio integration: downgrades P-decrease confidence when feedforward contributes >60% of overshoot energy
 - Proportional step sizing: D +5/+10/+15 based on overshoot severity for faster convergence
+- D-min/D-max advisory: annotates D recommendations when D-min is active, noting that changes affect d_max only
+- TPA advisory: annotates D increase recommendations when TPA is active, explaining effective D reduction at high throttle
+- Informational recommendations: P-too-high and P-too-low warnings use `informational` flag (no value change, advisory only)
 
 ### Transfer Function Analysis (Wiener Deconvolution)
 
