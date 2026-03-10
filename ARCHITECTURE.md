@@ -819,7 +819,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**2370 unit tests across 114 files + 26 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2368 unit tests across 114 files + 26 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -833,7 +833,7 @@ Hardware error (FC timeout, USB disconnect)
 | IPC Handlers | 1 | 109 |
 | UI Components + Charts + Contexts | 43 | 654 |
 | React Hooks + Utils | 13 | 156 |
-| Shared Constants & Utils | 4 | 72 |
+| Shared Constants & Utils | 4 | 78 |
 | E2E Workflows (Vitest) | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 73 |
 | **Playwright E2E** | **5** | **26** |

@@ -210,7 +210,7 @@ window.betaflight.onConnectionChanged((status) => {
 - Array of `CompletedTuningRecord[]` per profile (oldest-first on disk, newest-first in API)
 - Archived from completed sessions with self-contained metrics + applied changes
 - Deleted when profile is deleted
-- Compact metrics: `FilterMetricsSummary` (noise floor, peaks, 128-bin spectrum), `PIDMetricsSummary` (step response)
+- Compact metrics: `FilterMetricsSummary` (noise floor, peaks, 128-bin spectrum), `PIDMetricsSummary` (step response), `TransferFunctionMetricsSummary` (bandwidth, phase margin, dcGain, throttleBands)
 - Spectrum downsampling: `downsampleSpectrum()` in `src/shared/utils/metricsExtract.ts`
 - Design doc: `docs/TUNING_HISTORY_AND_COMPARISON.md`
 

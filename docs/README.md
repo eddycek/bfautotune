@@ -13,7 +13,6 @@ Overview of all design documents in this directory. Completed documents are arch
 | Document | Status | PRs | Description |
 |----------|--------|-----|-------------|
 | [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Active** | #119–#120, #137, #146–#152 | Research-based tuning accuracy improvements: ~~Wiener deconvolution~~ (done), ~~proportional PID scaling~~ (done), ~~data quality scoring~~ (done), ~~flight quality score~~ (done), throttle spectrograms, chirp analysis |
-| [FLASH_TUNE_RECOMMENDATION_PARITY](./FLASH_TUNE_RECOMMENDATION_PARITY.md) | **Active** | #203–#206 | Unified PID pipeline, quality score parity, DC gain I-term rule, per-band TF analysis |
 | [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | — | Backlog of UX improvement ideas (4/7 done, rest are future work) |
 
 ## Completed Documents (`complete/`)
@@ -23,6 +22,7 @@ Overview of all design documents in this directory. Completed documents are arch
 | [BBL_PARSER_VALIDATION](./complete/BBL_PARSER_VALIDATION.md) | #2–#10 | Byte-exact validation of BBL parser against BF Explorer reference implementations |
 | [BF_VERSION_POLICY](./complete/BF_VERSION_POLICY.md) | #79 | Betaflight version compatibility policy (min 4.3, recommended 4.5+) |
 | [COMPREHENSIVE_TESTING_PLAN](./complete/COMPREHENSIVE_TESTING_PLAN.md) | #84–#88 | 9-phase testing plan: 2180 tests / 107 files |
+| [FLASH_TUNE_RECOMMENDATION_PARITY](./complete/FLASH_TUNE_RECOMMENDATION_PARITY.md) | #203–#206 | Unified PID pipeline, quality score parity, DC gain I-term rule, per-band TF analysis |
 | [FEEDFORWARD_AWARENESS](./complete/FEEDFORWARD_AWARENESS.md) | #55–#62 | FF detection, FF-dominated overshoot classification, FF-aware PID recommendations, MSP read |
 | [FLIGHT_STYLE_PROFILES](./complete/FLIGHT_STYLE_PROFILES.md) | #71–#78 | Smooth/Balanced/Aggressive flight style selector, style-based PID thresholds, preset defaults |
 | [OFFLINE_UX_TESTING](./complete/OFFLINE_UX_TESTING.md) | — | Demo mode (`--demo` flag) for offline UX testing. 26 Playwright E2E tests |

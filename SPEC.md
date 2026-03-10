@@ -93,7 +93,7 @@ High-level user journey:
 |-------------|--------|-------|
 | Compute gyro noise spectrum (FFT) over steady segments (exclude takeoff/landing) | :white_check_mark: | SegmentSelector + FFTCompute (Welch's method, Hanning window) |
 | Detect peaks (frame resonance, motor harmonics) and overall noise floor | :white_check_mark: | NoiseAnalyzer: prominence-based peaks, 3 classification types, quartile noise floor |
-| Decide adjustments: dynamic notch, RPM filtering validation, gyro/D-term lowpass cutoff changes, safety bounds | :white_check_mark: | Gyro/D-term LPF, RPM-aware bounds (widened when RPM active), dynamic notch optimization (count/Q), motor harmonic diagnostic |
+| Decide adjustments: dynamic notch, RPM filtering validation, gyro/D-term lowpass cutoff changes, safety bounds | :white_check_mark: | Gyro/D-term LPF, RPM-aware bounds (widened when RPM active), dynamic notch optimization (count/Q) |
 | Prefer minimal filtering compatible with safe noise levels to minimize latency | :white_check_mark: | Low noise → raise cutoffs for less latency; safety bounds enforced |
 | Provide plain-English explanation per change + interactive graph view | :white_check_mark: | Plain-English explanations + interactive FFT spectrum chart (Recharts) |
 | Apply changes to FC and save; auto-snapshot new config | :white_check_mark: | Auto-apply via CLI `set` commands, pre-tuning safety snapshot, save & reboot |
@@ -267,7 +267,7 @@ High-level user journey:
 - Feedforward awareness: FF detection from BBL headers, FF-dominated overshoot classification, FF-aware PID recommendations (PRs #55–#60)
 - MSP_PID_ADVANCED read: feedforward configuration via MSP command 94 (PR #61)
 - Feedforward display in FC Info panel: boost, per-axis gains, smoothing, jitter, transition, max rate limit (PR #62)
-- RPM filter awareness: RPM state detection via MSP/BBL headers, RPM-aware filter bounds, dynamic notch optimization, motor harmonic diagnostics (PRs #66–#70)
+- RPM filter awareness: RPM state detection via MSP/BBL headers, RPM-aware filter bounds, dynamic notch optimization (PRs #66–#70)
 - Flight style preferences: Smooth/Balanced/Aggressive selector in profiles, style-based PID thresholds, preset defaults, UI context display (PRs #71–#78)
 - BF version policy: min 4.3 (API 1.44), version gate on connect, version-aware debug mode (PR #79)
 - Comprehensive testing plan: 9-phase plan adding 464 tests. PRs #85–#88. See [docs/COMPREHENSIVE_TESTING_PLAN.md](./docs/COMPREHENSIVE_TESTING_PLAN.md).
@@ -351,7 +351,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** March 10, 2026 | **Tests:** 2370 unit tests across 114 files + 26 Playwright E2E tests | **PRs Merged:** #1–#221
+**Last Updated:** March 10, 2026 | **Tests:** 2368 unit tests across 114 files + 26 Playwright E2E tests | **PRs Merged:** #1–#221
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -372,7 +372,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 | D sweep multi-log comparison | 8 | Requires multi-flight iterative workflow |
 | Master gain step (P/D scaling) | 8 | Requires multi-flight iterative workflow |
 | FF/I/secondary parameter tuning | 8 | FF detection + FF-aware PID recommendations + MSP read done. FF write-back via CLI apply stage done (PR #116). I write-back not yet implemented. |
-| ~~RPM filtering validation~~ | ~~7~~ | ✅ Done — RPM-aware bounds, dynamic notch optimization, motor harmonic diagnostic (PRs #63-#69) |
+| ~~RPM filtering validation~~ | ~~7~~ | ✅ Done — RPM-aware bounds, dynamic notch optimization (PRs #63-#69) |
 | ~~FF write-back~~ | ~~8~~ | ✅ Done — Feedforward write-back via CLI apply stage (PR #116). I write-back remaining. |
 | UI tooltips for technical terms | 9 | Nice-to-have UX enhancement |
 | Auto-configure BB logging settings | 4 | Would streamline pre-flight setup |
