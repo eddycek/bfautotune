@@ -246,7 +246,8 @@ Analyzes gyro noise spectra to produce filter tuning recommendations.
 - **FilterRecommender**: Absolute noise-based target computation (convergent), safety bounds, propwash-aware gyro LPF1 floor (100 Hz min, bypass at -15 dB extreme noise), beginner-friendly explanations. Medium noise handling (conditional LPF2 recommendations), notch-aware resonance (notch already covering peak suppresses LPF lowering), conditional dynamic notch Q based on noise severity
 - **ThrottleSpectrogramAnalyzer**: Bins gyro data by throttle level (10 bands), per-band FFT spectra and noise floors. Returns `ThrottleSpectrogramResult`
 - **GroupDelayEstimator**: Per-filter group delay estimation (PT1, biquad, notch). Returns `FilterGroupDelay` with gyroTotalMs, dtermTotalMs, warning if >2ms. Smart `dyn_notch_q` handling: `Q > 10 ? Q / 100 : Q` for BF internal storage quirk
-- **FilterAnalyzer**: Orchestrator with async progress reporting. Returns throttle spectrogram + group delay in result
+- **DynamicLowpassRecommender**: Analyzes throttle spectrogram for throttle-dependent noise (≥6 dB increase, Pearson ≥0.6). Recommends dynamic lowpass for both gyro LPF1 and D-term LPF1 (when static cutoffs are non-zero). D-term benefits more because derivative amplifies high-frequency noise. Min/max = current × 0.6/1.4
+- **FilterAnalyzer**: Orchestrator with async progress reporting. Passes both `gyro_lpf1_static_hz` and `dterm_lpf1_static_hz` to dynamic lowpass recommender. Returns throttle spectrogram + group delay in result
 - IPC: `ANALYSIS_RUN_FILTER` + `EVENT_ANALYSIS_PROGRESS`
 - Dependency: `fft.js`
 - Constants in `src/main/analysis/constants.ts` (tunable thresholds)
@@ -258,7 +259,7 @@ Analyzes step response metrics from setpoint/gyro data to produce PID tuning rec
 **Pipeline**: StepDetector → StepMetrics → PIDRecommender → PIDAnalyzer
 
 - **StepDetector**: Derivative-based step input detection in setpoint data, hold/cooldown validation. Configurable window parameter (`windowMs?`)
-- **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement. Adaptive two-pass window sizing (`computeAdaptiveWindowMs()` — median-based, clamped 150-500ms). Steady-state error tracking (`steadyStateErrorPercent`)
+- **StepMetrics**: Rise time, overshoot percentage, settling time, latency, ringing measurement with SNR filter (`RINGING_MIN_AMPLITUDE_FRACTION` = 5% of step magnitude excludes gyro noise from ringing count). Adaptive two-pass window sizing (`computeAdaptiveWindowMs()` — median-based, clamped 150-500ms). Steady-state error tracking (`steadyStateErrorPercent`)
 - **PIDRecommender**: Flight-PID-anchored P/D/I recommendations (convergent), `extractFlightPIDs()` from BBL header, proportional severity-based steps (D: +5/+10/+15, P: -5/-10), I-term rules based on `meanSteadyStateError` with flight-style thresholds, D/P damping ratio validation (0.45-0.85 range), safety bounds (P: 20-120, D: 15-80, I: 30-120). **Quad-size-aware bounds**: `droneSize` parameter narrows P/D/I bounds via `QUAD_SIZE_BOUNDS` (e.g., micro quads pMin=30 prevents dangerously low P). **Severity-scaled sluggish P**: P increase scales with rise time severity (+5/+10/+15). **P-too-high warning**: when P > 1.3× pTypical, emits informational recommendation (`informational: true`). **P-too-low warning**: when P < 0.7× pTypical, emits informational warning (important for micros). **D-term effectiveness gating**: 3-tier D-increase gating (>0.7 boost confidence, 0.3-0.7 allow+warn, <0.3 redirect to filters). **Prop wash integration**: severe prop wash (≥5×) boosts D-increase confidence or generates new D+5 recommendation on worst axis. **Rule TF-4**: DC gain deficit from transfer function → I-term increase recommendation (Flash Tune equivalent of steady-state error detection). **D-min/TPA advisory**: `extractDMinContext()` and `extractTPAContext()` from BBL headers annotate D recommendations when D-min or TPA is active. **FF boost step**: reduced from 5 to 3 for finer convergence
 - **CrossAxisDetector**: Pearson correlation coupling detection between axis pairs. Thresholds: none (<0.15), mild (0.15-0.4), significant (≥0.4). Returns `CrossAxisCoupling`
 - **PropWashDetector**: Throttle-down event detection, post-event FFT in 20-90 Hz band. Returns `PropWashAnalysis` with events, meanSeverity, worstAxis, dominantFrequencyHz. Passed to `recommendPID()` for prop wash-aware D recommendations
@@ -535,7 +536,7 @@ Renderer components subscribe to events:
 - `src/shared/constants.ts` - MSP codes, Betaflight vendor IDs, preset profiles, size defaults
 - `src/shared/types/*.types.ts` - Shared type definitions (common, profile, pid, blackbox, analysis)
 - `src/shared/constants/flightGuide.ts` - Flight guide phases, tips, and tuning workflow steps
-- `src/main/analysis/constants.ts` - FFT thresholds, peak detection, safety bounds, propwash floor, damping ratio, I-term bounds, adaptive window, QUAD_SIZE_BOUNDS, BANDWIDTH_LOW_HZ_BY_STYLE, LPF2 thresholds (tunable)
+- `src/main/analysis/constants.ts` - FFT thresholds, peak detection, safety bounds, propwash floor, damping ratio, I-term bounds, adaptive window, QUAD_SIZE_BOUNDS, BANDWIDTH_LOW_HZ_BY_STYLE, LPF2 thresholds, RINGING_MIN_AMPLITUDE_FRACTION (tunable)
 - `vitest.config.ts` - Test configuration with jsdom environment
 
 ### Size Defaults

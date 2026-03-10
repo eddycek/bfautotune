@@ -174,8 +174,10 @@ From BF Tuning Guide and community consensus:
 ### Dynamic Lowpass (Throttle-Tracking)
 
 - When `gyro_lpf1_dyn_min_hz > 0`, gyro LPF1 becomes dynamic
+- When `dterm_lpf1_dyn_min_hz > 0`, D-term LPF1 becomes dynamic
 - Cutoff frequency tracks throttle position: low throttle → min_hz, high throttle → max_hz
 - **Purpose**: At low throttle, motor noise is low-frequency — filter must track down. At high throttle, noise shifts up — filter can relax
+- **D-term dynamic lowpass**: D amplifies high-frequency noise (derivative operation). Dynamic D-term filtering reduces motor heating at high throttle while preserving stick feel at cruise. PIDlab recommends D-term dynamic lowpass alongside gyro when throttle-dependent noise is detected
 - BF dynamic ranges: Low 83-500 Hz, Medium 110-660 Hz, High 166-900 Hz
 - Useful for quads without RPM filter (no bidirectional DSHOT)
 
@@ -500,6 +502,7 @@ Per-axis rules anchored to **flight PIDs from BBL header** (convergent design �
 
 **Rule 4: Excessive Ringing** (maxRinging > ringingMax)
 - D increase by 5 (skipped if D already increased for overshoot)
+- **Ringing SNR filter**: Zero-crossings with amplitude below `RINGING_MIN_AMPLITUDE_FRACTION` (5%) of step magnitude are excluded from the ringing count. This prevents gyro sensor noise from inflating the oscillation count on small steps, ensuring Rule 4 only fires for genuine mechanical ringing.
 
 **Rule 5: Slow Settling** (meanSettlingTime > settlingMax, overshoot acceptable)
 - D increase by 5 (skipped if D already recommended)

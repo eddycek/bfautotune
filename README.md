@@ -678,7 +678,7 @@ Analyzes gyro noise to compute optimal lowpass cutoffs. The analysis code (`Filt
    - Electrical noise (>500 Hz)
 5. **Throttle spectrogram** — Bins gyro data by throttle level (10 bands), computes per-band FFT spectra and noise floors. Used downstream by the dynamic lowpass recommender to detect throttle-dependent noise.
 6. **Filter recommendation** — Maps the measured noise floor (dB) to a target cutoff frequency (Hz) via linear interpolation between safety bounds. Quality-adjusted confidence applied afterward.
-7. **Dynamic lowpass analysis** — When throttle spectrogram shows noise increasing ≥ 6 dB from low to high throttle (with Pearson correlation ≥ 0.6), recommends enabling dynamic lowpass for throttle-ramped filtering.
+7. **Dynamic lowpass analysis** — When throttle spectrogram shows noise increasing ≥ 6 dB from low to high throttle (with Pearson correlation ≥ 0.6), recommends enabling dynamic lowpass for both gyro LPF1 and D-term LPF1 (when their static cutoffs are non-zero). D-term benefits even more because the derivative amplifies high-frequency noise.
 8. **Group delay estimation** — Estimates total filter group delay (gyro + D-term chain) for the current settings. Warns when total delay exceeds 2 ms.
 9. **Wind/disturbance detection** — Analyzes gyro variance during hover to estimate environmental conditions (calm / moderate / windy). High variance reduces confidence in filter recommendations.
 10. **Mechanical health diagnostic** — Pre-tuning check: extreme noise floor (> -20 dB per axis), asymmetric roll/pitch noise (> 8 dB difference), motor output variance imbalance (> 3× ratio). Critical issues are flagged before filter tuning proceeds.
@@ -730,7 +730,8 @@ The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs acros
 | **LPF2 enable (gyro)** | No RPM AND noise ≥ -30 dB | Enable gyro LPF2 | Medium | Noisy without RPM: extra filtering protects motors |
 | **LPF2 enable (D-term)** | Noise ≥ -30 dB AND LPF2 disabled | Enable D-term LPF2 | Medium | High noise needs additional D-term protection |
 | **RPM motor diagnostic** | RPM filter active AND motor harmonics still detected (≥ 12 dB) | Warning: check motor_poles / ESC telemetry | Medium | Motor harmonics should not exist with working RPM filter |
-| **Dynamic lowpass** | Throttle spectrogram noise increases ≥ 6 dB from low to high throttle AND Pearson correlation ≥ 0.6 | Enable `gyro_lpf1_dyn_min_hz` (current × 0.6) and `gyro_lpf1_dyn_max_hz` (current × 1.4) | Medium | Throttle-ramped cutoff: more filtering at high throttle, less latency at cruise |
+| **Dynamic lowpass (gyro)** | Throttle spectrogram noise increases ≥ 6 dB from low to high throttle AND Pearson correlation ≥ 0.6 AND gyro LPF1 > 0 | Enable `gyro_lpf1_dyn_min_hz` (current × 0.6) and `gyro_lpf1_dyn_max_hz` (current × 1.4) | Medium | Throttle-ramped cutoff: more filtering at high throttle, less latency at cruise |
+| **Dynamic lowpass (D-term)** | Same throttle-noise trigger as gyro AND D-term LPF1 > 0 | Enable `dterm_lpf1_dyn_min_hz` (current × 0.6) and `dterm_lpf1_dyn_max_hz` (current × 1.4) | Medium | D amplifies high-frequency noise — dynamic filtering reduces motor heating at high throttle while preserving stick feel at cruise |
 | **Deduplication** | Multiple rules target same setting | Keep more aggressive value, upgrade confidence | — | Ensures a single coherent recommendation per setting |
 
 **RPM filter awareness:** When the RPM filter is active (detected via MSP or BBL headers), the recommender widens safety bounds because motor noise is already handled by the 36 narrow notch filters tracking motor frequencies. It also recommends dynamic notch optimization (count 3→1, Q 300→500) since only frame resonances remain. If motor harmonics are still detected with RPM active, a diagnostic warns about possible `motor_poles` misconfiguration or ESC telemetry issues.
@@ -785,7 +786,7 @@ For each valid step, the algorithm extracts a 300 ms response window and compute
 | **Overshoot** | How much gyro exceeds the target | Peak deviation beyond steady-state, as % of step magnitude |
 | **Settling time** | How quickly oscillations die out | Last time gyro exits the ±2% band around steady-state |
 | **Latency** | Delay before first movement | Time until gyro moves >5% of step magnitude from baseline |
-| **Ringing** | Post-step oscillation count | Zero-crossings around steady-state, counted as full cycles |
+| **Ringing** | Post-step oscillation count | Zero-crossings around steady-state, counted as full cycles. SNR filter: oscillations below 5% of step magnitude are treated as gyro noise and excluded |
 | **Steady-state error** | Accuracy after settling | Difference between target and actual position after settling |
 | **FF energy ratio** | Feedforward vs P contribution | Sum-of-squares energy ratio `FF/(FF+P)` over step response window |
 
@@ -903,7 +904,7 @@ The autotuning rules and thresholds are based on established FPV community pract
 - Huffman-compressed Blackbox data not yet supported (rare, BF 4.1+ feature)
 - Feedforward parameter write via MSP not yet supported (FF detection, FF-aware PID recommendations, and CLI apply all work; only direct MSP write of `feedforward_smooth_factor`/`feedforward_jitter_factor` is missing)
 - Bayesian PID optimizer: framework complete (GP surrogate, Expected Improvement), full auto-apply pipeline integration pending (currently returns suggestions alongside rule-based recommendations)
-- Throttle spectrogram: per-throttle-bin FFT data computed and used for dynamic lowpass recommendations; dedicated spectrogram chart visualization not yet in UI
+- Throttle spectrogram: per-throttle-bin FFT data computed and used for dynamic lowpass recommendations (gyro + D-term); dedicated spectrogram chart visualization not yet in UI
 
 ## Development Roadmap
 

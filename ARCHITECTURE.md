@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 10, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2367 unit tests, 114 files + 26 Playwright E2E tests**
+**Last Updated:** March 10, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2370 unit tests, 114 files + 26 Playwright E2E tests**
 
 ---
 
@@ -58,7 +58,7 @@
 │  │  │MSPConnection │  │ BlackboxParser  │  │ Analysis Engine │      │  │
 │  │  │ + CLI Mode   │  │ (6 modules,     │  │ FFT + Step Resp │      │  │
 │  │  │ + fcEntered  │  │  227 tests)     │  │ (19 modules,    │      │  │
-│  │  │   CLI flag   │  │                 │  │  525 tests)     │      │  │
+│  │  │   CLI flag   │  │                 │  │  528 tests)     │      │  │
 │  │  └───┬──────────┘  └─────────────────┘  └──────────────────┘      │  │
 │  │      │                                                             │  │
 │  │  ┌───┴──────────┐                                                  │  │
@@ -819,12 +819,12 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**2367 unit tests across 114 files + 26 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2370 unit tests across 114 files + 26 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
 | Blackbox Parser | 9 | 245 |
-| FFT Analysis (+ Data Quality + Spectrogram + Delay) | 8 | 225 |
+| FFT Analysis (+ Data Quality + Spectrogram + Delay) | 8 | 228 |
 | Step Response + PID + TF + CrossAxis + PropWash + DTerm + Bayesian | 10 | 310 |
 | Header Validation + Constants | 2 | 31 |
 | MSP Protocol & Client | 4 | 173 |

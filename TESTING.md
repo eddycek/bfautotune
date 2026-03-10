@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 2367 unit tests across 114 files + 26 Playwright E2E tests across 5 spec files** (last verified: March 10, 2026)
+**Total: 2370 unit tests across 114 files + 26 Playwright E2E tests across 5 spec files** (last verified: March 10, 2026)
 
 ### UI Components
 
@@ -317,7 +317,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `analysis/DTermAnalyzer.test.ts` | 8 | D-term effectiveness, energy ratio computation, dCritical flag |
 | `analysis/WindDisturbanceDetector.test.ts` | 11 | Wind/disturbance detection, gyro variance during hover, calm/moderate/windy classification, per-axis independence, hover-only analysis, multiple segments |
 | `analysis/MechanicalHealthChecker.test.ts` | 13 | Mechanical health diagnostic, extreme noise detection, axis asymmetry, motor imbalance, combined issues, threshold edge cases |
-| `analysis/DynamicLowpassRecommender.test.ts` | 13 | Dynamic lowpass analysis, throttle-noise correlation, recommendation generation, threshold validation |
+| `analysis/DynamicLowpassRecommender.test.ts` | 16 | Dynamic lowpass analysis, throttle-noise correlation, recommendation generation (gyro + D-term), threshold validation |
 | `analysis/SliderMapper.test.ts` | 16 | Slider-aligned PID mapping, master multiplier, PD ratio, buildRecommendedPIDs, slider delta computation |
 | `analysis/FeedforwardAnalyzer.test.ts` | 24 | Extended FF analysis, leading-edge overshoot detection, small-step jitter analysis, RC link rate extraction, smooth/jitter factor recommendations |
 | `analysis/BayesianPIDOptimizer.test.ts` | 31 | Gaussian Process surrogate, Expected Improvement, Latin Hypercube Sampling, bounds |
