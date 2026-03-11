@@ -16,7 +16,7 @@
     "test:e2e": "vite build && npx playwright test --grep-invert 'generate 5'",
     "test:e2e:ui": "vite build && npx playwright test --ui",
     "demo:generate-history": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'mixed'",
-    "demo:generate-history:deep": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'deep'",
+    "demo:generate-history:filter": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'filter'",
     "demo:generate-history:flash": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'flash'",
     "demo:generate-history:stress": "vite build && npx playwright test e2e/demo-generate-stress.spec.ts",
     "test": "vitest",

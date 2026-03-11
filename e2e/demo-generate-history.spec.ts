@@ -2,8 +2,8 @@
  * Generates completed tuning sessions in demo mode.
  *
  * Three modes (run via npm scripts):
- *   npm run demo:generate-history        — 5 mixed sessions (3 deep + 2 flash)
- *   npm run demo:generate-history:deep   — 5 deep tune sessions
+ *   npm run demo:generate-history        — 5 mixed sessions (filter + pid + flash)
+ *   npm run demo:generate-history:filter — 5 filter tune sessions
  *   npm run demo:generate-history:flash  — 5 flash tune sessions
  */
 import { test, expect } from '@playwright/test';
@@ -31,7 +31,7 @@ test.afterAll(async () => {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-async function runGuidedCycle(cycleNum: number): Promise<void> {
+async function runFilterCycle(cycleNum: number): Promise<void> {
   const page = demo.page;
   const WAIT = 30_000;
   const ANALYSIS_WAIT = 60_000;
@@ -75,19 +75,43 @@ async function runGuidedCycle(cycleNum: number): Promise<void> {
     .waitFor({ state: 'visible', timeout: WAIT });
   await demo.clickButton('Close Wizard');
 
-  console.log(`  Cycle ${cycleNum}: filters handled, continuing to PID...`);
+  console.log(`  Cycle ${cycleNum}: filters handled, completing...`);
 
-  // 3. Continue to PID phase
-  const continueBtn = page.getByRole('button', { name: 'Continue' });
-  const eraseBtn = page.getByRole('button', { name: 'Erase Flash' });
-  await expect(continueBtn.or(eraseBtn)).toBeVisible({ timeout: WAIT });
-  if (await continueBtn.isVisible().catch(() => false)) {
-    await continueBtn.click();
-  } else {
-    await eraseBtn.click();
-  }
+  // 3. Skip verification → complete → dismiss
+  await page
+    .getByRole('button', { name: 'Skip & Complete' })
+    .waitFor({ state: 'visible', timeout: WAIT });
+  await demo.clickButton('Skip & Complete');
+  await demo.waitForText(/Filter Tune Complete/i, 15_000);
 
-  // 4. PID flight: auto-flight → download → analysis → apply
+  await demo.screenshot(`history-cycle-${cycleNum}-filter-complete`);
+
+  const dismissBtn = page.getByRole('button', { name: 'Dismiss', exact: true });
+  await dismissBtn.waitFor({ state: 'visible', timeout: 10_000 });
+  await dismissBtn.click();
+
+  await page
+    .getByRole('button', { name: /start tuning/i })
+    .waitFor({ state: 'visible', timeout: WAIT });
+
+  console.log(`  Cycle ${cycleNum}: Filter Tune complete and dismissed`);
+}
+
+async function runPIDCycle(cycleNum: number): Promise<void> {
+  const page = demo.page;
+  const WAIT = 30_000;
+  const ANALYSIS_WAIT = 60_000;
+
+  console.log(`\n=== Starting PID Tune cycle ${cycleNum} ===`);
+
+  // 1. Start Tuning Session (modal → PID Tune)
+  await demo.clickButton('Start Tuning Session');
+  const modal = page.locator('.start-tuning-overlay');
+  await modal.getByRole('button', { name: 'PID Tune' }).click();
+  await demo.waitForText('Erase Blackbox data', WAIT);
+
+  // 2. PID flight: erase → auto-flight → download → analysis → apply
+  await demo.clickButton('Erase Flash');
   await demo.waitForText('PID flight done', WAIT);
   await demo.clickButton('Download Log');
   await demo.waitForText('Open PID Wizard', WAIT);
@@ -118,14 +142,14 @@ async function runGuidedCycle(cycleNum: number): Promise<void> {
 
   console.log(`  Cycle ${cycleNum}: PIDs handled, completing...`);
 
-  // 5. Skip verification → complete → dismiss
+  // 3. Skip verification → complete → dismiss
   await page
     .getByRole('button', { name: 'Skip & Complete' })
     .waitFor({ state: 'visible', timeout: WAIT });
   await demo.clickButton('Skip & Complete');
-  await demo.waitForText(/Filter Tune Complete/i, 15_000);
+  await demo.waitForText(/PID Tune Complete/i, 15_000);
 
-  await demo.screenshot(`history-cycle-${cycleNum}-filter-complete`);
+  await demo.screenshot(`history-cycle-${cycleNum}-pid-complete`);
 
   const dismissBtn = page.getByRole('button', { name: 'Dismiss', exact: true });
   await dismissBtn.waitFor({ state: 'visible', timeout: 10_000 });
@@ -135,7 +159,7 @@ async function runGuidedCycle(cycleNum: number): Promise<void> {
     .getByRole('button', { name: /start tuning/i })
     .waitFor({ state: 'visible', timeout: WAIT });
 
-  console.log(`  Cycle ${cycleNum}: Filter Tune complete and dismissed`);
+  console.log(`  Cycle ${cycleNum}: PID Tune complete and dismissed`);
 }
 
 async function runQuickCycle(cycleNum: number): Promise<void> {
@@ -220,20 +244,18 @@ async function verifyHistory(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 test('generate 5 mixed sessions', async () => {
-  // deep → flash → deep → flash → deep
-  for (let i = 1; i <= 5; i++) {
-    if (i % 2 === 0) {
-      await runQuickCycle(i);
-    } else {
-      await runGuidedCycle(i);
-    }
-  }
+  // filter → pid → flash → filter → pid
+  await runFilterCycle(1);
+  await runPIDCycle(2);
+  await runQuickCycle(3);
+  await runFilterCycle(4);
+  await runPIDCycle(5);
   await verifyHistory();
 });
 
-test('generate 5 deep sessions', async () => {
+test('generate 5 filter sessions', async () => {
   for (let i = 1; i <= 5; i++) {
-    await runGuidedCycle(i);
+    await runFilterCycle(i);
   }
   await verifyHistory();
 });

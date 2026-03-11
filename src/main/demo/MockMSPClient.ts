@@ -634,18 +634,25 @@ export class MockMSPClient extends EventEmitter {
           [DEMO_FLIGHT.FILTER]: generateFilterDemoBBL,
           [DEMO_FLIGHT.PID]: generatePIDDemoBBL,
           [DEMO_FLIGHT.FLASH]: generateFlashDemoBBL,
-          // Flash Tune verification needs broadband setpoint for Wiener deconvolution;
-          // Filter/PID Tune verification uses hover-only (no setpoint needed)
+          // Verification flight type depends on tuning mode:
+          // Filter Tune: throttle sweep (same as filter flight) for spectrogram comparison
+          // PID Tune: stick snaps (same as PID flight) for step response comparison
+          // Flash Tune: broadband setpoint for Wiener deconvolution
           [DEMO_FLIGHT.VERIFICATION]:
             this._lastSessionType === TUNING_TYPE.FLASH
               ? generateFlashVerificationDemoBBL
-              : generateVerificationDemoBBL,
+              : this._lastSessionType === TUNING_TYPE.PID
+                ? generatePIDDemoBBL
+                : generateVerificationDemoBBL,
         };
         this._demoBBLData = generators[this._nextFlightType](c);
       }
 
       const nextPhase: Record<DemoFlightPhase, DemoFlightPhase> = {
-        [DEMO_FLIGHT.FILTER]: DEMO_FLIGHT.PID,
+        // Filter Tune: filter → verification (no PID step)
+        // PID Tune: pid → verification
+        // Flash Tune: flash → verification
+        [DEMO_FLIGHT.FILTER]: DEMO_FLIGHT.VERIFICATION,
         [DEMO_FLIGHT.PID]: DEMO_FLIGHT.VERIFICATION,
         [DEMO_FLIGHT.FLASH]: DEMO_FLIGHT.VERIFICATION,
         [DEMO_FLIGHT.VERIFICATION]:

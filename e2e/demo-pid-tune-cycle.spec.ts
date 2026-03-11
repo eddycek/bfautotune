@@ -1,8 +1,8 @@
 /**
- * Demo mode Filter Tune cycle E2E test.
+ * Demo mode PID Tune cycle E2E test.
  *
- * Walks through one complete Filter Tune cycle:
- *   Start (Filter) → Erase → (auto-flight) → Download → Filter Wizard → Apply →
+ * Walks through one complete PID Tune cycle:
+ *   Start (PID) → Erase → (auto-flight) → Download → PID Wizard → Apply →
  *   Skip verification → Complete → Dismiss
  *
  * Then verifies the tuning history shows the completed session.
@@ -21,60 +21,60 @@ test.afterAll(async () => {
   await demo?.close();
 });
 
-test.describe.serial('Filter Tune cycle', () => {
-  test('start filter tune session', async () => {
+test.describe.serial('PID Tune cycle', () => {
+  test('start pid tune session', async () => {
     await demo.clickButton('Start Tuning Session');
 
-    // StartTuningModal opens — select Filter Tune
-    await demo.clickButton('Filter Tune');
+    // StartTuningModal opens — select PID Tune
+    await demo.clickButton('PID Tune');
 
-    // Should show filter_flight_pending phase
+    // Should show pid_flight_pending phase
     await demo.waitForText('Erase Blackbox data');
-    await demo.screenshot('02-tuning-started');
+    await demo.screenshot('pid-02-tuning-started');
   });
 
-  test('erase flash for filter flight', async () => {
+  test('erase flash for pid flight', async () => {
     await demo.clickButton('Erase Flash');
 
     // After erase, demo auto-flight kicks in (3s) then reconnects (1.5s)
-    // Wait for the phase to advance to filter_log_ready
-    await demo.waitForText('Filter flight done', 20_000);
-    await demo.screenshot('03-filter-flight-done');
+    // Wait for the phase to advance to pid_log_ready
+    await demo.waitForText('PID flight done', 20_000);
+    await demo.screenshot('pid-03-pid-flight-done');
   });
 
-  test('download filter log', async () => {
+  test('download pid log', async () => {
     await demo.clickButton('Download Log');
 
-    // Wait for download + parse to complete → filter_analysis phase
-    await demo.waitForText('Open Filter Wizard', 20_000);
-    await demo.screenshot('04-filter-log-downloaded');
+    // Wait for download + parse to complete → pid_analysis phase
+    await demo.waitForText('Open PID Wizard', 20_000);
+    await demo.screenshot('pid-04-pid-log-downloaded');
   });
 
-  test('run filter analysis in wizard', async () => {
-    await demo.clickButton('Open Filter Wizard');
+  test('run pid analysis in wizard', async () => {
+    await demo.clickButton('Open PID Wizard');
 
-    // Wizard opens at Filters step — analysis does NOT auto-run
-    await demo.clickButton('Run Filter Analysis');
+    // Wizard opens at PIDs step — analysis does NOT auto-run
+    await demo.clickButton('Run PID Analysis');
 
     // Wait for analysis to complete — shows "Continue to Summary"
     await demo.page
       .getByRole('button', { name: /Continue to Summary/i })
       .waitFor({ state: 'visible', timeout: 60_000 });
-    await demo.screenshot('05-filter-analysis-done');
+    await demo.screenshot('pid-05-pid-analysis-done');
   });
 
-  test('apply filters via wizard', async () => {
+  test('apply pids via wizard', async () => {
     // Navigate to summary step
     await demo.clickButton(/Continue to Summary/i);
 
-    // Summary shows "Apply Filters" button (mode=filter)
+    // Summary shows "Apply PIDs" button (mode=pid)
     await demo.page
-      .getByRole('button', { name: 'Apply Filters' })
+      .getByRole('button', { name: 'Apply PIDs' })
       .waitFor({ state: 'visible', timeout: 10_000 });
-    await demo.screenshot('06-filter-summary');
+    await demo.screenshot('pid-06-pid-summary');
 
-    // Click Apply Filters → opens ApplyConfirmationModal
-    await demo.clickButton('Apply Filters');
+    // Click Apply PIDs → opens ApplyConfirmationModal
+    await demo.clickButton('Apply PIDs');
 
     // Modal has "Apply Changes" button — click it
     const applyBtns = demo.page.getByRole('button', { name: 'Apply Changes' });
@@ -85,23 +85,23 @@ test.describe.serial('Filter Tune cycle', () => {
     await demo.page
       .getByRole('button', { name: 'Close Wizard' })
       .waitFor({ state: 'visible', timeout: 30_000 });
-    await demo.screenshot('07-filters-applied');
+    await demo.screenshot('pid-07-pids-applied');
 
     // Close wizard — return to dashboard
     await demo.clickButton('Close Wizard');
   });
 
   test('skip verification and complete', async () => {
-    // After filter apply + reboot, dashboard shows filter_applied with "Skip & Complete"
+    // After pid apply + reboot, dashboard shows pid_applied with "Skip & Complete"
     await demo.page
       .getByRole('button', { name: 'Skip & Complete' })
       .waitFor({ state: 'visible', timeout: 30_000 });
 
     await demo.clickButton('Skip & Complete');
 
-    // Session should be completed — TuningCompletionSummary shows "Filter Tune Complete"
-    await demo.waitForText(/Filter Tune Complete/i, 15_000);
-    await demo.screenshot('08-tuning-complete');
+    // Session should be completed — TuningCompletionSummary shows "PID Tune Complete"
+    await demo.waitForText(/PID Tune Complete/i, 15_000);
+    await demo.screenshot('pid-08-tuning-complete');
   });
 
   test('dismiss completed session and check history', async () => {
@@ -112,7 +112,7 @@ test.describe.serial('Filter Tune cycle', () => {
 
     // Tuning History should now show the completed session
     await demo.waitForText('Tuning History', 10_000);
-    await demo.screenshot('09-history-visible');
+    await demo.screenshot('pid-09-history-visible');
 
     // Verify quality score badge is displayed
     const badge = demo.page.locator('.quality-badge, [class*="quality"]');

@@ -285,8 +285,8 @@ describe('MockMSPClient', () => {
     it('increments tuning cycle after verification flight', async () => {
       expect(client._tuningCycle).toBe(0);
 
-      // Complete one full cycle: filter → pid → verification
-      for (let i = 0; i < 3; i++) {
+      // Complete one full cycle: filter → verification (Filter Tune default)
+      for (let i = 0; i < 2; i++) {
         const eraseP = client.eraseBlackboxFlash();
         await vi.advanceTimersByTimeAsync(500);
         await eraseP;
@@ -294,47 +294,38 @@ describe('MockMSPClient', () => {
         vi.advanceTimersByTime(1500); // reconnect
       }
 
-      // After completing filter+pid+verification, cycle increments to 1
+      // After completing filter+verification, cycle increments to 1
       expect(client._tuningCycle).toBe(1);
     });
 
-    it('cycles flight type: filter → pid → verification → filter', async () => {
+    it('cycles flight type: filter → verification → filter', async () => {
       // Initial state: next flight is filter
       expect(client._nextFlightType).toBe(DEMO_FLIGHT.FILTER);
 
-      // 1st erase → generates filter BBL, next becomes pid
+      // 1st erase → generates filter BBL, next becomes verification
       const erase1 = client.eraseBlackboxFlash();
       await vi.advanceTimersByTimeAsync(500);
       await erase1;
       vi.advanceTimersByTime(3000); // auto-flight fires
-      expect(client._nextFlightType).toBe(DEMO_FLIGHT.PID);
+      expect(client._nextFlightType).toBe(DEMO_FLIGHT.VERIFICATION);
 
       vi.advanceTimersByTime(1500); // reconnect
 
-      // 2nd erase → generates PID BBL, next becomes verification
+      // 2nd erase → generates verification BBL, next becomes filter
       const erase2 = client.eraseBlackboxFlash();
       await vi.advanceTimersByTimeAsync(500);
       await erase2;
-      vi.advanceTimersByTime(3000);
-      expect(client._nextFlightType).toBe(DEMO_FLIGHT.VERIFICATION);
-
-      vi.advanceTimersByTime(1500);
-
-      // 3rd erase → generates verification BBL, next becomes filter
-      const erase3 = client.eraseBlackboxFlash();
-      await vi.advanceTimersByTimeAsync(500);
-      await erase3;
       vi.advanceTimersByTime(3000);
       expect(client._nextFlightType).toBe(DEMO_FLIGHT.FILTER);
 
       vi.advanceTimersByTime(1500);
 
-      // 4th erase → generates filter BBL, next becomes pid again
-      const erase4 = client.eraseBlackboxFlash();
+      // 3rd erase → generates filter BBL, next becomes verification again
+      const erase3 = client.eraseBlackboxFlash();
       await vi.advanceTimersByTimeAsync(500);
-      await erase4;
+      await erase3;
       vi.advanceTimersByTime(3000);
-      expect(client._nextFlightType).toBe(DEMO_FLIGHT.PID);
+      expect(client._nextFlightType).toBe(DEMO_FLIGHT.VERIFICATION);
     });
   });
 
@@ -502,12 +493,12 @@ describe('MockMSPClient', () => {
     });
 
     it('resets flight type to filter', async () => {
-      // Advance to pid flight type
+      // Advance to verification flight type (filter → verification)
       const eraseP = client.eraseBlackboxFlash();
       await vi.advanceTimersByTimeAsync(500);
       await eraseP;
       vi.advanceTimersByTime(3000);
-      expect(client._nextFlightType).toBe(DEMO_FLIGHT.PID);
+      expect(client._nextFlightType).toBe(DEMO_FLIGHT.VERIFICATION);
 
       client.resetDemoState();
       expect(client._nextFlightType).toBe(DEMO_FLIGHT.FILTER);
@@ -540,14 +531,12 @@ describe('MockMSPClient', () => {
 
   describe('advancePastVerification', () => {
     it('advances from verification to filter and increments cycle', async () => {
-      // Advance to verification flight type: filter → pid → verification
-      for (let i = 0; i < 2; i++) {
-        const eraseP = client.eraseBlackboxFlash();
-        await vi.advanceTimersByTimeAsync(500);
-        await eraseP;
-        vi.advanceTimersByTime(3000);
-        vi.advanceTimersByTime(1500);
-      }
+      // Advance to verification flight type: filter → verification
+      const eraseP = client.eraseBlackboxFlash();
+      await vi.advanceTimersByTimeAsync(500);
+      await eraseP;
+      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(1500);
       expect(client._nextFlightType).toBe(DEMO_FLIGHT.VERIFICATION);
       expect(client._tuningCycle).toBe(0);
 

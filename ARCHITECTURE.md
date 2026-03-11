@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 11, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2403 unit tests, 116 files + 26 Playwright E2E tests**
+**Last Updated:** March 11, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2421 unit tests, 118 files + 26 Playwright E2E tests**
 
 ---
 
@@ -449,7 +449,7 @@ DroneProfile {
 ConfigurationSnapshot {
   id: string,
   timestamp: string,
-  label: string,                // "Baseline", "Pre-tuning #3 (Deep Tune)", user-defined
+  label: string,                // "Baseline", "Pre-tuning #3 (Filter Tune)", user-defined
   type: 'baseline' | 'manual' | 'auto',
   fcInfo: FCInfo,
   configuration: { cliDiff: string },
@@ -457,7 +457,7 @@ ConfigurationSnapshot {
     appVersion: string,
     createdBy: string,
     tuningSessionNumber?: number,   // Session counter for contextual labels
-    tuningType?: 'guided' | 'quick', // Deep Tune or Flash Tune
+    tuningType?: 'filter' | 'pid' | 'quick', // Filter Tune, PID Tune, or Flash Tune
     snapshotRole?: 'pre-tuning' | 'post-tuning'  // Role badges (orange/green)
   }
 }
@@ -470,7 +470,7 @@ Server-side filtering: `listSnapshots()` returns only snapshots whose IDs are in
 ```typescript
 TuningSession {
   profileId: string,
-  phase: TuningPhase,            // 10-phase state machine
+  phase: TuningPhase,            // 14-phase state machine (Filter Tune: 6, PID Tune: 6, Flash Tune: 6, shared: 2)
   startedAt: string,
   updatedAt: string,
   baselineSnapshotId?: string,
@@ -656,7 +656,9 @@ Built with **Recharts** (SVG):
 - **SpectrumChart** — FFT noise spectrum per axis (roll/pitch/yaw). Shows noise floor reference lines, detected peak frequency markers, color-coded axes.
 - **StepResponseChart** — Overlaid setpoint vs gyro trace for individual steps. Prev/Next navigation, metrics overlay (overshoot %, rise time, settling, latency).
 - **TFStepResponseChart** — Synthetic step response from Transfer Function (Wiener deconvolution). Single mode for Flash Analysis, before/after comparison for verification. Per-axis overshoot metrics, delta pill.
-- **ThrottleSpectrogramChart** — Custom SVG heatmap showing noise magnitude across frequency (x) and throttle (y) bands. Color-coded dB scale. Accepts both live `data` (analysis) and `compactData` (archived) props. Integrated in FilterAnalysisStep, QuickAnalysisStep, AnalysisOverview, TuningCompletionSummary, and TuningSessionDetail.
+- **ThrottleSpectrogramChart** — Custom SVG heatmap showing noise magnitude across frequency (x) and throttle (y) bands. Color-coded dB scale. Accepts both live `data` (analysis) and `compactData` (archived) props. Integrated in FilterAnalysisStep, QuickAnalysisStep, AnalysisOverview, and TuningSessionDetail.
+- **SpectrogramComparisonChart** — Side-by-side before/after spectrogram comparison for Filter Tune verification. Shows throttle spectrograms from analysis and verification flights with labels.
+- **StepResponseComparison** — Before/after PID metrics comparison for PID Tune verification. Shows per-axis overshoot, rise time, settling time, and ringing with delta indicators.
 - **AxisTabs** — Shared Roll/Pitch/Yaw/All tab selector for charts. Supports `showAll` prop.
 - **chartUtils** — `toRechartsData()` conversion, `downsampleData()`, `findBestStep()` scoring, `computeRobustYDomain()` (outlier-resistant Y axis).
 
@@ -664,48 +666,41 @@ Built with **Recharts** (SVG):
 
 ## Tuning State Machine
 
-State machine persisted per-profile in `{userData}/data/tuning/{profileId}.json`. Two modes: **Deep Tune** (2 flights, 10 phases) and **Flash Tune** (1 flight, 6 phases).
+State machine persisted per-profile in `{userData}/data/tuning/{profileId}.json`. Three modes: **Filter Tune** (filter-only, 6 phases), **PID Tune** (PID-only, 6 phases), and **Flash Tune** (combined, 6 phases).
 
 ```
-Deep Tune mode:                             Flash Tune mode:
+Filter Tune:                PID Tune:                   Flash Tune:
 
-       START SESSION                              START SESSION
-            │                                          │
- filter_flight_pending                        quick_flight_pending
-            │                                          │
- [smart reconnect]                            [smart reconnect]
-            │                                          │
-  filter_log_ready                              quick_log_ready
-            │                                          │
-   filter_analysis                              quick_analysis (filter + TF)
-            │                                          │
-   filter_applied                               quick_applied
-            │                                          │
-  pid_flight_pending                          verification_pending
-            │                                          │
- [smart reconnect]                                completed
-            │
-    pid_log_ready
-            │
-     pid_analysis
-            │
-     pid_applied
-            │
- verification_pending
-            │
-       completed
+  START SESSION               START SESSION               START SESSION
+       │                           │                           │
+filter_flight_pending       pid_flight_pending          quick_flight_pending
+       │                           │                           │
+[smart reconnect]           [smart reconnect]           [smart reconnect]
+       │                           │                           │
+ filter_log_ready            pid_log_ready               quick_log_ready
+       │                           │                           │
+  filter_analysis             pid_analysis               quick_analysis
+       │                           │                      (filter + TF)
+  filter_applied              pid_applied                      │
+       │                           │                    quick_applied
+filter_verification_      pid_verification_                    │
+  pending                   pending                   verification_pending
+       │                           │                           │
+    completed                  completed                  completed
 ```
 
-**TuningStatusBanner** renders per-phase:
-- Current step (1–6) with progress indicator (includes Verify step)
+**TuningStatusBanner** renders per-phase with unified 4-step layout for all modes (Prepare → Flight → Tune → Verify):
+- Current step (1–4) with progress indicator
 - Phase-specific text and action button
 - Post-erase state: "Flash erased! Disconnect and fly..." + "View Flight Guide"
 - Pre-flight BB settings warning when `bbSettingsOk === false` with "Fix Settings" button
 - Reset button to abandon session
 
 **TuningCompletionSummary** replaces banner when `session.phase === 'completed'`:
-- Noise comparison chart (before/after spectrum overlay with dB delta) when verification data available
-- Falls back to numeric noise stats without verification
+- Mode-aware verification rendering:
+  - Filter Tune: spectrogram comparison (side-by-side before/after spectrograms)
+  - PID Tune: step response comparison (before/after PID metrics per axis)
+  - Flash Tune: noise comparison chart (before/after spectrum overlay with dB delta)
 - Applied filter and PID changes tables
 - PID step response metrics per axis
 - "Start New Tuning Cycle" and "Dismiss" actions
@@ -804,7 +799,7 @@ Hardware error (FC timeout, USB disconnect)
 | `pid.types.ts` | `PIDTerm { P, I, D }`, `PIDFTerm extends PIDTerm { F }`, `PIDConfiguration`, `FeedforwardConfiguration` |
 | `blackbox.types.ts` | `BlackboxInfo`, `BlackboxParseResult`, `BlackboxFlightData`, `BBLLogHeader`, `BBLEncoding`, `BBLPredictor` |
 | `analysis.types.ts` | `PowerSpectrum`, `NoiseProfile`, `FilterRecommendation`, `StepResponse` (with `ffDominated`), `StepResponseTrace`, `PIDRecommendation`, `AxisStepMetrics`, `CurrentFilterSettings`, `FeedforwardContext` |
-| `tuning.types.ts` | `TuningPhase` (10 values), `TuningSession`, `TuningMode`, `AppliedChange` |
+| `tuning.types.ts` | `TuningPhase` (14 values), `TuningType` (`'filter' | 'pid' | 'quick'`), `TuningSession`, `TuningMode`, `AppliedChange` |
 | `tuning-history.types.ts` | `CompactSpectrum`, `CompactThrottleSpectrogram`, `CompactThrottleBand`, `FilterMetricsSummary`, `PIDMetricsSummary`, `CompletedTuningRecord` |
 | `ipc.types.ts` | `ApplyRecommendationsInput/Progress/Result`, `SnapshotRestoreProgress/Result`, `BetaflightAPI` (complete API interface) |
 | `toast.types.ts` | `ToastType`, `Toast` |
@@ -840,4 +835,4 @@ Hardware error (FC timeout, USB disconnect)
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
 
-**Playwright E2E** (demo mode): Launches real Electron app with mock FC, clicks through full tuning workflow (Deep Tune and Flash Tune). Run via `npm run test:e2e` (22 tests) or `npm run demo:generate-history` (generators). 26 tests across 5 spec files. See `e2e/` directory and [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).
+**Playwright E2E** (demo mode): Launches real Electron app with mock FC, clicks through full tuning workflow (Filter Tune and Flash Tune). Run via `npm run test:e2e` (22 tests) or `npm run demo:generate-history` (generators). 26 tests across 5 spec files. See `e2e/` directory and [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).
