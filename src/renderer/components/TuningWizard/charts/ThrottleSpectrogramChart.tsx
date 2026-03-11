@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useId } from 'react';
 import { AxisTabs, type AxisSelection } from './AxisTabs';
 import {
   prepareHeatmapData,
@@ -16,6 +16,8 @@ interface ThrottleSpectrogramChartProps {
   data?: ThrottleSpectrogramResult;
   /** Compact spectrogram (from history/archived metrics) */
   compactData?: CompactThrottleSpectrogram;
+  /** When set, axis is controlled externally and local AxisTabs are hidden */
+  sharedAxis?: 'roll' | 'pitch' | 'yaw';
 }
 
 const CHART_HEIGHT = 300;
@@ -28,15 +30,20 @@ function fmtThrottle(value: number): string {
   return `${Math.round(value * 100)}`;
 }
 
-export function ThrottleSpectrogramChart({ data, compactData }: ThrottleSpectrogramChartProps) {
-  const [selectedAxis, setSelectedAxis] = useState<AxisSelection>('roll');
+export function ThrottleSpectrogramChart({
+  data,
+  compactData,
+  sharedAxis,
+}: ThrottleSpectrogramChartProps) {
+  const [localAxis, setLocalAxis] = useState<AxisSelection>('roll');
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
     cell: HeatmapCell;
   } | null>(null);
 
-  const axis: Axis = selectedAxis === 'all' ? 'roll' : selectedAxis;
+  const selectedAxis = sharedAxis ?? localAxis;
+  const axis: Axis = selectedAxis === 'all' ? 'roll' : (selectedAxis as Axis);
 
   const heatmap = useMemo(() => {
     if (data) return prepareHeatmapData(data, axis);
@@ -56,6 +63,9 @@ export function ThrottleSpectrogramChart({ data, compactData }: ThrottleSpectrog
   }, []);
 
   const handleMouseLeave = useCallback(() => setTooltip(null), []);
+
+  const uniqueId = useId();
+  const gradientId = `spectrogram-colorbar-${uniqueId.replace(/:/g, '')}`;
 
   if (!heatmap || heatmap.cells.length === 0) {
     return null;
@@ -88,7 +98,7 @@ export function ThrottleSpectrogramChart({ data, compactData }: ThrottleSpectrog
 
   return (
     <div className="spectrogram-chart">
-      <AxisTabs selected={selectedAxis} onChange={setSelectedAxis} showAll={false} />
+      {!sharedAxis && <AxisTabs selected={selectedAxis} onChange={setLocalAxis} showAll={false} />}
       <div className="spectrogram-chart-container">
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -96,7 +106,7 @@ export function ThrottleSpectrogramChart({ data, compactData }: ThrottleSpectrog
           className="spectrogram-svg"
         >
           <defs>
-            <linearGradient id="spectrogram-colorbar" x1="0" y1="1" x2="0" y2="0">
+            <linearGradient id={gradientId} x1="0" y1="1" x2="0" y2="0">
               {colorStops.map((stop, i) => (
                 <stop key={i} offset={stop.offset} stopColor={stop.color} />
               ))}
@@ -177,7 +187,7 @@ export function ThrottleSpectrogramChart({ data, compactData }: ThrottleSpectrog
               y={0}
               width={COLORBAR_WIDTH}
               height={CHART_HEIGHT}
-              fill="url(#spectrogram-colorbar)"
+              fill={`url(#${gradientId})`}
               stroke="#666"
               strokeWidth={0.5}
             />

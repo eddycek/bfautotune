@@ -87,18 +87,20 @@ export class TuningHistoryManager {
    */
   async updateLatestVerification(
     profileId: string,
-    verificationMetrics: FilterMetricsSummary,
-    verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary
+    verificationMetrics?: FilterMetricsSummary,
+    verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary,
+    verificationPidMetrics?: PIDMetricsSummary
   ): Promise<boolean> {
     const records = await this.loadRecords(profileId);
     if (records.length === 0) return false;
 
     // Records stored oldest-first — last element is the most recent
     const latest = records[records.length - 1];
-    latest.verificationMetrics = verificationMetrics;
+    if (verificationMetrics) latest.verificationMetrics = verificationMetrics;
     if (verificationTransferFunctionMetrics) {
       latest.verificationTransferFunctionMetrics = verificationTransferFunctionMetrics;
     }
+    if (verificationPidMetrics) latest.verificationPidMetrics = verificationPidMetrics;
     await this.saveRecords(profileId, records);
     logger.info(`Updated verification metrics on latest history record for profile ${profileId}`);
     return true;
@@ -111,13 +113,15 @@ export class TuningHistoryManager {
   async updateRecordVerification(
     profileId: string,
     recordId: string,
-    verificationMetrics: FilterMetricsSummary
+    verificationMetrics?: FilterMetricsSummary,
+    verificationPidMetrics?: PIDMetricsSummary
   ): Promise<boolean> {
     const records = await this.loadRecords(profileId);
     const record = records.find((r) => r.id === recordId);
     if (!record) return false;
 
-    record.verificationMetrics = verificationMetrics;
+    if (verificationMetrics) record.verificationMetrics = verificationMetrics;
+    if (verificationPidMetrics) record.verificationPidMetrics = verificationPidMetrics;
     await this.saveRecords(profileId, records);
     logger.info(`Updated verification metrics on history record ${recordId}`);
     return true;

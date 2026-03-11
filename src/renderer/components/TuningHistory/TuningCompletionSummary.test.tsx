@@ -131,7 +131,7 @@ describe('TuningCompletionSummary', () => {
       />
     );
 
-    expect(screen.getByText(/Fly a verification hover/)).toBeInTheDocument();
+    expect(screen.getByText(/Fly a verification flight/)).toBeInTheDocument();
   });
 
   it('does not show hint when verification available', () => {
@@ -300,6 +300,103 @@ describe('TuningCompletionSummary', () => {
     );
 
     expect(screen.getByText(/Filter Tune Complete/)).toBeInTheDocument();
+  });
+
+  it('shows "PID Tune Complete" for pid tuning sessions', () => {
+    const pidSession: TuningSession = {
+      ...baseSession,
+      tuningType: TUNING_TYPE.PID,
+      filterLogId: undefined,
+      filterMetrics: undefined,
+      appliedFilterChanges: [],
+    };
+    render(
+      <TuningCompletionSummary session={pidSession} onDismiss={onDismiss} onStartNew={onStartNew} />
+    );
+
+    expect(screen.getByText(/PID Tune Complete/)).toBeInTheDocument();
+  });
+
+  it('shows step response comparison for PID Tune with verification', () => {
+    const verificationPidMetrics: PIDMetricsSummary = {
+      roll: { meanOvershoot: 3, meanRiseTimeMs: 18, meanSettlingTimeMs: 40, meanLatencyMs: 7 },
+      pitch: { meanOvershoot: 5, meanRiseTimeMs: 19, meanSettlingTimeMs: 45, meanLatencyMs: 8 },
+      yaw: { meanOvershoot: 2, meanRiseTimeMs: 25, meanSettlingTimeMs: 50, meanLatencyMs: 9 },
+      stepsDetected: 10,
+      currentPIDs: {
+        roll: { P: 50, I: 80, D: 35 },
+        pitch: { P: 52, I: 84, D: 37 },
+        yaw: { P: 50, I: 80, D: 0 },
+      },
+      summary: 'Improved response',
+    };
+    const pidSession: TuningSession = {
+      ...baseSession,
+      tuningType: TUNING_TYPE.PID,
+      filterLogId: undefined,
+      filterMetrics: undefined,
+      appliedFilterChanges: [],
+      verificationLogId: 'log-ver',
+      verificationPidMetrics,
+    };
+    render(
+      <TuningCompletionSummary session={pidSession} onDismiss={onDismiss} onStartNew={onStartNew} />
+    );
+
+    expect(screen.getByText('Step Response Comparison')).toBeInTheDocument();
+    // Should NOT show the "before PID changes" raw metrics section
+    expect(screen.queryByText(/before PID changes/)).not.toBeInTheDocument();
+  });
+
+  it('shows PID-specific verification hint for PID Tune without verification', () => {
+    const pidSession: TuningSession = {
+      ...baseSession,
+      tuningType: TUNING_TYPE.PID,
+      filterLogId: undefined,
+      filterMetrics: undefined,
+      appliedFilterChanges: [],
+    };
+    render(
+      <TuningCompletionSummary session={pidSession} onDismiss={onDismiss} onStartNew={onStartNew} />
+    );
+
+    expect(screen.getByText(/step response comparison/)).toBeInTheDocument();
+  });
+
+  it('does not show spectrogram for Flash Tune', () => {
+    const quickSession: TuningSession = {
+      ...baseSession,
+      tuningType: TUNING_TYPE.FLASH,
+      quickLogId: 'log-q1',
+      filterLogId: undefined,
+      pidLogId: undefined,
+      filterMetrics: {
+        ...filterMetrics,
+        throttleSpectrogram: {
+          frequencies: [100, 200],
+          bands: [
+            {
+              throttleMin: 0.3,
+              throttleMax: 0.5,
+              roll: [-30, -35],
+              pitch: [-32, -37],
+              yaw: [-34, -39],
+            },
+          ],
+          bandsWithData: 1,
+        },
+      },
+    };
+    const { container } = render(
+      <TuningCompletionSummary
+        session={quickSession}
+        onDismiss={onDismiss}
+        onStartNew={onStartNew}
+      />
+    );
+
+    // No spectrogram chart for Flash Tune
+    expect(container.querySelector('.spectrogram-chart')).toBeNull();
   });
 
   it('includes pidMetrics in quality score (higher score than filter-only)', () => {

@@ -1,7 +1,10 @@
 import React, { useMemo } from 'react';
 import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
+import { TUNING_TYPE } from '@shared/constants';
 import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
+import { SpectrogramComparisonChart } from './SpectrogramComparisonChart';
+import { StepResponseComparison } from './StepResponseComparison';
 import { OvershootComparison } from './TuningCompletionSummary';
 import { TFStepResponseChart } from '../TuningWizard/charts/TFStepResponseChart';
 import { ThrottleSpectrogramChart } from '../TuningWizard/charts/ThrottleSpectrogramChart';
@@ -30,7 +33,15 @@ function flightCount(record: CompletedTuningRecord): number {
 }
 
 export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningSessionDetailProps) {
-  const hasComparison = !!record.filterMetrics?.spectrum && !!record.verificationMetrics?.spectrum;
+  const isFilterTune = record.tuningType === TUNING_TYPE.FILTER || !record.tuningType;
+  const isPidTune = record.tuningType === TUNING_TYPE.PID;
+  const isFlashTune = record.tuningType === TUNING_TYPE.FLASH;
+
+  const hasFilterComparison =
+    !!record.filterMetrics?.spectrum && !!record.verificationMetrics?.spectrum;
+  const hasPidComparison = !!record.pidMetrics && !!record.verificationPidMetrics;
+  const hasAnyVerification = hasFilterComparison || hasPidComparison || !!record.verificationLogId;
+
   const score = useMemo(
     () =>
       computeTuneQualityScore({
@@ -77,10 +88,13 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
         </div>
       )}
 
-      {hasComparison && record.filterMetrics && record.verificationMetrics && (
+      {/* Filter Tune / Flash Tune: noise spectrum comparison */}
+      {hasFilterComparison && record.filterMetrics && record.verificationMetrics && (
         <>
           <NoiseComparisonChart before={record.filterMetrics} after={record.verificationMetrics} />
-          {record.transferFunctionMetrics &&
+          {/* Flash Tune only: TF step response comparison */}
+          {isFlashTune &&
+            record.transferFunctionMetrics &&
             record.verificationTransferFunctionMetrics &&
             (record.transferFunctionMetrics.stepResponse &&
             record.verificationTransferFunctionMetrics.stepResponse ? (
@@ -98,15 +112,34 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
                 after={record.verificationTransferFunctionMetrics}
               />
             ))}
-          {onReanalyzeVerification && (
-            <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
-              Re-analyze with different session
-            </button>
-          )}
         </>
       )}
 
-      {!hasComparison && record.filterMetrics && (
+      {/* Filter Tune: spectrogram comparison (before/after) */}
+      {isFilterTune &&
+        hasFilterComparison &&
+        record.filterMetrics?.throttleSpectrogram &&
+        record.verificationMetrics?.throttleSpectrogram && (
+          <SpectrogramComparisonChart
+            before={record.filterMetrics.throttleSpectrogram}
+            after={record.verificationMetrics.throttleSpectrogram}
+          />
+        )}
+
+      {/* PID Tune: step response comparison (before/after) */}
+      {isPidTune && hasPidComparison && record.pidMetrics && record.verificationPidMetrics && (
+        <StepResponseComparison before={record.pidMetrics} after={record.verificationPidMetrics} />
+      )}
+
+      {/* Re-analyze button */}
+      {hasAnyVerification && onReanalyzeVerification && (
+        <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
+          Re-analyze with different session
+        </button>
+      )}
+
+      {/* Filter analysis numeric summary (no verification) */}
+      {!hasFilterComparison && record.filterMetrics && (
         <div className="completion-noise-numeric">
           <div className="completion-noise-stats">
             <span>Noise: {record.filterMetrics.noiseLevel}</span>
@@ -120,7 +153,8 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
         </div>
       )}
 
-      {record.filterMetrics?.throttleSpectrogram && (
+      {/* Filter Tune only: single spectrogram (no verification) */}
+      {isFilterTune && !hasFilterComparison && record.filterMetrics?.throttleSpectrogram && (
         <ThrottleSpectrogramChart compactData={record.filterMetrics.throttleSpectrogram} />
       )}
 
@@ -135,7 +169,8 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
         )}
       </div>
 
-      {record.pidMetrics && (
+      {/* PID metrics (no PID verification — raw metrics before changes) */}
+      {record.pidMetrics && !hasPidComparison && (
         <div className="completion-pid-metrics">
           <h4>
             Step Response Metrics <span className="completion-pid-label">before PID changes</span>

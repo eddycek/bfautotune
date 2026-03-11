@@ -31,6 +31,7 @@ import type { TuningSession, TuningPhase, TuningType } from './tuning.types';
 import type {
   CompletedTuningRecord,
   FilterMetricsSummary,
+  PIDMetricsSummary,
   TransferFunctionMetricsSummary,
 } from './tuning-history.types';
 
@@ -272,12 +273,14 @@ export interface BetaflightAPI {
   // Tuning History
   getTuningHistory(): Promise<CompletedTuningRecord[]>;
   updateVerificationMetrics(
-    verificationMetrics: FilterMetricsSummary,
-    verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary
+    verificationMetrics?: FilterMetricsSummary,
+    verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary,
+    verificationPidMetrics?: PIDMetricsSummary
   ): Promise<TuningSession>;
   updateHistoryVerification(
     recordId: string,
-    verificationMetrics: FilterMetricsSummary
+    verificationMetrics?: FilterMetricsSummary,
+    verificationPidMetrics?: PIDMetricsSummary
   ): Promise<void>;
 
   // Events
