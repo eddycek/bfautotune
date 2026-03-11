@@ -2,15 +2,20 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { AxisTabs, type AxisSelection } from './AxisTabs';
 import {
   prepareHeatmapData,
+  prepareHeatmapDataFromCompact,
   dbToColor,
   type Axis,
   type HeatmapCell,
 } from '../../../utils/spectrogramUtils';
 import type { ThrottleSpectrogramResult } from '@shared/types/analysis.types';
+import type { CompactThrottleSpectrogram } from '@shared/types/tuning-history.types';
 import './ThrottleSpectrogramChart.css';
 
 interface ThrottleSpectrogramChartProps {
-  data: ThrottleSpectrogramResult;
+  /** Full spectrogram result (from live analysis) */
+  data?: ThrottleSpectrogramResult;
+  /** Compact spectrogram (from history/archived metrics) */
+  compactData?: CompactThrottleSpectrogram;
 }
 
 const CHART_HEIGHT = 300;
@@ -23,7 +28,7 @@ function fmtThrottle(value: number): string {
   return `${Math.round(value * 100)}`;
 }
 
-export function ThrottleSpectrogramChart({ data }: ThrottleSpectrogramChartProps) {
+export function ThrottleSpectrogramChart({ data, compactData }: ThrottleSpectrogramChartProps) {
   const [selectedAxis, setSelectedAxis] = useState<AxisSelection>('roll');
   const [tooltip, setTooltip] = useState<{
     x: number;
@@ -33,7 +38,11 @@ export function ThrottleSpectrogramChart({ data }: ThrottleSpectrogramChartProps
 
   const axis: Axis = selectedAxis === 'all' ? 'roll' : selectedAxis;
 
-  const heatmap = useMemo(() => prepareHeatmapData(data, axis), [data, axis]);
+  const heatmap = useMemo(() => {
+    if (data) return prepareHeatmapData(data, axis);
+    if (compactData) return prepareHeatmapDataFromCompact(compactData, axis);
+    return null;
+  }, [data, compactData, axis]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGRectElement>, cell: HeatmapCell) => {
     const svg = (e.target as SVGElement).closest('svg');

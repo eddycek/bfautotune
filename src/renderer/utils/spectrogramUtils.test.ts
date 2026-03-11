@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { downsampleSpectrum, dbToColor, prepareHeatmapData } from './spectrogramUtils';
+import {
+  downsampleSpectrum,
+  dbToColor,
+  prepareHeatmapData,
+  prepareHeatmapDataFromCompact,
+} from './spectrogramUtils';
 import type { ThrottleSpectrogramResult, PowerSpectrum } from '@shared/types/analysis.types';
+import type { CompactThrottleSpectrogram } from '@shared/types/tuning-history.types';
 
 function makeSpectrum(length: number, fillDb: number): PowerSpectrum {
   const frequencies = new Float64Array(length);
@@ -130,5 +136,51 @@ describe('prepareHeatmapData', () => {
     expect(roll).not.toBeNull();
     expect(pitch).not.toBeNull();
     expect(roll!.minDb).not.toBe(pitch!.minDb);
+  });
+});
+
+describe('prepareHeatmapDataFromCompact', () => {
+  function makeCompact(bandCount: number): CompactThrottleSpectrogram {
+    const frequencies = Array.from({ length: 50 }, (_, i) => i * 20);
+    const bands = [];
+    for (let i = 0; i < bandCount; i++) {
+      bands.push({
+        throttleMin: i * 0.1,
+        throttleMax: (i + 1) * 0.1,
+        roll: Array.from({ length: 50 }, (_, j) => -40 + j * 0.1),
+        pitch: Array.from({ length: 50 }, (_, j) => -35 + j * 0.1),
+        yaw: Array.from({ length: 50 }, (_, j) => -45 + j * 0.1),
+      });
+    }
+    return { frequencies, bands, bandsWithData: bandCount };
+  }
+
+  it('returns null for empty compact spectrogram', () => {
+    expect(prepareHeatmapDataFromCompact(makeCompact(0), 'roll')).toBeNull();
+  });
+
+  it('returns heatmap data for valid compact spectrogram', () => {
+    const data = prepareHeatmapDataFromCompact(makeCompact(5), 'roll');
+    expect(data).not.toBeNull();
+    expect(data!.cells.length).toBe(5 * 50); // 5 bands × 50 freq bins
+    expect(data!.bands.length).toBe(5);
+    expect(data!.frequencies.length).toBe(50);
+    expect(data!.minDb).toBeLessThan(data!.maxDb);
+  });
+
+  it('uses correct axis data', () => {
+    const roll = prepareHeatmapDataFromCompact(makeCompact(3), 'roll');
+    const pitch = prepareHeatmapDataFromCompact(makeCompact(3), 'pitch');
+    expect(roll).not.toBeNull();
+    expect(pitch).not.toBeNull();
+    expect(roll!.minDb).not.toBe(pitch!.minDb);
+  });
+
+  it('preserves throttle min/max in bands', () => {
+    const data = prepareHeatmapDataFromCompact(makeCompact(3), 'roll')!;
+    expect(data.bands[0].min).toBe(0);
+    expect(data.bands[0].max).toBe(0.1);
+    expect(data.bands[2].min).toBe(0.2);
+    expect(data.bands[2].max).toBeCloseTo(0.3);
   });
 });
