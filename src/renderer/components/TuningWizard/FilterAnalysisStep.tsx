@@ -43,7 +43,7 @@ export function FilterAnalysisStep({
     mode === TUNING_MODE.FILTER ? 'Continue to Summary' : 'Continue to PID Analysis';
   const skipLabel = mode === TUNING_MODE.FILTER ? 'Skip to Summary' : 'Skip to PIDs';
   const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(true);
-  const [spectrogramOpen, setSpectrogramOpen] = useState(false);
+  const [spectrogramOpen, setSpectrogramOpen] = useState(true);
 
   if (filterAnalyzing) {
     return (

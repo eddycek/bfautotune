@@ -13,10 +13,15 @@ interface ThrottleSpectrogramChartProps {
   data: ThrottleSpectrogramResult;
 }
 
-const CHART_HEIGHT = 280;
-const MARGIN = { top: 10, right: 70, bottom: 40, left: 60 };
-const COLORBAR_WIDTH = 12;
-const COLORBAR_GAP = 10;
+const CHART_HEIGHT = 300;
+const MARGIN = { top: 10, right: 80, bottom: 40, left: 70 };
+const COLORBAR_WIDTH = 14;
+const COLORBAR_GAP = 12;
+
+/** Format throttle value (0.0–1.0) as percentage string */
+function fmtThrottle(value: number): string {
+  return `${Math.round(value * 100)}`;
+}
 
 export function ThrottleSpectrogramChart({ data }: ThrottleSpectrogramChartProps) {
   const [selectedAxis, setSelectedAxis] = useState<AxisSelection>('roll');
@@ -50,7 +55,8 @@ export function ThrottleSpectrogramChart({ data }: ThrottleSpectrogramChartProps
   const numFreqs = heatmap.frequencies.length;
   const numBands = heatmap.bands.length;
 
-  const plotWidth = 600;
+  // Use viewBox for responsive scaling — SVG fills container width
+  const plotWidth = 900;
   const svgWidth = plotWidth + MARGIN.left + MARGIN.right;
   const svgHeight = CHART_HEIGHT + MARGIN.top + MARGIN.bottom;
 
@@ -140,18 +146,18 @@ export function ThrottleSpectrogramChart({ data }: ThrottleSpectrogramChartProps
                   fontSize={10}
                   fill="#aaa"
                 >
-                  {band.min}-{band.max}%
+                  {fmtThrottle(band.min)}-{fmtThrottle(band.max)}%
                 </text>
               );
             })}
             <text
-              x={-45}
+              x={-50}
               y={CHART_HEIGHT / 2}
               textAnchor="middle"
               dominantBaseline="middle"
               fontSize={11}
               fill="#888"
-              transform={`rotate(-90, -45, ${CHART_HEIGHT / 2})`}
+              transform={`rotate(-90, -50, ${CHART_HEIGHT / 2})`}
             >
               Throttle
             </text>
@@ -190,7 +196,7 @@ export function ThrottleSpectrogramChart({ data }: ThrottleSpectrogramChartProps
               <rect
                 x={0}
                 y={-14}
-                width={180}
+                width={200}
                 height={42}
                 rx={4}
                 fill="#1a1a1a"
@@ -198,7 +204,8 @@ export function ThrottleSpectrogramChart({ data }: ThrottleSpectrogramChartProps
                 strokeWidth={1}
               />
               <text x={8} y={0} fontSize={11} fill="#ddd">
-                Throttle {tooltip.cell.throttleMin}-{tooltip.cell.throttleMax}%
+                Throttle {fmtThrottle(tooltip.cell.throttleMin)}-
+                {fmtThrottle(tooltip.cell.throttleMax)}%
               </text>
               <text x={8} y={16} fontSize={11} fill="#ddd">
                 {tooltip.cell.frequency.toFixed(0)} Hz, {tooltip.cell.db.toFixed(1)} dB
