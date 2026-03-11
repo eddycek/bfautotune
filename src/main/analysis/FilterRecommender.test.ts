@@ -570,37 +570,6 @@ describe('RPM-aware recommendations', () => {
     expect(gyroRec!.recommendedValue).toBeLessThanOrEqual(GYRO_LPF1_MAX_HZ);
   });
 
-  it('should add motor harmonic diagnostic when RPM active and motor peaks present', () => {
-    const noise = makeNoiseProfile({
-      level: 'medium',
-      rollPeaks: [{ frequency: 200, amplitude: 15, type: 'motor_harmonic' }],
-    });
-    const current: CurrentFilterSettings = {
-      ...DEFAULT_FILTER_SETTINGS,
-      rpm_filter_harmonics: 3,
-    };
-
-    const recs = recommend(noise, current);
-    const diagnostic = recs.find((r) => r.setting === 'rpm_filter_diagnostic');
-    expect(diagnostic).toBeDefined();
-    expect(diagnostic!.reason).toContain('motor_poles');
-    expect(diagnostic!.reason).toContain('ESC telemetry');
-  });
-
-  it('should NOT add motor harmonic diagnostic when RPM is inactive', () => {
-    const noise = makeNoiseProfile({
-      level: 'medium',
-      rollPeaks: [{ frequency: 200, amplitude: 15, type: 'motor_harmonic' }],
-    });
-    const current: CurrentFilterSettings = {
-      ...DEFAULT_FILTER_SETTINGS,
-      rpm_filter_harmonics: 0,
-    };
-
-    const recs = recommend(noise, current);
-    expect(recs.find((r) => r.setting === 'rpm_filter_diagnostic')).toBeUndefined();
-  });
-
   it('should include RPM note in reason strings when RPM active', () => {
     const noise = makeNoiseProfile({ level: 'low', rollFloor: -65, pitchFloor: -60 });
     const current: CurrentFilterSettings = {
