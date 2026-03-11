@@ -163,7 +163,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 2368 unit tests across 114 files + 26 Playwright E2E tests across 5 spec files** (last verified: March 11, 2026)
+**Total: 2388 unit tests across 116 files + 26 Playwright E2E tests across 5 spec files** (last verified: March 11, 2026)
 
 ### UI Components
 
@@ -172,7 +172,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `ConnectionPanel/ConnectionPanel.test.tsx` | 13 | Connection flow, port scanning, cooldown, auto-cooldown on unexpected disconnect |
 | `FCInfo/FCInfoDisplay.test.tsx` | 35 | FC information display, CLI export, diagnostics, version-aware debug mode, feedforward config, fix/reset settings |
 | `FCInfo/FixSettingsConfirmModal.test.tsx` | 4 | Fix settings confirmation modal, reboot warning, confirm/cancel |
-| `BlackboxStatus/BlackboxStatus.test.tsx` | 31 | Blackbox status, download trigger, readonly mode, onAnalyze, SD card storage type, erase labels, log numbering, pagination |
+| `BlackboxStatus/BlackboxStatus.test.tsx` | 34 | Blackbox status, download trigger, readonly mode, onAnalyze, SD card storage type, erase labels, log numbering, pagination, Huffman compression badge, disabled analyze for compressed logs |
 | `ProfileSelector.test.tsx` | 11 | Profile switching, locking when FC connected |
 | `ProfileEditModal.test.tsx` | 18 | Profile editing, validation, form handling, flight style selector |
 | `ProfileDeleteModal.test.tsx` | 12 | Deletion confirmation, warnings |
@@ -197,6 +197,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `TuningWizard/SessionSelectStep.test.tsx` | 8 | Session picker, auto-parse, parsing/error/empty states, reverse order |
 | `TuningWizard/TuningSummaryStep.test.tsx` | 17 | Recommendations table, mode-aware labels (filter/pid/quick), apply/progress/success/error states, tfResult for quick mode |
 | `TuningWizard/charts/AxisTabs.test.tsx` | 6 | Tab rendering, selection, aria-selected, onChange callback |
+| `TuningWizard/charts/ThrottleSpectrogramChart.test.tsx` | 6 | Throttle spectrogram heatmap rendering, axis labels, color scale, empty state |
 | `TuningHistory/AppliedChangesTable.test.tsx` | 7 | Setting changes table, percent formatting, empty state, zero value handling |
 | `TuningHistory/NoiseComparisonChart.test.tsx` | 9 | Before/after spectrum overlay, delta pill, axis tabs, empty state |
 | `TuningHistory/TuningCompletionSummary.test.tsx` | 17 | Completion summary with/without verification, noise chart, changes, PID metrics, actions, quality score badge with tier label, re-analyze button, Flash Tune title |
@@ -242,6 +243,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useBlackboxLogs.test.ts` | 9 | Log list, profile change subscription, delete, openFolder |
 | `hooks/useDemoMode.test.ts` | 3 | Demo mode detection, reset demo |
 | `utils/bbSettingsUtils.test.ts` | 18 | BB settings status computation, version-aware debug mode, fix/reset commands |
+| `utils/spectrogramUtils.test.ts` | 11 | Spectrogram data transformation, color mapping, frequency/throttle axis utilities |
 
 ### IPC Handlers
 

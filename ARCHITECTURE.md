@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 11, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2368 unit tests, 114 files + 26 Playwright E2E tests**
+**Last Updated:** March 11, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2388 unit tests, 116 files + 26 Playwright E2E tests**
 
 ---
 
@@ -185,12 +185,12 @@ Jumbo: auto-upgraded when payload > 255 bytes (for flash reads)
 
 **Configuration:** `exportCLIDiff()` / `exportCLIDump()` — enter CLI, run `diff all` / `dump`, stay in CLI mode (caller decides when to exit)
 
-**Blackbox download:** `downloadBlackboxLog(onProgress)` — adaptive chunking (starts 180B, max 240B per read), strips 6-7 byte dataflash header from each chunk
+**Blackbox download:** `downloadBlackboxLog(onProgress)` — adaptive chunking (starts 180B, max 240B per read), strips 6-7 byte dataflash header from each chunk. Returns `{ data, compressionDetected }` — Huffman compression is detected and flagged (analysis blocked for compressed logs)
 
 **MSP_DATAFLASH_READ response format:**
 ```
 [4B readAddress LE][2B dataSize LE][1B isCompressed (BF4.1+)][flash data]
-extractFlashPayload() auto-detects 6-byte vs 7-byte header by comparing response length with dataSize field.
+extractFlashPayload() returns { data, isCompressed } — auto-detects 6-byte vs 7-byte header by comparing response length with dataSize field. Huffman compression flag is propagated to caller.
 ```
 
 **Erase:** `eraseBlackboxFlash()` — sends `MSP_DATAFLASH_ERASE`, polls `MSP_DATAFLASH_SUMMARY` until `usedSize === 0` (some FCs don't ACK the erase command).
@@ -656,7 +656,8 @@ Built with **Recharts** (SVG):
 - **SpectrumChart** — FFT noise spectrum per axis (roll/pitch/yaw). Shows noise floor reference lines, detected peak frequency markers, color-coded axes.
 - **StepResponseChart** — Overlaid setpoint vs gyro trace for individual steps. Prev/Next navigation, metrics overlay (overshoot %, rise time, settling, latency).
 - **TFStepResponseChart** — Synthetic step response from Transfer Function (Wiener deconvolution). Single mode for Flash Analysis, before/after comparison for verification. Per-axis overshoot metrics, delta pill.
-- **AxisTabs** — Shared Roll/Pitch/Yaw/All tab selector for both charts.
+- **ThrottleSpectrogramChart** — Custom SVG heatmap showing noise magnitude across frequency (x) and throttle (y) bands. Color-coded dB scale. Integrated in FilterAnalysisStep, QuickAnalysisStep, and AnalysisOverview.
+- **AxisTabs** — Shared Roll/Pitch/Yaw/All tab selector for charts. Supports `showAll` prop.
 - **chartUtils** — `toRechartsData()` conversion, `downsampleData()`, `findBestStep()` scoring, `computeRobustYDomain()` (outlier-resistant Y axis).
 
 ---
@@ -818,7 +819,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**2368 unit tests across 114 files + 26 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2388 unit tests across 116 files + 26 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -830,8 +831,8 @@ Hardware error (FC timeout, USB disconnect)
 | MSC (Mass Storage) | 2 | 43 |
 | Storage Managers | 7 | 127 |
 | IPC Handlers | 1 | 109 |
-| UI Components + Charts + Contexts | 43 | 654 |
-| React Hooks + Utils | 13 | 156 |
+| UI Components + Charts + Contexts | 44 | 663 |
+| React Hooks + Utils | 14 | 167 |
 | Shared Constants & Utils | 4 | 78 |
 | E2E Workflows (Vitest) | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 73 |

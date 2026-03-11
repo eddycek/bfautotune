@@ -343,7 +343,8 @@ Interactive visualization of analysis results using Recharts (SVG).
 - **SpectrumChart**: FFT noise spectrum with per-axis color coding, noise floor reference lines, peak frequency markers. Integrated in FilterAnalysisStep noise details (collapsible).
 - **StepResponseChart**: Setpoint vs gyro trace for individual steps, Prev/Next step navigation, metrics overlay (overshoot, rise time, settling, latency). Integrated in PIDAnalysisStep (collapsible).
 - **TFStepResponseChart**: Synthetic step response from Transfer Function analysis (Wiener deconvolution). Single mode for Flash Analysis in QuickAnalysisStep, before/after comparison mode for verification in TuningCompletionSummary and TuningSessionDetail. Plasmatree PID-Analyzer inspired. Shows per-axis overshoot metrics and delta pill.
-- **AxisTabs**: Shared tab selector (Roll/Pitch/Yaw/All) for both charts
+- **ThrottleSpectrogramChart**: Custom SVG heatmap showing noise magnitude (dB) across frequency (x-axis) and throttle bands (y-axis). Color-coded scale. Uses `spectrogramUtils.ts` for data transformation. Integrated in FilterAnalysisStep, QuickAnalysisStep, and AnalysisOverview.
+- **AxisTabs**: Shared tab selector (Roll/Pitch/Yaw/All) for charts. Supports `showAll` prop for spectrogram views
 - **chartUtils**: Data conversion utilities (Float64Array → Recharts format), downsampling, findBestStep scoring
 - **StepResponseTrace**: Raw trace data (timeMs, setpoint, gyro arrays) extracted in `StepMetrics.computeStepResponse()` and attached to each `StepResponse`
 - Dependency: `recharts`
@@ -378,9 +379,11 @@ Completed tuning sessions are archived with self-contained metrics for compariso
 
 **MSP Dataflash Read** (`MSP_DATAFLASH_READ`, command 0x46):
 - Response format: `[4B readAddress LE][2B dataSize LE][1B isCompressed (BF4.1+)][flash data]`
-- `MSPClient.extractFlashPayload()` strips the 6-7 byte header, returns only flash data
+- `MSPClient.extractFlashPayload()` returns `{ data, isCompressed }` — strips the 6-7 byte header, detects Huffman compression flag
 - Both 6-byte (no compression flag) and 7-byte (with compression flag) formats supported
-- Huffman compression not yet implemented (logs warning if detected)
+- `downloadBlackboxLog()` returns `{ data, compressionDetected }` — propagates compression flag to caller
+- `BlackboxLogMetadata` includes `compressionDetected` field — persisted per log
+- Huffman decompression not implemented — compressed logs are detected and blocked (analysis disabled, Huffman badge in UI)
 
 **SD Card Blackbox Support** (`MSP_SDCARD_SUMMARY`, command 79):
 - `BlackboxInfo.storageType`: `'flash' | 'sdcard' | 'none'` — detection is automatic (flash first, SD card fallback)

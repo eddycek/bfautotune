@@ -12,7 +12,7 @@ Overview of all design documents in this directory. Completed documents are arch
 
 | Document | Status | Description |
 |----------|--------|-------------|
-| [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Active** | Research-based tuning accuracy improvements: ~~Wiener deconvolution~~ (done), ~~proportional PID scaling~~ (done), ~~data quality scoring~~ (done), ~~flight quality score~~ (done), throttle spectrograms, chirp analysis |
+| [TUNING_PRECISION_IMPROVEMENTS](./TUNING_PRECISION_IMPROVEMENTS.md) | **Active** | Research-based tuning accuracy improvements: ~~Wiener deconvolution~~ (done), ~~proportional PID scaling~~ (done), ~~data quality scoring~~ (done), ~~flight quality score~~ (done), ~~throttle spectrograms~~ (done), chirp analysis |
 | [UX_IMPROVEMENT_IDEAS](./UX_IMPROVEMENT_IDEAS.md) | **Active** | Backlog of UX improvement ideas (4/7 done, rest are future work) |
 
 ## Completed Documents (`complete/`)

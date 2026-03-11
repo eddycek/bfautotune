@@ -272,7 +272,7 @@ npm run rebuild                      # Rebuild native modules (serialport)
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Unit tests:** 2368 tests across 114 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation.
+**Unit tests:** 2388 tests across 116 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation.
 
 **Playwright E2E:** 26 tests across 5 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (Deep Tune, Flash Tune, and stress-test edge cases).
 
@@ -889,10 +889,9 @@ The autotuning rules and thresholds are based on established FPV community pract
 
 - MSP v1 only (v2 support planned)
 - Requires test flights in a safe environment
-- Huffman-compressed Blackbox data not yet supported (rare, BF 4.1+ feature)
+- Huffman-compressed Blackbox data cannot be decoded (compression is detected and clearly flagged in UI with a badge; analysis is disabled for compressed logs)
 - Feedforward parameter write via MSP not yet supported (FF detection, FF-aware PID recommendations, and CLI apply all work; only direct MSP write of `feedforward_smooth_factor`/`feedforward_jitter_factor` is missing)
 - Bayesian PID optimizer: framework complete (GP surrogate, Expected Improvement), full auto-apply pipeline integration pending (currently returns suggestions alongside rule-based recommendations)
-- Throttle spectrogram: per-throttle-bin FFT data computed and used for dynamic lowpass recommendations (gyro + D-term); dedicated spectrogram chart visualization not yet in UI
 
 ## Development Roadmap
 
