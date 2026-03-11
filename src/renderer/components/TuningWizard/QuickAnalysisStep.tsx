@@ -41,7 +41,7 @@ export function QuickAnalysisStep({
 }: QuickAnalysisStepProps) {
   const autoRunRef = useRef(false);
   const [noiseDetailsOpen, setNoiseDetailsOpen] = useState(true);
-  const [spectrogramOpen, setSpectrogramOpen] = useState(false);
+  const [spectrogramOpen, setSpectrogramOpen] = useState(true);
   const [bodeOpen, setBodeOpen] = useState(false);
 
   // Auto-run on mount

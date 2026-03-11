@@ -4,13 +4,10 @@
 
 .spectrogram-chart-container {
   width: 100%;
-  overflow-x: auto;
 }
 
 .spectrogram-svg {
   width: 100%;
-  max-width: 800px;
-  min-width: 500px;
   height: auto;
 }
 
