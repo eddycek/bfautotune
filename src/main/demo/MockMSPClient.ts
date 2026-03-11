@@ -579,7 +579,9 @@ export class MockMSPClient extends EventEmitter {
     return result.join('\n');
   }
 
-  async downloadBlackboxLog(onProgress?: (progress: number) => void): Promise<Buffer> {
+  async downloadBlackboxLog(
+    onProgress?: (progress: number) => void
+  ): Promise<{ data: Buffer; compressionDetected: boolean }> {
     if (!this._demoBBLData) {
       throw new Error('[DEMO] No demo BBL data available. Run DemoDataGenerator first.');
     }
@@ -592,7 +594,7 @@ export class MockMSPClient extends EventEmitter {
       await new Promise((r) => setTimeout(r, 50));
     }
 
-    return this._demoBBLData;
+    return { data: this._demoBBLData, compressionDetected: false };
   }
 
   async eraseBlackboxFlash(): Promise<void> {

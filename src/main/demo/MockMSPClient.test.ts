@@ -227,7 +227,8 @@ describe('MockMSPClient', () => {
       await vi.advanceTimersByTimeAsync(21 * 50);
       const result = await downloadPromise;
 
-      expect(result).toBe(demoData);
+      expect(result.data).toBe(demoData);
+      expect(result.compressionDetected).toBe(false);
       expect(progressCalls.length).toBeGreaterThan(0);
       expect(progressCalls[progressCalls.length - 1]).toBe(100);
     });
