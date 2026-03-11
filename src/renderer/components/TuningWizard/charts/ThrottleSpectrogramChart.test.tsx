@@ -7,6 +7,7 @@ import type {
   PowerSpectrum,
   ThrottleBand,
 } from '@shared/types/analysis.types';
+import type { CompactThrottleSpectrogram } from '@shared/types/tuning-history.types';
 
 function makeSpectrum(length: number, fillDb: number): PowerSpectrum {
   const frequencies = new Float64Array(length);
@@ -91,5 +92,46 @@ describe('ThrottleSpectrogramChart', () => {
     const texts = Array.from(container.querySelectorAll('text')).map((t) => t.textContent || '');
     const dbLabels = texts.filter((t) => t.includes('dB'));
     expect(dbLabels.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders nothing when neither data nor compactData provided', () => {
+    const { container } = render(<ThrottleSpectrogramChart />);
+    expect(container.querySelector('.spectrogram-chart')).toBeNull();
+  });
+});
+
+function makeCompactData(bandCount: number): CompactThrottleSpectrogram {
+  const frequencies = Array.from({ length: 50 }, (_, i) => i * 20);
+  const bands = [];
+  for (let i = 0; i < bandCount; i++) {
+    bands.push({
+      throttleMin: i * 0.1,
+      throttleMax: (i + 1) * 0.1,
+      roll: Array.from({ length: 50 }, (_, j) => -40 + j * 0.1),
+      pitch: Array.from({ length: 50 }, (_, j) => -35 + j * 0.1),
+      yaw: Array.from({ length: 50 }, (_, j) => -45 + j * 0.1),
+    });
+  }
+  return { frequencies, bands, bandsWithData: bandCount };
+}
+
+describe('ThrottleSpectrogramChart with compactData', () => {
+  it('renders SVG heatmap from compact data', () => {
+    const { container } = render(<ThrottleSpectrogramChart compactData={makeCompactData(5)} />);
+    expect(container.querySelector('.spectrogram-svg')).toBeInTheDocument();
+    const rects = container.querySelectorAll('.spectrogram-svg rect');
+    expect(rects.length).toBeGreaterThan(0);
+  });
+
+  it('renders nothing for empty compact data', () => {
+    const { container } = render(<ThrottleSpectrogramChart compactData={makeCompactData(0)} />);
+    expect(container.querySelector('.spectrogram-chart')).toBeNull();
+  });
+
+  it('shows axis tabs for compact data', () => {
+    render(<ThrottleSpectrogramChart compactData={makeCompactData(3)} />);
+    expect(screen.getByRole('tab', { name: 'Roll' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Pitch' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Yaw' })).toBeInTheDocument();
   });
 });

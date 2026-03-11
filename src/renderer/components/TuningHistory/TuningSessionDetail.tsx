@@ -4,6 +4,7 @@ import { computeTuneQualityScore } from '@shared/utils/tuneQualityScore';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
 import { OvershootComparison } from './TuningCompletionSummary';
 import { TFStepResponseChart } from '../TuningWizard/charts/TFStepResponseChart';
+import { ThrottleSpectrogramChart } from '../TuningWizard/charts/ThrottleSpectrogramChart';
 import { compactToPerAxisStepResponse } from '../TuningWizard/charts/chartUtils';
 import { AppliedChangesTable } from './AppliedChangesTable';
 
@@ -117,6 +118,10 @@ export function TuningSessionDetail({ record, onReanalyzeVerification }: TuningS
             <span>Yaw {record.filterMetrics.yaw.noiseFloorDb.toFixed(0)} dB</span>
           </div>
         </div>
+      )}
+
+      {record.filterMetrics?.throttleSpectrogram && (
+        <ThrottleSpectrogramChart compactData={record.filterMetrics.throttleSpectrogram} />
       )}
 
       <div className="completion-changes-row">

@@ -25,6 +25,26 @@ export interface AxisNoiseSummary {
   peakCount: number;
 }
 
+/** Compact per-band throttle spectrogram data for history storage */
+export interface CompactThrottleBand {
+  throttleMin: number;
+  throttleMax: number;
+  /** Downsampled dB magnitudes per axis (same length as parent frequencies array) */
+  roll: number[];
+  pitch: number[];
+  yaw: number[];
+}
+
+/** Compact throttle spectrogram safe for JSON serialization */
+export interface CompactThrottleSpectrogram {
+  /** Shared frequency bins in Hz (downsampled to ~120 bins) */
+  frequencies: number[];
+  /** Throttle bands with per-axis dB magnitudes */
+  bands: CompactThrottleBand[];
+  /** Number of bands that had sufficient data */
+  bandsWithData: number;
+}
+
 /** Compact filter analysis metrics for history storage */
 export interface FilterMetricsSummary {
   /** Overall noise level */
@@ -45,6 +65,8 @@ export interface FilterMetricsSummary {
   dataQuality?: { overall: number; tier: string };
   /** Wind/disturbance level during hover segments */
   windDisturbance?: { level: string; worstVariance: number };
+  /** Optional compact throttle spectrogram for heatmap rendering */
+  throttleSpectrogram?: CompactThrottleSpectrogram;
 }
 
 /** Compact per-axis PID step response metrics */

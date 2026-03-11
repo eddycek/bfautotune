@@ -5,8 +5,13 @@ import {
   extractFilterMetrics,
   extractPIDMetrics,
   extractTransferFunctionMetrics,
+  extractThrottleSpectrogram,
 } from './metricsExtract';
-import type { FilterAnalysisResult, PIDAnalysisResult } from '../types/analysis.types';
+import type {
+  FilterAnalysisResult,
+  PIDAnalysisResult,
+  ThrottleSpectrogramResult,
+} from '../types/analysis.types';
 
 describe('downsampleSpectrum', () => {
   it('returns correct number of bins', () => {
@@ -147,6 +152,120 @@ describe('extractFilterMetrics', () => {
     const result = makeFilterResult({ rpmFilterActive: undefined });
     const metrics = extractFilterMetrics(result);
     expect(metrics.rpmFilterActive).toBeUndefined();
+  });
+
+  it('includes throttle spectrogram when available', () => {
+    const result = makeFilterResult({
+      throttleSpectrogram: makeThrottleSpectrogram(3),
+    });
+    const metrics = extractFilterMetrics(result);
+    expect(metrics.throttleSpectrogram).toBeDefined();
+    expect(metrics.throttleSpectrogram!.bandsWithData).toBe(3);
+    expect(metrics.throttleSpectrogram!.frequencies.length).toBeGreaterThan(0);
+    expect(metrics.throttleSpectrogram!.bands.length).toBe(3);
+  });
+
+  it('omits throttle spectrogram when no bands have data', () => {
+    const result = makeFilterResult({
+      throttleSpectrogram: makeThrottleSpectrogram(0),
+    });
+    const metrics = extractFilterMetrics(result);
+    expect(metrics.throttleSpectrogram).toBeUndefined();
+  });
+});
+
+function makeThrottleSpectrogram(bandsWithData: number): ThrottleSpectrogramResult {
+  const freqs = Float64Array.from({ length: 200 }, (_, i) => i * 5);
+  const makeMags = (offset: number) =>
+    Float64Array.from({ length: 200 }, (_, i) => -70 + offset + i * 0.1);
+
+  const bands = [];
+  for (let i = 0; i < 10; i++) {
+    const hasData = i < bandsWithData;
+    bands.push({
+      throttleMin: i * 0.1,
+      throttleMax: (i + 1) * 0.1,
+      sampleCount: hasData ? 500 : 0,
+      spectra: hasData
+        ? ([
+            { frequencies: freqs, magnitudes: makeMags(0) },
+            { frequencies: freqs, magnitudes: makeMags(-2) },
+            { frequencies: freqs, magnitudes: makeMags(-5) },
+          ] as [
+            { frequencies: Float64Array; magnitudes: Float64Array },
+            { frequencies: Float64Array; magnitudes: Float64Array },
+            { frequencies: Float64Array; magnitudes: Float64Array },
+          ])
+        : undefined,
+      noiseFloorDb: hasData ? ([-55, -57, -60] as [number, number, number]) : undefined,
+    });
+  }
+
+  return {
+    bands,
+    numBands: 10,
+    minSamplesPerBand: 256,
+    bandsWithData,
+  };
+}
+
+describe('extractThrottleSpectrogram', () => {
+  it('extracts compact spectrogram with downsampled data', () => {
+    const result = makeThrottleSpectrogram(5);
+    const compact = extractThrottleSpectrogram(result);
+    expect(compact).not.toBeNull();
+    expect(compact!.bandsWithData).toBe(5);
+    expect(compact!.bands.length).toBe(5);
+    expect(compact!.frequencies.length).toBe(compact!.bands[0].roll.length);
+    expect(compact!.bands[0].pitch.length).toBe(compact!.frequencies.length);
+    expect(compact!.bands[0].yaw.length).toBe(compact!.frequencies.length);
+  });
+
+  it('returns null when no bands have data', () => {
+    const result = makeThrottleSpectrogram(0);
+    const compact = extractThrottleSpectrogram(result);
+    expect(compact).toBeNull();
+  });
+
+  it('preserves throttle min/max', () => {
+    const result = makeThrottleSpectrogram(3);
+    const compact = extractThrottleSpectrogram(result)!;
+    expect(compact.bands[0].throttleMin).toBe(0);
+    expect(compact.bands[0].throttleMax).toBe(0.1);
+    expect(compact.bands[2].throttleMin).toBe(0.2);
+    expect(compact.bands[2].throttleMax).toBeCloseTo(0.3);
+  });
+
+  it('downsamples to target bins when spectrum is larger', () => {
+    const result = makeThrottleSpectrogram(1);
+    const compact = extractThrottleSpectrogram(result)!;
+    // 200 source bins should be downsampled to 120
+    expect(compact.frequencies.length).toBe(120);
+    expect(compact.bands[0].roll.length).toBe(120);
+  });
+
+  it('keeps all bins when spectrum is smaller than target', () => {
+    const freqs = Float64Array.from([0, 100, 200, 300, 400]);
+    const mags = Float64Array.from([-50, -45, -40, -35, -30]);
+    const spectrogram: ThrottleSpectrogramResult = {
+      bands: [
+        {
+          throttleMin: 0,
+          throttleMax: 0.5,
+          sampleCount: 500,
+          spectra: [
+            { frequencies: freqs, magnitudes: mags },
+            { frequencies: freqs, magnitudes: mags },
+            { frequencies: freqs, magnitudes: mags },
+          ],
+        },
+      ],
+      numBands: 1,
+      minSamplesPerBand: 256,
+      bandsWithData: 1,
+    };
+    const compact = extractThrottleSpectrogram(spectrogram)!;
+    expect(compact.frequencies.length).toBe(5);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { ThrottleSpectrogramResult, PowerSpectrum } from '@shared/types/analysis.types';
+import type { CompactThrottleSpectrogram } from '@shared/types/tuning-history.types';
 
 export type Axis = 'roll' | 'pitch' | 'yaw';
 
@@ -131,6 +132,50 @@ export function prepareHeatmapData(
         freqIndex: fi,
         bandIndex: bi,
         frequency: downsampled.frequencies[fi],
+        throttleMin: band.throttleMin,
+        throttleMax: band.throttleMax,
+        db,
+      });
+    }
+  }
+
+  if (cells.length === 0) return null;
+
+  return { cells, frequencies, bands, minDb, maxDb };
+}
+
+/**
+ * Transform CompactThrottleSpectrogram (from history) into HeatmapData for rendering.
+ */
+export function prepareHeatmapDataFromCompact(
+  compact: CompactThrottleSpectrogram,
+  axis: Axis
+): HeatmapData | null {
+  if (compact.bands.length === 0) return null;
+
+  const frequencies = compact.frequencies;
+  const cells: HeatmapCell[] = [];
+  let minDb = Infinity;
+  let maxDb = -Infinity;
+
+  const bands: { min: number; max: number }[] = compact.bands.map((b) => ({
+    min: b.throttleMin,
+    max: b.throttleMax,
+  }));
+
+  for (let bi = 0; bi < compact.bands.length; bi++) {
+    const band = compact.bands[bi];
+    const magnitudes = axis === 'roll' ? band.roll : axis === 'pitch' ? band.pitch : band.yaw;
+
+    for (let fi = 0; fi < magnitudes.length; fi++) {
+      const db = magnitudes[fi];
+      if (db < minDb) minDb = db;
+      if (db > maxDb) maxDb = db;
+
+      cells.push({
+        freqIndex: fi,
+        bandIndex: bi,
+        frequency: frequencies[fi],
         throttleMin: band.throttleMin,
         throttleMax: band.throttleMax,
         db,

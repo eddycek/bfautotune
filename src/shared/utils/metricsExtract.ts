@@ -8,10 +8,12 @@ import type { FilterAnalysisResult, PIDAnalysisResult } from '../types/analysis.
 import type {
   CompactSpectrum,
   CompactStepResponse,
+  CompactThrottleSpectrogram,
   FilterMetricsSummary,
   PIDMetricsSummary,
   TransferFunctionMetricsSummary,
 } from '../types/tuning-history.types';
+import type { ThrottleSpectrogramResult } from '../types/analysis.types';
 
 /**
  * Downsample a full-resolution FFT spectrum to a fixed number of bins.
@@ -93,6 +95,106 @@ function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
 
+const SPECTROGRAM_TARGET_BINS = 120;
+
+/**
+ * Downsample a Float64Array spectrum to a fixed number of bins by averaging.
+ * Returns plain number[] for JSON serialization.
+ */
+function downsampleFloat64(
+  frequencies: Float64Array,
+  magnitudes: Float64Array,
+  targetBins: number
+): { frequencies: number[]; magnitudes: number[] } {
+  const srcLen = frequencies.length;
+  if (srcLen <= targetBins) {
+    return {
+      frequencies: Array.from(frequencies).map((f) => round2(f)),
+      magnitudes: Array.from(magnitudes).map((m) => round2(m)),
+    };
+  }
+
+  const binSize = srcLen / targetBins;
+  const outFreqs: number[] = [];
+  const outMags: number[] = [];
+
+  for (let i = 0; i < targetBins; i++) {
+    const start = Math.floor(i * binSize);
+    const end = Math.floor((i + 1) * binSize);
+    let freqSum = 0;
+    let magSum = 0;
+    const count = end - start;
+
+    for (let j = start; j < end; j++) {
+      freqSum += frequencies[j];
+      magSum += magnitudes[j];
+    }
+
+    outFreqs.push(round2(freqSum / count));
+    outMags.push(round2(magSum / count));
+  }
+
+  return { frequencies: outFreqs, magnitudes: outMags };
+}
+
+/**
+ * Extract compact throttle spectrogram from a full ThrottleSpectrogramResult.
+ *
+ * Downsamples each band's per-axis spectra to ~120 frequency bins for compact JSON storage.
+ * Returns null if no bands have data.
+ */
+export function extractThrottleSpectrogram(
+  result: ThrottleSpectrogramResult
+): CompactThrottleSpectrogram | null {
+  const bandsWithSpectra = result.bands.filter((b) => b.spectra);
+  if (bandsWithSpectra.length === 0) return null;
+
+  // Use first available spectrum to build shared frequency grid
+  const refSpectrum = bandsWithSpectra[0].spectra![0];
+  const refDs = downsampleFloat64(
+    refSpectrum.frequencies,
+    refSpectrum.magnitudes,
+    SPECTROGRAM_TARGET_BINS
+  );
+  const frequencies = refDs.frequencies;
+
+  const bands: CompactThrottleSpectrogram['bands'] = [];
+
+  for (const band of result.bands) {
+    if (!band.spectra) continue;
+
+    const rollDs = downsampleFloat64(
+      band.spectra[0].frequencies,
+      band.spectra[0].magnitudes,
+      SPECTROGRAM_TARGET_BINS
+    );
+    const pitchDs = downsampleFloat64(
+      band.spectra[1].frequencies,
+      band.spectra[1].magnitudes,
+      SPECTROGRAM_TARGET_BINS
+    );
+    const yawDs = downsampleFloat64(
+      band.spectra[2].frequencies,
+      band.spectra[2].magnitudes,
+      SPECTROGRAM_TARGET_BINS
+    );
+
+    bands.push({
+      throttleMin: band.throttleMin,
+      throttleMax: band.throttleMax,
+      roll: rollDs.magnitudes,
+      pitch: pitchDs.magnitudes,
+      yaw: yawDs.magnitudes,
+    });
+  }
+
+  return {
+    frequencies,
+    bands,
+    bandsWithData: bandsWithSpectra.length,
+  };
+}
+
 /**
  * Extract compact filter metrics from a full FilterAnalysisResult.
  *
@@ -133,6 +235,9 @@ export function extractFilterMetrics(result: FilterAnalysisResult): FilterMetric
             worstVariance: round2(result.windDisturbance.worstVariance),
           },
         }
+      : {}),
+    ...(result.throttleSpectrogram && result.throttleSpectrogram.bandsWithData > 0
+      ? { throttleSpectrogram: extractThrottleSpectrogram(result.throttleSpectrogram) ?? undefined }
       : {}),
   };
 }

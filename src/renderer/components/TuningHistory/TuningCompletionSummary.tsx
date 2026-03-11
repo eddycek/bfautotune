@@ -5,6 +5,7 @@ import { computeTuneQualityScore, TIER_LABELS } from '@shared/utils/tuneQualityS
 import { TUNING_TYPE, TUNING_TYPE_LABELS } from '@shared/constants';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
 import { TFStepResponseChart } from '../TuningWizard/charts/TFStepResponseChart';
+import { ThrottleSpectrogramChart } from '../TuningWizard/charts/ThrottleSpectrogramChart';
 import { compactToPerAxisStepResponse } from '../TuningWizard/charts/chartUtils';
 import { AppliedChangesTable } from './AppliedChangesTable';
 import './TuningCompletionSummary.css';
@@ -196,6 +197,10 @@ export function TuningCompletionSummary({
             <span>Yaw {session.filterMetrics.yaw.noiseFloorDb.toFixed(0)} dB</span>
           </div>
         </div>
+      )}
+
+      {session.filterMetrics?.throttleSpectrogram && (
+        <ThrottleSpectrogramChart compactData={session.filterMetrics.throttleSpectrogram} />
       )}
 
       <div className="completion-changes-row">
