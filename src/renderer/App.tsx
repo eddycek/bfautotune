@@ -41,7 +41,11 @@ import type {
   PIDMetricsSummary,
   TransferFunctionMetricsSummary,
 } from '@shared/types/tuning-history.types';
-import { extractFilterMetrics, extractTransferFunctionMetrics } from '@shared/utils/metricsExtract';
+import {
+  extractFilterMetrics,
+  extractPIDMetrics,
+  extractTransferFunctionMetrics,
+} from '@shared/utils/metricsExtract';
 import type { TuningAction } from './components/TuningStatusBanner/TuningStatusBanner';
 import './App.css';
 
@@ -433,43 +437,65 @@ function AppContent() {
 
     try {
       setAnalyzingVerification(true);
-      const filterResult = await window.betaflight.analyzeFilters(verLogId, sessionIndex);
-      const verificationMetrics = extractFilterMetrics(filterResult);
+      const tuningType = tuning.session?.tuningType;
+      const isPidSession = tuningType === TUNING_TYPE.PID;
+      const isFlashSession = tuningType === TUNING_TYPE.FLASH;
 
-      // For Flash Tune sessions, also run TF analysis on verification flight
-      const isFlashSession = tuning.session?.tuningType === TUNING_TYPE.FLASH;
+      let verificationMetrics: FilterMetricsSummary | undefined;
+      let verificationPidMetrics: PIDMetricsSummary | undefined;
       let verificationTFMetrics: TransferFunctionMetricsSummary | undefined;
-      if (isFlashSession) {
-        try {
-          const tfResult = await window.betaflight.analyzeTransferFunction(verLogId, sessionIndex);
-          if (tfResult.transferFunctionMetrics) {
-            verificationTFMetrics = extractTransferFunctionMetrics(
-              tfResult.transferFunctionMetrics,
-              undefined,
-              tfResult.transferFunction?.syntheticStepResponse,
-              tfResult.throttleTF
+
+      if (isPidSession) {
+        // PID Tune verification: run PID analysis (stick snaps comparison)
+        const pidResult = await window.betaflight.analyzePID(verLogId, sessionIndex);
+        verificationPidMetrics = extractPIDMetrics(pidResult);
+      } else {
+        // Filter Tune / Flash Tune: run filter analysis (noise/spectrogram comparison)
+        const filterResult = await window.betaflight.analyzeFilters(verLogId, sessionIndex);
+        verificationMetrics = extractFilterMetrics(filterResult);
+
+        // Flash Tune: also run TF analysis on verification flight
+        if (isFlashSession) {
+          try {
+            const tfResult = await window.betaflight.analyzeTransferFunction(
+              verLogId,
+              sessionIndex
             );
+            if (tfResult.transferFunctionMetrics) {
+              verificationTFMetrics = extractTransferFunctionMetrics(
+                tfResult.transferFunctionMetrics,
+                undefined,
+                tfResult.transferFunction?.syntheticStepResponse,
+                tfResult.throttleTF
+              );
+            }
+          } catch {
+            // TF analysis failure is non-fatal — noise comparison still works
           }
-        } catch {
-          // TF analysis failure is non-fatal — noise comparison still works
         }
       }
 
       if (historyRecordId) {
         // Re-analyze a historical record
-        await window.betaflight.updateHistoryVerification(historyRecordId, verificationMetrics);
+        await window.betaflight.updateHistoryVerification(
+          historyRecordId,
+          verificationMetrics,
+          verificationPidMetrics
+        );
         await tuningHistory.reload();
       } else if (isReanalyze) {
         // Re-analyze — update session + history without duplicate archive
         await window.betaflight.updateVerificationMetrics(
           verificationMetrics,
-          verificationTFMetrics
+          verificationTFMetrics,
+          verificationPidMetrics
         );
       } else {
         // First-time — transition to completed (archives session)
         await tuning.updatePhase(TUNING_PHASE.COMPLETED, {
           verificationMetrics,
           verificationTransferFunctionMetrics: verificationTFMetrics,
+          verificationPidMetrics,
         });
       }
       setErasedForPhase(null);

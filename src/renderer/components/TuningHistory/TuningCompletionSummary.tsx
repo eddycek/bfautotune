@@ -4,6 +4,8 @@ import type { TransferFunctionMetricsSummary } from '@shared/types/tuning-histor
 import { computeTuneQualityScore, TIER_LABELS } from '@shared/utils/tuneQualityScore';
 import { TUNING_TYPE, TUNING_TYPE_LABELS } from '@shared/constants';
 import { NoiseComparisonChart } from './NoiseComparisonChart';
+import { SpectrogramComparisonChart } from './SpectrogramComparisonChart';
+import { StepResponseComparison } from './StepResponseComparison';
 import { TFStepResponseChart } from '../TuningWizard/charts/TFStepResponseChart';
 import { ThrottleSpectrogramChart } from '../TuningWizard/charts/ThrottleSpectrogramChart';
 import { compactToPerAxisStepResponse } from '../TuningWizard/charts/chartUtils';
@@ -108,7 +110,15 @@ export function TuningCompletionSummary({
   onStartNew,
   onReanalyzeVerification,
 }: TuningCompletionSummaryProps) {
-  const hasVerification = !!session.verificationMetrics && !!session.filterMetrics;
+  const isFilterTune = session.tuningType === TUNING_TYPE.FILTER || !session.tuningType;
+  const isPidTune = session.tuningType === TUNING_TYPE.PID;
+  const isFlashTune = session.tuningType === TUNING_TYPE.FLASH;
+
+  const hasFilterVerification = !!session.verificationMetrics && !!session.filterMetrics;
+  const hasPidVerification = !!session.verificationPidMetrics && !!session.pidMetrics;
+  const hasAnyVerification =
+    hasFilterVerification || hasPidVerification || !!session.verificationLogId;
+
   const filterChanges = session.appliedFilterChanges ?? [];
   const pidChanges = session.appliedPIDChanges ?? [];
   const ffChanges = session.appliedFeedforwardChanges ?? [];
@@ -127,6 +137,10 @@ export function TuningCompletionSummary({
       session.transferFunctionMetrics,
     ]
   );
+
+  const verificationHint = isPidTune
+    ? 'Fly a verification flight next time to see a step response comparison.'
+    : 'Fly a verification flight next time to see a noise comparison chart.';
 
   return (
     <div className="completion-summary">
@@ -152,13 +166,16 @@ export function TuningCompletionSummary({
         </div>
       </div>
 
-      {hasVerification && session.filterMetrics && session.verificationMetrics && (
+      {/* Filter Tune / Flash Tune: noise spectrum comparison */}
+      {hasFilterVerification && session.filterMetrics && session.verificationMetrics && (
         <>
           <NoiseComparisonChart
             before={session.filterMetrics}
             after={session.verificationMetrics}
           />
-          {session.transferFunctionMetrics &&
+          {/* Flash Tune only: TF step response comparison */}
+          {isFlashTune &&
+            session.transferFunctionMetrics &&
             session.verificationTransferFunctionMetrics &&
             (session.transferFunctionMetrics.stepResponse &&
             session.verificationTransferFunctionMetrics.stepResponse ? (
@@ -176,15 +193,37 @@ export function TuningCompletionSummary({
                 after={session.verificationTransferFunctionMetrics}
               />
             ))}
-          {onReanalyzeVerification && session.verificationLogId && (
-            <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
-              Re-analyze with different session
-            </button>
-          )}
         </>
       )}
 
-      {!hasVerification && session.filterMetrics && (
+      {/* Filter Tune: spectrogram comparison (before/after) */}
+      {isFilterTune &&
+        hasFilterVerification &&
+        session.filterMetrics?.throttleSpectrogram &&
+        session.verificationMetrics?.throttleSpectrogram && (
+          <SpectrogramComparisonChart
+            before={session.filterMetrics.throttleSpectrogram}
+            after={session.verificationMetrics.throttleSpectrogram}
+          />
+        )}
+
+      {/* PID Tune: step response comparison (before/after) */}
+      {isPidTune && hasPidVerification && session.pidMetrics && session.verificationPidMetrics && (
+        <StepResponseComparison
+          before={session.pidMetrics}
+          after={session.verificationPidMetrics}
+        />
+      )}
+
+      {/* Re-analyze button for any verification */}
+      {hasAnyVerification && onReanalyzeVerification && session.verificationLogId && (
+        <button className="completion-reanalyze-link" onClick={onReanalyzeVerification}>
+          Re-analyze with different session
+        </button>
+      )}
+
+      {/* Filter analysis numeric summary (no verification) */}
+      {!hasFilterVerification && session.filterMetrics && (
         <div className="completion-noise-numeric">
           <h4>Filter Analysis</h4>
           <div className="completion-noise-stats">
@@ -199,7 +238,8 @@ export function TuningCompletionSummary({
         </div>
       )}
 
-      {session.filterMetrics?.throttleSpectrogram && (
+      {/* Filter Tune only: single spectrogram (no verification) */}
+      {isFilterTune && !hasFilterVerification && session.filterMetrics?.throttleSpectrogram && (
         <ThrottleSpectrogramChart compactData={session.filterMetrics.throttleSpectrogram} />
       )}
 
@@ -211,7 +251,8 @@ export function TuningCompletionSummary({
         )}
       </div>
 
-      {session.pidMetrics && (
+      {/* PID metrics (shown when no PID verification — raw metrics before changes) */}
+      {session.pidMetrics && !hasPidVerification && (
         <div className="completion-pid-metrics">
           <h4>
             Step Response Metrics <span className="completion-pid-label">before PID changes</span>
@@ -235,11 +276,7 @@ export function TuningCompletionSummary({
         </div>
       )}
 
-      {!hasVerification && (
-        <p className="completion-hint">
-          Fly a verification hover next time to see a noise comparison chart.
-        </p>
-      )}
+      {!hasAnyVerification && <p className="completion-hint">{verificationHint}</p>}
 
       <div className="completion-actions">
         <button className="wizard-btn wizard-btn-primary" onClick={onStartNew}>

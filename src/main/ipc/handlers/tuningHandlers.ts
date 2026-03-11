@@ -11,6 +11,7 @@ import { TUNING_TYPE, TUNING_PHASE, TUNING_TYPE_LABELS } from '@shared/constants
 import {
   CompletedTuningRecord,
   FilterMetricsSummary,
+  PIDMetricsSummary,
   TransferFunctionMetricsSummary,
 } from '@shared/types/tuning-history.types';
 import { PIDConfiguration } from '@shared/types/pid.types';
@@ -396,8 +397,9 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
     IPCChannel.TUNING_UPDATE_VERIFICATION,
     async (
       _event,
-      verificationMetrics: FilterMetricsSummary,
-      verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary
+      verificationMetrics?: FilterMetricsSummary,
+      verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary,
+      verificationPidMetrics?: PIDMetricsSummary
     ): Promise<IPCResponse<TuningSession>> => {
       try {
         if (!tuningSessionManager || !profileManager) {
@@ -409,10 +411,12 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         }
 
         // Update the active session's verification metrics (keep phase as 'completed')
-        const updateData: Record<string, unknown> = { verificationMetrics };
+        const updateData: Record<string, unknown> = {};
+        if (verificationMetrics) updateData.verificationMetrics = verificationMetrics;
         if (verificationTransferFunctionMetrics) {
           updateData.verificationTransferFunctionMetrics = verificationTransferFunctionMetrics;
         }
+        if (verificationPidMetrics) updateData.verificationPidMetrics = verificationPidMetrics;
         const updated = await tuningSessionManager.updatePhase(
           profileId,
           TUNING_PHASE.COMPLETED,
@@ -424,7 +428,8 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
           await tuningHistoryManager.updateLatestVerification(
             profileId,
             verificationMetrics,
-            verificationTransferFunctionMetrics
+            verificationTransferFunctionMetrics,
+            verificationPidMetrics
           );
         }
 
@@ -443,7 +448,8 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
     async (
       _event,
       recordId: string,
-      verificationMetrics: FilterMetricsSummary
+      verificationMetrics?: FilterMetricsSummary,
+      verificationPidMetrics?: PIDMetricsSummary
     ): Promise<IPCResponse<void>> => {
       try {
         if (!tuningHistoryManager || !profileManager) {
@@ -457,7 +463,8 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         const updated = await tuningHistoryManager.updateRecordVerification(
           profileId,
           recordId,
-          verificationMetrics
+          verificationMetrics,
+          verificationPidMetrics
         );
         if (!updated) {
           return createResponse<void>(undefined, `History record not found: ${recordId}`);

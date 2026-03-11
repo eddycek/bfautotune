@@ -40,6 +40,7 @@ import type { TuningSession, TuningPhase, TuningType } from '@shared/types/tunin
 import type {
   CompletedTuningRecord,
   FilterMetricsSummary,
+  PIDMetricsSummary,
   TransferFunctionMetricsSummary,
 } from '@shared/types/tuning-history.types';
 
@@ -613,13 +614,15 @@ const betaflightAPI: BetaflightAPI = {
   },
 
   async updateVerificationMetrics(
-    verificationMetrics: FilterMetricsSummary,
-    verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary
+    verificationMetrics?: FilterMetricsSummary,
+    verificationTransferFunctionMetrics?: TransferFunctionMetricsSummary,
+    verificationPidMetrics?: PIDMetricsSummary
   ): Promise<TuningSession> {
     const response = await ipcRenderer.invoke(
       IPCChannel.TUNING_UPDATE_VERIFICATION,
       verificationMetrics,
-      verificationTransferFunctionMetrics
+      verificationTransferFunctionMetrics,
+      verificationPidMetrics
     );
     if (!response.success) {
       throw new Error(response.error || 'Failed to update verification metrics');
@@ -629,12 +632,14 @@ const betaflightAPI: BetaflightAPI = {
 
   async updateHistoryVerification(
     recordId: string,
-    verificationMetrics: FilterMetricsSummary
+    verificationMetrics?: FilterMetricsSummary,
+    verificationPidMetrics?: PIDMetricsSummary
   ): Promise<void> {
     const response = await ipcRenderer.invoke(
       IPCChannel.TUNING_UPDATE_HISTORY_VERIFICATION,
       recordId,
-      verificationMetrics
+      verificationMetrics,
+      verificationPidMetrics
     );
     if (!response.success) {
       throw new Error(response.error || 'Failed to update history verification');
