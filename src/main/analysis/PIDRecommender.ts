@@ -455,8 +455,8 @@ function validateDampingRatio(
  * Post-process D recommendations using D-term effectiveness data.
  *
  * Three tiers of D-increase gating:
- * - D ratio > 1.5 (dCritical) → D has headroom, boost confidence to high
- * - D ratio 0.3–1.5 → D increase OK, add caution note about noise cost
+ * - D ratio > 0.7 (dCritical) → D has headroom, boost confidence to high
+ * - D ratio 0.3–0.7 → D increase OK, add caution note about noise cost
  * - D ratio < 0.3 → D is mostly noise, redirect to "improve filters first"
  *
  * For D decreases: annotate when D effectiveness is low.

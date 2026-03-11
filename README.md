@@ -2,16 +2,16 @@
 
 **Data-driven Betaflight autotuning. Fly → Analyze → Apply.**
 
-PIDlab reads your Blackbox log, runs signal processing (FFT noise analysis, step response measurement, Wiener deconvolution), and computes optimal filter cutoffs and PID values from the measured data — not from presets or guesswork. Every recommendation is derived from your quad's actual flight characteristics: noise spectrum, step response dynamics, and frequency-domain transfer function. The result is concrete Betaflight CLI commands — with plain-English explanations — that you apply with one click.
+PIDlab reads your Blackbox log, analyzes the data (FFT noise spectrum, step response, transfer function), and computes optimal filter cutoffs and PID values — not from presets or guesswork, but from your quad's actual flight characteristics. The result: concrete Betaflight CLI commands with plain-English explanations, applied with one click.
 
 **What makes it different:**
-- **Data-driven recommendations** — not just graphs, but computed filter cutoffs and PID values derived from measured flight data, ready to flash
-- **Two tuning modes** — Deep Tune (2 dedicated flights, direct step response measurement) or Flash Tune (any single flight, Wiener deconvolution à la [Plasmatree](https://github.com/Plasmatree/PID-Analyzer))
-- **Convergent by design** — re-analyzing the same log always produces the same result, no recommendation drift
-- **Safety-first** — automatic pre-tuning and post-tuning snapshots with contextual labels, all values clamped to proven safe bounds
-- **Multi-quad profiles** — auto-detects each FC by serial number, stores configs and tuning history per quad
+- **Computed recommendations** — filter cutoffs and PID values derived from measured flight data, not just graphs
+- **Two tuning modes** — Deep Tune (2 dedicated flights, direct step response) or Flash Tune (any single flight, Wiener deconvolution à la [Plasmatree](https://github.com/Plasmatree/PID-Analyzer))
+- **Convergent** — re-analyzing the same log always produces the same result, no recommendation drift
+- **Safety-first** — automatic pre/post-tuning snapshots, all values clamped to proven safe bounds
+- **Multi-quad profiles** — auto-detects each FC by serial number, stores configs and history per quad
 - **Flight style adaptation** — Smooth (cinematic), Balanced (freestyle), Aggressive (racing) thresholds
-- **24 analysis modules** — FFT, step response, Wiener deconvolution, Bode plots, prop wash detection, D-term effectiveness, cross-axis coupling, throttle spectrograms, per-band transfer function, group delay estimation, feedforward analysis, slider mapping, dynamic lowpass, Bayesian PID optimizer, mechanical health, wind disturbance
+- **24 analysis modules** — FFT, step response, Wiener deconvolution, prop wash, D-term effectiveness, cross-axis coupling, throttle spectrograms, group delay, feedforward, dynamic lowpass, Bayesian optimizer, and more
 - **Works offline** — demo mode with simulated FC for testing without hardware
 
 **How it works:** Connect FC via USB → Erase flash → Fly → Download log → PIDlab analyzes and applies optimized settings → Done.
@@ -73,47 +73,42 @@ Connecting with BF 4.2 or earlier will show an error and auto-disconnect. See [B
 - FFT noise analysis (Welch's method, Hanning window, peak detection)
 - Noise source classification (frame resonance, motor harmonics, electrical)
 - Noise-floor-based filter cutoff targeting with linear interpolation
-- Medium noise handling: 20 Hz deadzone with low-confidence recommendations (avoids recommendation churn in the -50 to -30 dB range)
-- Notch-aware resonance filtering: peaks within dyn_notch range are excluded from LPF recommendations (avoids redundant lowpass when notch already handles the peak)
-- RPM filter awareness: widens safety bounds (gyro LPF1 up to 500 Hz), optimizes dynamic notch (count/Q)
-- Conditional dynamic notch Q: keeps Q=300 (wide) when strong frame resonance detected, Q=500 (narrow) otherwise
+- Medium noise handling: 20 Hz deadzone with low-confidence recommendations (avoids churn in the -50 to -30 dB range)
+- Notch-aware resonance filtering: peaks within dyn_notch range are excluded from LPF recommendations (notch already handles them)
+- RPM filter awareness: widens safety bounds (gyro LPF1 up to 500 Hz), optimizes dynamic notch count and Q
+- Conditional dynamic notch Q: Q=300 (wide) when strong frame resonance detected, Q=500 (narrow) otherwise
 - LPF2 recommendations: disable when RPM active + clean signal (< -45 dB), enable when noisy (≥ -30 dB) without RPM
 - Propwash floor protection (never pushes gyro LPF1 below 100 Hz)
 - Group delay estimation for filter chain latency visualization
 
 ### Automated PID Tuning
 - Step response analysis (rise time, overshoot, settling time, latency, ringing)
-- Quad-size-aware PID safety bounds: per-size P/D/I min/max/typical for 9 drone sizes (1"–10"), prevents dangerous values on micros and allows higher D on large quads
-- Severity-scaled sluggish P increase: P+5 for mild, P+10 for very sluggish (rise time > 2× threshold)
-- P-too-high informational warning: alerts when P exceeds typical value for quad size (1.3× pTypical)
-- P-too-low informational warning: alerts when P is below typical range for quad size (0.7× pTypical), especially important for micro quads
+- Quad-size-aware PID safety bounds for 9 drone sizes (1"–10") — prevents dangerous values on micros, allows higher D on large quads
+- Severity-scaled P increase: P+5 for mild sluggishness, P+10 for very sluggish (rise time > 2× threshold)
+- P informational warnings when P is unusually high (>1.3× typical) or low (<0.7× typical) for the quad size
 - I-term rules: steady-state error detection with I increase/decrease recommendations (I min = 40)
 - Damping ratio validation: D/P ratio check (0.45–0.85 range) with automatic correction
-- D-term effectiveness analysis: measures D dampening vs noise amplification ratio
+- D-term effectiveness gating: measures D dampening vs noise ratio — redirects to filter tuning when D is mostly noise
 - Prop wash detection: throttle-down event analysis with severity scoring per axis
 - Cross-axis coupling detection: measures roll↔pitch interference
 - Feedforward awareness: detects FF-dominated overshoot, recommends `feedforward_boost` reduction (step size 3) instead of P/D changes
-- FF energy ratio integration: downgrades P-decrease confidence when feedforward contributes >60% of overshoot energy
-- Proportional step sizing: D +5/+10/+15 based on overshoot severity for faster convergence
-- D-min/D-max advisory: annotates D recommendations when D-min is active, noting that changes affect d_max only
-- TPA advisory: annotates D increase recommendations when TPA is active, explaining effective D reduction at high throttle
-- Informational recommendations: P-too-high and P-too-low warnings use `informational` flag (no value change, advisory only)
+- FF energy ratio: downgrades P-decrease confidence when feedforward contributes >60% of overshoot energy
+- Proportional D step sizing: +5/+10/+15 based on overshoot severity
+- D-min/TPA advisory notes on D recommendations when these features are active
 
 ### Transfer Function Analysis (Wiener Deconvolution)
 
-Inspired by [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer — the first tool to bring frequency-domain system identification to FPV tuning (2018). PIDlab reimplements the core technique (cross-spectral density estimation with Wiener regularization) in TypeScript with `fft.js`, extended with automatic PID recommendations and integrated into the tuning workflow.
+Inspired by [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer — the first tool to bring frequency-domain system identification to FPV tuning (2018). PIDlab reimplements the technique in TypeScript with `fft.js`, extended with automatic PID recommendations.
 
 - Computes closed-loop transfer function H(f) = S_xy(f) / (S_xx(f) + ε) from any flight data — no dedicated maneuvers needed
-- 2-second Hanning windows with 50% Welch overlap (matching Plasmatree's proven parameters)
-- Noise-floor-based regularization (1% of S_xx median) prevents artifacts in low-SNR bins
-- Synthetic step response via IFFT → cumulative sum (impulse → step integration)
-- Bode plot visualization (magnitude + phase vs frequency)
-- Classical stability metrics: bandwidth (-3 dB), phase margin (at 0 dB gain crossover), gain margin (at -180° phase crossover)
-- Frequency-domain PID rules: low phase margin → D increase, low bandwidth → P increase (per-style thresholds: smooth=30, balanced=40, aggressive=60 Hz)
-- Per-axis coherence warnings: flags unreliable transfer function estimates when coherence ≤ 0.3
-- Unified pipeline with Deep Tune — same recommendation rules (D-term gating, prop wash, I-term) applied to both modes; confidence determined by data quality and gating logic, not blanket caps
-- DC gain analysis for I-term: detects poor steady-state tracking from transfer function (< -1 dB → I increase)
-- Per-band transfer function analysis across throttle levels — detects TPA tuning problems
+- 2-second Hanning windows with 50% Welch overlap, noise-floor-based regularization
+- Synthetic step response via IFFT cumulative integration
+- Bode plot visualization (magnitude + phase) with bandwidth, phase margin, and gain margin markers
+- Frequency-domain PID rules: low phase margin (<45°) → D increase, low bandwidth → P increase (per-style thresholds)
+- Per-axis coherence warnings when coherence ≤ 0.3
+- Shares the same unified recommendation pipeline with Deep Tune (same gating logic, same safety bounds)
+- DC gain analysis: detects poor steady-state tracking (< -1 dB → I increase)
+- Per-band transfer function across 5 throttle levels — detects TPA tuning problems
 
 ### Bayesian PID Optimizer (Framework)
 - Gaussian Process surrogate with RBF kernel
@@ -122,9 +117,9 @@ Inspired by [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer
 - Multi-session history-based optimization (available for future integration)
 
 ### Throttle Spectrogram Analysis
-- Per-throttle-bin FFT computation (10 bins, 0–100%)
-- Reveals motor harmonic tracking, frame resonance, and electrical noise patterns
-- Available as diagnostic module (UI visualization pending)
+- Per-throttle-bin FFT computation (10 bins across 0–100% throttle range)
+- Reveals how noise changes with motor speed (motor harmonics, frame resonance, electrical patterns)
+- Used by the dynamic lowpass recommender; dedicated UI visualization pending
 
 ### Flight Style Preferences
 - Smooth (cinematic), Balanced (freestyle), or Aggressive (racing)
@@ -141,9 +136,9 @@ Inspired by [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer
 
 The thorough approach — two dedicated flights with specific maneuvers for maximum measurement accuracy.
 
-**Flight 1 (Filters):** Hover + throttle sweeps across the full throttle range. The FFT engine (Welch's method, Hanning window, prominence-based peak detection) identifies noise sources — frame resonances (80–200 Hz), motor harmonics, and electrical noise (>500 Hz) — and computes optimal filter cutoffs via noise-floor-based targeting. RPM-filter-aware quads get wider safety bounds.
+**Flight 1 (Filters):** Hover + throttle sweeps. FFT identifies noise sources (frame resonance, motor harmonics, electrical noise) and computes optimal filter cutoffs. RPM-filter-aware quads get wider safety bounds.
 
-**Flight 2 (PIDs):** Sharp stick snaps on each axis with 500 ms holds. The step detector finds these inputs via derivative thresholds, then `StepMetrics` measures each response directly — rise time, overshoot, settling time, latency, ringing, and steady-state error. This time-domain approach gives the most precise overshoot and damping measurements because you're observing the actual physical response, not a mathematical estimate.
+**Flight 2 (PIDs):** Sharp stick snaps on each axis with 500 ms holds. The step detector measures each response: rise time, overshoot, settling time, latency, ringing, and steady-state error. Time-domain measurement gives the most precise results.
 
 - 10-phase state machine (filter_flight_pending → ... → completed) with per-profile persistence
 - Smart reconnect: auto-advances to log_ready when flash data detected after FC reboot
@@ -155,9 +150,9 @@ The thorough approach — two dedicated flights with specific maneuvers for maxi
 
 The fast approach — analyzes any single flight (freestyle, cruise, hover) using frequency-domain system identification. Based on the [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) technique pioneered by Florian Melsheimer.
 
-**How it works:** Normal stick inputs contain broadband energy that excites the PID loop across all relevant frequencies. Wiener deconvolution recovers the closed-loop transfer function H(f) = S_xy / (S_xx + ε) from setpoint→gyro data, then synthesizes a step response via IFFT integration. Filter analysis runs the same FFT pipeline as Deep Tune. Both run in parallel from the same log.
+**How it works:** Normal stick inputs contain broadband energy that excites the PID loop. Wiener deconvolution recovers the transfer function from setpoint→gyro data, then synthesizes a step response. Filter analysis runs the same FFT pipeline as Deep Tune. Both analyses run in parallel from the same log.
 
-**Trade-off:** No dedicated maneuvers needed, but the LTI (linear time-invariant) assumption means frequency-domain estimates are inherently noisier than direct step measurements. Both modes now share the same unified recommendation pipeline — confidence is determined by data quality and D-term effectiveness gating, not blanket caps. Deep Tune remains more precise for initial setup or major changes.
+**Trade-off:** No dedicated maneuvers needed, but frequency-domain estimates are noisier than direct step measurements. Deep Tune remains more precise for initial setup or major changes.
 
 - Parallel filter + transfer function analysis with combined one-click apply
 - Bode plot (magnitude + phase) with bandwidth, gain margin, and phase margin markers
@@ -524,14 +519,14 @@ Click **Start Tuning Session** and select **Flash Tune**:
 2. **Fly any flight** — Freestyle, cruise, stick snaps — any 30+ second flight works
 3. **Download & analyze** — App runs two analyses in parallel:
    - **FFT noise analysis** (same as Deep Tune) for filter recommendations
-   - **Wiener deconvolution** for PID recommendations — computes the closed-loop transfer function H(f) = S_xy(f) / S_xx(f) from setpoint→gyro data using 2s Hanning windows with 50% Welch overlap, then synthesizes a step response via IFFT cumulative integration
-4. **Review Bode plot** — Magnitude + phase curves with bandwidth (-3 dB), gain margin, and phase margin markers. Low phase margin (<45°) indicates need for more D damping; low bandwidth (<40 Hz) suggests P increase
+   - **Wiener deconvolution** for PID recommendations — estimates the transfer function from setpoint→gyro data and synthesizes a step response
+4. **Review Bode plot** — Magnitude + phase curves with bandwidth, gain margin, and phase margin markers
 5. **Apply all** — Combined filter + PID changes in one click
 6. **Optional verification** — Same as Deep Tune
 
-This approach is based on the [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) technique by Florian Melsheimer (2018) — the first tool to apply Wiener deconvolution to FPV PID tuning. The key insight is that normal stick inputs contain enough broadband energy to excite the PID loop across all relevant frequencies, so the transfer function can be recovered from *any* flight data without dedicated maneuvers.
+Based on the [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) technique by Florian Melsheimer (2018). Normal stick inputs contain enough broadband energy to recover the transfer function from any flight.
 
-**Trade-off vs Deep Tune:** Wiener deconvolution assumes a linear time-invariant (LTI) system. Real quads are nonlinear (TPA, anti-gravity, motor saturation). Both modes now share the same unified recommendation pipeline with identical gating logic. Deep Tune provides more precise step measurements; Flash Tune is faster for iterating on an existing tune.
+**Trade-off:** Wiener deconvolution assumes a linear time-invariant system — real quads are nonlinear (TPA, anti-gravity, motor saturation). Deep Tune provides more precise step measurements; Flash Tune is faster for iterating on an existing tune.
 
 ### 5. Standalone Analysis (No Tuning Session)
 
@@ -646,7 +641,7 @@ Subdirectories:
 
 ## How Autotuning Works
 
-This section documents the signal processing and decision logic behind PIDlab's recommendations. All recommendations are **data-driven** — computed from measured flight characteristics (noise spectrum, step response, transfer function), not from presets or lookup tables. The system is **convergent by design**: re-analyzing the same Blackbox log always produces identical recommendations regardless of current FC settings.
+This section documents the signal processing and decision logic behind PIDlab's recommendations. All recommendations are computed from measured flight data — not from presets or lookup tables. The system is **convergent**: re-analyzing the same Blackbox log always produces identical recommendations regardless of current FC settings.
 
 | | Deep Tune | Flash Tune |
 |---|---|---|
@@ -666,19 +661,19 @@ Analyzes gyro noise to compute optimal lowpass cutoffs. The analysis code (`Filt
 **Core pipeline:** `SegmentSelector` → `FFTCompute` → `NoiseAnalyzer` → `FilterRecommender`
 **Supplementary:** `DataQualityScorer`, `ThrottleSpectrogramAnalyzer`, `GroupDelayEstimator`, `WindDisturbanceDetector`, `MechanicalHealthChecker`, `DynamicLowpassRecommender`
 
-1. **Segment selection** — Identifies stable hover segments from throttle and gyro data, excluding takeoff, landing, and aggressive maneuvers. Prefers throttle sweep segments (higher quality noise data across RPM range), falls back to steady hovers. Uses up to 5 segments. When no segments found (common in Flash Tune with aggressive flying), analyzes the entire flight as fallback (with accuracy warning and lower data quality score).
-2. **Data quality scoring** — Rates flight data quality 0–100 before generating recommendations. Sub-scores: segment count (0.20), hover time (0.35), throttle coverage (0.25), segment type (0.20). Tiers: excellent (80–100), good (60–79), fair (40–59), poor (0–39). Fair/poor quality downgrades recommendation confidence.
-3. **FFT computation** — Applies Welch's method (Hanning window, 50% overlap, 4096-sample windows) to compute power spectral density for each axis. Spectra trimmed to 20–1000 Hz range.
-4. **Noise analysis** — Estimates the noise floor (lower quartile), detects prominent peaks (>6 dB above local floor), and classifies noise sources:
+1. **Segment selection** — Finds stable hover segments from throttle and gyro data (excludes takeoff, landing, aggressive maneuvers). Prefers throttle sweeps, falls back to steady hovers (up to 5 segments). If none found (e.g., aggressive Flash Tune flight), uses the entire flight with an accuracy warning.
+2. **Data quality scoring** — Rates flight data 0–100. Sub-scores: segment count (0.20), hover time (0.35), throttle coverage (0.25), segment type (0.20). Tiers: excellent (80+), good (60–79), fair (40–59), poor (<40). Fair/poor downgrades recommendation confidence.
+3. **FFT computation** — Welch's method (Hanning window, 50% overlap, 4096-sample windows) → power spectral density per axis, trimmed to 20–1000 Hz.
+4. **Noise analysis** — Estimates noise floor (lower quartile), detects peaks (>6 dB above local floor), classifies sources:
    - Frame resonance (80–200 Hz)
    - Motor harmonics (equally-spaced peaks)
    - Electrical noise (>500 Hz)
-5. **Throttle spectrogram** — Bins gyro data by throttle level (10 bands), computes per-band FFT spectra and noise floors. Used downstream by the dynamic lowpass recommender to detect throttle-dependent noise.
-6. **Filter recommendation** — Maps the measured noise floor (dB) to a target cutoff frequency (Hz) via linear interpolation between safety bounds. Quality-adjusted confidence applied afterward.
-7. **Dynamic lowpass analysis** — When throttle spectrogram shows noise increasing ≥ 6 dB from low to high throttle (with Pearson correlation ≥ 0.6), recommends enabling dynamic lowpass for both gyro LPF1 and D-term LPF1 (when their static cutoffs are non-zero). D-term benefits even more because the derivative amplifies high-frequency noise.
-8. **Group delay estimation** — Estimates total filter group delay (gyro + D-term chain) for the current settings. Warns when total delay exceeds 2 ms.
-9. **Wind/disturbance detection** — Analyzes gyro variance during hover to estimate environmental conditions (calm / moderate / windy). High variance reduces confidence in filter recommendations.
-10. **Mechanical health diagnostic** — Pre-tuning check: extreme noise floor (> -20 dB per axis), asymmetric roll/pitch noise (> 8 dB difference), motor output variance imbalance (> 3× ratio). Critical issues are flagged before filter tuning proceeds.
+5. **Throttle spectrogram** — Bins gyro data by throttle (10 bands), computes per-band FFT. Feeds the dynamic lowpass recommender.
+6. **Filter recommendation** — Maps measured noise floor (dB) to target cutoff (Hz) via linear interpolation between safety bounds.
+7. **Dynamic lowpass** — When noise increases ≥ 6 dB from low to high throttle (Pearson ≥ 0.6), recommends dynamic lowpass for gyro LPF1 and D-term LPF1. D-term benefits more because the derivative amplifies high-frequency noise.
+8. **Group delay estimation** — Estimates total filter chain latency (gyro + D-term). Warns when delay exceeds 2 ms.
+9. **Wind detection** — Analyzes gyro variance during hover. High variance reduces recommendation confidence.
+10. **Mechanical health** — Flags extreme noise (> -20 dB), asymmetric roll/pitch noise (> 8 dB), motor imbalance (> 3× ratio) before tuning proceeds.
 
 #### Filter Safety Bounds
 
@@ -706,7 +701,7 @@ targetHz = minHz + t × (maxHz - minHz)
 | **-40 dB** (moderate) | Typical mid-range quad | ~188 Hz | ~135 Hz |
 | **-70 dB** (very clean) | Pristine signal | 300 Hz (max) | 200 Hz (max) |
 
-The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs across various frame sizes (3"–7"). This is our own interpolation method — not a community standard — designed to produce **convergent** (idempotent) recommendations: same noise data always produces the same target, regardless of current settings.
+The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs across various frame sizes (3"–7"). Same noise data always produces the same target, regardless of current settings.
 
 #### Filter Decision Table
 
@@ -723,14 +718,14 @@ The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs acros
 | **RPM → notch Q** | RPM filter active AND no strong frame resonance | Raise dyn_notch_q to 500 | High | Only weak resonances remain; narrower notch = less signal distortion |
 | **RPM → notch Q (resonance)** | RPM filter active AND strong frame resonance (≥ 12 dB, 80-200 Hz) | Keep dyn_notch_q at 300 | High | Broad frame resonance needs wider notch to be effective |
 | **LPF2 disable (gyro)** | RPM active AND noise < -45 dB | Disable gyro LPF2 | Medium | Very clean signal: LPF2 adds latency with no benefit |
-| **LPF2 disable (D-term)** | Noise < -45 dB | Disable D-term LPF2 | Medium | Clean signal: D-term LPF2 latency unnecessary |
-| **LPF2 enable (gyro)** | No RPM AND noise ≥ -30 dB | Enable gyro LPF2 | Medium | Noisy without RPM: extra filtering protects motors |
-| **LPF2 enable (D-term)** | Noise ≥ -30 dB AND LPF2 disabled | Enable D-term LPF2 | Medium | High noise needs additional D-term protection |
+| **LPF2 disable (D-term)** | RPM active AND noise < -45 dB | Disable D-term LPF2 | Medium | Clean signal with RPM: D-term LPF2 latency unnecessary |
+| **LPF2 enable (gyro)** | No RPM AND noise ≥ -30 dB AND LPF2 disabled | Enable gyro LPF2 | Low | Noisy without RPM: extra filtering protects motors |
+| **LPF2 enable (D-term)** | No RPM AND noise ≥ -30 dB AND LPF2 disabled | Enable D-term LPF2 | Low | High noise without RPM needs additional D-term protection |
 | **Dynamic lowpass (gyro)** | Throttle spectrogram noise increases ≥ 6 dB from low to high throttle AND Pearson correlation ≥ 0.6 AND gyro LPF1 > 0 | Enable `gyro_lpf1_dyn_min_hz` (current × 0.6) and `gyro_lpf1_dyn_max_hz` (current × 1.4) | Medium | Throttle-ramped cutoff: more filtering at high throttle, less latency at cruise |
 | **Dynamic lowpass (D-term)** | Same throttle-noise trigger as gyro AND D-term LPF1 > 0 | Enable `dterm_lpf1_dyn_min_hz` (current × 0.6) and `dterm_lpf1_dyn_max_hz` (current × 1.4) | Medium | D amplifies high-frequency noise — dynamic filtering reduces motor heating at high throttle while preserving stick feel at cruise |
 | **Deduplication** | Multiple rules target same setting | Keep more aggressive value, upgrade confidence | — | Ensures a single coherent recommendation per setting |
 
-**RPM filter awareness:** When the RPM filter is active (detected via MSP or BBL headers), the recommender widens safety bounds because motor noise is already handled by the 36 narrow notch filters tracking motor frequencies. It also recommends dynamic notch optimization (count 3→1, Q 300→500) since only frame resonances remain.
+**RPM filter awareness:** When RPM filter is active, safety bounds widen because 36 per-motor notch filters already handle motor noise. The dynamic notch is optimized (count 3→1, Q 300→500) since only frame resonances remain.
 
 #### Filter Methodology Sources
 
@@ -745,7 +740,7 @@ The -10 dB and -70 dB anchor points are calibrated from real Blackbox logs acros
 
 ### PID Tuning (Unified Pipeline)
 
-Two extraction methods feed into the same recommendation engine. Both produce an `AxisStepProfile` per axis (roll, pitch, yaw) with identical metrics — the difference is how those metrics are measured.
+Two extraction methods feed into the same recommendation engine. Both produce per-axis profiles with identical metrics — only the measurement method differs.
 
 ```
 Deep Tune:  StepDetector → StepMetrics → profiles + CrossAxisDetector + FeedforwardAnalyzer
@@ -762,19 +757,16 @@ Flash Tune: TransferFunctionEstimator (Wiener deconvolution) → synthetic profi
 
 #### Deep Tune: Step Detection
 
-A "step" is a rapid, decisive stick movement. The detector scans setpoint data for each axis (roll, pitch, yaw):
+A "step" is a rapid stick movement. The detector scans setpoint data per axis:
 
-1. Compute the setpoint derivative at each sample
-2. Flag samples where |derivative| > 500 deg/s/s as potential step edges
-3. Group consecutive high-derivative samples into a single edge
-4. Validate each candidate:
-   - **Minimum magnitude**: step must be ≥ 100 deg/s
-   - **Hold time**: setpoint must hold near the new value for ≥ 50 ms (not just a transient spike)
-   - **Cooldown**: at least 100 ms gap between consecutive steps (avoids rapid stick reversals)
+1. Compute setpoint derivative at each sample
+2. Flag samples where |derivative| > 500 deg/s/s as potential edges
+3. Group consecutive edge samples into a single step
+4. Validate: magnitude ≥ 150 deg/s, hold ≥ 50 ms, cooldown ≥ 100 ms between steps
 
 #### Deep Tune: Response Metrics
 
-For each valid step, the algorithm extracts a 300 ms response window and computes:
+For each valid step, a 300 ms response window is analyzed:
 
 | Metric | Definition | How It's Measured |
 |--------|-----------|-------------------|
@@ -786,15 +778,15 @@ For each valid step, the algorithm extracts a 300 ms response window and compute
 | **Steady-state error** | Accuracy after settling | Difference between target and actual position after settling |
 | **FF energy ratio** | Feedforward vs P contribution | Sum-of-squares energy ratio `FF/(FF+P)` over step response window |
 
-These metrics follow standard control theory definitions (consistent with MATLAB `stepinfo`).
+Metric definitions follow standard control theory (consistent with MATLAB `stepinfo`).
 
 #### Flash Tune: Transfer Function Extraction
 
-Flash Tune uses Wiener deconvolution to estimate the closed-loop transfer function H(f) = S_xy(f) / (S_xx(f) + ε) from any flight data — no dedicated maneuvers needed. A synthetic step response is derived via IFFT cumulative integration. Key metrics extracted: bandwidth (-3 dB), phase margin, gain margin, overshoot, settling time, DC gain. Additionally, `ThrottleTFAnalyzer` bins flight data by throttle level (5 bands) and estimates TF per band, revealing TPA tuning problems when metrics vary significantly across throttle range.
+Flash Tune estimates the closed-loop transfer function H(f) = S_xy(f) / (S_xx(f) + ε) via Wiener deconvolution from any flight data. A synthetic step response is derived via IFFT cumulative integration. Extracted metrics: bandwidth (-3 dB), phase margin, gain margin, overshoot, settling time, DC gain. Per-band analysis across 5 throttle levels reveals TPA tuning problems when metrics vary significantly with throttle.
 
 #### Shared Recommendation Engine
 
-All recommendations are anchored to the PID values from the Blackbox log header (the PIDs active during the flight). This makes recommendations **convergent** — applying them and re-analyzing the same log produces no further changes. Step-response rules and TF rules run together in a single `recommendPID()` call, with deduplication preventing conflicting recommendations on the same setting.
+All recommendations are anchored to the PID values from the Blackbox log header (the PIDs active during the flight), making them convergent — applying and re-analyzing produces no further changes. Step-response and TF rules run together in `recommendPID()` with deduplication.
 
 **Flight Style Thresholds:**
 
@@ -819,7 +811,7 @@ All recommendations are anchored to the PID values from the Blackbox log header 
 | **1a** | Overshoot > 25% (severity > 4×) | D ↑ | +15 | High | Extreme overshoot needs aggressive dampening |
 | **1a** | Overshoot > 25% AND (severity > 2× OR D ≥ 60% of max) | P ↓ | -5 / -10 | High | D alone insufficient at extreme overshoot |
 | **1b** | Overshoot 15–25% | D ↑ | +5 | Medium | Moderate overshoot, D-first strategy |
-| **1c** | FF-dominated overshoot (FF > P at peak) | FF boost ↓ | -5 | Medium | Overshoot caused by feedforward, not P/D |
+| **1c** | FF-dominated overshoot (FF > P at peak) | FF boost ↓ | -3 | Medium | Overshoot caused by feedforward, not P/D |
 | **2** | Overshoot < 10% AND rise time > 80 ms (severity ≤ 2×) | P ↑ | +5 | Medium | Sluggish response needs more authority |
 | **2** | Overshoot < 10% AND rise time > 160 ms (severity > 2×) | P ↑ | +10 | Medium | Very sluggish — larger step for faster convergence |
 | **2b** | P > pTypical × 1.3 for quad size | P (informational) | same | Low | Warning only: P is high for this quad type |
@@ -845,7 +837,7 @@ All recommendations are anchored to the PID values from the Blackbox log header 
 
 **Transfer Function Rules (Wiener deconvolution — primary source for Flash Tune, supplementary for Deep Tune when TF data available):**
 
-The transfer function approach is based on [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer (2018). PIDlab estimates the closed-loop transfer function H(f) from setpoint→gyro data via cross-spectral density: `H(f) = S_xy(f) / (S_xx(f) + ε)`, where ε is a noise-floor-based regularization term. A synthetic step response is derived by inverse-FFT of H(f) followed by cumulative integration (impulse → step). Classical control stability metrics (bandwidth, phase margin, gain margin) are extracted from the Bode plot representation. Both Deep Tune and Flash Tune share the same unified recommendation pipeline. TF rules run alongside step-response rules in a single `recommendPID()` call — both contribute recommendations which are then subject to the same post-processing (D-term effectiveness gating, prop wash integration, data quality adjustment).
+Transfer function rules complement step-response rules. Both run in the same `recommendPID()` call and share identical post-processing (D-term effectiveness gating, prop wash, data quality adjustment). Based on [Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer) by Florian Melsheimer (2018).
 
 | Rule | Condition | Action | Step Size | Base Confidence |
 |------|-----------|--------|-----------|-----------------|
@@ -854,7 +846,7 @@ The transfer function approach is based on [Plasmatree PID-Analyzer](https://git
 | **TF-3** | Bandwidth < threshold (smooth: 30, balanced: 40, aggressive: 60 Hz; yaw: × 0.7), no overshoot | P ↑ | +5 | Medium |
 | **TF-4** | DC gain < -1 dB (poor steady-state tracking) | I ↑ | +5 / +10 | Low / Medium |
 
-Base confidence is then adjusted by the same post-processing as step-response rules: D-term effectiveness gating can upgrade (→ High) or downgrade (→ Low), prop wash integration can boost D-increase confidence, and data quality scoring can further downgrade for poor-quality data. There is no blanket confidence cap for Flash Tune — the gating logic handles it identically to Deep Tune.
+Base confidence is adjusted by the same post-processing as step-response rules. There is no blanket confidence cap for Flash Tune — gating logic is identical to Deep Tune.
 
 **Safety Bounds (quad-size-aware):**
 
@@ -868,15 +860,15 @@ Default bounds (5") shown. When drone size is known from the profile, per-size b
 
 **Key design decisions:**
 
-- **Unified pipeline** — Both Deep Tune (step response) and Flash Tune (Wiener deconvolution) share the same post-processing: D-term effectiveness gating, prop wash integration, damping ratio validation, data quality scoring, and safety bounds. The only difference is how raw metrics are extracted — step detection vs transfer function estimation. This ensures recommendation consistency regardless of tuning mode.
-- **D-first strategy for overshoot** — Increasing D (dampening) is always the first action. P is only reduced as a supplement when overshoot is extreme (>2× threshold) or D is already near its ceiling (≥60% of max). This is safer for beginners because lowering P too aggressively can make the quad feel unresponsive.
-- **Proportional step sizing** — Step sizes scale with overshoot severity: ±5 for mild issues (baseline, consistent with FPVSIM guidance), ±10 for significant overshoot (2–4× threshold), and ±15 for extreme cases (>4× threshold). This reduces the number of tuning flights needed while staying within safety bounds. All changes are clamped to safe min/max ranges.
-- **Flight-PID anchoring** — Recommendations target values relative to the PIDs recorded in the Blackbox header, not the FC's current values. This prevents recommendation drift when PIDs are changed between flights and log analysis.
-- **Feedforward awareness** — The recommender detects whether feedforward is active from BBL headers (`feedforward_boost > 0`). At each step's overshoot peak, it compares `|pidF|` vs `|pidP|` magnitude. When overshoot is FF-dominated (FF contributes more than P), the engine skips P/D changes and instead recommends reducing `feedforward_boost`. The FF energy ratio (sum-of-squares over the response window) provides additional confidence gating for P-decrease recommendations.
-- **Flight style adaptation** — PID thresholds adjust based on the user's profile flight style. Smooth (cinematic) pilots get tighter overshoot tolerances and accept slower response. Aggressive (racing) pilots tolerate more overshoot in exchange for maximum snap. The Balanced default matches the standard thresholds.
-- **Damping ratio validation** — After all per-axis rules run, a post-processing step checks the D/P ratio stays within the 0.45–0.85 range. This ensures D and P remain balanced regardless of which individual rules fired.
-- **D-term effectiveness gating** — When D-term effectiveness data is available (from `DTermAnalyzer`), D recommendations are gated in three tiers: ratio > 0.7 (dCritical) → confidence boosted to high; ratio 0.3–0.7 → allowed with "monitor motor temps" advisory; ratio < 0.3 → D increase downgraded to low confidence with "improve filters first" redirect. This prevents the common failure mode of blindly increasing D when the real problem is noise from inadequate filtering.
-- **Prop wash integration** — When `PropWashDetector` finds severe oscillation (≥ 5× baseline energy in the 20–90 Hz band), the recommender either boosts confidence on an existing D-increase for the worst axis, or generates a new D +5 recommendation if none exists. Events below the moderate threshold (< 2×) or with fewer than 3 detections are ignored to avoid false positives. This directly connects the pilot's most common complaint ("my quad shakes when I descend") to an actionable PID change.
+- **Unified pipeline** — Both modes share the same post-processing (D-term effectiveness gating, prop wash, damping ratio, data quality, safety bounds). Only the metric extraction differs.
+- **D-first strategy** — D increase is always the first action for overshoot. P is only reduced when overshoot is extreme (>2× threshold) or D is near its ceiling (≥60% of max).
+- **Proportional step sizing** — ±5 for mild issues, ±10 for significant (2–4× threshold), ±15 for extreme (>4×). All changes clamped to safe bounds.
+- **Flight-PID anchoring** — Targets are relative to PIDs from the Blackbox header (not current FC values), preventing drift when PIDs change between flights.
+- **Feedforward awareness** — Detects FF-dominated overshoot via `|pidF|` vs `|pidP|` comparison at overshoot peak. Skips P/D changes and recommends `feedforward_boost` reduction instead. FF energy ratio gates P-decrease confidence.
+- **Flight style adaptation** — Smooth pilots get tighter overshoot tolerances; Aggressive pilots tolerate more overshoot for sharper response.
+- **Damping ratio validation** — Post-processing ensures D/P stays within 0.45–0.85 range.
+- **D-term effectiveness gating** — Three tiers: >0.7 (boost confidence), 0.3–0.7 (allow with advisory), <0.3 (redirect to filter tuning). Prevents blindly increasing D when the problem is noise.
+- **Prop wash integration** — Severe prop wash (≥5× baseline, 20–90 Hz) boosts D-increase confidence or generates D +5 on worst axis. Minimum 3 events required.
 
 ### Methodology Sources
 
@@ -918,9 +910,9 @@ See [SPEC.md](./SPEC.md) for detailed requirements and phase tracking.
 
 ## Acknowledgments
 
-- **[Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer)** by Florian Melsheimer — pioneered Wiener deconvolution for FPV PID tuning (2018). PIDlab's Flash Tune mode reimplements this technique: cross-spectral density transfer function estimation with noise-floor-based regularization, 2-second Hanning windows, and Welch averaging. The key insight that normal stick inputs contain sufficient broadband energy to identify the closed-loop transfer function without dedicated test maneuvers is due to Melsheimer's work.
-- **[PIDtoolbox](https://github.com/bw1129/PIDtoolbox)** by bw1129 — extended the Plasmatree approach with an interactive GUI, throttle-dependent spectral analysis, and refined step response visualization. PIDlab's spectral analysis methodology and overshoot ideal ranges draw on PIDtoolbox's work.
-- **[Betaflight](https://betaflight.com/)** — the open-source flight controller firmware that makes all of this possible. PIDlab communicates via MSP protocol and validates against BF Explorer's binary log parser.
+- **[Plasmatree PID-Analyzer](https://github.com/Plasmatree/PID-Analyzer)** by Florian Melsheimer — pioneered Wiener deconvolution for FPV PID tuning (2018). PIDlab's Flash Tune reimplements this technique with automatic PID recommendations.
+- **[PIDtoolbox](https://github.com/bw1129/PIDtoolbox)** by bw1129 — spectral analysis methodology and overshoot ideal ranges draw on PIDtoolbox's work.
+- **[Betaflight](https://betaflight.com/)** — the open-source flight controller firmware. PIDlab communicates via MSP and validates against BF Explorer's binary log parser.
 
 ## Contributing
 
