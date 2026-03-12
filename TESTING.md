@@ -36,8 +36,12 @@ npm run test:e2e
 # E2E with Playwright UI
 npm run test:e2e:ui
 
-# Generate 5 tuning sessions for demo history (slow, ~2 min)
-npm run demo:generate-history
+# Generate tuning sessions for demo history (slow, ~2 min for 5 sessions)
+npm run demo:generate-history              # 5 mixed (filter + pid + flash)
+npm run demo:generate-history:filter       # 5 filter-only
+npm run demo:generate-history:pid          # 5 pid-only
+npm run demo:generate-history:flash        # 5 flash-only
+GENERATE_COUNT=15 npm run demo:generate-history  # custom count
 ```
 
 ## Pre-commit Hook
@@ -373,7 +377,7 @@ End-to-end tests that launch the real Electron app in demo mode and walk through
 | `e2e/demo-tuning-cycle.spec.ts` | 7 | Full Filter Tune cycle: start → modal → erase → download → filter wizard → apply → erase & verify → download → analyze verification → complete → dismiss → check history |
 | `e2e/demo-pid-tune-cycle.spec.ts` | 7 | Full PID Tune cycle: start → modal → erase → download → PID wizard → apply → erase & verify → download → analyze verification → complete → dismiss → check history |
 | `e2e/demo-quick-tune-cycle.spec.ts` | 7 | Full Flash Tune cycle: start → modal (Flash) → erase → download → flash wizard (auto-analysis) → apply all → erase & verify → download → analyze verification → complete → dismiss → check history |
-| `e2e/demo-generate-history.spec.ts` | 3 | Generates completed tuning sessions in 3 modes: mixed, filter-only, flash-only (excluded from normal `test:e2e` runs, run via `npm run demo:generate-history`) |
+| `e2e/demo-generate-history.spec.ts` | 4 | Generates completed tuning sessions in 4 modes: mixed, filter-only, pid-only, flash-only. Session count configurable via `GENERATE_COUNT` env var (default 5). Excluded from normal `test:e2e` runs, run via `npm run demo:generate-history` |
 | `e2e/demo-generate-stress.spec.ts` | 1 | Generates stress-test tuning sessions with edge-case scenarios (excluded from normal `test:e2e` runs, run via `npm run demo:generate-history:stress`) |
 
 **E2E infrastructure:**

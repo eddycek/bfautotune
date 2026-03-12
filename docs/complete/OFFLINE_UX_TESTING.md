@@ -163,8 +163,12 @@ npm run test:e2e
 # Run with Playwright UI
 npm run test:e2e:ui
 
-# Generate 5 tuning sessions for demo screenshots (~2 min)
-npm run demo:generate-history
+# Generate tuning sessions for demo screenshots (~2 min for 5 sessions)
+npm run demo:generate-history              # 5 mixed (filter + pid + flash)
+npm run demo:generate-history:filter       # 5 filter-only
+npm run demo:generate-history:pid          # 5 pid-only
+npm run demo:generate-history:flash        # 5 flash-only
+GENERATE_COUNT=15 npm run demo:generate-history  # custom count
 ```
 
 ### Test Architecture
@@ -180,7 +184,7 @@ npm run demo:generate-history
 |------|-------|-------------|
 | `demo-smoke.spec.ts` | 4 | App launch, auto-connect, dashboard elements |
 | `demo-tuning-cycle.spec.ts` | 11 | Full tuning cycle (serial test suite): start → erase → download → filter wizard → apply → PID wizard → apply → skip verify → complete → dismiss |
-| `demo-generate-history.spec.ts` | 1 | Generates 5 completed tuning sessions with progressive quality scores (excluded from `test:e2e`, run via `demo:generate-history`) |
+| `demo-generate-history.spec.ts` | 4 | Generates completed tuning sessions in 4 modes: mixed, filter-only, pid-only, flash-only. Session count configurable via `GENERATE_COUNT` env var (excluded from `test:e2e`, run via `demo:generate-history`) |
 
 **Key Design Decisions:**
 - Tests use `test.describe.serial` — the tuning cycle tests must run in order as each step depends on the previous

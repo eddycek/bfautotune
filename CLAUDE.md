@@ -438,15 +438,19 @@ E2E tests launch the real Electron app in demo mode via Playwright's `_electron.
 ```bash
 npm run test:e2e              # Build + run 25 E2E tests
 npm run test:e2e:ui           # Build + Playwright UI
-npm run demo:generate-history # Build + generate 5 tuning sessions (~2 min)
+npm run demo:generate-history            # Build + generate 5 mixed sessions (~2 min)
+npm run demo:generate-history:filter     # Build + generate 5 filter tune sessions
+npm run demo:generate-history:pid        # Build + generate 5 pid tune sessions
+npm run demo:generate-history:flash      # Build + generate 5 flash tune sessions
+GENERATE_COUNT=15 npm run demo:generate-history  # Custom session count
 ```
 
 **Architecture:**
 - `e2e/electron-app.ts` — Shared fixture: `launchDemoApp()`, isolated `.e2e-userdata/` dir, screenshot helpers
 - `E2E_USER_DATA_DIR` env var → `app.setPath('userData', ...)` in `src/main/index.ts` for test isolation
 - Clean state: `.e2e-userdata/` is wiped before each test file
-- `test:e2e` uses `--grep-invert 'generate 5'` to exclude slow generator
-- 6 spec files: smoke (4), Filter Tune cycle (7), PID Tune cycle (7), Flash Tune cycle (7), history generator (3), stress test (1)
+- `test:e2e` uses `--grep-invert 'generate \d+'` to exclude slow generators
+- 6 spec files: smoke (4), Filter Tune cycle (7), PID Tune cycle (7), Flash Tune cycle (7), history generator (4), stress test (1)
 - `vitest.config.ts` excludes `e2e/` to prevent Vitest from picking up Playwright specs
 - `advancePastVerification()` in MockMSPClient keeps flight type cycling correct when verification is skipped
 
