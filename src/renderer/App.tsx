@@ -341,7 +341,8 @@ function AppContent() {
         try {
           setErasedForPhase(null);
           const previousType = tuning.session?.tuningType;
-          await tuning.startSession(previousType);
+          const previousProfile = tuning.session?.bfPidProfileIndex;
+          await tuning.startSession(previousType, previousProfile);
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to start new cycle');
         }
@@ -672,7 +673,7 @@ function AppContent() {
                   onStartPidTune={async () => {
                     try {
                       setErasedForPhase(null);
-                      await tuning.startSession(TUNING_TYPE.PID);
+                      await tuning.startSession(TUNING_TYPE.PID, tuning.session?.bfPidProfileIndex);
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : 'Failed to start PID Tune');
                     }
