@@ -38,6 +38,22 @@ test.afterAll(async () => {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
+/** Click a random PID profile (1-4) in the StartTuningModal before selecting mode. */
+async function selectRandomProfile(cycleNum: number): Promise<void> {
+  const page = demo.page;
+  const modal = page.locator('.start-tuning-overlay');
+  const profileSelector = modal.locator('.start-tuning-profile-selector');
+
+  // Profile selector only visible when FC has multiple profiles
+  if (!(await profileSelector.isVisible().catch(() => false))) return;
+
+  // Pick profile based on cycle number for reproducible variety (1-indexed: profiles 1-4)
+  const profileIndex = cycleNum % 4; // 0-based: 0, 1, 2, 3
+  const profileBtn = profileSelector.locator('.start-tuning-profile-btn').nth(profileIndex);
+  await profileBtn.click();
+  console.log(`  Cycle ${cycleNum}: selected BF PID profile ${profileIndex + 1}`);
+}
+
 async function runFilterCycle(cycleNum: number): Promise<void> {
   const page = demo.page;
   const WAIT = 30_000;
@@ -49,6 +65,7 @@ async function runFilterCycle(cycleNum: number): Promise<void> {
   await demo.clickButton('Start Tuning Session');
   // Use modal-scoped locator to avoid strict mode violation when history has "Flash Tune" text
   const modal = page.locator('.start-tuning-overlay');
+  await selectRandomProfile(cycleNum);
   await modal.getByRole('button', { name: 'Filter Tune' }).click();
   await demo.waitForText('Erase Blackbox data', WAIT);
 
@@ -124,6 +141,7 @@ async function runPIDCycle(cycleNum: number): Promise<void> {
   // 1. Start Tuning Session (modal → PID Tune)
   await demo.clickButton('Start Tuning Session');
   const modal = page.locator('.start-tuning-overlay');
+  await selectRandomProfile(cycleNum);
   await modal.getByRole('button', { name: 'PID Tune' }).click();
   await demo.waitForText('Erase Blackbox data', WAIT);
 
@@ -201,6 +219,7 @@ async function runQuickCycle(cycleNum: number): Promise<void> {
   // Use modal-scoped locator to avoid strict mode violation
   // (Tuning History may also contain "Flash Tune" text)
   const modal = page.locator('.start-tuning-overlay');
+  await selectRandomProfile(cycleNum);
   await modal.getByRole('button', { name: 'Flash Tune' }).click();
   await demo.waitForText('Erase Blackbox data', WAIT);
 
