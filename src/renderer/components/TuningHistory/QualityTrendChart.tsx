@@ -33,6 +33,7 @@ interface TrendDataPoint {
   filterChanges: number;
   pidChanges: number;
   components: string;
+  profileLabel: string | null;
 }
 
 const TIER_COLORS: Record<string, string> = {
@@ -90,6 +91,7 @@ function CustomTooltip({ active, payload }: any) {
         >
           {d.tuningType}
         </span>
+        {d.profileLabel && <span className="quality-trend-tooltip-profile">{d.profileLabel}</span>}
         <span className="quality-trend-tooltip-noise">Noise: {d.noiseLevel}</span>
       </div>
       {totalChanges > 0 && (
@@ -128,9 +130,11 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
           .map((c) => `${c.label}: ${c.score}/${c.maxPoints}`)
           .join(', ');
         const rawType = record.tuningType ?? 'filter';
+        const profileLabel =
+          record.bfPidProfileIndex != null ? `P${record.bfPidProfileIndex + 1}` : null;
         const point: TrendDataPoint = {
           index: points.length + 1,
-          label: `#${points.length + 1}`,
+          label: profileLabel ? `#${points.length + 1} ${profileLabel}` : `#${points.length + 1}`,
           date: formatDateFull(record.completedAt),
           score: score.overall,
           tier: TIER_LABELS[score.tier],
@@ -140,6 +144,7 @@ export function QualityTrendChart({ history }: QualityTrendChartProps) {
           filterChanges: record.appliedFilterChanges.length,
           pidChanges: record.appliedPIDChanges.length,
           components: componentLabels,
+          profileLabel,
         };
         if (rawType === 'filter') point.filterScore = score.overall;
         else if (rawType === 'pid') point.pidScore = score.overall;

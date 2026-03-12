@@ -91,6 +91,16 @@
   color: #4dabf7;
 }
 
+.quality-trend-tooltip-profile {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #888;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .quality-trend-tooltip-noise {
   font-size: 11px;
   color: #888;
