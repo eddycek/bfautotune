@@ -6,16 +6,23 @@ import { ConnectionError, TimeoutError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { MSP } from '@shared/constants';
 
+const CLI_BUFFER_MAX_SIZE = 512 * 1024; // 512KB
+
 export class MSPConnection extends EventEmitter {
   private port: SerialPort | null = null;
   private protocol: MSPProtocol;
   private buffer: Buffer = Buffer.alloc(0);
   private responseQueue: Map<
     number,
-    { resolve: (response: MSPResponse) => void; timeout: NodeJS.Timeout }
+    {
+      resolve: (response: MSPResponse) => void;
+      reject: (error: Error) => void;
+      timeout: NodeJS.Timeout;
+    }
   > = new Map();
   private cliMode: boolean = false;
   private cliBuffer: string = '';
+  private _portError: boolean = false;
   /** Whether we actually sent the FC into CLI mode during this session.
    *  Unlike `cliMode` (which gets reset by exitCLI), this persists until close().
    *  Used to know if we need to send `exit` (reboot) before closing. */
@@ -30,6 +37,8 @@ export class MSPConnection extends EventEmitter {
     if (this.port?.isOpen) {
       throw new ConnectionError('Port already open');
     }
+
+    this._portError = false;
 
     return new Promise((resolve, reject) => {
       this.port = new SerialPort(
@@ -174,6 +183,10 @@ export class MSPConnection extends EventEmitter {
       throw new ConnectionError('Port not open');
     }
 
+    if (this._portError) {
+      throw new ConnectionError('Port encountered an error');
+    }
+
     // If we're in CLI mode, try to exit gracefully first
     if (this.cliMode) {
       logger.info('Exiting CLI mode before MSP command');
@@ -194,7 +207,7 @@ export class MSPConnection extends EventEmitter {
         reject(new TimeoutError(`MSP command ${command} timed out`));
       }, timeout);
 
-      this.responseQueue.set(command, { resolve, timeout: timeoutId });
+      this.responseQueue.set(command, { resolve, reject, timeout: timeoutId });
 
       this.port!.write(message, (error) => {
         if (error) {
@@ -221,7 +234,7 @@ export class MSPConnection extends EventEmitter {
       }, MSP.COMMAND_TIMEOUT);
 
       const listener = (data: string) => {
-        this.cliBuffer += data;
+        this.appendToCliBuffer(data);
         // Check accumulated buffer for CLI prompt "# " (hash + space).
         // Strip trailing \r only (not spaces) — FC may send extra CR after prompt.
         // No debounce needed — no diff output during CLI entry.
@@ -291,7 +304,7 @@ export class MSPConnection extends EventEmitter {
       }, timeout);
 
       const listener = (data: string) => {
-        this.cliBuffer += data;
+        this.appendToCliBuffer(data);
 
         // Cancel any pending prompt detection — more data arrived
         if (promptTimer) {
@@ -320,6 +333,14 @@ export class MSPConnection extends EventEmitter {
     });
   }
 
+  private appendToCliBuffer(data: string): void {
+    this.cliBuffer += data;
+    if (this.cliBuffer.length > CLI_BUFFER_MAX_SIZE) {
+      logger.warn(`CLI buffer exceeded ${CLI_BUFFER_MAX_SIZE} bytes, truncating from beginning`);
+      this.cliBuffer = this.cliBuffer.slice(-CLI_BUFFER_MAX_SIZE);
+    }
+  }
+
   private setupListeners(): void {
     if (!this.port) return;
 
@@ -334,6 +355,19 @@ export class MSPConnection extends EventEmitter {
 
     this.port.on('error', (error) => {
       logger.error('Serial port error:', error);
+      this._portError = true;
+
+      // Fast-fail all pending MSP commands instead of waiting for timeout
+      for (const [command, pending] of this.responseQueue) {
+        clearTimeout(pending.timeout);
+        this.responseQueue.delete(command);
+        pending.reject(
+          new ConnectionError(
+            `Port error while waiting for MSP command ${command}: ${error.message}`
+          )
+        );
+      }
+
       this.emit('error', error);
     });
 

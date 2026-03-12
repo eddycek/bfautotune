@@ -1395,7 +1395,7 @@ describe('IPC Handlers', () => {
       const { event } = createMockEvent();
       const res = await invokeWithEvent(IPCChannel.TUNING_APPLY_RECOMMENDATIONS, event, baseInput);
       expect(res.success).toBe(false);
-      expect(res.error).toContain('CLI command rejected');
+      expect(res.error).toContain('Filter changes failed');
     });
 
     it('returns error when FF CLI command is rejected', async () => {

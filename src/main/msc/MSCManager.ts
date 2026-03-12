@@ -10,6 +10,20 @@ import {
 } from './driveDetector';
 import type { MSPClient } from '../msp/MSPClient';
 
+const COPY_TIMEOUT_MS = 120_000; // 2 min per file
+
+async function copyWithTimeout(src: string, dest: string, timeoutMs: number): Promise<void> {
+  await Promise.race([
+    fs.copyFile(src, dest),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`File copy stalled (>${timeoutMs / 1000}s): ${basename(src)}`)),
+        timeoutMs
+      )
+    ),
+  ]);
+}
+
 export interface MSCProgress {
   stage:
     | 'entering_msc'
@@ -138,7 +152,14 @@ export class MSCManager {
       });
 
       const stat = await fs.stat(srcPath);
-      await fs.copyFile(srcPath, destPath);
+      await copyWithTimeout(srcPath, destPath, COPY_TIMEOUT_MS);
+
+      const destStat = await fs.stat(destPath);
+      if (destStat.size !== stat.size) {
+        throw new Error(
+          `File copy verification failed for ${filename}: expected ${stat.size} bytes, got ${destStat.size} bytes`
+        );
+      }
 
       copiedFiles.push({
         originalName: filename,

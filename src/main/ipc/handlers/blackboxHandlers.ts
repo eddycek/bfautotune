@@ -58,12 +58,22 @@ export function registerBlackboxHandlers(deps: HandlerDependencies): void {
         return createResponse<BlackboxLogMetadata>(undefined, 'Download already in progress');
       }
 
+      // #2: Refresh storage type before branching (cache may be stale after FC swap or SD removal)
+      const bbInfo = await deps.mspClient.getBlackboxInfo();
+      const storageType = bbInfo.storageType;
+
+      // #7: Bail early for empty SD card — avoid unnecessary MSC reboot cycle (~30s)
+      if (storageType === 'sdcard' && !bbInfo.hasLogs) {
+        return createResponse<BlackboxLogMetadata>(
+          undefined,
+          'No logs on SD card — fly first, then download'
+        );
+      }
+
+      // #9: Set flag AFTER early-return checks to prevent leak on early exit paths
       deps.isDownloadingBlackbox = true;
 
       try {
-        // Branch on storage type
-        const storageType = deps.mspClient.lastStorageType;
-
         if (storageType === 'sdcard') {
           // --- SD Card: MSC mode download ---
           logger.info('Starting SD card download via MSC mode...');

@@ -1266,3 +1266,110 @@ describe('MSPClient.connect', () => {
     expect(mockConn.close).toHaveBeenCalled();
   });
 });
+
+// ─── downloadBlackboxLog: chunk ceiling ──────────────────────────────
+
+describe('MSPClient.downloadBlackboxLog — chunk ceiling after failure', () => {
+  it('caps maxChunkSize after failure to prevent thrashing', async () => {
+    const { client, sendCommand, mockConn } = createClientWithStub();
+
+    // Mock getBlackboxInfo to return a log with enough data for many chunks
+    const totalSize = 50000;
+    const bbInfoData = buildDataflashSummaryData({
+      ready: 0x03,
+      totalSize: totalSize * 2,
+      usedSize: totalSize,
+    });
+
+    let chunkCallCount = 0;
+    const chunkSizesRequested: number[] = [];
+
+    sendCommand.mockImplementation(async (cmd: number, payload?: Buffer) => {
+      if (cmd === MSPCommand.MSP_DATAFLASH_SUMMARY) {
+        return { command: cmd, data: bbInfoData };
+      }
+      if (cmd === MSPCommand.MSP_DATAFLASH_READ) {
+        chunkCallCount++;
+        const requestSize = payload ? payload.readUInt16LE(4) : 180;
+        chunkSizesRequested.push(requestSize);
+
+        // Fail on the 3rd chunk (while at initial size 180)
+        // to trigger size reduction to floor(180*0.8)=144, ceiling set to 144
+        if (chunkCallCount === 3) {
+          throw new Error('Timeout');
+        }
+
+        // Build a valid MSP_DATAFLASH_READ response (7-byte header + data)
+        const dataSize = Math.min(requestSize, 180);
+        const response = Buffer.alloc(7 + dataSize);
+        response.writeUInt32LE(0, 0); // readAddress
+        response.writeUInt16LE(dataSize, 4); // dataSize
+        response.writeUInt8(0, 6); // not compressed
+        return { command: cmd, data: response };
+      }
+      return { command: cmd, data: Buffer.alloc(0) };
+    });
+
+    await client.downloadBlackboxLog();
+
+    // After the failure at size 180, chunk size drops to floor(180*0.8)=144
+    // maxChunkSize is capped at 144, so even after 50+ successes,
+    // no requested size should exceed 144
+    const sizesAfterFailure = chunkSizesRequested.slice(3); // everything after the failed chunk
+    const maxObserved = Math.max(...sizesAfterFailure);
+    // The ceiling should be 144 (floor(180 * 0.8))
+    expect(maxObserved).toBeLessThanOrEqual(144);
+    // Verify we actually had enough chunks for growth attempts
+    expect(sizesAfterFailure.length).toBeGreaterThan(50);
+  });
+});
+
+// ─── eraseBlackboxFlash: disconnect detection ────────────────────────
+
+describe('MSPClient.eraseBlackboxFlash — disconnect detection', () => {
+  it('throws ConnectionError immediately when FC disconnects during erase polling', async () => {
+    const { client, sendCommand, mockConn } = createClientWithStub();
+
+    let pollCount = 0;
+
+    sendCommand.mockImplementation(async (cmd: number, _payload?: Buffer, timeout?: number) => {
+      if (cmd === MSPCommand.MSP_DATAFLASH_ERASE) {
+        // Simulate FC ACK for erase command
+        return { command: cmd, data: Buffer.alloc(0), error: false };
+      }
+      if (cmd === MSPCommand.MSP_DATAFLASH_SUMMARY) {
+        pollCount++;
+        // On the 2nd poll, simulate FC disconnect
+        if (pollCount >= 2) {
+          mockConn.isOpen.mockReturnValue(false);
+        }
+        // Return non-zero usedSize (erase still in progress)
+        return {
+          command: cmd,
+          data: buildDataflashSummaryData({
+            ready: 0x03,
+            totalSize: 2 * 1024 * 1024,
+            usedSize: 512 * 1024,
+          }),
+        };
+      }
+      return { command: cmd, data: Buffer.alloc(0) };
+    });
+
+    const start = Date.now();
+
+    await expect(client.eraseBlackboxFlash()).rejects.toThrow('FC disconnected during erase');
+
+    const elapsed = Date.now() - start;
+
+    // Should fail quickly (a few poll intervals), NOT wait the full 60s
+    // With 1s poll interval, 2 polls = ~2s plus some overhead
+    expect(elapsed).toBeLessThan(10000);
+    // Verify the error is a ConnectionError (name set by mock)
+    try {
+      await client.eraseBlackboxFlash();
+    } catch (err) {
+      expect((err as Error).name).toBe('ConnectionError');
+    }
+  });
+});
