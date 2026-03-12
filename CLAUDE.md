@@ -423,7 +423,7 @@ Snapshots carry tuning metadata (`tuningSessionNumber`, `tuningType`, `snapshotR
 3. Stage 2 (cli): Enter CLI mode, send each command
 4. Stage 3 (save): Save and reboot FC
 
-**Restorable commands**: `set`, `feature`, `serial`, `aux`, `beacon`, `map`, `resource`, `timer`, `dma` — everything except identity (`board_name`, `mcu_id`), control (`diff`, `batch`, `defaults`, `save`), and profile selection commands.
+**Restorable commands**: `set`, `feature`, `serial`, `aux`, `beacon`, `map`, `resource`, `timer`, `dma`, `profile` (context switch), `rateprofile` (context switch) — everything except identity (`board_name`, `manufacturer_id`, `mcu_id`, `signature`), and control (`diff`, `batch`, `defaults`, `save`). Profile/rateprofile lines are preserved as context switches so that per-profile settings are applied to the correct BF profile slot.
 
 **CLI prompt detection** (`MSPConnection.sendCLICommand`): The real BF CLI prompt is `# ` (hash + space). Detection strips trailing `\r` from buffer (FC may send extra CR), then checks `endsWith('\n# ')`. Never use `trimEnd()` (it strips the space that distinguishes the prompt from section headers). **100ms debounce** in `sendCLICommand` — when the pattern matches, a timer starts. If more data arrives before it fires (e.g. `# master\r\n...`), the timer resets. Only when no data arrives for 100ms does it resolve as the real prompt. `enterCLI()` uses the same strip-CR + `endsWith('\n# ')` check but without debounce (no diff output during CLI entry).
 

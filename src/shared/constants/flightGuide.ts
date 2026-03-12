@@ -90,6 +90,7 @@ export const PID_FLIGHT_TIPS: string[] = [
   "Don't do flips or rolls, just snaps",
   'Use your normal rate profile (min 300 deg/s recommended)',
   'Make sure Blackbox logging is enabled with 2 kHz rate',
+  'If your FC has multiple PID profiles, select the one you want to tune before starting',
   'After landing, check motor temperatures',
 ];
 

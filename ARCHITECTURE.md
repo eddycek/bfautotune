@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 12, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2445 unit tests, 118 files + 30 Playwright E2E tests**
+**Last Updated:** March 12, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2447 unit tests, 118 files + 30 Playwright E2E tests**
 
 ---
 
@@ -37,13 +37,13 @@
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
 │  │              Preload Script (contextBridge, 527 lines)              │  │
 │  └───────────────────────────────┼──────────────────────────────────────┘  │
-│                                  │ IPC (51 channels, 14 event types)       │
+│                                  │ IPC (51 channels, 14 event types)        │
 │                                  │                                         │
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
 │  │                     Main Process (Node.js)                          │  │
 │  │                                                                      │  │
 │  │  ┌────────────────────────────┴─────────────────────────────────┐   │  │
-│  │  │                    IPC Handlers (1822 lines, 11 modules)      │   │  │
+│  │  │                    IPC Handlers (2329 lines, 11 modules)      │   │  │
 │  │  │  connection:* | fc:* | snapshot:* | profile:* | blackbox:*  │   │  │
 │  │  │  analysis:* | tuning:* | pid:*                              │   │  │
 │  │  └───┬──────────┬──────────┬────────────┬──────────┬───────────┘   │  │
@@ -503,7 +503,7 @@ TuningSession {
 | Domain | Channels | Key Operations |
 |--------|----------|---------------|
 | Connection (6) | `list_ports`, `connect`, `disconnect`, `get_status`, `is_demo_mode`, `reset_demo` | Port scanning, connect/disconnect, demo mode |
-| FC Info (6) | `get_info`, `export_cli`, `get_blackbox_settings`, `get_feedforward_config`, `fix_blackbox_settings`, `select_pid_profile` | FC data, CLI export, FF config, BB settings fix, BF PID profile selection |
+| FC Info (6) | `get_info`, `export_cli`, `get_blackbox_settings`, `get_feedforward_config`, `fix_blackbox_settings`, `select_pid_profile` | FC data, CLI export, FF config, BB settings fix, BF PID profile selection (MSP_SELECT_SETTING) |
 | Profiles (10) | `create`, `create_from_preset`, `update`, `delete`, `list`, `get`, `get_current`, `set_current`, `export`, `get_fc_serial` | Full profile CRUD |
 | Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
 | Blackbox (9) | `get_info`, `download_log`, `list_logs`, `delete_log`, `erase_flash`, `open_folder`, `test_read`, `parse_log`, `import_log` | Flash ops + parsing + import |
@@ -546,8 +546,8 @@ Stage 1 (backup): Create "Pre-restore (auto)" snapshot
 Stage 2 (cli):    Enter CLI → send each restorable command
 Stage 3 (save):   CLI "save" → FC reboots
 
-Restorable commands: set, feature, serial, aux, beacon, map, resource, timer, dma
-Skipped: diff, batch, defaults, save, board_name, mcu_id, profile, rateprofile
+Restorable commands: set, feature, serial, aux, beacon, map, resource, timer, dma, profile (context), rateprofile (context)
+Skipped: diff, batch, defaults, save, board_name, manufacturer_id, mcu_id, signature
 ```
 
 ---
@@ -823,7 +823,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**2445 unit tests across 118 files + 30 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2447 unit tests across 118 files + 30 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -831,14 +831,14 @@ Hardware error (FC timeout, USB disconnect)
 | FFT Analysis (+ Data Quality + Spectrogram + Delay) | 8 | 226 |
 | Step Response + PID + TF + CrossAxis + PropWash + DTerm + Bayesian | 10 | 310 |
 | Header Validation + Constants | 2 | 31 |
-| MSP Protocol & Client | 4 | 186 |
+| MSP Protocol & Client | 4 | 184 |
 | MSC (Mass Storage) | 2 | 45 |
 | Storage Managers | 7 | 127 |
 | IPC Handlers | 1 | 109 |
-| UI Components + Charts + Contexts | 46 | 696 |
-| React Hooks + Utils | 14 | 171 |
+| UI Components + Charts + Contexts | 47 | 707 |
+| React Hooks + Utils | 14 | 165 |
 | Shared Constants & Utils | 4 | 85 |
-| E2E Workflows (Vitest) | 1 | 30 |
+| E2E Workflows (Vitest) | 1 | 20 |
 | Demo Mode (Vitest) | 2 | 79 |
 | **Playwright E2E** | **6** | **30** |
 

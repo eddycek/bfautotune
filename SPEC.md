@@ -254,7 +254,7 @@ High-level user journey:
 - TuningWorkflowModal (tuning workflow preparation)
 
 ### Phase 4: Stateful Tuning Workflow :white_check_mark:
-**Status:** Complete | **PRs:** #31–#99, #235–#236, #240 | **Tests:** 1520+ across 82+ files
+**Status:** Complete | **PRs:** #31–#99, #235–#236, #240, #248–#257 | **Tests:** 1520+ across 82+ files
 
 - TuningSessionManager (16-phase state machine across 3 modes: Filter Tune, PID Tune, Flash Tune; per-profile persistence)
 - TuningStatusBanner (dashboard banner with unified 4-step indicator for all modes, action buttons)
@@ -275,6 +275,7 @@ High-level user journey:
 - Verification flight: mandatory per-mode verification via "Erase & Verify" (Filter Tune: throttle sweep, PID Tune: stick snaps, Flash Tune: hover)
 - Navigation breadcrumb in AnalysisOverview, snapshot/analysis UX fixes
 - Tuning history & comparison: session archive per profile, completion summary with noise spectrum overlay, applied changes table, PID metrics, expandable history panel
+- BF PID profile selection: MSP_SELECT_SETTING + getStatusEx, profile selector in StartTuningModal with history context, profile badge on TuningStatusBanner and TuningHistoryPanel, snapshot restore preserves profile/rateprofile context
 
 ### Phase 5: Complete Manual Testing & UX Polish :x:
 **Status:** Not started
@@ -353,7 +354,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** March 12, 2026 | **Tests:** 2445 unit tests across 118 files + ~30 Playwright E2E tests | **PRs Merged:** #1–#249
+**Last Updated:** March 12, 2026 | **Tests:** 2447 unit tests across 118 files + ~30 Playwright E2E tests | **PRs Merged:** #1–#257
 
 | Phase | Status | Notes |
 |-------|--------|-------|

@@ -80,7 +80,8 @@ function FilterTuneContent({
           resonance peaks, and compute optimal gyro and D-term filter cutoffs.
         </p>
         <p className="workflow-info-text workflow-info-hint">
-          Best accuracy for filter tuning. Recommended as the first tuning step.
+          Best accuracy for filter tuning. Recommended as the first tuning step. Filter settings are
+          global &mdash; they apply to all BF PID profiles.
         </p>
       </div>
 
@@ -119,7 +120,8 @@ function PIDTuneContent({ fcVersion }: { fcVersion?: string }) {
           P, I, D gains. Cross-axis coupling and prop wash are also detected.
         </p>
         <p className="workflow-info-text workflow-info-hint">
-          Run after Filter Tune for best results &mdash; clean filters reduce noise in PID data.
+          Run after Filter Tune for best results &mdash; clean filters reduce noise in PID data. If
+          your FC has multiple PID profiles, select which one to tune when starting the session.
         </p>
       </div>
 
@@ -164,7 +166,8 @@ function FlashTuneContent({ fcVersion }: { fcVersion?: string }) {
         </p>
         <p className="workflow-info-text workflow-info-hint">
           Best for: iterating on an existing tune, quick adjustments after prop or motor changes, or
-          when you don&apos;t want to fly a specific test pattern.
+          when you don&apos;t want to fly a specific test pattern. PID changes apply to the selected
+          BF PID profile; filter changes are global.
         </p>
       </div>
 

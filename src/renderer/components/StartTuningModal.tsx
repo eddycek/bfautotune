@@ -83,6 +83,9 @@ export function StartTuningModal({
         <h2>Choose Tuning Mode</h2>
         <p className="start-tuning-subtitle">
           Each mode uses a dedicated test flight + a verification flight to confirm results.
+          {showProfileSelector && (
+            <> Filters are global across all profiles; PIDs are per-profile.</>
+          )}
         </p>
 
         {showProfileSelector && (
