@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 12, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2420 unit tests, 118 files + 30 Playwright E2E tests**
+**Last Updated:** March 12, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2427 unit tests, 118 files + 30 Playwright E2E tests**
 
 ---
 
@@ -815,7 +815,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**2420 unit tests across 118 files + 30 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2427 unit tests across 118 files + 30 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -823,8 +823,8 @@ Hardware error (FC timeout, USB disconnect)
 | FFT Analysis (+ Data Quality + Spectrogram + Delay) | 8 | 226 |
 | Step Response + PID + TF + CrossAxis + PropWash + DTerm + Bayesian | 10 | 310 |
 | Header Validation + Constants | 2 | 31 |
-| MSP Protocol & Client | 4 | 173 |
-| MSC (Mass Storage) | 2 | 43 |
+| MSP Protocol & Client | 4 | 178 |
+| MSC (Mass Storage) | 2 | 45 |
 | Storage Managers | 7 | 127 |
 | IPC Handlers | 1 | 109 |
 | UI Components + Charts + Contexts | 46 | 682 |

@@ -1100,7 +1100,7 @@ export class MSPClient extends EventEmitter {
       // Start with known-working size, gradually increase with caution
       let currentChunkSize = 180; // Start conservative (between 128 working and 256 timeout)
       const minChunkSize = 128; // Known working minimum
-      const maxChunkSize = 240; // Conservative max (under 256 timeout threshold)
+      let maxChunkSize = 240; // Conservative max (under 256 timeout threshold)
       let consecutiveSuccesses = 0;
       let consecutiveFailures = 0;
 
@@ -1172,6 +1172,8 @@ export class MSPClient extends EventEmitter {
             `Chunk failed at size ${currentChunkSize} (failure ${consecutiveFailures}/5), reducing to ${newSize} bytes and retrying`
           );
           currentChunkSize = newSize;
+          // Remember the ceiling — don't grow back above the failure point
+          maxChunkSize = currentChunkSize;
 
           // Give FC time to recover after timeout (critical!)
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -1245,7 +1247,10 @@ export class MSPClient extends EventEmitter {
             return;
           }
           logger.debug(`Erase in progress: ${info.usedSize} bytes remaining`);
-        } catch {
+        } catch (pollError) {
+          if (!this.connection.isOpen()) {
+            throw new ConnectionError('FC disconnected during erase');
+          }
           // FC may be busy erasing — ignore poll errors and retry
           logger.debug('Poll failed (FC busy), retrying...');
         }

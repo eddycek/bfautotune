@@ -142,6 +142,51 @@ describe('MSCManager', () => {
       expect(mockCopyFile).toHaveBeenCalledTimes(3);
     });
 
+    it('throws error when file copy stalls', async () => {
+      vi.useFakeTimers();
+
+      mockSnapshotVolumes.mockResolvedValue(new Set());
+      mspClient.rebootToMSC.mockResolvedValue(true);
+      mockDetectNewDrive.mockResolvedValue({ mountPath: '/Volumes/BLACKBOX', label: 'BLACKBOX' });
+      mockFindLogFiles.mockResolvedValue(['/Volumes/BLACKBOX/BTFL_001.BBL']);
+      mockStat.mockResolvedValue({ size: 1024 });
+      mockMkdir.mockResolvedValue(undefined);
+      // copyFile never resolves — simulates a stalled copy
+      mockCopyFile.mockImplementation(() => new Promise(() => {}));
+      mockEjectDrive.mockResolvedValue(undefined);
+
+      // Attach rejection handler before advancing timers to avoid unhandled rejection
+      const downloadPromise = manager.downloadLogs('/tmp/logs').catch((e: Error) => e);
+
+      // Advance past the 120s copy timeout
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      const error = await downloadPromise;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toMatch(/File copy stalled/);
+
+      vi.useRealTimers();
+    });
+
+    it('throws error when copied file size does not match source', async () => {
+      mockSnapshotVolumes.mockResolvedValue(new Set());
+      mspClient.rebootToMSC.mockResolvedValue(true);
+      mockDetectNewDrive.mockResolvedValue({ mountPath: '/Volumes/BLACKBOX', label: 'BLACKBOX' });
+      mockFindLogFiles.mockResolvedValue(['/Volumes/BLACKBOX/BTFL_001.BBL']);
+      mockMkdir.mockResolvedValue(undefined);
+      mockCopyFile.mockResolvedValue(undefined);
+      mockEjectDrive.mockResolvedValue(undefined);
+
+      // Source file is 1 MB, but destination is only 512 KB (incomplete copy)
+      mockStat
+        .mockResolvedValueOnce({ size: 1024 * 1024 }) // fs.stat(srcPath)
+        .mockResolvedValueOnce({ size: 512 * 1024 }); // fs.stat(destPath)
+
+      await expect(manager.downloadLogs('/tmp/logs')).rejects.toThrow(
+        /File copy verification failed.*expected 1048576 bytes, got 524288 bytes/
+      );
+    });
+
     it('throws on cancel during download', async () => {
       mockSnapshotVolumes.mockResolvedValue(new Set());
       mspClient.rebootToMSC.mockResolvedValue(true);

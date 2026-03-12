@@ -100,20 +100,38 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         }
 
         if (input.filterRecommendations.length > 0) {
-          for (const rec of input.filterRecommendations) {
-            const value = Math.round(rec.recommendedValue);
-            const cmd = `set ${rec.setting} = ${value}`;
-            sendProgress({
-              stage: 'filter',
-              message: `Setting ${rec.setting} = ${value}...`,
-              percent: 50 + Math.round((appliedFilters / input.filterRecommendations.length) * 25),
-            });
-            const response = await mspClient.connection.sendCLICommand(cmd);
-            validateCLIResponse(cmd, response);
-            appliedFilters++;
-          }
+          try {
+            for (const rec of input.filterRecommendations) {
+              const value = Math.round(rec.recommendedValue);
+              const cmd = `set ${rec.setting} = ${value}`;
+              sendProgress({
+                stage: 'filter',
+                message: `Setting ${rec.setting} = ${value}...`,
+                percent:
+                  50 + Math.round((appliedFilters / input.filterRecommendations.length) * 25),
+              });
+              const response = await mspClient.connection.sendCLICommand(cmd);
+              validateCLIResponse(cmd, response);
+              appliedFilters++;
+            }
 
-          logger.info(`Applied ${appliedFilters} filter changes via CLI`);
+            logger.info(`Applied ${appliedFilters} filter changes via CLI`);
+          } catch (filterError) {
+            // #8: PIDs were already written via MSP (Stage 1) but filter CLI commands failed.
+            // FC has mixed state: new PIDs + old filters in RAM. Save was NOT called yet.
+            // Pre-tuning snapshot remains valid for rollback.
+            logger.error(
+              `Filter apply failed after ${appliedPIDs} PIDs were already written. ` +
+                `FC has mixed state (new PIDs, old filters). Save was NOT called. ` +
+                `Pre-tuning snapshot is valid for rollback.`,
+              filterError
+            );
+            throw new Error(
+              `Filter changes failed (${appliedFilters}/${input.filterRecommendations.length} applied). ` +
+                `${appliedPIDs > 0 ? `${appliedPIDs} PID changes were already written to FC RAM. ` : ''}` +
+                `FC was NOT saved — power cycle to discard, or restore from pre-tuning snapshot.`
+            );
+          }
         }
 
         sendProgress({

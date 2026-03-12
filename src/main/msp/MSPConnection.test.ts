@@ -280,6 +280,40 @@ describe('MSPConnection', () => {
       expect(result2.data.toString()).toBe('BTFL');
     });
 
+    it('rejects pending MSP commands when port error occurs', async () => {
+      await conn.open('/dev/ttyUSB0');
+      const port = getPort();
+
+      // Must listen for error event to prevent Node.js unhandled error
+      conn.on('error', () => {});
+
+      // Send a command — it will be pending (no response injected)
+      const cmdPromise = conn.sendCommand(1, Buffer.alloc(0), 5000);
+
+      await new Promise((r) => setTimeout(r, 20));
+
+      // Trigger a port error — this fast-fails the pending command
+      port.injectError(new Error('USB device removed'));
+
+      // The command should reject with ConnectionError, not TimeoutError
+      await expect(cmdPromise).rejects.toThrow('Port error while waiting for MSP command 1');
+      await expect(cmdPromise).rejects.toThrow(/USB device removed/);
+    });
+
+    it('sendCommand throws immediately after port error', async () => {
+      await conn.open('/dev/ttyUSB0');
+      const port = getPort();
+
+      // Must listen for error event to prevent Node.js unhandled error
+      conn.on('error', () => {});
+
+      // Trigger a port error to set _portError flag
+      port.injectError(new Error('USB device removed'));
+
+      // New sendCommand should throw immediately with ConnectionError
+      await expect(conn.sendCommand(1)).rejects.toThrow('Port encountered an error');
+    });
+
     it('emits unsolicited for responses with no pending request', async () => {
       await conn.open('/dev/ttyUSB0');
       const port = getPort();
@@ -569,6 +603,41 @@ describe('MSPConnection', () => {
       // Let it time out — no real prompt ever arrives
       await expect(cmdPromise).rejects.toThrow('CLI command timed out');
     }, 1000);
+
+    it('truncates CLI buffer when it exceeds 512KB limit', async () => {
+      const port = await enterCLIMode();
+
+      const cmdPromise = conn.sendCLICommand('diff all', 5000);
+
+      await new Promise((r) => setTimeout(r, 20));
+
+      // Send enough data to exceed 512KB (512 * 1024 = 524288 bytes)
+      // Each chunk is ~10KB of CLI-like data
+      const chunk = 'set some_very_long_setting_name = some_value\r\n'.repeat(200); // ~9.2KB
+      for (let i = 0; i < 60; i++) {
+        // 60 * ~9.2KB = ~552KB — exceeds 512KB limit
+        port.injectData(chunk);
+        // Yield to event loop periodically
+        if (i % 10 === 0) {
+          await new Promise((r) => setTimeout(r, 5));
+        }
+      }
+
+      // Verify the internal buffer was truncated (not growing unbounded)
+      const bufferLength = (conn as any).cliBuffer.length;
+      expect(bufferLength).toBeLessThanOrEqual(512 * 1024);
+
+      // Verify prompt detection still works after truncation —
+      // send the CLI prompt and confirm the command resolves
+      port.injectData('\n# ');
+      // Wait for 100ms debounce
+      await new Promise((r) => setTimeout(r, 150));
+
+      const result = await cmdPromise;
+      // The result should contain data (though beginning was truncated)
+      expect(result).toContain('some_very_long_setting_name');
+      expect(result.length).toBeLessThanOrEqual(512 * 1024 + 10); // buffer + small prompt
+    }, 10000);
 
     it('handles trailing \\r after prompt in sendCLICommand', async () => {
       const port = await enterCLIMode();
