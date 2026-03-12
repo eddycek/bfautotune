@@ -303,6 +303,9 @@ export function SnapshotManager() {
                   {snapshot.snapshotRole === 'post-tuning' && (
                     <span className="badge post-tuning">Post-tuning</span>
                   )}
+                  {snapshot.bfPidProfileIndex != null && (
+                    <span className="badge profile">P{snapshot.bfPidProfileIndex + 1}</span>
+                  )}
                 </div>
                 <div className="snapshot-meta">
                   <span>{new Date(snapshot.timestamp).toLocaleString()}</span>

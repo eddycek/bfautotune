@@ -73,6 +73,7 @@ export interface SnapshotMetadata {
   tuningSessionNumber?: number;
   tuningType?: 'filter' | 'pid' | 'quick';
   snapshotRole?: 'pre-tuning' | 'post-tuning';
+  bfPidProfileIndex?: number;
 }
 
 export interface ConnectionStatus {

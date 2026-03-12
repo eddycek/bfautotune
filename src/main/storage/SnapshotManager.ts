@@ -179,6 +179,9 @@ export class SnapshotManager {
           ...(snapshot.metadata.snapshotRole != null && {
             snapshotRole: snapshot.metadata.snapshotRole,
           }),
+          ...(snapshot.metadata.bfPidProfileIndex != null && {
+            bfPidProfileIndex: snapshot.metadata.bfPidProfileIndex,
+          }),
         });
       }
 
