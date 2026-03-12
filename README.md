@@ -265,9 +265,10 @@ npm run test:coverage                # Generate coverage report
 npm run test:e2e                     # Build + run Playwright E2E tests
 npm run test:e2e:ui                  # Build + Playwright UI
 
-# Demo data generation
+# Demo data generation (GENERATE_COUNT=N to override session count, default 5)
 npm run demo:generate-history        # Generate 5 mixed tuning sessions (~2 min)
-npm run demo:generate-history:deep   # Generate 5 Filter Tune sessions
+npm run demo:generate-history:filter # Generate 5 Filter Tune sessions
+npm run demo:generate-history:pid    # Generate 5 PID Tune sessions
 npm run demo:generate-history:flash  # Generate 5 Flash Tune sessions
 npm run demo:generate-history:stress # Stress test (edge cases, poor data quality)
 

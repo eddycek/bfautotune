@@ -832,8 +832,8 @@ Hardware error (FC timeout, USB disconnect)
 | Shared Constants & Utils | 4 | 85 |
 | E2E Workflows (Vitest) | 1 | 30 |
 | Demo Mode (Vitest) | 2 | 73 |
-| **Playwright E2E** | **6** | **29** |
+| **Playwright E2E** | **6** | **30** |
 
 **Pre-commit hook** (husky + lint-staged) blocks commits when tests fail. All async UI tests use `waitFor()`. Mock layer: `src/renderer/test/setup.ts` mocks entire `window.betaflight` API.
 
-**Playwright E2E** (demo mode): Launches real Electron app with mock FC, clicks through full tuning workflow (Filter Tune, PID Tune, and Flash Tune). Run via `npm run test:e2e` (25 tests) or `npm run demo:generate-history` (generators). 29 tests across 6 spec files. See `e2e/` directory and [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).
+**Playwright E2E** (demo mode): Launches real Electron app with mock FC, clicks through full tuning workflow (Filter Tune, PID Tune, and Flash Tune). Run via `npm run test:e2e` (25 tests) or `npm run demo:generate-history` (generators, session count via `GENERATE_COUNT` env var). 30 tests across 6 spec files. See `e2e/` directory and [docs/OFFLINE_UX_TESTING.md](./docs/OFFLINE_UX_TESTING.md).

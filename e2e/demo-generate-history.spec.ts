@@ -1,16 +1,23 @@
 /**
  * Generates completed tuning sessions in demo mode.
  *
+ * Session count is configurable via GENERATE_COUNT env var (default: 5).
+ *
  * Three modes (run via npm scripts):
- *   npm run demo:generate-history        — 5 mixed sessions (filter + pid + flash)
- *   npm run demo:generate-history:filter — 5 filter tune sessions
- *   npm run demo:generate-history:flash  — 5 flash tune sessions
+ *   npm run demo:generate-history                    — 5 mixed sessions (filter + pid + flash)
+ *   npm run demo:generate-history:filter             — 5 filter tune sessions
+ *   npm run demo:generate-history:pid                — 5 pid tune sessions
+ *   npm run demo:generate-history:flash              — 5 flash tune sessions
+ *   GENERATE_COUNT=15 npm run demo:generate-history  — 15 mixed sessions
  */
 import { test, expect } from '@playwright/test';
 import { launchDemoApp, type DemoApp } from './electron-app';
 
-// Generous timeout — 5 cycles take ~2-3 minutes
-test.setTimeout(300_000);
+// Session count configurable via GENERATE_COUNT env var (default: 5)
+const SESSION_COUNT = Math.max(1, parseInt(process.env.GENERATE_COUNT ?? '5', 10));
+
+// Scale timeout: ~40s per session + 60s buffer
+test.setTimeout(SESSION_COUNT * 40_000 + 60_000);
 
 let demo: DemoApp;
 
@@ -63,8 +70,10 @@ async function runFilterCycle(cycleNum: number): Promise<void> {
   await applyFiltersBtn.or(noFilterChangesBtn).waitFor({ state: 'visible', timeout: WAIT });
 
   if (await noFilterChangesBtn.isVisible().catch(() => false)) {
+    console.log(`  Cycle ${cycleNum}: no filter changes, continuing without apply`);
     await noFilterChangesBtn.click();
   } else {
+    console.log(`  Cycle ${cycleNum}: applying filter changes`);
     await applyFiltersBtn.click();
     const filterApplyBtns = page.getByRole('button', { name: 'Apply Changes' });
     await filterApplyBtns.last().waitFor({ state: 'visible', timeout: 5_000 });
@@ -75,21 +84,22 @@ async function runFilterCycle(cycleNum: number): Promise<void> {
     .waitFor({ state: 'visible', timeout: WAIT });
   await demo.clickButton('Close Wizard');
 
-  console.log(`  Cycle ${cycleNum}: filters handled, running verification...`);
+  // 3. Verification flight (if changes applied) or direct completion (if no changes)
+  const eraseVerifyBtn = page.getByRole('button', { name: 'Erase & Verify' });
+  const completeText = page.getByText(/Filter Tune Complete/i);
+  await eraseVerifyBtn.or(completeText).waitFor({ state: 'visible', timeout: WAIT });
 
-  // 3. Verification flight → analyze → complete → dismiss
-  await page
-    .getByRole('button', { name: 'Erase & Verify' })
-    .waitFor({ state: 'visible', timeout: WAIT });
-  await demo.clickButton('Erase & Verify');
-
-  await demo.waitForText('Download Log', WAIT);
-  await demo.clickButton('Download Log');
-
-  await demo.waitForText('Analyze Verification', WAIT);
-  await demo.clickButton('Analyze Verification');
-
-  await demo.waitForText(/Filter Tune Complete/i, ANALYSIS_WAIT);
+  if (await eraseVerifyBtn.isVisible().catch(() => false)) {
+    console.log(`  Cycle ${cycleNum}: running verification flight`);
+    await eraseVerifyBtn.click();
+    await demo.waitForText('Download Log', WAIT);
+    await demo.clickButton('Download Log');
+    await demo.waitForText('Analyze Verification', WAIT);
+    await demo.clickButton('Analyze Verification');
+    await demo.waitForText(/Filter Tune Complete/i, ANALYSIS_WAIT);
+  } else {
+    console.log(`  Cycle ${cycleNum}: no changes → verification skipped`);
+  }
 
   await demo.screenshot(`history-cycle-${cycleNum}-filter-complete`);
 
@@ -135,8 +145,10 @@ async function runPIDCycle(cycleNum: number): Promise<void> {
   await applyPIDsBtn.or(noPIDChangesBtn).waitFor({ state: 'visible', timeout: WAIT });
 
   if (await noPIDChangesBtn.isVisible().catch(() => false)) {
+    console.log(`  Cycle ${cycleNum}: no PID changes, continuing without apply`);
     await noPIDChangesBtn.click();
   } else {
+    console.log(`  Cycle ${cycleNum}: applying PID changes`);
     await applyPIDsBtn.click();
     const pidApplyBtns = page.getByRole('button', { name: 'Apply Changes' });
     await pidApplyBtns.last().waitFor({ state: 'visible', timeout: 5_000 });
@@ -147,21 +159,22 @@ async function runPIDCycle(cycleNum: number): Promise<void> {
     .waitFor({ state: 'visible', timeout: WAIT });
   await demo.clickButton('Close Wizard');
 
-  console.log(`  Cycle ${cycleNum}: PIDs handled, running verification...`);
+  // 3. Verification flight (if changes applied) or direct completion (if no changes)
+  const eraseVerifyBtn = page.getByRole('button', { name: 'Erase & Verify' });
+  const completeText = page.getByText(/PID Tune Complete/i);
+  await eraseVerifyBtn.or(completeText).waitFor({ state: 'visible', timeout: WAIT });
 
-  // 3. Verification flight → analyze → complete → dismiss
-  await page
-    .getByRole('button', { name: 'Erase & Verify' })
-    .waitFor({ state: 'visible', timeout: WAIT });
-  await demo.clickButton('Erase & Verify');
-
-  await demo.waitForText('Download Log', WAIT);
-  await demo.clickButton('Download Log');
-
-  await demo.waitForText('Analyze Verification', WAIT);
-  await demo.clickButton('Analyze Verification');
-
-  await demo.waitForText(/PID Tune Complete/i, ANALYSIS_WAIT);
+  if (await eraseVerifyBtn.isVisible().catch(() => false)) {
+    console.log(`  Cycle ${cycleNum}: running verification flight`);
+    await eraseVerifyBtn.click();
+    await demo.waitForText('Download Log', WAIT);
+    await demo.clickButton('Download Log');
+    await demo.waitForText('Analyze Verification', WAIT);
+    await demo.clickButton('Analyze Verification');
+    await demo.waitForText(/PID Tune Complete/i, ANALYSIS_WAIT);
+  } else {
+    console.log(`  Cycle ${cycleNum}: no changes → verification skipped`);
+  }
 
   await demo.screenshot(`history-cycle-${cycleNum}-pid-complete`);
 
@@ -210,8 +223,10 @@ async function runQuickCycle(cycleNum: number): Promise<void> {
   await applyAllBtn.or(noQuickChangesBtn).waitFor({ state: 'visible', timeout: WAIT });
 
   if (await noQuickChangesBtn.isVisible().catch(() => false)) {
+    console.log(`  Cycle ${cycleNum}: no flash changes, continuing without apply`);
     await noQuickChangesBtn.click();
   } else {
+    console.log(`  Cycle ${cycleNum}: applying all flash changes`);
     await applyAllBtn.click();
     const applyBtns = page.getByRole('button', { name: 'Apply Changes' });
     await applyBtns.last().waitFor({ state: 'visible', timeout: 5_000 });
@@ -222,21 +237,22 @@ async function runQuickCycle(cycleNum: number): Promise<void> {
     .waitFor({ state: 'visible', timeout: WAIT });
   await demo.clickButton('Close Wizard');
 
-  console.log(`  Cycle ${cycleNum}: all changes handled, running verification...`);
+  // 3. Verification flight (if changes applied) or direct completion (if no changes)
+  const eraseVerifyBtn = page.getByRole('button', { name: 'Erase & Verify' });
+  const completeText = page.getByText(/Flash Tune Complete/i);
+  await eraseVerifyBtn.or(completeText).waitFor({ state: 'visible', timeout: WAIT });
 
-  // 3. Verification flight → analyze → complete → dismiss
-  await page
-    .getByRole('button', { name: 'Erase & Verify' })
-    .waitFor({ state: 'visible', timeout: WAIT });
-  await demo.clickButton('Erase & Verify');
-
-  await demo.waitForText('Download Log', WAIT);
-  await demo.clickButton('Download Log');
-
-  await demo.waitForText('Analyze Verification', WAIT);
-  await demo.clickButton('Analyze Verification');
-
-  await demo.waitForText(/Flash Tune Complete/i, ANALYSIS_WAIT);
+  if (await eraseVerifyBtn.isVisible().catch(() => false)) {
+    console.log(`  Cycle ${cycleNum}: running verification flight`);
+    await eraseVerifyBtn.click();
+    await demo.waitForText('Download Log', WAIT);
+    await demo.clickButton('Download Log');
+    await demo.waitForText('Analyze Verification', WAIT);
+    await demo.clickButton('Analyze Verification');
+    await demo.waitForText(/Flash Tune Complete/i, ANALYSIS_WAIT);
+  } else {
+    console.log(`  Cycle ${cycleNum}: no changes → verification skipped`);
+  }
 
   await demo.screenshot(`history-cycle-${cycleNum}-quick-complete`);
 
@@ -264,25 +280,30 @@ async function verifyHistory(): Promise<void> {
 // Tests — each selectable via --grep
 // ---------------------------------------------------------------------------
 
-test('generate 5 mixed sessions', async () => {
-  // filter → pid → flash → filter → pid
-  await runFilterCycle(1);
-  await runPIDCycle(2);
-  await runQuickCycle(3);
-  await runFilterCycle(4);
-  await runPIDCycle(5);
+test(`generate ${SESSION_COUNT} mixed sessions`, async () => {
+  const runners = [runFilterCycle, runPIDCycle, runQuickCycle];
+  for (let i = 1; i <= SESSION_COUNT; i++) {
+    await runners[(i - 1) % runners.length](i);
+  }
   await verifyHistory();
 });
 
-test('generate 5 filter sessions', async () => {
-  for (let i = 1; i <= 5; i++) {
+test(`generate ${SESSION_COUNT} filter sessions`, async () => {
+  for (let i = 1; i <= SESSION_COUNT; i++) {
     await runFilterCycle(i);
   }
   await verifyHistory();
 });
 
-test('generate 5 flash sessions', async () => {
-  for (let i = 1; i <= 5; i++) {
+test(`generate ${SESSION_COUNT} pid sessions`, async () => {
+  for (let i = 1; i <= SESSION_COUNT; i++) {
+    await runPIDCycle(i);
+  }
+  await verifyHistory();
+});
+
+test(`generate ${SESSION_COUNT} flash sessions`, async () => {
+  for (let i = 1; i <= SESSION_COUNT; i++) {
     await runQuickCycle(i);
   }
   await verifyHistory();
