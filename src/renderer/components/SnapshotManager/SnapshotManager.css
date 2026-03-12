@@ -102,13 +102,6 @@
   color: white;
 }
 
-.badge.profile {
-  background: rgba(255, 255, 255, 0.06);
-  color: #888;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-weight: 500;
-}
-
 .restore-warning {
   color: #ff9900;
   font-size: 14px;

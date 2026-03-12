@@ -129,9 +129,10 @@ export function registerSnapshotHandlers(deps: HandlerDependencies): void {
         if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
 
         // Parse CLI diff — extract restorable CLI commands
-        // Safe commands: set, feature, serial, aux, beacon, map, resource, timer, dma
+        // Safe commands: set, feature, serial, aux, beacon, map, resource, timer, dma,
+        //   profile (context switch), rateprofile (context switch)
         // Skip: diff all, batch start/end, defaults nosave, save, board_name,
-        //       manufacturer_id, mcu_id, signature, comments (#), profile/rateprofile selection
+        //       manufacturer_id, mcu_id, signature, comments (#)
         const SKIP_PREFIXES = [
           'diff',
           'batch',
@@ -141,8 +142,6 @@ export function registerSnapshotHandlers(deps: HandlerDependencies): void {
           'manufacturer_id',
           'mcu_id',
           'signature',
-          'profile',
-          'rateprofile',
         ];
         const cliDiff: string = snapshot.configuration.cliDiff || '';
         const restorableCommands = cliDiff

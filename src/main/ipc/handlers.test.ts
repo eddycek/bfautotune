@@ -1471,8 +1471,10 @@ describe('IPC Handlers', () => {
       const { event } = createMockEvent();
       const res = await invokeWithEvent(IPCChannel.SNAPSHOT_RESTORE, event, 'snap-1', false);
       expect(res.success).toBe(true);
-      // Only 'set ...', 'feature ...', 'serial ...' should be applied
-      expect(res.data.appliedCommands).toBe(4);
+      // profile/rateprofile context switches + set/feature/serial commands
+      expect(res.data.appliedCommands).toBe(6);
+      expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith('profile 0');
+      expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith('rateprofile 0');
       expect(mockMSP.connection.sendCLICommand).toHaveBeenCalledWith(
         'set gyro_lpf1_static_hz = 250'
       );

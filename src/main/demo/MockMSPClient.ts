@@ -80,6 +80,8 @@ set feedforward_smooth_factor = 37
 set feedforward_jitter_factor = 7
 set feedforward_max_rate_limit = 100
 
+profile 0
+
 # profile 0
 set p_pitch = 52
 set i_pitch = 92
@@ -93,6 +95,10 @@ set p_yaw = 45
 set i_yaw = 90
 set d_yaw = 0
 set f_yaw = 80
+
+rateprofile 0
+
+# rateprofile 0
 `;
 
 /** Demo FC info matching BF 4.5.1 on STM32F405 — exported for test assertions */
@@ -593,12 +599,13 @@ export class MockMSPClient extends EventEmitter {
       result.push(`set ${key} = ${settingsMap.get(key)}`);
     }
     if (profileKeys.length > 0) {
-      result.push('', '# profile 0');
+      result.push('', `profile ${this._pidProfileIndex}`, '');
+      result.push(`# profile ${this._pidProfileIndex}`);
       for (const key of profileKeys) {
         result.push(`set ${key} = ${settingsMap.get(key)}`);
       }
     }
-    result.push('');
+    result.push('', 'rateprofile 0', '', '# rateprofile 0', '');
 
     return result.join('\n');
   }
