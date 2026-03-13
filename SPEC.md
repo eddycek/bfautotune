@@ -308,10 +308,11 @@ Automated build pipeline producing installable applications for all platforms.
 - ESLint + Prettier configuration with lint-staged pre-commit integration
 - TypeScript strict type checking in CI (zero errors enforced)
 - React ErrorBoundary for crash recovery
-- IPC handler modularization (split monolithic 1500-line file into 11 domain modules)
+- IPC handler modularization (split monolithic 1500-line file into 12 domain modules)
 - Data quality scoring: 0-100 quality score for flight data, confidence adjustment, quality warnings
 - Flight quality score with trend chart: visual quality tracking across tuning sessions in history panel
 - Feedforward write-back via CLI apply stage
+- Anonymous telemetry collection: opt-in client-side telemetry (TelemetryManager, settings modal, IPC handlers). Collects tuning mode usage, drone sizes, quality scores — no flight data or PIDs (PR #261)
 
 **Remaining (deferred):**
 - Code signing (macOS notarization, Windows Authenticode)
@@ -364,7 +365,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 | Phase 3: Mode-Aware Analysis | **100%** :white_check_mark: | Wizard modes, read-only analysis, flight guides |
 | Phase 4: Tuning Workflow | **100%** :white_check_mark: | Session state machine (Filter Tune + PID Tune + Flash Tune), smart reconnect, status banner, mode-aware verification, tuning history |
 | Phase 5: Manual Testing & UX Polish | **0%** :x: | Next up |
-| Phase 6: CI/CD & Releases | **100%** :white_check_mark: | CI pipeline, cross-platform releases, ESLint/Prettier, ErrorBoundary, handler split, data quality, flight quality score |
+| Phase 6: CI/CD & Releases | **100%** :white_check_mark: | CI pipeline, cross-platform releases, ESLint/Prettier, ErrorBoundary, handler split, data quality, flight quality score, telemetry |
 | Phase 7a: Demo E2E (Playwright) | **100%** :white_check_mark: | ~30 Playwright tests (demo mode, Filter Tune + PID Tune + Flash Tune + generators) |
 | Phase 7b: Real FC E2E | **0%** :x: | After Phase 5 |
 
