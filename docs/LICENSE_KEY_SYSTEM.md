@@ -42,12 +42,22 @@ Where each `X` is an alphanumeric character (A-Z, 0-9, excluding ambiguous chara
 
 **Entropy**: 28^12 ≈ 1.2 × 10^17 — sufficient for brute-force resistance.
 
-**Ed25519 signature**: Each key embeds a signature verifiable offline with a public key bundled in the app. This prevents key generators — valid keys can only be created by the server holding the private key.
+**Ed25519 signature**: Each key embeds a signed payload verifiable offline with a public key bundled in the app. This prevents key generators — valid keys can only be created by the server holding the private key.
+
+**Key payload** (encoded in the key, signed by Ed25519):
+```
+{
+  type: 'paid' | 'tester',
+  expiresAt: string | null    // ISO 8601 or null (permanent)
+}
+```
 
 **Offline verification flow**:
 1. Key → decode → extract payload + signature
 2. Verify signature with embedded public key
-3. If valid → Pro features enabled (subject to grace period check)
+3. If signature invalid → reject
+4. If `expiresAt` is set and past → downgrade to Free
+5. If valid → Pro features enabled immediately (no server needed)
 
 ### D1 Schema
 
@@ -86,18 +96,29 @@ Customer receives key (email + success page)
     ↓
 Electron App: Settings → Enter key
     ↓
-POST /license/activate { key, installationId }
+1. Offline: Ed25519 signature verification → Pro enabled immediately
+2. Online (background): POST /license/activate → bind installationId in D1
     ↓
-CF Worker → D1 lookup → bind installation → return status
-    ↓
-App stores { key, status, lastValidatedAt } locally
-    ↓
-Periodic: POST /license/validate (online check)
-    ↓
-Offline: grace period (7 days from last validation)
+Periodic (best-effort): POST /license/validate → sync revocation status
 ```
 
-### Activation Flow
+### Activation Flow (Offline-First)
+
+When user enters a license key in the app:
+
+**Step 1 — Offline (instant)**:
+1. Decode key → extract payload + Ed25519 signature
+2. Verify signature with bundled public key
+3. If valid → store key locally, enable Pro immediately
+4. If `expiresAt` is set and past → reject ("License expired")
+
+**Step 2 — Online (background, non-blocking)**:
+1. `POST /license/activate { key, installationId }`
+2. If success → update local `lastValidatedAt`
+3. If 403 "Already activated" → revoke local Pro, show error
+4. If network error → silently skip, retry on next app launch
+
+This means: **user gets Pro the instant they enter a valid key**, even without internet. Machine binding happens in the background.
 
 **Endpoint**: `POST /license/activate`
 
@@ -109,7 +130,7 @@ Offline: grace period (7 days from last validation)
 { "status": "activated", "type": "paid" }
 ```
 
-**Logic**:
+**Server logic**:
 
 | Key exists? | Installation bound? | Same installation? | Result |
 |-------------|--------------------|--------------------|--------|
@@ -119,7 +140,7 @@ Offline: grace period (7 days from last validation)
 | Yes | Yes | No | 403 "Already activated on another machine" |
 | Yes (revoked) | — | — | 403 "License revoked" |
 
-### Validation Flow
+### Online Validation (Best-Effort)
 
 **Endpoint**: `POST /license/validate`
 
@@ -129,16 +150,26 @@ Offline: grace period (7 days from last validation)
 
 // Response
 { "status": "valid", "type": "paid" }
+// or
+{ "status": "revoked" }
 ```
 
-Called periodically by the app (on launch + every 24h). Updates `last_validated_at` in D1.
+**Purpose**: Sync revocation status, not enforce licensing. Called on app launch + every 24h.
 
-### Offline Grace Period
+**If server returns "revoked"** → downgrade to Free locally, show notification.
 
-- App stores `lastValidatedAt` locally in `{userData}/license.json`
-- If unable to reach server, Pro features remain active for **7 days** from last successful validation
-- After 7 days offline → downgrade to Free (profile limit enforced)
-- Next successful online validation → immediately restores Pro
+**If server unreachable** → nothing happens. Pro stays active based on local Ed25519 verification.
+
+### Offline Behavior by Key Type
+
+| Key type | Offline behavior | Online validation purpose |
+|----------|-----------------|--------------------------|
+| **Permanent** (`expiresAt: null`) | Pro forever, no timeout | Sync revocation only (chargeback, abuse) |
+| **Expiring** (`expiresAt: "2027-01-01"`) | Pro until expiry date (checked locally) | Sync revocation + potential renewal |
+
+**Permanent keys** (current model): Ed25519 signature is the sole proof of legitimacy. No internet needed, ever. Online check is purely for edge-case revocation sync.
+
+**Expiring keys** (future): Expiration date is embedded in the signed payload, so it cannot be tampered with. App checks `expiresAt` locally on every launch. After expiry → downgrade to Free regardless of online/offline status.
 
 ### Local Storage
 
@@ -149,6 +180,7 @@ Called periodically by the app (on launch + every 24h). Updates `last_validated_
   "key": "PIDLAB-ABCD-EFGH-JKLM",
   "status": "active",
   "type": "paid",
+  "expiresAt": null,
   "lastValidatedAt": "2026-03-13T10:00:00Z",
   "activatedAt": "2026-03-01T15:30:00Z"
 }
@@ -342,8 +374,9 @@ When `payment_intent.succeeded` fires (see PAYMENT_AND_INVOICING.md):
 ### Task 4: Electron App — License Manager
 - [ ] `src/main/license/LicenseManager.ts`
 - [ ] Local storage (`license.json`)
-- [ ] Online activation + validation
-- [ ] Offline grace period (7 days)
+- [ ] Offline-first activation (Ed25519 verify → instant Pro, online binding in background)
+- [ ] Periodic online validation (revocation sync, best-effort)
+- [ ] Expiration check for future expiring keys (`expiresAt` from payload)
 - [ ] IPC handlers: `LICENSE_ACTIVATE`, `LICENSE_VALIDATE`, `LICENSE_GET_STATUS`, `LICENSE_REMOVE`
 
 ### Task 5: Electron App — License UI
@@ -368,9 +401,11 @@ When `payment_intent.succeeded` fires (see PAYMENT_AND_INVOICING.md):
 
 | Risk | Mitigation |
 |------|------------|
-| Key sharing | 1 key = 1 machine binding. Sharing requires giving away your activation |
+| Key sharing | 1 key = 1 machine binding (enforced on next online check). Sharing requires giving away your activation |
 | Key generators | Ed25519 signature — keys can only be created with server private key |
-| Offline abuse | 7-day grace period balances UX vs enforcement |
-| D1 outage | Offline grace period covers temporary outages transparently |
+| Offline permanent Pro | Acceptable tradeoff — revocation is rare (chargeback/abuse). Signed key proves purchase |
+| Revoked key used offline | User keeps Pro until next online check. Low risk — revocation is edge case |
+| D1 outage | Offline Ed25519 verification unaffected. Online sync retries on next launch |
 | Machine rotation abuse | 3 resets/year limit, admin override for edge cases |
 | Lost key | Customer can request re-send via email lookup (admin API) |
+| Clock manipulation (expiring keys) | Mitigated by `lastValidatedAt` — online check corrects local state. Low priority for desktop app |
