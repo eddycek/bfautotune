@@ -15,7 +15,7 @@
     "build:e2e": "vite build",
     "test:e2e": "vite build && npx playwright test --grep-invert 'generate \\d+'",
     "test:e2e:ui": "vite build && npx playwright test --ui",
-    "demo:generate-history": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'mixed'",
+    "demo:generate-history": "sh -c 'vite build && GENERATE_COUNT=${1:-${GENERATE_COUNT:-5}} npx playwright test e2e/demo-generate-history.spec.ts --grep mixed' --",
     "demo:generate-history:filter": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'filter sessions'",
     "demo:generate-history:pid": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'pid sessions'",
     "demo:generate-history:flash": "vite build && npx playwright test e2e/demo-generate-history.spec.ts --grep 'flash sessions'",

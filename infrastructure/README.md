@@ -206,59 +206,64 @@ terraform apply -var-file=prod.tfvars
 cd ../license-worker && npx wrangler deploy --env prod && cd ../terraform
 ```
 
-### Check Worker health
+## Admin Scripts
+
+Admin scripts in `infrastructure/scripts/` auto-load secrets from `.env.local` in the repo root and prompt for environment (dev/prod) on startup. Legacy telemetry scripts also exist in `scripts/` (root).
+
+### License Key Management
 
 ```bash
-curl -sf https://pidlab-telemetry-dev.eddycek-ve.workers.dev/health    # dev
-curl -sf https://pidlab-telemetry.eddycek-ve.workers.dev/health        # prod
+# Generate a new license key (interactive — asks for email, type, note)
+./infrastructure/scripts/generate-key.sh
+
+# List all keys (dev)
+./infrastructure/scripts/list-keys.sh
+
+# List with filters
+./infrastructure/scripts/list-keys.sh --status active
+./infrastructure/scripts/list-keys.sh --type tester
+
+# View key statistics
+./infrastructure/scripts/key-stats.sh
+
+# Revoke a key (interactive — asks for key ID)
+./infrastructure/scripts/revoke-key.sh
+
+# Reset machine binding (interactive — asks for key ID)
+./infrastructure/scripts/reset-key.sh
 ```
 
-### View telemetry stats
+All scripts default to **dev**. To target **prod**, either select "2" in the prompt or:
 
 ```bash
-source infrastructure/terraform/.env.local
-
-# Quick summary (dev)
-PIDLAB_ADMIN_KEY=$PIDLAB_ADMIN_KEY_DEV ./scripts/telemetry-stats.sh https://pidlab-telemetry-dev.eddycek-ve.workers.dev
-
-# Full report (prod)
-PIDLAB_ADMIN_KEY=$PIDLAB_ADMIN_KEY_PROD ./scripts/telemetry-report.sh https://pidlab-telemetry.eddycek-ve.workers.dev
+PIDLAB_ENV=prod ./infrastructure/scripts/generate-key.sh
 ```
 
-### Test upload manually
+### Telemetry
 
 ```bash
-source infrastructure/terraform/.env.local
+# View app version distribution (who's on what version)
+./infrastructure/scripts/app-versions.sh
 
-curl -X POST "$TELEMETRY_DEV_URL" \
-  -H "Content-Type: application/json" \
-  -d '{"schemaVersion":1,"installationId":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-01-01T00:00:00Z","appVersion":"0.1.0","platform":"darwin","profiles":{"count":1,"sizes":["5\""],"flightStyles":["balanced"]},"tuningSessions":{"totalCompleted":0,"byMode":{"filter":0,"pid":0,"quick":0},"recentQualityScores":[]},"fcInfo":{"bfVersions":[],"fcSerialHashes":[],"boardTargets":[]},"blackbox":{"totalLogsDownloaded":0,"storageTypes":[],"compressionDetected":false},"features":{"analysisOverviewUsed":false,"snapshotRestoreUsed":false,"snapshotCompareUsed":false,"historyViewUsed":false}}'
+# Check worker health
+curl -sf https://pidlab-telemetry-dev.eddycek-ve.workers.dev/health
+curl -sf https://pidlab-license-dev.eddycek-ve.workers.dev/health
 ```
 
-### Run app with dev telemetry
+### Ed25519 Keypair
 
 ```bash
-source infrastructure/terraform/.env.local
-TELEMETRY_URL=$TELEMETRY_DEV_URL npm run dev
-```
-
-### Local Worker development (no Cloudflare)
-
-```bash
-cd infrastructure/telemetry-worker
-npm install
-npx wrangler dev
-# Worker runs at http://localhost:8787 with local R2 emulation
-# Point app: TELEMETRY_URL=http://localhost:8787/v1/collect npm run dev
+# Generate new Ed25519 keypair (one-time, output goes to 1Password + GitHub secrets)
+./infrastructure/scripts/generate-ed25519-keypair.sh
 ```
 
 ### Rotate secrets
 
-1. Generate new value (API token in CF dashboard, admin key with `openssl rand -hex 32`)
+1. Generate new value (`openssl rand -hex 32` for admin keys, CF dashboard for API tokens)
 2. Update GitHub secret: `gh secret set SECRET_NAME --body "new-value"`
 3. Update `.env.local` locally
 4. Update 1Password vault
-5. For Worker secrets (ADMIN_KEY, RESEND_API_KEY): push any infra change to trigger CI/CD redeploy, or set manually via `wrangler secret put`
+5. Push any infra change to trigger CI/CD redeploy
 
 ## Telemetry Worker Endpoints
 
