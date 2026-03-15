@@ -208,7 +208,7 @@ cd ../license-worker && npx wrangler deploy --env prod && cd ../terraform
 
 ## Admin Scripts
 
-All scripts live in `infrastructure/scripts/`. They auto-load secrets from `.env.local` in the repo root and prompt for environment (dev/prod) on startup.
+Admin scripts in `infrastructure/scripts/` auto-load secrets from `.env.local` in the repo root and prompt for environment (dev/prod) on startup. Legacy telemetry scripts also exist in `scripts/` (root).
 
 ### License Key Management
 
