@@ -1,6 +1,6 @@
 # Telemetry Collection System
 
-> **Status**: Complete (PRs #261–#262) — code ready, deploy with `wrangler deploy`
+> **Status**: Complete (PRs #261–#265) — fully deployed to dev + prod via Terraform CI/CD
 
 ## Problem
 
@@ -298,6 +298,28 @@ curl -s -H "$KEY" "$API/quality" | jq .
 ### Task 6: Shell Scripts — DONE
 - [x] `scripts/telemetry-stats.sh`
 - [x] `scripts/telemetry-report.sh`
+
+### Task 7: Terraform Infrastructure-as-Code — DONE
+- [x] `infrastructure/terraform/main.tf` — R2 bucket, Worker, cron trigger, optional DNS
+- [x] Dev/prod environments via `environment` variable (isolated buckets, cron only in prod)
+- [x] R2 S3-compatible backend for Terraform state (`pidlab-tfstate` bucket)
+- [x] Backend config files (`backend-dev.hcl`, `backend-prod.hcl`) for state isolation
+- [x] Dynamic RESEND_API_KEY binding (skipped when empty)
+- [x] Existing resources imported into Terraform state (both environments)
+
+### Task 8: CI/CD Pipeline — DONE
+- [x] `.github/workflows/infrastructure.yml` — triggered only on `infrastructure/**` changes
+- [x] Build Worker (esbuild TS → JS bundle)
+- [x] `terraform plan` on PR (both environments)
+- [x] `terraform apply` on merge to main (dev first, then prod)
+- [x] 6 GitHub secrets configured and documented in `infrastructure/README.md`
+- [x] Resend API key created and deployed to both Workers
+
+### Task 9: Bootstrapped Cloudflare Resources — DONE
+- [x] R2 buckets: `pidlab-tfstate`, `pidlab-telemetry-dev`, `pidlab-telemetry`
+- [x] Workers: `pidlab-telemetry-dev` (dev), `pidlab-telemetry` (prod + cron)
+- [x] CF tokens: `pidlab-infra-provisioning` (API), `pidlab-terraform-r2-v2` (R2 S3)
+- [x] Resend token: `pidlab-telemetry-reports`
 
 ## Future: Paid Backup Extension
 
