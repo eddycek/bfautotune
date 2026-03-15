@@ -3,6 +3,7 @@ import { IPCChannel, IPCResponse } from '@shared/types/ipc.types';
 import { createResponse } from './types';
 import { checkForUpdates, quitAndInstall } from '../../updater';
 import { logger } from '../../utils/logger';
+import { getErrorMessage } from '../../utils/errors';
 
 export function registerUpdateHandlers(): void {
   ipcMain.handle(IPCChannel.UPDATE_CHECK, async (): Promise<IPCResponse<void>> => {
@@ -11,7 +12,7 @@ export function registerUpdateHandlers(): void {
       return createResponse(undefined);
     } catch (err) {
       logger.error('Failed to check for updates:', err);
-      return createResponse<void>(undefined, String(err));
+      return createResponse<void>(undefined, getErrorMessage(err));
     }
   });
 
@@ -21,7 +22,7 @@ export function registerUpdateHandlers(): void {
       return createResponse(undefined);
     } catch (err) {
       logger.error('Failed to install update:', err);
-      return createResponse<void>(undefined, String(err));
+      return createResponse<void>(undefined, getErrorMessage(err));
     }
   });
 }

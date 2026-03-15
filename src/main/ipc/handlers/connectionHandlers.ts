@@ -139,9 +139,16 @@ export function registerConnectionHandlers(deps: HandlerDependencies): void {
     async (_event, lines?: number): Promise<IPCResponse<string[]>> => {
       try {
         const logPath = logger.getLogFilePath();
-        const content = await fs.readFile(logPath, 'utf-8');
-        const allLines = content.split('\n').filter((l) => l.trim());
-        const count = lines || 30;
+        const count = Math.min(Math.max(lines || 50, 1), 200);
+        // Read last ~64KB to avoid loading huge log files into memory
+        const stat = await fs.stat(logPath);
+        const readSize = Math.min(stat.size, 64 * 1024);
+        const fh = await fs.open(logPath, 'r');
+        const buffer = Buffer.alloc(readSize);
+        await fh.read(buffer, 0, readSize, Math.max(0, stat.size - readSize));
+        await fh.close();
+        const tail = buffer.toString('utf-8');
+        const allLines = tail.split('\n').filter((l) => l.trim());
         return createResponse(allLines.slice(-count));
       } catch (err) {
         return createResponse<string[]>(undefined, getErrorMessage(err));
