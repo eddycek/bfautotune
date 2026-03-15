@@ -130,38 +130,91 @@ After bootstrap, everything is managed by Terraform + CI/CD. No more manual comm
 
 ## Manual Operations
 
-### Local Terraform (emergency / debugging)
+All manual operations require secrets from `.env.local`. First-time setup:
 
 ```bash
 cd infrastructure/terraform
-
-# Dev
-terraform init -backend-config=backend-dev.hcl
-terraform plan -var-file=dev.tfvars
-terraform apply -var-file=dev.tfvars
-
-# Prod
-terraform init -reconfigure -backend-config=backend-prod.hcl
-terraform plan -var-file=prod.tfvars
-terraform apply -var-file=prod.tfvars
+cp env.template .env.local
+# Fill in real values from 1Password (vault: PIDlab Infrastructure)
 ```
 
-Requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (R2 credentials) and `TF_VAR_cloudflare_api_token`, `TF_VAR_admin_key` env vars.
+### Deploy infrastructure manually
 
-### Local Worker Testing
+Normally CI/CD handles this on merge to main. Use this for emergency fixes or debugging.
+
+```bash
+cd infrastructure/terraform
+source .env.local
+
+# 1. Build worker bundle from TypeScript source
+cd ../telemetry-worker && npm install && npx esbuild src/index.ts --bundle --format=esm --outfile=../terraform/worker-bundle.js && cd ../terraform
+
+# 2a. Deploy DEV
+terraform init -backend-config=backend-dev.hcl
+export TF_VAR_admin_key="$TF_VAR_admin_key_dev"
+terraform plan -var-file=dev.tfvars          # review changes
+terraform apply -var-file=dev.tfvars         # apply
+
+# 2b. Deploy PROD (switch backend state)
+terraform init -reconfigure -backend-config=backend-prod.hcl
+export TF_VAR_admin_key="$TF_VAR_admin_key_prod"
+terraform plan -var-file=prod.tfvars         # review changes
+terraform apply -var-file=prod.tfvars        # apply
+```
+
+### Check Worker health
+
+```bash
+curl -sf https://pidlab-telemetry-dev.eddycek-ve.workers.dev/health    # dev
+curl -sf https://pidlab-telemetry.eddycek-ve.workers.dev/health        # prod
+```
+
+### View telemetry stats
+
+```bash
+source infrastructure/terraform/.env.local
+
+# Quick summary (dev)
+PIDLAB_ADMIN_KEY=$PIDLAB_ADMIN_KEY_DEV ./scripts/telemetry-stats.sh https://pidlab-telemetry-dev.eddycek-ve.workers.dev
+
+# Full report (prod)
+PIDLAB_ADMIN_KEY=$PIDLAB_ADMIN_KEY_PROD ./scripts/telemetry-report.sh https://pidlab-telemetry.eddycek-ve.workers.dev
+```
+
+### Test upload manually
+
+```bash
+source infrastructure/terraform/.env.local
+
+curl -X POST "$TELEMETRY_DEV_URL" \
+  -H "Content-Type: application/json" \
+  -d '{"schemaVersion":1,"installationId":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-01-01T00:00:00Z","appVersion":"0.1.0","platform":"darwin","profiles":{"count":1,"sizes":["5\""],"flightStyles":["balanced"]},"tuningSessions":{"totalCompleted":0,"byMode":{"filter":0,"pid":0,"quick":0},"recentQualityScores":[]},"fcInfo":{"bfVersions":[],"fcSerialHashes":[],"boardTargets":[]},"blackbox":{"totalLogsDownloaded":0,"storageTypes":[],"compressionDetected":false},"features":{"analysisOverviewUsed":false,"snapshotRestoreUsed":false,"snapshotCompareUsed":false,"historyViewUsed":false}}'
+```
+
+### Run app with dev telemetry
+
+```bash
+source infrastructure/terraform/.env.local
+TELEMETRY_URL=$TELEMETRY_DEV_URL npm run dev
+```
+
+### Local Worker development (no Cloudflare)
 
 ```bash
 cd infrastructure/telemetry-worker
 npm install
 npx wrangler dev
-# Worker runs at http://localhost:8787
+# Worker runs at http://localhost:8787 with local R2 emulation
+# Point app: TELEMETRY_URL=http://localhost:8787/v1/collect npm run dev
 ```
 
-### Pointing App to Dev Worker
+### Rotate secrets
 
-```bash
-TELEMETRY_URL=https://pidlab-telemetry-dev.eddycek-ve.workers.dev/v1/collect npm run dev
-```
+1. Generate new value (API token in CF dashboard, admin key with `openssl rand -hex 32`)
+2. Update GitHub secret: `gh secret set SECRET_NAME --body "new-value"`
+3. Update `.env.local` locally
+4. Update 1Password vault
+5. For Worker secrets (ADMIN_KEY, RESEND_API_KEY): push any infra change to trigger CI/CD redeploy, or set manually via `wrangler secret put`
 
 ## Telemetry Worker Endpoints
 
