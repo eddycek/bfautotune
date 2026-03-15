@@ -123,10 +123,34 @@ export function TelemetrySettingsModal({ onClose }: TelemetrySettingsModalProps)
                 </div>
 
                 <p className="telemetry-description">
-                  Help improve PIDlab by sharing anonymous usage data. We collect tuning mode usage,
-                  drone sizes, flight quality scores, and Betaflight versions. No flight data, PID
-                  values, or personal information is ever sent.
+                  Help improve PIDlab by sharing anonymous usage data.
                 </p>
+
+                <div className="telemetry-data-table">
+                  <div className="telemetry-data-section">
+                    <h4 className="telemetry-data-heading telemetry-data-collected">We collect</h4>
+                    <ul className="telemetry-data-list">
+                      <li>Tuning mode usage (Filter / PID / Flash)</li>
+                      <li>Drone sizes and flight styles</li>
+                      <li>Flight quality scores</li>
+                      <li>Betaflight versions and board targets</li>
+                      <li>App version and platform</li>
+                      <li>Feature usage flags (analysis, snapshots, history)</li>
+                    </ul>
+                  </div>
+                  <div className="telemetry-data-section">
+                    <h4 className="telemetry-data-heading telemetry-data-not-collected">
+                      We never collect
+                    </h4>
+                    <ul className="telemetry-data-list">
+                      <li>Flight data or blackbox logs</li>
+                      <li>PID values or filter settings</li>
+                      <li>Personal information or email</li>
+                      <li>FC serial numbers (only salted hashes)</li>
+                      <li>IP addresses (not stored server-side)</li>
+                    </ul>
+                  </div>
+                </div>
 
                 <div className="telemetry-info-row">
                   <span className="telemetry-info-label">Installation ID</span>
@@ -180,7 +204,10 @@ export function TelemetrySettingsModal({ onClose }: TelemetrySettingsModalProps)
                 <p className="logs-loading">Loading logs...</p>
               ) : (
                 logs.map((line, i) => (
-                  <div key={i} className="logs-line">
+                  <div
+                    key={i}
+                    className={`logs-line${line.includes('[error]') ? ' logs-line-error' : line.includes('[warn]') ? ' logs-line-warn' : ''}`}
+                  >
                     {line}
                   </div>
                 ))

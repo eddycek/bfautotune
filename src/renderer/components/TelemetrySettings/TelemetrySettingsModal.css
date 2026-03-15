@@ -134,6 +134,49 @@
   color: #fff;
 }
 
+/* ── Telemetry Data Table ───────────────────────────────────── */
+
+.telemetry-data-table {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.telemetry-data-section {
+  flex: 1;
+  background: #252525;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.telemetry-data-heading {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.telemetry-data-collected {
+  color: #10b981;
+}
+
+.telemetry-data-not-collected {
+  color: #ef4444;
+}
+
+.telemetry-data-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.telemetry-data-list li {
+  font-size: 11px;
+  color: #999;
+  padding: 2px 0;
+}
+
 .telemetry-error-value {
   color: #ef4444 !important;
   font-size: 12px !important;
@@ -198,6 +241,14 @@
 
 .logs-line:hover {
   background: rgba(255, 255, 255, 0.03);
+}
+
+.logs-line-error {
+  color: #ef4444;
+}
+
+.logs-line-warn {
+  color: #d97706;
 }
 
 .logs-loading {
