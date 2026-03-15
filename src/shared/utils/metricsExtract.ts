@@ -4,7 +4,11 @@
  * Used to create history records from completed tuning sessions.
  */
 
-import type { FilterAnalysisResult, PIDAnalysisResult } from '../types/analysis.types';
+import type {
+  FilterAnalysisResult,
+  PIDAnalysisResult,
+  StepResponse,
+} from '../types/analysis.types';
 import type {
   CompactSpectrum,
   CompactStepResponse,
@@ -397,9 +401,75 @@ export function extractTransferFunctionMetrics(
 }
 
 /**
- * Extract compact PID metrics from a full PIDAnalysisResult.
+ * Find the best (most representative) step response with a trace from a list.
+ * Prefers steps with moderate overshoot and non-zero rise time.
  */
+function findBestStepWithTrace(responses: StepResponse[]): StepResponse | null {
+  let best: StepResponse | null = null;
+  let bestScore = -Infinity;
+  for (const r of responses) {
+    if (!r.trace || r.trace.timeMs.length === 0) continue;
+    const isDegenerate = r.riseTimeMs === 0 || r.overshootPercent >= 500;
+    const score = isDegenerate ? -1 : Math.abs(r.step.magnitude);
+    if (score > bestScore) {
+      bestScore = score;
+      best = r;
+    }
+  }
+  return best;
+}
+
+/**
+ * Normalize a step trace to response relative to setpoint=1.0.
+ * Accounts for step direction — negative steps are flipped so the trace
+ * always settles toward +1.0.
+ */
+function normalizeStepTrace(step: StepResponse): { timeMs: number[]; response: number[] } {
+  const trace = step.trace!;
+  const mag = step.step.magnitude || 1; // signed magnitude preserves direction
+  return {
+    timeMs: trace.timeMs,
+    response: trace.gyro.map((g) => g / mag),
+  };
+}
+
+/**
+ * Extract a compact step response from the best step per axis.
+ * Each axis uses its own time base; downsampleStepResponse resamples to shared grid.
+ */
+function extractBestStepResponse(result: PIDAnalysisResult): CompactStepResponse | undefined {
+  const rollStep = findBestStepWithTrace(result.roll.responses);
+  const pitchStep = findBestStepWithTrace(result.pitch.responses);
+  const yawStep = findBestStepWithTrace(result.yaw.responses);
+
+  if (!rollStep?.trace && !pitchStep?.trace && !yawStep?.trace) return undefined;
+
+  const refStep = rollStep || pitchStep || yawStep;
+  if (!refStep?.trace) return undefined;
+  const refLen = refStep.trace.timeMs.length;
+
+  const getAxisData = (step: StepResponse | null) => {
+    if (!step?.trace) {
+      return {
+        timeMs: refStep!.trace!.timeMs,
+        response: new Array(refLen).fill(0),
+      };
+    }
+    return normalizeStepTrace(step);
+  };
+
+  return downsampleStepResponse(
+    {
+      roll: getAxisData(rollStep),
+      pitch: getAxisData(pitchStep),
+      yaw: getAxisData(yawStep),
+    },
+    64
+  );
+}
+
 export function extractPIDMetrics(result: PIDAnalysisResult): PIDMetricsSummary {
+  const stepResponse = extractBestStepResponse(result);
   return {
     roll: {
       meanOvershoot: round2(result.roll.meanOvershoot),
@@ -428,5 +498,6 @@ export function extractPIDMetrics(result: PIDAnalysisResult): PIDMetricsSummary 
     ...(result.dataQuality
       ? { dataQuality: { overall: result.dataQuality.overall, tier: result.dataQuality.tier } }
       : {}),
+    ...(stepResponse ? { stepResponse } : {}),
   };
 }
