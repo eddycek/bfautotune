@@ -109,8 +109,10 @@ export const TUNING_TYPE_LABELS: Record<string, string> = {
 };
 
 export const LICENSE = {
-  /** License API endpoint (CF Worker) */
+  /** Production license API endpoint */
   API_URL: 'https://license.pidlab.app',
+  /** Development license API endpoint */
+  API_URL_DEV: 'https://pidlab-license-dev.718d9177347897a7e4a282cdf5c38568.workers.dev',
   /** Key format regex: PIDLAB-XXXX-XXXX-XXXX (28-char alphabet) */
   KEY_FORMAT_REGEX: /^PIDLAB-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/,
   /** Ed25519 public key (base64-encoded SPKI DER) — set after keypair generation */
@@ -122,8 +124,11 @@ export const LICENSE = {
 } as const;
 
 export const TELEMETRY = {
-  /** Cloud endpoint for telemetry uploads (CF Worker — not yet deployed) */
+  /** Production telemetry endpoint */
   UPLOAD_URL: 'https://telemetry.pidlab.app/v1/collect',
+  /** Development telemetry endpoint */
+  UPLOAD_URL_DEV:
+    'https://pidlab-telemetry-dev.718d9177347897a7e4a282cdf5c38568.workers.dev/v1/collect',
   /** Retry delays in ms for failed uploads */
   RETRY_DELAYS: [1000, 2000, 4000] as readonly number[],
   /** Minimum interval between automatic uploads (24 hours) */

@@ -113,8 +113,9 @@ export class LicenseManager {
 
     const installationId = this.getInstallationId();
 
-    // Call activation endpoint
-    const apiUrl = process.env.LICENSE_API_URL || LICENSE.API_URL;
+    // Call activation endpoint (dev → dev worker, prod → prod worker)
+    const defaultUrl = app.isPackaged ? LICENSE.API_URL : LICENSE.API_URL_DEV;
+    const apiUrl = process.env.LICENSE_API_URL || defaultUrl;
     const response = await net.fetch(`${apiUrl}/license/activate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -158,7 +159,8 @@ export class LicenseManager {
     if (!this.license) return;
 
     const installationId = this.getInstallationId();
-    const apiUrl = process.env.LICENSE_API_URL || LICENSE.API_URL;
+    const defaultUrl = app.isPackaged ? LICENSE.API_URL : LICENSE.API_URL_DEV;
+    const apiUrl = process.env.LICENSE_API_URL || defaultUrl;
 
     try {
       const response = await net.fetch(`${apiUrl}/license/validate`, {

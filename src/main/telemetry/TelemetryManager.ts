@@ -272,7 +272,8 @@ export class TelemetryManager {
 
       for (let attempt = 0; attempt <= TELEMETRY.RETRY_DELAYS.length; attempt++) {
         try {
-          const uploadUrl = process.env.TELEMETRY_URL || TELEMETRY.UPLOAD_URL;
+          const defaultUrl = app.isPackaged ? TELEMETRY.UPLOAD_URL : TELEMETRY.UPLOAD_URL_DEV;
+          const uploadUrl = process.env.TELEMETRY_URL || defaultUrl;
           const response = await net.fetch(uploadUrl, {
             method: 'POST',
             headers: {
