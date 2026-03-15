@@ -17,6 +17,7 @@ import { FixSettingsConfirmModal } from './components/FCInfo/FixSettingsConfirmM
 import { StartTuningModal } from './components/StartTuningModal';
 import { TelemetrySettingsModal } from './components/TelemetrySettings/TelemetrySettingsModal';
 import { LicenseSettingsModal } from './components/LicenseSettings/LicenseSettingsModal';
+import { UpdateNotification } from './components/UpdateNotification/UpdateNotification';
 import { useLicense } from './hooks/useLicense';
 import { computeBBSettingsStatus } from './utils/bbSettingsUtils';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -620,6 +621,7 @@ function AppContent() {
         </div>
         <div className="app-header-right">
           <span className="version">v0.1.0</span>
+          <UpdateNotification />
           <button
             className={`app-license-badge ${isPro ? 'app-license-pro' : 'app-license-free'}`}
             onClick={() => setShowLicenseSettings(true)}

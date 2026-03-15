@@ -644,6 +644,37 @@ const betaflightAPI: BetaflightAPI = {
     }
   },
 
+  // Auto-update
+  async checkForUpdate(): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.UPDATE_CHECK);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to check for updates');
+    }
+  },
+
+  async installUpdate(): Promise<void> {
+    const response = await ipcRenderer.invoke(IPCChannel.UPDATE_INSTALL);
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to install update');
+    }
+  },
+
+  onUpdateAvailable(callback: (info: { version: string }) => void): () => void {
+    const listener = (_: any, info: { version: string }) => callback(info);
+    ipcRenderer.on(IPCChannel.EVENT_UPDATE_AVAILABLE, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_UPDATE_AVAILABLE, listener);
+    };
+  },
+
+  onUpdateDownloaded(callback: (info: { version: string }) => void): () => void {
+    const listener = (_: any, info: { version: string }) => callback(info);
+    ipcRenderer.on(IPCChannel.EVENT_UPDATE_DOWNLOADED, listener);
+    return () => {
+      ipcRenderer.removeListener(IPCChannel.EVENT_UPDATE_DOWNLOADED, listener);
+    };
+  },
+
   // License
   async activateLicense(key: string): Promise<LicenseInfo> {
     const response = await ipcRenderer.invoke(IPCChannel.LICENSE_ACTIVATE, key);

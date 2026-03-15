@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Electron / V8 JIT requirements -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Native modules (serialport) require disabled library validation -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- USB serial communication with flight controllers -->
+    <key>com.apple.security.device.usb</key>
+    <true/>
+    <!-- Network: telemetry upload, license validation, auto-updates -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- File access: blackbox log import/export, snapshots -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

@@ -22,7 +22,7 @@ export default defineConfig({
           build: {
             outDir: 'dist/main',
             rollupOptions: {
-              external: ['electron', 'serialport', 'electron-store', 'electron-log'],
+              external: ['electron', 'serialport', 'electron-store', 'electron-log', 'electron-updater'],
               output: {
                 format: 'cjs',
                 entryFileNames: 'index.js'

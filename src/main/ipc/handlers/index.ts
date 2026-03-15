@@ -19,6 +19,7 @@ import { registerAnalysisHandlers } from './analysisHandlers';
 import { registerTuningHandlers } from './tuningHandlers';
 import { registerTelemetryHandlers } from './telemetryHandlers';
 import { registerLicenseHandlers } from './licenseHandlers';
+import { registerUpdateHandlers } from './updateHandlers';
 
 // Re-export events for use in src/main/index.ts
 export {
@@ -110,4 +111,5 @@ export function registerIPCHandlers(): void {
   registerTuningHandlers(deps);
   registerTelemetryHandlers(deps);
   registerLicenseHandlers(deps);
+  registerUpdateHandlers();
 }

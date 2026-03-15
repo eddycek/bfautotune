@@ -45,6 +45,7 @@
   "dependencies": {
     "electron-log": "^5.0.1",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.3",
     "fft.js": "^4.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -92,9 +93,21 @@
       "dist/**/*",
       "package.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "eddycek",
+      "repo": "pidlab"
+    },
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": "dmg"
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist"
     },
     "win": {
       "target": "nsis"

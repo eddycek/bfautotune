@@ -26,6 +26,7 @@ import {
 } from './ipc/handlers';
 import { TelemetryManager } from './telemetry/TelemetryManager';
 import { LicenseManager } from './license/LicenseManager';
+import { initAutoUpdater } from './updater';
 import { logger } from './utils/logger';
 import { SNAPSHOT, PROFILE, TUNING_PHASE } from '@shared/constants';
 import { MockMSPClient, DEMO_FC_SERIAL } from './demo/MockMSPClient';
@@ -399,6 +400,11 @@ app.whenReady().then(async () => {
   // Start capturing renderer console for debug server
   if (process.env.DEBUG_SERVER === 'true') {
     captureRendererConsole();
+  }
+
+  // Initialize auto-updater (packaged builds only, not demo)
+  if (!isDemoMode) {
+    initAutoUpdater();
   }
 
   // In demo mode, auto-connect after window is ready

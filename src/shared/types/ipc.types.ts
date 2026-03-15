@@ -164,6 +164,10 @@ export enum IPCChannel {
   TELEMETRY_SET_ENABLED = 'telemetry:set-enabled',
   TELEMETRY_SEND_NOW = 'telemetry:send-now',
 
+  // Auto-update
+  UPDATE_CHECK = 'update:check',
+  UPDATE_INSTALL = 'update:install',
+
   // License
   LICENSE_ACTIVATE = 'license:activate',
   LICENSE_GET_STATUS = 'license:get-status',
@@ -182,6 +186,8 @@ export enum IPCChannel {
   EVENT_SNAPSHOT_RESTORE_PROGRESS = 'event:snapshot-restore-progress',
   EVENT_TUNING_SESSION_CHANGED = 'event:tuning-session-changed',
   EVENT_LICENSE_CHANGED = 'event:license-changed',
+  EVENT_UPDATE_AVAILABLE = 'event:update-available',
+  EVENT_UPDATE_DOWNLOADED = 'event:update-downloaded',
   EVENT_ERROR = 'event:error',
   EVENT_LOG = 'event:log',
 }
@@ -303,6 +309,12 @@ export interface BetaflightAPI {
   getTelemetrySettings(): Promise<TelemetrySettings>;
   setTelemetryEnabled(enabled: boolean): Promise<TelemetrySettings>;
   sendTelemetryNow(): Promise<void>;
+
+  // Auto-update
+  checkForUpdate(): Promise<void>;
+  installUpdate(): Promise<void>;
+  onUpdateAvailable(callback: (info: { version: string }) => void): () => void;
+  onUpdateDownloaded(callback: (info: { version: string }) => void): () => void;
 
   // License
   activateLicense(key: string): Promise<LicenseInfo>;

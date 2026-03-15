@@ -36,11 +36,63 @@ jobs:
       - name: Build with Vite
         run: npx vite build
 
-      - name: Package and publish
+      # ── macOS: Import signing certificate into temporary keychain ──
+      - name: Import macOS signing certificate
+        if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          echo "$APPLE_CERTIFICATE" | base64 --decode > $CERTIFICATE_PATH
+          security create-keychain -p "" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "" $KEYCHAIN_PATH
+          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain
+
+      # ── macOS: Package with signing + notarization ──
+      - name: Package and publish (macOS — signed)
+        if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: npx electron-builder --publish always
+
+      # ── macOS: Package unsigned (when no cert configured) ──
+      - name: Package and publish (macOS — unsigned)
+        if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE == ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
         run: npx electron-builder --publish always
+
+      # ── Windows: Package with optional signing ──
+      - name: Package and publish (Windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: npx electron-builder --publish always
+
+      # ── Linux: Package (no signing needed) ──
+      - name: Package and publish (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --publish always
+
+      # ── macOS: Cleanup temporary keychain ──
+      - name: Cleanup macOS keychain
+        if: matrix.os == 'macos-latest' && always()
+        run: security delete-keychain $RUNNER_TEMP/build.keychain 2>/dev/null || true
 
       - name: Upload build artifacts on failure
         if: failure()
