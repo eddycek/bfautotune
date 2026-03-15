@@ -180,7 +180,7 @@ High-level user journey:
 |---------------|--------|-------|
 | Market pain is real: many pilots struggle with tuning | N/A | Validated by spec |
 | Differentiator: end-to-end tuning workflow + automated recommendations + rollback + beginner explanations | :white_check_mark: | Full end-to-end pipeline with Filter Tune, PID Tune, and Flash Tune workflows |
-| Monetization paths (later): open-core or freemium | :fast_forward: | Post-MVP |
+| Monetization paths (later): open-core or freemium | :construction: | Freemium license system implemented (PRs #266-#268). Payment integration pending. |
 | MVP should be fully usable offline without accounts | :white_check_mark: | No accounts, no network, fully local |
 
 ---
@@ -314,9 +314,11 @@ Automated build pipeline producing installable applications for all platforms.
 - Feedforward write-back via CLI apply stage
 - Anonymous telemetry collection: opt-in client-side telemetry (TelemetryManager, settings modal, IPC handlers). Collects tuning mode usage, drone sizes, quality scores — no flight data or PIDs (PR #261)
 
-**Remaining (deferred):**
+**Completed (PRs #266–#268):**
 - Code signing (macOS notarization, Windows Authenticode)
-- Auto-update mechanism (electron-updater)
+- Auto-update mechanism (electron-updater with GitHub Releases)
+- Freemium license system (Ed25519 offline-first, free tier 1 profile, Pro unlimited)
+- Settings modal with tabbed Telemetry + Logs viewer
 
 ### Phase 7: E2E Tests :construction:
 **Status:** Demo mode E2E complete. Real FC E2E not started.
@@ -355,7 +357,7 @@ Automated end-to-end tests running in CI pipeline against a real FC connected to
 
 ## Progress Summary
 
-**Last Updated:** March 13, 2026 | **Tests:** 2475 unit tests across 122 files + ~30 Playwright E2E tests | **PRs Merged:** #1–#262
+**Last Updated:** March 15, 2026 | **Tests:** 2532 unit tests across 128 files + ~30 Playwright E2E tests | **PRs Merged:** #1–#268
 
 | Phase | Status | Notes |
 |-------|--------|-------|

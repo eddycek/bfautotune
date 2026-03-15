@@ -161,7 +161,7 @@ IPC handlers are split into domain modules under `src/main/ipc/handlers/`:
 |--------|----------|---------|
 | `types.ts` | — | `HandlerDependencies` interface, `createResponse`, `parseDiffSetting` |
 | `events.ts` | — | 7 event broadcast functions |
-| `connectionHandlers.ts` | 6 | Port scanning, connect, disconnect, status, demo mode, reset demo |
+| `connectionHandlers.ts` | 8 | Port scanning, connect, disconnect, status, demo mode, reset demo, get logs, export logs |
 | `fcInfoHandlers.ts` | 6 | FC info, CLI export, BB settings, FF config, fix settings, BF PID profile selection |
 | `snapshotHandlers.ts` | 6 | Snapshot CRUD, export, restore |
 | `profileHandlers.ts` | 10 | Profile CRUD, presets, FC serial |
@@ -170,6 +170,8 @@ IPC handlers are split into domain modules under `src/main/ipc/handlers/`:
 | `analysisHandlers.ts` | 3 | Filter, PID, and transfer function analysis |
 | `tuningHandlers.ts` | 8 | Apply, session CRUD (filter + pid + flash), history, update verification, update history verification |
 | `telemetryHandlers.ts` | 3 | Telemetry settings get/set, manual upload trigger |
+| `licenseHandlers.ts` | 4 | License activate, get status, remove, validate |
+| `updateHandlers.ts` | 2 | Auto-update check, install |
 | `index.ts` | — | DI container, `registerIPCHandlers()` |
 
 **Request-Response Pattern**:
@@ -226,6 +228,28 @@ window.betaflight.onConnectionChanged((status) => {
 - Skipped in demo mode
 - IPC: `TELEMETRY_GET_SETTINGS`, `TELEMETRY_SET_ENABLED`, `TELEMETRY_SEND_NOW`
 - Design doc: `docs/TELEMETRY_COLLECTION.md`
+
+**License Storage** (`LicenseManager.ts`):
+- Location: `{userData}/license.json`
+- Signed license object (Ed25519) for offline verification
+- LicenseManager: activate, validate (online/offline), remove
+- Free tier: 1 profile limit enforced in profileHandlers
+- Demo mode + dev mode: auto-Pro (no restrictions)
+- IPC: `LICENSE_ACTIVATE`, `LICENSE_GET_STATUS`, `LICENSE_REMOVE`, `LICENSE_VALIDATE` + `EVENT_LICENSE_CHANGED`
+
+**Auto-Updater** (`src/main/updater.ts`):
+- Uses `electron-updater` with GitHub Releases as provider
+- Checks 10s after launch (packaged builds only, skip dev/demo)
+- Silent background download, `autoInstallOnAppQuit = true`
+- IPC events: `EVENT_UPDATE_AVAILABLE`, `EVENT_UPDATE_DOWNLOADED`
+- UI: `UpdateNotification` component in header (green pill with "What's new" changelog modal)
+- IPC: `UPDATE_CHECK`, `UPDATE_INSTALL`
+
+**Settings Modal** (`TelemetrySettingsModal`):
+- Tabbed UI: Telemetry | Logs
+- Telemetry tab: toggle, data collection summary (what we collect / never collect), upload status + errors
+- Logs tab: scrollable box (last 50 lines, 64KB tail read), color-coded (red=error, orange=warn), Refresh + Export to file
+- IPC: `APP_GET_LOGS`, `APP_EXPORT_LOGS`
 
 ### Blackbox Parser (`src/main/blackbox/`)
 

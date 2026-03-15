@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last Updated:** March 13, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2475 unit tests, 122 files + 30 Playwright E2E tests**
+**Last Updated:** March 15, 2026 | **Phase 4 Complete, Phase 6 Complete** | **2532 unit tests, 128 files + 30 Playwright E2E tests**
 
 ---
 
@@ -37,13 +37,13 @@
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
 │  │              Preload Script (contextBridge, 689 lines)              │  │
 │  └───────────────────────────────┼──────────────────────────────────────┘  │
-│                                  │ IPC (54 channels, 14 event types)        │
+│                                  │ IPC (62 channels, 16 event types)        │
 │                                  │                                         │
 │  ┌───────────────────────────────┼──────────────────────────────────────┐  │
 │  │                     Main Process (Node.js)                          │  │
 │  │                                                                      │  │
 │  │  ┌────────────────────────────┴─────────────────────────────────┐   │  │
-│  │  │                    IPC Handlers (2385 lines, 12 modules)      │   │  │
+│  │  │                    IPC Handlers (62 handlers, 12 modules)     │   │  │
 │  │  │  connection:* | fc:* | snapshot:* | profile:* | blackbox:*  │   │  │
 │  │  │  analysis:* | tuning:* | pid:*                              │   │  │
 │  │  └───┬──────────┬──────────┬────────────┬──────────┬───────────┘   │  │
@@ -422,6 +422,7 @@ Checks before analysis:
 | `TuningSessionManager` | `{userData}/data/tuning/` | `{profileId}.json` per session |
 | `TuningHistoryManager` | `{userData}/data/tuning-history/` | `{profileId}.json` per profile (archived records) |
 | `TelemetryManager` | `{userData}/data/` | `telemetry-settings.json` (opt-in settings + installation ID) |
+| `LicenseManager` | `{userData}/` | `license.json` (Ed25519 signed license for offline verification) |
 
 **User data path:** `~/Library/Application Support/pidlab/` (macOS) | `%APPDATA%/pidlab/` (Windows) | `~/.config/pidlab/` (Linux)
 
@@ -500,11 +501,11 @@ TuningSession {
 
 ### IPC Layer (`src/main/ipc/`)
 
-**54 IPC channels** organized by domain:
+**62 IPC channels** organized by domain:
 
 | Domain | Channels | Key Operations |
 |--------|----------|---------------|
-| Connection (6) | `list_ports`, `connect`, `disconnect`, `get_status`, `is_demo_mode`, `reset_demo` | Port scanning, connect/disconnect, demo mode |
+| Connection (8) | `list_ports`, `connect`, `disconnect`, `get_status`, `is_demo_mode`, `reset_demo`, `get_logs`, `export_logs` | Port scanning, connect/disconnect, demo mode, logs |
 | FC Info (6) | `get_info`, `export_cli`, `get_blackbox_settings`, `get_feedforward_config`, `fix_blackbox_settings`, `select_pid_profile` | FC data, CLI export, FF config, BB settings fix, BF PID profile selection (MSP_SELECT_SETTING) |
 | Profiles (10) | `create`, `create_from_preset`, `update`, `delete`, `list`, `get`, `get_current`, `set_current`, `export`, `get_fc_serial` | Full profile CRUD |
 | Snapshots (6) | `create`, `list`, `delete`, `export`, `load`, `restore` | Snapshot CRUD + rollback |
@@ -513,8 +514,10 @@ TuningSession {
 | Tuning (8) | `apply_recommendations`, `get_session`, `start_session`, `update_phase`, `reset_session`, `get_history`, `update_verification`, `update_history_verification` | Apply + session state + history + verification |
 | PID (3) | `get_config`, `update_config`, `save_config` | MSP PID read/write |
 | Telemetry (3) | `get_settings`, `set_enabled`, `send_now` | Anonymous usage telemetry settings + manual upload |
+| License (4) | `activate`, `get_status`, `remove`, `validate` | License activation, status, removal |
+| Update (2) | `check`, `install` | Auto-update check, install |
 
-**14 Event types** (Main → Renderer):
+**16 Event types** (Main → Renderer):
 
 | Event | Payload |
 |-------|---------|
@@ -530,6 +533,9 @@ TuningSession {
 | `tuning_apply_progress` | `ApplyRecommendationsProgress` |
 | `snapshot_restore_progress` | `SnapshotRestoreProgress` |
 | `tuning_session_changed` | `TuningSession \| null` |
+| `license_changed` | `LicenseStatus` |
+| `update_available` | `UpdateInfo` |
+| `update_downloaded` | `UpdateInfo` |
 
 #### Apply Recommendations Handler (critical ordering)
 
@@ -644,7 +650,7 @@ App (ToastProvider wrapper)
 │   └── ToastContainer
 ```
 
-### React Hooks (13 hooks)
+### React Hooks (15 hooks)
 
 | Hook | Key Returns | Purpose |
 |------|-------------|---------|
@@ -660,6 +666,8 @@ App (ToastProvider wrapper)
 | `useAnalysisOverview` | `{parseResult, filterResult, pidResult, ...}` | Auto-parse + dual analysis |
 | `useDemoMode` | `{isDemoMode, resetDemo}` | Demo mode detection + reset |
 | `useTelemetrySettings` | `{settings, loading, toggleEnabled, sendNow, sending}` | Telemetry settings + manual upload |
+| `useLicense` | `{status, activate, remove, loading}` | License activation + status |
+| `useAutoUpdate` | `{updateAvailable, updateDownloaded, install}` | Auto-update state + events |
 | `useToast` | `{success, error, warning, info}` | Toast notifications |
 
 ### Interactive Charts (`TuningWizard/charts/`)
@@ -829,7 +837,7 @@ Hardware error (FC timeout, USB disconnect)
 
 ## Testing Strategy
 
-**2475 unit tests across 122 files + 30 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
+**2532 unit tests across 128 files + 30 Playwright E2E tests**. See [TESTING.md](./TESTING.md) for complete inventory.
 
 | Area | Files | Tests |
 |------|-------|-------|
@@ -842,8 +850,10 @@ Hardware error (FC timeout, USB disconnect)
 | Storage Managers | 7 | 127 |
 | IPC Handlers | 2 | 113 |
 | Telemetry | 1 | 13 |
-| UI Components + Charts + Contexts | 48 | 714 |
-| React Hooks + Utils | 15 | 169 |
+| License | 1 | 12 |
+| Auto-Updater | 1 | 12 |
+| UI Components + Charts + Contexts | 50 | 726 |
+| React Hooks + Utils | 17 | 183 |
 | Shared Constants & Utils | 4 | 85 |
 | E2E Workflows (Vitest) | 1 | 20 |
 | Demo Mode (Vitest) | 2 | 79 |

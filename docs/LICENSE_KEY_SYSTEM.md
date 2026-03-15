@@ -1,6 +1,6 @@
 # License Key System
 
-> **Status**: Proposed
+> **Status**: Active (PRs #266-#268)
 
 ## Problem
 

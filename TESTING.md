@@ -167,7 +167,7 @@ npm run test:ui           # Visual interface with DOM snapshots
 
 ## Test Inventory
 
-**Total: 2475 unit tests across 122 files + 30 Playwright E2E tests across 6 spec files** (last verified: March 13, 2026)
+**Total: 2532 unit tests across 128 files + 30 Playwright E2E tests across 6 spec files** (last verified: March 15, 2026)
 
 ### UI Components
 
@@ -216,6 +216,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `ErrorBoundary.test.tsx` | 6 | Error catch, fallback UI, try again reset, custom fallback, normal render |
 | `App.test.tsx` | 10 | App render, title, version, BF compat badge, help button, ErrorBoundary integration, start tuning modal |
 | `TelemetrySettings/TelemetrySettingsModal.test.tsx` | 7 | Telemetry settings modal, toggle switch, send now, installation ID display, close/overlay dismiss |
+| `LicenseSettings/LicenseSettingsModal.test.tsx` | 8 | License settings modal, activate, error, dismiss, comparison table |
+| `UpdateNotification/UpdateNotification.test.tsx` | 4 | Update notification render, events, changelog, install |
 
 ### Charts
 
@@ -249,6 +251,8 @@ npm run test:ui           # Visual interface with DOM snapshots
 | `hooks/useBlackboxInfo.test.ts` | 8 | Auto-load, refresh, concurrent request prevention |
 | `hooks/useBlackboxLogs.test.ts` | 9 | Log list, profile change subscription, delete, openFolder |
 | `hooks/useTelemetrySettings.test.ts` | 4 | Telemetry settings hook, toggle enabled, send now, load failure handling |
+| `hooks/useLicense.test.ts` | 9 | License load, activate, remove, events |
+| `hooks/useAutoUpdate.test.ts` | 5 | Update state, events, install, cleanup |
 | `hooks/useDemoMode.test.ts` | 3 | Demo mode detection, reset demo |
 | `utils/bbSettingsUtils.test.ts` | 18 | BB settings status computation, version-aware debug mode, fix/reset commands |
 | `utils/spectrogramUtils.test.ts` | 15 | Spectrogram data transformation, color mapping, frequency/throttle axis utilities, compact data heatmap preparation |
@@ -293,6 +297,18 @@ npm run test:ui           # Visual interface with DOM snapshots
 | File | Tests | Description |
 |------|-------|-------------|
 | `telemetry/TelemetryManager.test.ts` | 13 | Telemetry manager initialization, settings persistence, bundle assembly, upload via net.fetch, demo mode skip, error handling |
+
+### License
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `license/LicenseManager.test.ts` | 12 | Offline validation, status, activate, remove, demo/dev mode |
+
+### Auto-Updater
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `updater.test.ts` | 12 | Init, config, events, delay, error handling |
 
 ### Blackbox Parser
 

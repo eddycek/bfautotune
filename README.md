@@ -14,6 +14,9 @@ PIDlab reads your Blackbox log, analyzes the data (FFT noise spectrum, step resp
 - **24 analysis modules** — FFT, step response, Wiener deconvolution, prop wash, D-term effectiveness, cross-axis coupling, throttle spectrograms, group delay, feedforward, dynamic lowpass, Bayesian optimizer, and more
 - **Works offline** — demo mode with simulated FC for testing without hardware
 - **Anonymous telemetry** — opt-in usage telemetry (tuning mode usage, drone sizes, quality scores; no flight data or PIDs ever sent)
+- **Freemium license system** — free tier (1 profile), Pro tier (unlimited profiles). Ed25519-signed offline-first license validation
+- **Auto-updater** — silent background download from GitHub Releases, install on quit. Changelog modal with "What's new" details
+- **Settings with log viewer** — tabbed settings modal (Telemetry + Logs). Color-coded log viewer with export-to-file
 
 **How it works:** Connect FC via USB → Erase flash → Fly → Download log → PIDlab analyzes and applies optimized settings → Done.
 
@@ -27,7 +30,7 @@ Pre-built binaries are available on the [Releases](https://github.com/eddycek/pi
 | **Windows** | Installer | `PIDlab-Setup-*.exe` |
 | **Linux** | AppImage | `PIDlab-*.AppImage` |
 
-> **Note:** macOS builds are currently unsigned. On first launch, right-click the app and select **Open**, or run `xattr -cr /Applications/PIDlab.app` in Terminal to bypass Gatekeeper.
+> **Note:** Builds are code-signed (macOS notarization + Windows Authenticode). Auto-updates are delivered via GitHub Releases.
 
 ## Supported Betaflight Versions
 
@@ -289,7 +292,7 @@ npm run rebuild                      # Rebuild native modules (serialport)
 
 All UI changes must include tests. Tests automatically run before commits. Coverage thresholds enforced: 80% lines/functions/statements, 75% branches.
 
-**Unit tests:** 2475 tests across 122 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, telemetry.
+**Unit tests:** 2532 tests across 128 files — MSP protocol, storage managers, IPC handlers, UI components, hooks, BBL parser fuzz, analysis pipeline validation, telemetry, license, auto-updater.
 
 **Playwright E2E:** 30 tests across 6 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (Filter Tune, PID Tune, Flash Tune, and stress-test edge cases).
 
@@ -373,15 +376,18 @@ pidlab/
 │   │   │   └── DebugServer.ts         # 10 endpoints: /state, /screenshot, /logs, /console, /msp, /tuning-history, /tuning-session, /snapshots, /blackbox-logs, /health
 │   │   ├── telemetry/           # Anonymous usage telemetry
 │   │   │   └── TelemetryManager.ts    # Opt-in telemetry collection + upload
+│   │   ├── license/            # License key system (freemium)
+│   │   │   └── LicenseManager.ts      # Ed25519 offline verification, activate/remove
+│   │   ├── updater.ts          # Auto-updater (electron-updater, GitHub Releases)
 │   │   ├── demo/               # Demo mode (offline UX testing)
 │   │   │   ├── MockMSPClient.ts       # Simulated FC (47 tests)
 │   │   │   └── DemoDataGenerator.ts   # Realistic BBL generation (26 tests)
-│   │   ├── ipc/                 # IPC handlers (54 handlers across 9 modules)
+│   │   ├── ipc/                 # IPC handlers (62 handlers across 12 modules)
 │   │   │   ├── handlers/       # Domain-split handler modules
 │   │   │   │   ├── index.ts            # DI container, registerIPCHandlers
 │   │   │   │   ├── types.ts            # HandlerDependencies interface
 │   │   │   │   ├── events.ts           # Event broadcast functions
-│   │   │   │   ├── connectionHandlers.ts   # 6 handlers
+│   │   │   │   ├── connectionHandlers.ts   # 8 handlers
 │   │   │   │   ├── fcInfoHandlers.ts       # 6 handlers
 │   │   │   │   ├── snapshotHandlers.ts     # 6 handlers
 │   │   │   │   ├── profileHandlers.ts      # 10 handlers
@@ -389,7 +395,9 @@ pidlab/
 │   │   │   │   ├── blackboxHandlers.ts     # 9 handlers
 │   │   │   │   ├── analysisHandlers.ts     # 3 handlers
 │   │   │   │   ├── tuningHandlers.ts       # 8 handlers
-│   │   │   │   └── telemetryHandlers.ts    # 3 handlers
+│   │   │   │   ├── telemetryHandlers.ts    # 3 handlers
+│   │   │   │   ├── licenseHandlers.ts      # 4 handlers
+│   │   │   │   └── updateHandlers.ts       # 2 handlers
 │   │   │   └── channels.ts     # Channel definitions
 │   │   └── utils/               # Logger, error types
 │   │
@@ -423,7 +431,9 @@ pidlab/
 │   │   │   │   └── AppliedChangesTable      # Setting changes with % diff
 │   │   │   ├── TuningWorkflowModal/   # 3-tab workflow help (Filter, PID, Flash)
 │   │   │   ├── StartTuningModal.tsx   # Filter Tune / PID Tune / Flash Tune mode selector
-│   │   │   ├── TelemetrySettings/     # Telemetry opt-in/out settings modal
+│   │   │   ├── TelemetrySettings/     # Telemetry opt-in/out settings modal (tabbed: Telemetry + Logs)
+│   │   │   ├── LicenseSettings/      # License activation modal (free/Pro comparison)
+│   │   │   ├── UpdateNotification/   # Auto-update pill + changelog modal
 │   │   │   ├── Toast/                 # Toast notification system
 │   │   │   ├── ProfileWizard.tsx      # New FC profile creation wizard
 │   │   │   ├── PresetSelector.tsx     # Preset profile picker
@@ -432,7 +442,7 @@ pidlab/
 │   │   │   ├── ProfileCard.tsx        # Individual profile display
 │   │   │   ├── ProfileEditModal.tsx   # Profile editing dialog
 │   │   │   └── ProfileDeleteModal.tsx # Profile deletion confirmation
-│   │   ├── hooks/               # React hooks (14)
+│   │   ├── hooks/               # React hooks (15)
 │   │   │   ├── useConnection.ts       # Connection state management
 │   │   │   ├── useProfiles.ts         # Profile CRUD operations
 │   │   │   ├── useSnapshots.ts        # Snapshot management
@@ -444,6 +454,8 @@ pidlab/
 │   │   │   ├── useBlackboxLogs.ts     # BB log list
 │   │   │   ├── useFCInfo.ts           # FC info polling
 │   │   │   ├── useTelemetrySettings.ts # Telemetry settings + manual upload
+│   │   │   ├── useLicense.ts          # License activation + status
+│   │   │   ├── useAutoUpdate.ts       # Auto-update state + events
 │   │   │   ├── useDemoMode.ts         # Demo mode detection
 │   │   │   └── useToast.ts            # Toast context consumer
 │   │   ├── utils/               # Renderer utilities
