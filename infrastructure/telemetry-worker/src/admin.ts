@@ -196,6 +196,209 @@ async function handleAppVersions(env: Env): Promise<Response> {
   });
 }
 
+/** GET /admin/stats/sessions — tuning session breakdown */
+async function handleSessions(env: Env): Promise<Response> {
+  const installations = await listInstallations(env.TELEMETRY_BUCKET);
+
+  let totalCompleted = 0;
+  const byMode = { filter: 0, pid: 0, quick: 0 };
+  const perInstall: { id: string; total: number; filter: number; pid: number; quick: number; scores: number[] }[] = [];
+
+  for (const { id, bundle } of installations) {
+    const s = bundle.tuningSessions;
+    totalCompleted += s.totalCompleted;
+    byMode.filter += s.byMode.filter;
+    byMode.pid += s.byMode.pid;
+    byMode.quick += s.byMode.quick;
+
+    if (s.totalCompleted > 0) {
+      perInstall.push({
+        id: id.substring(0, 8),
+        total: s.totalCompleted,
+        filter: s.byMode.filter,
+        pid: s.byMode.pid,
+        quick: s.byMode.quick,
+        scores: s.recentQualityScores,
+      });
+    }
+  }
+
+  // Sort by total sessions descending
+  perInstall.sort((a, b) => b.total - a.total);
+
+  return Response.json({
+    totalCompleted,
+    byMode,
+    installationsWithSessions: perInstall.length,
+    topInstallations: perInstall.slice(0, 20),
+  });
+}
+
+/** GET /admin/stats/features — feature adoption rates */
+async function handleFeatures(env: Env): Promise<Response> {
+  const installations = await listInstallations(env.TELEMETRY_BUCKET);
+
+  const features = {
+    analysisOverview: 0,
+    snapshotRestore: 0,
+    snapshotCompare: 0,
+    historyView: 0,
+  };
+
+  for (const { bundle } of installations) {
+    if (bundle.features.analysisOverviewUsed) features.analysisOverview++;
+    if (bundle.features.snapshotRestoreUsed) features.snapshotRestore++;
+    if (bundle.features.snapshotCompareUsed) features.snapshotCompare++;
+    if (bundle.features.historyViewUsed) features.historyView++;
+  }
+
+  const total = installations.length;
+  return Response.json({
+    totalInstallations: total,
+    adoption: {
+      analysisOverview: { count: features.analysisOverview, percent: total ? Math.round((features.analysisOverview / total) * 100) : 0 },
+      snapshotRestore: { count: features.snapshotRestore, percent: total ? Math.round((features.snapshotRestore / total) * 100) : 0 },
+      snapshotCompare: { count: features.snapshotCompare, percent: total ? Math.round((features.snapshotCompare / total) * 100) : 0 },
+      historyView: { count: features.historyView, percent: total ? Math.round((features.historyView / total) * 100) : 0 },
+    },
+  });
+}
+
+/** GET /admin/stats/blackbox — blackbox usage stats */
+async function handleBlackbox(env: Env): Promise<Response> {
+  const installations = await listInstallations(env.TELEMETRY_BUCKET);
+
+  let totalLogs = 0;
+  let compressionCount = 0;
+  const storageTypes: Record<string, number> = {};
+
+  for (const { bundle } of installations) {
+    totalLogs += bundle.blackbox.totalLogsDownloaded;
+    if (bundle.blackbox.compressionDetected) compressionCount++;
+    for (const st of bundle.blackbox.storageTypes) {
+      storageTypes[st] = (storageTypes[st] || 0) + 1;
+    }
+  }
+
+  return Response.json({
+    totalLogsDownloaded: totalLogs,
+    installationsWithCompression: compressionCount,
+    storageTypes,
+  });
+}
+
+/** GET /admin/stats/profiles — profile count distribution */
+async function handleProfiles(env: Env): Promise<Response> {
+  const installations = await listInstallations(env.TELEMETRY_BUCKET);
+
+  const distribution: Record<number, number> = {};
+  let totalProfiles = 0;
+
+  for (const { bundle } of installations) {
+    const count = bundle.profiles.count;
+    totalProfiles += count;
+    distribution[count] = (distribution[count] || 0) + 1;
+  }
+
+  return Response.json({
+    totalProfiles,
+    averagePerInstall: installations.length ? Math.round((totalProfiles / installations.length) * 10) / 10 : 0,
+    distribution,
+  });
+}
+
+/** GET /admin/stats/full — everything in one call */
+async function handleFull(env: Env): Promise<Response> {
+  const installations = await listInstallations(env.TELEMETRY_BUCKET);
+  const now = Date.now();
+  const h24 = 24 * 60 * 60 * 1000;
+  const d7 = 7 * h24;
+  const d30 = 30 * h24;
+
+  // Aggregate everything in a single pass
+  const result = {
+    installations: {
+      total: installations.length,
+      active24h: 0,
+      active7d: 0,
+      active30d: 0,
+      platforms: {} as Record<string, number>,
+      environments: {} as Record<string, number>,
+    },
+    appVersions: {} as Record<string, number>,
+    bfVersions: {} as Record<string, number>,
+    boardTargets: {} as Record<string, number>,
+    sessions: {
+      totalCompleted: 0,
+      byMode: { filter: 0, pid: 0, quick: 0 },
+    },
+    profiles: {
+      total: 0,
+      sizes: {} as Record<string, number>,
+      flightStyles: {} as Record<string, number>,
+    },
+    features: {
+      analysisOverview: 0,
+      snapshotRestore: 0,
+      snapshotCompare: 0,
+      historyView: 0,
+    },
+    blackbox: {
+      totalLogs: 0,
+      compression: 0,
+    },
+    quality: {
+      scores: [] as number[],
+      average: null as number | null,
+    },
+  };
+
+  for (const { metadata, bundle } of installations) {
+    const age = now - new Date(metadata.lastSeen).getTime();
+    if (age <= h24) result.installations.active24h++;
+    if (age <= d7) result.installations.active7d++;
+    if (age <= d30) result.installations.active30d++;
+
+    result.installations.platforms[bundle.platform] = (result.installations.platforms[bundle.platform] || 0) + 1;
+    const env = bundle.environment || 'unknown';
+    result.installations.environments[env] = (result.installations.environments[env] || 0) + 1;
+
+    result.appVersions[bundle.appVersion || 'unknown'] = (result.appVersions[bundle.appVersion || 'unknown'] || 0) + 1;
+
+    for (const v of bundle.fcInfo.bfVersions) result.bfVersions[v] = (result.bfVersions[v] || 0) + 1;
+    for (const t of bundle.fcInfo.boardTargets) result.boardTargets[t] = (result.boardTargets[t] || 0) + 1;
+
+    result.sessions.totalCompleted += bundle.tuningSessions.totalCompleted;
+    result.sessions.byMode.filter += bundle.tuningSessions.byMode.filter;
+    result.sessions.byMode.pid += bundle.tuningSessions.byMode.pid;
+    result.sessions.byMode.quick += bundle.tuningSessions.byMode.quick;
+
+    result.profiles.total += bundle.profiles.count;
+    for (const s of bundle.profiles.sizes) result.profiles.sizes[s] = (result.profiles.sizes[s] || 0) + 1;
+    for (const f of bundle.profiles.flightStyles) result.profiles.flightStyles[f] = (result.profiles.flightStyles[f] || 0) + 1;
+
+    if (bundle.features.analysisOverviewUsed) result.features.analysisOverview++;
+    if (bundle.features.snapshotRestoreUsed) result.features.snapshotRestore++;
+    if (bundle.features.snapshotCompareUsed) result.features.snapshotCompare++;
+    if (bundle.features.historyViewUsed) result.features.historyView++;
+
+    result.blackbox.totalLogs += bundle.blackbox.totalLogsDownloaded;
+    if (bundle.blackbox.compressionDetected) result.blackbox.compression++;
+
+    result.quality.scores.push(...bundle.tuningSessions.recentQualityScores);
+  }
+
+  if (result.quality.scores.length > 0) {
+    result.quality.average = Math.round((result.quality.scores.reduce((a, b) => a + b, 0) / result.quality.scores.length) * 10) / 10;
+  }
+  // Keep only count, not raw scores
+  const qualityCount = result.quality.scores.length;
+  (result.quality as any).totalScores = qualityCount;
+  delete (result.quality as any).scores;
+
+  return Response.json(result);
+}
+
 /** Route admin requests */
 export async function handleAdmin(
   request: Request,
@@ -217,6 +420,16 @@ export async function handleAdmin(
       return handleQuality(env);
     case '/admin/stats/app-versions':
       return handleAppVersions(env);
+    case '/admin/stats/sessions':
+      return handleSessions(env);
+    case '/admin/stats/features':
+      return handleFeatures(env);
+    case '/admin/stats/blackbox':
+      return handleBlackbox(env);
+    case '/admin/stats/profiles':
+      return handleProfiles(env);
+    case '/admin/stats/full':
+      return handleFull(env);
     default:
       return new Response('Not found', { status: 404 });
   }

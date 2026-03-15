@@ -70,11 +70,16 @@ infrastructure/
 │   ├── revoke-key.sh              ← Revoke a key
 │   ├── reset-key.sh               ← Reset machine binding
 │   ├── key-stats.sh               ← License key statistics
-│   ├── telemetry-stats.sh         ← Telemetry summary (installs, active, modes)
+│   ├── telemetry-full.sh           ← Full telemetry dump (all data)
+│   ├── telemetry-stats.sh         ← Summary (installs, active, modes)
 │   ├── app-versions.sh            ← App version distribution
-│   ├── telemetry-bf-versions.sh   ← BF firmware version distribution
+│   ├── telemetry-bf-versions.sh   ← BF firmware versions
 │   ├── telemetry-drones.sh        ← Drone sizes + flight styles
-│   └── telemetry-quality.sh       ← Quality score histogram
+│   ├── telemetry-quality.sh       ← Quality score histogram
+│   ├── telemetry-sessions.sh      ← Tuning sessions breakdown
+│   ├── telemetry-features.sh      ← Feature adoption rates
+│   ├── telemetry-blackbox.sh      ← Blackbox usage
+│   └── telemetry-profiles.sh      ← Profile count distribution
 └── payment-worker/                ← (planned)
 
 .github/workflows/
@@ -246,20 +251,19 @@ PIDLAB_ENV=prod ./infrastructure/scripts/generate-key.sh
 ### Telemetry Analytics
 
 ```bash
-# Summary: total installs, active 24h/7d/30d, tuning modes, platforms
-./infrastructure/scripts/telemetry-stats.sh
+# Everything in one call
+./infrastructure/scripts/telemetry-full.sh
 
-# PIDlab app version distribution (who's on what version)
-./infrastructure/scripts/app-versions.sh
-
-# Betaflight firmware version distribution
-./infrastructure/scripts/telemetry-bf-versions.sh
-
-# Drone sizes and flight styles
-./infrastructure/scripts/telemetry-drones.sh
-
-# Flight quality score histogram + average
-./infrastructure/scripts/telemetry-quality.sh
+# Individual endpoints:
+./infrastructure/scripts/telemetry-stats.sh         # Installs, active 24h/7d/30d, modes, platforms
+./infrastructure/scripts/app-versions.sh             # PIDlab app version distribution
+./infrastructure/scripts/telemetry-bf-versions.sh    # Betaflight firmware versions
+./infrastructure/scripts/telemetry-drones.sh         # Drone sizes + flight styles
+./infrastructure/scripts/telemetry-quality.sh        # Quality score histogram + average
+./infrastructure/scripts/telemetry-sessions.sh       # Tuning sessions: total, per-mode, top users
+./infrastructure/scripts/telemetry-features.sh       # Feature adoption (analysis, snapshots, history)
+./infrastructure/scripts/telemetry-blackbox.sh       # Blackbox: logs downloaded, compression, storage
+./infrastructure/scripts/telemetry-profiles.sh       # Profile count distribution
 ```
 
 ### Health Checks
@@ -289,10 +293,16 @@ curl -sf https://pidlab-license-dev.eddycek-ve.workers.dev/health
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST` | `/v1/collect` | None | Upload telemetry bundle (gzip, rate-limited 1/hr) |
-| `GET` | `/admin/stats` | `X-Admin-Key` | Summary: installs, active 24h/7d/30d, modes |
-| `GET` | `/admin/stats/versions` | `X-Admin-Key` | BF version distribution |
-| `GET` | `/admin/stats/drones` | `X-Admin-Key` | Drone size + flight style distribution |
-| `GET` | `/admin/stats/quality` | `X-Admin-Key` | Quality score histogram (5 buckets) |
+| `GET` | `/admin/stats` | `X-Admin-Key` | Summary: installs, active 24h/7d/30d, modes, platforms |
+| `GET` | `/admin/stats/app-versions` | `X-Admin-Key` | PIDlab app version distribution |
+| `GET` | `/admin/stats/versions` | `X-Admin-Key` | Betaflight firmware version distribution |
+| `GET` | `/admin/stats/drones` | `X-Admin-Key` | Drone sizes + flight style distribution |
+| `GET` | `/admin/stats/quality` | `X-Admin-Key` | Quality score histogram (5 buckets) + average |
+| `GET` | `/admin/stats/sessions` | `X-Admin-Key` | Tuning sessions: total, per-mode, top installations |
+| `GET` | `/admin/stats/features` | `X-Admin-Key` | Feature adoption rates (analysis, snapshots, history) |
+| `GET` | `/admin/stats/blackbox` | `X-Admin-Key` | Blackbox: total logs, compression, storage types |
+| `GET` | `/admin/stats/profiles` | `X-Admin-Key` | Profile count distribution + average per install |
+| `GET` | `/admin/stats/full` | `X-Admin-Key` | All of the above in a single response |
 | `GET` | `/health` | None | Health check |
 
 ## License Worker Endpoints
