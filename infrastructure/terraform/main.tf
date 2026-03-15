@@ -132,9 +132,10 @@ resource "cloudflare_workers_script" "telemetry" {
 # ─── Cron Trigger ───────────────────────────────────────────────────
 
 resource "cloudflare_workers_cron_trigger" "daily_report" {
+  count       = local.is_prod ? 1 : 0
   account_id  = var.cloudflare_account_id
   script_name = cloudflare_workers_script.telemetry.name
-  schedules   = local.is_prod ? ["0 7 * * *"] : []
+  schedules   = ["0 7 * * *"]
 }
 
 # ─── Custom Domain (optional) ──────────────────────────────────────
