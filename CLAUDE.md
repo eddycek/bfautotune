@@ -476,11 +476,11 @@ E2E tests launch the real Electron app in demo mode via Playwright's `_electron.
 ```bash
 npm run test:e2e              # Build + run 25 E2E tests
 npm run test:e2e:ui           # Build + Playwright UI
-npm run demo:generate-history            # Build + generate 5 mixed sessions (~2 min)
+npm run demo:generate-history            # Build + generate 5 mixed sessions
+npm run demo:generate-history 20         # Build + generate 20 mixed sessions
 npm run demo:generate-history:filter     # Build + generate 5 filter tune sessions
 npm run demo:generate-history:pid        # Build + generate 5 pid tune sessions
 npm run demo:generate-history:flash      # Build + generate 5 flash tune sessions
-GENERATE_COUNT=15 npm run demo:generate-history  # Custom session count
 ```
 
 **Architecture:**
