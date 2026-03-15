@@ -104,7 +104,7 @@ global.window.betaflight = {
 
   // Telemetry
   getTelemetrySettings: vi.fn().mockResolvedValue({
-    enabled: false,
+    enabled: true,
     installationId: 'test-uuid',
     lastUploadAt: null,
   }),

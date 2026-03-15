@@ -50,7 +50,7 @@ describe('TelemetryManager', () => {
       await manager.initialize();
 
       const settings = manager.getSettings();
-      expect(settings.enabled).toBe(false);
+      expect(settings.enabled).toBe(true);
       expect(settings.installationId).toBe('test-uuid-1234');
       expect(settings.lastUploadAt).toBeNull();
     });
@@ -111,6 +111,7 @@ describe('TelemetryManager', () => {
       mockFs.mkdir.mockResolvedValue(undefined);
 
       await manager.initialize();
+      await manager.setEnabled(false);
 
       await expect(manager.sendNow()).rejects.toThrow('Telemetry is disabled');
     });
@@ -223,8 +224,9 @@ describe('TelemetryManager', () => {
       mockFs.writeFile.mockResolvedValue(undefined);
       mockFs.mkdir.mockResolvedValue(undefined);
 
+      manager.setDemoMode(true); // Prevent heartbeat upload on init
       await manager.initialize();
-      // Enabled is false by default, so uploadIfDue should be a no-op
+      await manager.setEnabled(false);
       await manager.uploadIfDue();
       // No error thrown — silent skip
     });
@@ -236,7 +238,9 @@ describe('TelemetryManager', () => {
       mockFs.writeFile.mockResolvedValue(undefined);
       mockFs.mkdir.mockResolvedValue(undefined);
 
+      manager.setDemoMode(true); // Prevent heartbeat upload on init
       await manager.initialize();
+      await manager.setEnabled(false);
       await manager.onTuningSessionCompleted();
       // No error — just a no-op
     });
@@ -249,9 +253,8 @@ describe('TelemetryManager', () => {
       mockFs.writeFile.mockResolvedValue(undefined);
       mockFs.mkdir.mockResolvedValue(undefined);
 
-      await manager.initialize();
-      await manager.setEnabled(true);
       manager.setDemoMode(true);
+      await manager.initialize();
       await manager.sendNow();
 
       expect(net.fetch).not.toHaveBeenCalled();

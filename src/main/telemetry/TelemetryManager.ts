@@ -53,7 +53,7 @@ export class TelemetryManager {
     } catch {
       // File doesn't exist or is corrupt — create defaults
       this.settings = {
-        enabled: false,
+        enabled: true,
         installationId: randomUUID(),
         lastUploadAt: null,
       };
