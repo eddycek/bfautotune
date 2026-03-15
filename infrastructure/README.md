@@ -8,7 +8,7 @@ All resources are managed via **Terraform** with state in Cloudflare R2. CI/CD d
 
 | Service | Status | Description | Design Doc |
 |---------|--------|-------------|------------|
-| **Telemetry Worker** | Live (dev + prod) | Upload + admin stats + cron report | [docs/TELEMETRY_COLLECTION.md](../docs/TELEMETRY_COLLECTION.md) |
+| **Telemetry Worker** | Live (dev + prod) | Upload + admin stats + cron report | [TELEMETRY.md](./TELEMETRY.md), [design doc](../docs/complete/TELEMETRY_COLLECTION.md) |
 | **License Worker** | Planned | Offline-first license key validation | [docs/LICENSE_KEY_SYSTEM.md](../docs/LICENSE_KEY_SYSTEM.md) |
 | **Payment Worker** | Planned | Stripe checkout + invoice generation | [docs/PAYMENT_AND_INVOICING.md](../docs/PAYMENT_AND_INVOICING.md) |
 
