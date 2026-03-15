@@ -107,6 +107,8 @@ export interface PIDMetricsSummary {
   summary: string;
   /** Data quality score summary */
   dataQuality?: { overall: number; tier: string };
+  /** Best step response trace per axis (downsampled for history chart) */
+  stepResponse?: CompactStepResponse;
 }
 
 /** Per-axis transfer function metrics summary for history storage */

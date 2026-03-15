@@ -1,5 +1,6 @@
 import React from 'react';
 import type { PIDMetricsSummary } from '@shared/types/tuning-history.types';
+import { TFStepResponseChart } from '../TuningWizard/charts/TFStepResponseChart';
 
 interface StepResponseComparisonProps {
   before: PIDMetricsSummary;
@@ -29,9 +30,19 @@ export function StepResponseComparison({ before, after }: StepResponseComparison
   const osImproved = osDelta < -1;
   const osRegressed = osDelta > 1;
 
+  const hasChart = before.stepResponse || after.stepResponse;
+
   return (
     <div className="completion-overshoot-comparison">
       <h4>Step Response Comparison</h4>
+
+      {hasChart && after.stepResponse && (
+        <TFStepResponseChart
+          stepResponse={after.stepResponse}
+          beforeStepResponse={before.stepResponse}
+        />
+      )}
+
       <div className="overshoot-delta-row">
         <span className="overshoot-delta-label">Overshoot</span>
         <span
