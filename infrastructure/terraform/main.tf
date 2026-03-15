@@ -204,54 +204,13 @@ resource "cloudflare_d1_database" "license" {
 }
 
 # ─── License Worker ────────────────────────────────────────────────
-
-resource "cloudflare_workers_script" "license" {
-  count              = local.license_enabled ? 1 : 0
-  account_id         = var.cloudflare_account_id
-  name               = local.license_worker_name
-  content            = file("${path.module}/license-worker-bundle.js")
-  module             = true
-  compatibility_date = "2024-12-30"
-
-  d1_database_binding {
-    name        = "LICENSE_DB"
-    database_id = cloudflare_d1_database.license[0].id
-  }
-
-  secret_text_binding {
-    name = "ADMIN_KEY"
-    text = var.license_admin_key
-  }
-
-  secret_text_binding {
-    name = "ED25519_PRIVATE_KEY"
-    text = var.license_ed25519_private_key
-  }
-
-  secret_text_binding {
-    name = "ED25519_PUBLIC_KEY"
-    text = var.license_ed25519_public_key
-  }
-}
-
-# ─── License Custom Domain (optional) ─────────────────────────────
-
-resource "cloudflare_workers_route" "license" {
-  count       = local.license_enabled && var.license_domain != "" ? 1 : 0
-  zone_id     = var.zone_id
-  pattern     = "${var.license_domain}/*"
-  script_name = cloudflare_workers_script.license[0].name
-}
-
-resource "cloudflare_record" "license" {
-  count   = local.license_enabled && var.license_domain != "" ? 1 : 0
-  zone_id = var.zone_id
-  name    = var.license_domain
-  content = "100::"
-  type    = "AAAA"
-  proxied = true
-  comment = "License Worker (${var.environment})"
-}
+# Worker script is deployed via `wrangler deploy` in CI/CD (not Terraform).
+# Terraform cloudflare_workers_script doesn't support compatibility_date,
+# which is required for Ed25519 WebCrypto in CF Workers runtime.
+# Wrangler reads compatibility_date from wrangler.toml correctly.
+#
+# Secrets (ADMIN_KEY, ED25519_*) are set via `wrangler secret put` in CI/CD.
+# D1 binding is configured in wrangler.toml with the database_id from Terraform.
 
 # ─── Outputs ────────────────────────────────────────────────────────
 
@@ -273,16 +232,6 @@ output "custom_url" {
 output "r2_bucket" {
   description = "R2 bucket name"
   value       = cloudflare_r2_bucket.telemetry.name
-}
-
-output "license_worker_url" {
-  description = "License Worker URL (workers.dev)"
-  value       = local.license_enabled ? "https://${local.license_worker_name}.${var.cloudflare_account_id}.workers.dev" : "(not configured)"
-}
-
-output "license_custom_url" {
-  description = "License Worker custom domain URL (if configured)"
-  value       = local.license_enabled && var.license_domain != "" ? "https://${var.license_domain}" : "(not configured)"
 }
 
 output "license_d1_database" {
