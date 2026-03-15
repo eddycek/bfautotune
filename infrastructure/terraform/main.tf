@@ -206,11 +206,12 @@ resource "cloudflare_d1_database" "license" {
 # ─── License Worker ────────────────────────────────────────────────
 
 resource "cloudflare_workers_script" "license" {
-  count      = local.license_enabled ? 1 : 0
-  account_id = var.cloudflare_account_id
-  name       = local.license_worker_name
-  content    = file("${path.module}/license-worker-bundle.js")
-  module     = true
+  count              = local.license_enabled ? 1 : 0
+  account_id         = var.cloudflare_account_id
+  name               = local.license_worker_name
+  content            = file("${path.module}/license-worker-bundle.js")
+  module             = true
+  compatibility_date = "2024-12-30"
 
   d1_database_binding {
     name        = "LICENSE_DB"
