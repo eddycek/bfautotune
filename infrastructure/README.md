@@ -81,9 +81,9 @@ GitHub environments `dev` and `prod` can have protection rules (e.g. required ap
 
 | Secret | Purpose |
 |--------|---------|
-| `CLOUDFLARE_API_TOKEN` | Terraform provider — Workers + R2 permissions |
-| `R2_ACCESS_KEY_ID` | Terraform S3 backend — R2 access key |
-| `R2_SECRET_ACCESS_KEY` | Terraform S3 backend — R2 secret key |
+| `CLOUDFLARE_PROVISIONING` | Terraform provider — Workers + R2 provisioning |
+| `TERRAFORM_STATE_R2_ACCESS_KEY_ID` | Terraform S3 backend — R2 access key for tfstate |
+| `TERRAFORM_STATE_R2_SECRET_ACCESS_KEY` | Terraform S3 backend — R2 secret key for tfstate |
 | `TELEMETRY_ADMIN_KEY_DEV` | Admin API key for dev Worker |
 | `TELEMETRY_ADMIN_KEY_PROD` | Admin API key for prod Worker |
 | `RESEND_API_KEY` | Resend email delivery (both environments) |
