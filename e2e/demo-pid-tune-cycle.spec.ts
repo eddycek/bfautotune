@@ -26,7 +26,7 @@ test.describe.serial('PID Tune cycle', () => {
     await demo.clickButton('Start Tuning Session');
 
     // StartTuningModal opens — select PID Tune
-    await demo.clickButton('PID Tune');
+    await demo.page.locator('.start-tuning-modal .start-tuning-option', { has: demo.page.locator('.start-tuning-option-title', { hasText: 'PID Tune' }) }).click();
 
     // Should show pid_flight_pending phase
     await demo.waitForText('Erase Blackbox data');

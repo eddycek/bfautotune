@@ -27,7 +27,7 @@ test.describe.serial('Flash Tune cycle', () => {
     await demo.clickButton('Start Tuning Session');
 
     // StartTuningModal opens — select Flash Tune
-    await demo.clickButton('Flash Tune');
+    await demo.page.locator('.start-tuning-modal .start-tuning-option', { has: demo.page.locator('.start-tuning-option-title', { hasText: 'Flash Tune' }) }).click();
 
     // Should show flash_flight_pending phase
     await demo.waitForText('Erase Blackbox data');

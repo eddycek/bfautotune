@@ -40,7 +40,7 @@ async function runDeepCycle(cycleNum: number): Promise<void> {
 
   await demo.clickButton('Start Tuning Session');
   const modal = page.locator('.start-tuning-overlay');
-  await modal.getByRole('button', { name: 'Filter Tune' }).click();
+  await page.locator('.start-tuning-modal .start-tuning-option', { has: page.locator('.start-tuning-option-title', { hasText: 'Filter Tune' }) }).click();
   await demo.waitForText('Erase Blackbox data', WAIT);
 
   // Filter phase
@@ -108,7 +108,7 @@ async function runFlashCycle(cycleNum: number): Promise<void> {
 
   await demo.clickButton('Start Tuning Session');
   const modal = page.locator('.start-tuning-overlay');
-  await modal.getByRole('button', { name: 'Flash Tune' }).click();
+  await page.locator('.start-tuning-modal .start-tuning-option', { has: page.locator('.start-tuning-option-title', { hasText: 'Flash Tune' }) }).click();
   await demo.waitForText('Erase Blackbox data', WAIT);
 
   await demo.clickButton('Erase Flash');

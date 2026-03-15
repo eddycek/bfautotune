@@ -26,7 +26,7 @@ test.describe.serial('Filter Tune cycle', () => {
     await demo.clickButton('Start Tuning Session');
 
     // StartTuningModal opens — select Filter Tune
-    await demo.clickButton('Filter Tune');
+    await demo.page.locator('.start-tuning-modal .start-tuning-option', { has: demo.page.locator('.start-tuning-option-title', { hasText: 'Filter Tune' }) }).click();
 
     // Should show filter_flight_pending phase
     await demo.waitForText('Erase Blackbox data');

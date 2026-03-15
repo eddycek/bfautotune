@@ -54,6 +54,15 @@ async function selectRandomProfile(cycleNum: number): Promise<void> {
   console.log(`  Cycle ${cycleNum}: selected BF PID profile ${profileIndex + 1}`);
 }
 
+/** Click a tuning mode option in the StartTuningModal by its title text. */
+async function clickTuningMode(title: string): Promise<void> {
+  await demo.page
+    .locator('.start-tuning-modal .start-tuning-option', {
+      has: demo.page.locator('.start-tuning-option-title', { hasText: title }),
+    })
+    .click();
+}
+
 async function runFilterCycle(cycleNum: number): Promise<void> {
   const page = demo.page;
   const WAIT = 30_000;
@@ -66,7 +75,7 @@ async function runFilterCycle(cycleNum: number): Promise<void> {
   // Use modal-scoped locator to avoid strict mode violation when history has "Flash Tune" text
   const modal = page.locator('.start-tuning-overlay');
   await selectRandomProfile(cycleNum);
-  await modal.getByRole('button', { name: 'Filter Tune' }).click();
+  await clickTuningMode('Filter Tune');
   await demo.waitForText('Erase Blackbox data', WAIT);
 
   // 2. Filter flight: erase → auto-flight → download → analysis → apply
@@ -142,7 +151,7 @@ async function runPIDCycle(cycleNum: number): Promise<void> {
   await demo.clickButton('Start Tuning Session');
   const modal = page.locator('.start-tuning-overlay');
   await selectRandomProfile(cycleNum);
-  await modal.getByRole('button', { name: 'PID Tune' }).click();
+  await clickTuningMode('PID Tune');
   await demo.waitForText('Erase Blackbox data', WAIT);
 
   // 2. PID flight: erase → auto-flight → download → analysis → apply
@@ -220,7 +229,7 @@ async function runQuickCycle(cycleNum: number): Promise<void> {
   // (Tuning History may also contain "Flash Tune" text)
   const modal = page.locator('.start-tuning-overlay');
   await selectRandomProfile(cycleNum);
-  await modal.getByRole('button', { name: 'Flash Tune' }).click();
+  await clickTuningMode('Flash Tune');
   await demo.waitForText('Erase Blackbox data', WAIT);
 
   // 2. Flash Tune flight: erase → auto-flight → download → flash wizard → apply
