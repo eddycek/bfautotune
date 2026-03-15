@@ -221,4 +221,4 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 718d9177347897a7e4a282cdf5c38568
         run: |
           npm install
-          npx wrangler d1 execute pidlab-license --file=src/schema.sql --remote
+          npx wrangler d1 execute pidlab-license --env prod --file=src/schema.sql --remote

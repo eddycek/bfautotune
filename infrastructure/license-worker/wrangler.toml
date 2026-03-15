@@ -6,7 +6,7 @@ compatibility_date = "2024-12-30"
 [[d1_databases]]
 binding = "LICENSE_DB"
 database_name = "pidlab-license-dev"
-database_id = "placeholder-dev-id"
+database_id = "16f67a96-6fb7-46ab-a2b3-b1bda28be290"
 
 # Secrets set via `wrangler secret put`:
 # ADMIN_KEY, ED25519_PRIVATE_KEY, ED25519_PUBLIC_KEY
@@ -17,4 +17,4 @@ name = "pidlab-license"
 [[env.prod.d1_databases]]
 binding = "LICENSE_DB"
 database_name = "pidlab-license"
-database_id = "placeholder-prod-id"
+database_id = "66065afa-b2dc-4712-8f5e-1455acd75915"
