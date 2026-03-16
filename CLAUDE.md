@@ -230,6 +230,8 @@ window.betaflight.onConnectionChanged((status) => {
 - `recommendationTraces` stored on `TuningSession` during apply, archived to history
 - Upload via Electron `net.fetch()` to CF Worker endpoint (gzipped JSON)
 - Skipped in demo mode
+- Diagnostic reports: Pro-only gzipped bundles with recommendations, analysis data, FC config. `POST /v1/diagnostic` (submit), `GET/PATCH /admin/diagnostics/{reportId}` (review/resolve), `GET /admin/diagnostics` (list), `GET /admin/diagnostics/summary` (counts for cron). Stored in R2 under `diagnostics/{reportId}/`. Rate-limited 1/hour per installation. Design doc: `docs/DIAGNOSTIC_REPORTS.md`
+- Cron daily email includes diagnostic report summary (new/reviewing/needs-bbl counts)
 - IPC: `TELEMETRY_GET_SETTINGS`, `TELEMETRY_SET_ENABLED`, `TELEMETRY_SEND_NOW`
 - Design doc: `docs/TELEMETRY_COLLECTION.md`
 
@@ -753,6 +755,22 @@ Evaluates telemetry data against target KPIs. Fetches data from admin API endpoi
 **Target KPIs:** Apply rate >70%, verification improvement >60%, noise floor improvement -2dB+, overshoot reduction -5%+, convergence rate 73%+
 
 **Skill definition:** `.claude/skills/telemetry-evaluator/SKILL.md`
+
+### Diagnose Skill (`/diagnose`)
+
+Investigates user-submitted diagnostic reports. Downloads the report bundle from the admin API, cross-references recommendations against analysis code and constants, identifies root cause, and proposes a fix + user reply.
+
+**Usage:** `/diagnose <reportId>` or `/diagnose dev <reportId>` (defaults to prod)
+
+**Investigation flow:** Fetch report → mark as reviewing → analyze each recommendation against source code (FilterRecommender, PIDRecommender, TransferFunctionEstimator, constants.ts) → check FC config (RPM filter, D-min, TPA) → classify root cause → generate structured report → offer to resolve
+
+**Root cause classifications:** Rule too aggressive, rule too conservative, wrong rule fired, data quality issue, parser issue, edge case, user error, FC config conflict
+
+**Resolution statuses:** `fixed`, `user-error`, `known-limitation`, `wontfix`, `needs-bbl`
+
+**Admin scripts:** `infrastructure/scripts/diagnostic-{list,review,resolve,note}.sh`
+
+**Skill definition:** `.claude/skills/diagnose/SKILL.md`
 
 ### PostToolUse Hooks
 
