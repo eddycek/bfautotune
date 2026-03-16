@@ -1,5 +1,6 @@
 import { IPCResponse } from '@shared/types/ipc.types';
 import type { MSCManager } from '../../msc/MSCManager';
+import type { TelemetryEventCollector } from '../../telemetry/TelemetryEventCollector';
 
 /**
  * Shared dependencies injected into handler modules.
@@ -23,6 +24,8 @@ export interface HandlerDependencies {
   telemetryManager: any;
   /** License manager for Pro/Free enforcement */
   licenseManager: any;
+  /** Telemetry event collector for structured event logging */
+  eventCollector: TelemetryEventCollector | null;
 }
 
 export function createResponse<T>(data: T | undefined, error?: string): IPCResponse<T> {

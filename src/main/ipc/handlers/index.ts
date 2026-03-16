@@ -50,6 +50,7 @@ const deps: HandlerDependencies = {
   isDemoMode: false,
   telemetryManager: null,
   licenseManager: null,
+  eventCollector: null,
 };
 
 // ── Setter functions (called from src/main/index.ts) ─────────────────
@@ -88,6 +89,10 @@ export function setTelemetryManager(manager: any): void {
 
 export function setLicenseManager(manager: any): void {
   deps.licenseManager = manager;
+}
+
+export function setEventCollector(collector: any): void {
+  deps.eventCollector = collector;
 }
 
 /** Returns true if a settings fix/reset was applied and a clean snapshot is needed on reconnect. */

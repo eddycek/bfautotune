@@ -127,11 +127,12 @@ describe('TelemetryManager', () => {
       await manager.initialize();
       const bundle = await manager.assembleBundle();
 
-      expect(bundle.schemaVersion).toBe(2);
+      expect(bundle.schemaVersion).toBe(3);
       expect(bundle.installationId).toBe('test-uuid-1234');
       expect(bundle.profiles.count).toBe(0);
       expect(bundle.tuningSessions.totalCompleted).toBe(0);
       expect(bundle.sessions).toEqual([]);
+      expect(bundle.events).toEqual([]);
     });
 
     it('collects profile data from profileManager', async () => {
@@ -456,6 +457,64 @@ describe('TelemetryManager', () => {
       expect(s.verification!.overallImprovement).toBeCloseTo(17 / 3);
     });
 
+    it('includes events from collector in bundle (newest first)', async () => {
+      mockFs.readFile.mockRejectedValue(new Error('ENOENT'));
+      mockFs.writeFile.mockResolvedValue(undefined);
+      mockFs.mkdir.mockResolvedValue(undefined);
+
+      await manager.initialize();
+
+      // Create a mock event collector
+      const mockCollector = {
+        getEvents: vi.fn().mockReturnValue([
+          {
+            type: 'error',
+            name: 'msp_timeout',
+            ts: '2026-03-16T10:00:00.000Z',
+            meta: { command: 'MSP_STATUS' },
+          },
+          {
+            type: 'workflow',
+            name: 'tuning_started',
+            ts: '2026-03-16T10:01:00.000Z',
+            sessionId: 'sess-1',
+          },
+        ]),
+      };
+      manager.setEventCollector(mockCollector as any);
+
+      const bundle = await manager.assembleBundle();
+
+      expect(bundle.events).toHaveLength(2);
+      // Newest first
+      expect(bundle.events[0].name).toBe('tuning_started');
+      expect(bundle.events[1].name).toBe('msp_timeout');
+    });
+
+    it('limits events to 200 in bundle', async () => {
+      mockFs.readFile.mockRejectedValue(new Error('ENOENT'));
+      mockFs.writeFile.mockResolvedValue(undefined);
+      mockFs.mkdir.mockResolvedValue(undefined);
+
+      await manager.initialize();
+
+      const manyEvents = Array.from({ length: 300 }, (_, i) => ({
+        type: 'error' as const,
+        name: `event_${i}`,
+        ts: '2026-03-16T10:00:00.000Z',
+      }));
+      const mockCollector = {
+        getEvents: vi.fn().mockReturnValue(manyEvents),
+      };
+      manager.setEventCollector(mockCollector as any);
+
+      const bundle = await manager.assembleBundle();
+
+      expect(bundle.events).toHaveLength(200);
+      // Newest first — last 200 of 300, then reversed
+      expect(bundle.events[0].name).toBe('event_299');
+    });
+
     it('detects snapshot restore usage', async () => {
       mockFs.readFile.mockRejectedValue(new Error('ENOENT'));
       mockFs.writeFile.mockResolvedValue(undefined);
@@ -507,6 +566,32 @@ describe('TelemetryManager', () => {
       await manager.setEnabled(false);
       await manager.onTuningSessionCompleted();
       // No error — just a no-op
+    });
+  });
+
+  describe('upload clears events', () => {
+    it('clears event collector after successful upload', async () => {
+      const { net } = await import('electron');
+      mockFs.readFile.mockRejectedValue(new Error('ENOENT'));
+      mockFs.writeFile.mockResolvedValue(undefined);
+      mockFs.mkdir.mockResolvedValue(undefined);
+
+      manager.setDemoMode(false);
+      await manager.initialize();
+
+      const mockCollector = {
+        getEvents: vi.fn().mockReturnValue([]),
+        clear: vi.fn(),
+        persist: vi.fn().mockResolvedValue(undefined),
+      };
+      manager.setEventCollector(mockCollector as any);
+
+      // Trigger upload
+      vi.mocked(net.fetch).mockResolvedValueOnce({ ok: true } as any);
+      await manager.sendNow();
+
+      expect(mockCollector.clear).toHaveBeenCalled();
+      expect(mockCollector.persist).toHaveBeenCalled();
     });
   });
 

@@ -18,7 +18,7 @@ goals: improving users' flight performance through automated PID and filter tuni
 Parse `$ARGUMENTS` for **environment** and **mode**. Arguments can appear in any order.
 
 - **Environment**: `dev` or `prod` — defaults to **`prod`**
-- **Mode**: `evaluate`, `rules`, `convergence`, `compare` — defaults to **`evaluate`**
+- **Mode**: `evaluate`, `rules`, `convergence`, `compare`, `events` — defaults to **`evaluate`**
 
 Examples:
 - `/telemetry-evaluator` → prod + evaluate
@@ -26,6 +26,8 @@ Examples:
 - `/telemetry-evaluator rules` → prod + rules
 - `/telemetry-evaluator dev rules` → dev + rules
 - `/telemetry-evaluator convergence prod` → prod + convergence
+- `/telemetry-evaluator events <installationId>` → prod + events for installation
+- `/telemetry-evaluator dev events <installationId> <sessionId>` → dev + events filtered by session
 
 ## Data Access
 
@@ -53,6 +55,8 @@ Available endpoints:
 - `/admin/stats/quality` — quality score histogram
 - `/admin/stats/sessions` — session counts by mode
 - `/admin/stats/full` — everything in one call
+- `/admin/stats/errors` — aggregated error stats, funnel dropoff (v3)
+- `/admin/events?id=<uuid>` — events for specific installation (v3, optional &session=, &type=)
 
 ## Modes
 
@@ -71,6 +75,7 @@ Full KPI evaluation report.
    curl -sf -H "X-Admin-Key: $PIDLAB_TELEMETRY_ADMIN_KEY" "$PIDLAB_TELEMETRY_API_URL/admin/stats/verification" | jq . > /tmp/telemetry-verification.json
    curl -sf -H "X-Admin-Key: $PIDLAB_TELEMETRY_ADMIN_KEY" "$PIDLAB_TELEMETRY_API_URL/admin/stats/convergence" | jq . > /tmp/telemetry-convergence.json
    curl -sf -H "X-Admin-Key: $PIDLAB_TELEMETRY_ADMIN_KEY" "$PIDLAB_TELEMETRY_API_URL/admin/stats/metrics" | jq . > /tmp/telemetry-metrics.json
+   curl -sf -H "X-Admin-Key: $PIDLAB_TELEMETRY_ADMIN_KEY" "$PIDLAB_TELEMETRY_API_URL/admin/stats/errors" | jq . > /tmp/telemetry-errors.json
    ```
 
 2. Read all fetched files and evaluate against KPIs (see below)
@@ -96,6 +101,16 @@ Generated: <date> | Environment: <DEV/PROD>
 
 ## Rule Effectiveness (Top 10 / Bottom 10)
 <table of best and worst performing rules>
+
+## Error Summary
+| Error | Count | Installations | Trend |
+|-------|-------|--------------|-------|
+| <from /admin/stats/errors errorBreakdown> | ... | ... | ↑/→/↓ |
+
+## Tuning Funnel
+| Mode | Started | Completed | Drop-off Rate | Worst Phase |
+|------|---------|-----------|---------------|-------------|
+| <from /admin/stats/errors funnelDropoff> | ... | ... | ... | ... |
 
 ## Improvement Recommendations
 <numbered list of specific, actionable improvements>
@@ -129,6 +144,26 @@ Track quality improvement over time.
    - What percentage of users are converging?
 3. Compare against target: 73% convergence rate
 4. If below target, analyze why (data quality? rule effectiveness? user behavior?)
+
+### Mode: `events`
+
+Drill-down into events for a specific installation.
+
+Parse additional arguments after mode: `<installationId>` (required) and optional `<sessionId>`.
+
+1. Fetch events:
+   ```bash
+   export PIDLAB_ENV=<env>
+   source infrastructure/scripts/_env.sh
+   URL="$PIDLAB_TELEMETRY_API_URL/admin/events?id=<installationId>"
+   # If sessionId provided: URL="$URL&session=<sessionId>"
+   curl -sf -H "X-Admin-Key: $PIDLAB_TELEMETRY_ADMIN_KEY" "$URL" | jq . > /tmp/telemetry-events.json
+   ```
+2. Analyze event timeline:
+   - Group by sessionId for session-level view
+   - Identify error patterns (repeated errors, error→abandon sequences)
+   - Show workflow progression per session
+3. Generate timeline report showing event flow with annotations
 
 ### Mode: `compare`
 

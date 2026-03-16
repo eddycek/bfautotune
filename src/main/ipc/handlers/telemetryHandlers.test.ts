@@ -43,6 +43,7 @@ describe('telemetryHandlers', () => {
       isDemoMode: false,
       telemetryManager: mockTelemetryManager,
       licenseManager: null,
+      eventCollector: null,
     };
 
     registerTelemetryHandlers(deps);

@@ -6,9 +6,10 @@ import { app, net } from 'electron';
 import { APP_VERSION, TELEMETRY } from '@shared/constants';
 import type {
   TelemetrySettings,
-  TelemetryBundleV2,
+  TelemetryBundleV3,
   TelemetrySessionRecord,
 } from '@shared/types/telemetry.types';
+import type { TelemetryEventCollector } from './TelemetryEventCollector';
 import type { CompletedTuningRecord } from '@shared/types/tuning-history.types';
 import { logger } from '../utils/logger';
 
@@ -21,6 +22,7 @@ export class TelemetryManager {
   private tuningHistoryManager: any = null;
   private blackboxManager: any = null;
   private snapshotManager: any = null;
+  private eventCollector: TelemetryEventCollector | null = null;
   private isDemoMode = false;
 
   constructor(basePath: string) {
@@ -41,6 +43,10 @@ export class TelemetryManager {
 
   setSnapshotManager(manager: any): void {
     this.snapshotManager = manager;
+  }
+
+  setEventCollector(collector: TelemetryEventCollector): void {
+    this.eventCollector = collector;
   }
 
   setDemoMode(value: boolean): void {
@@ -112,11 +118,11 @@ export class TelemetryManager {
     await this.upload();
   }
 
-  async assembleBundle(): Promise<TelemetryBundleV2> {
+  async assembleBundle(): Promise<TelemetryBundleV3> {
     if (!this.settings) throw new Error('TelemetryManager not initialized');
 
-    const bundle: TelemetryBundleV2 = {
-      schemaVersion: 2,
+    const bundle: TelemetryBundleV3 = {
+      schemaVersion: 3,
       installationId: this.settings.installationId,
       timestamp: new Date().toISOString(),
       appVersion: APP_VERSION,
@@ -137,6 +143,7 @@ export class TelemetryManager {
         historyViewUsed: false,
       },
       sessions: [],
+      events: [],
     };
 
     // Profiles
@@ -262,6 +269,12 @@ export class TelemetryManager {
 
     // Per-session analytics
     bundle.sessions = await this.extractSessionRecords();
+
+    // Structured events from collector (newest first, max 200)
+    if (this.eventCollector) {
+      const allEvents = this.eventCollector.getEvents();
+      bundle.events = allEvents.slice(-200).reverse();
+    }
 
     return bundle;
   }
@@ -429,7 +442,11 @@ export class TelemetryManager {
     // Quality score from record (field may not exist on older records)
     const qualityScore = (record as any).qualityScore as number | undefined;
 
+    // Session ID for event correlation (may not exist on older records)
+    const sessionId = (record as any).sessionId as string | undefined;
+
     return {
+      sessionId,
       mode,
       durationSec,
       droneSize,
@@ -474,6 +491,11 @@ export class TelemetryManager {
             this.settings!.lastUploadAt = new Date().toISOString();
             this.settings!.lastUploadError = null;
             await this.persist();
+            // Clear events after successful upload
+            if (this.eventCollector) {
+              this.eventCollector.clear();
+              await this.eventCollector.persist();
+            }
             logger.info('Telemetry: upload successful');
             return;
           }

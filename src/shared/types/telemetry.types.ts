@@ -76,8 +76,18 @@ export interface TelemetryBundle {
   };
 }
 
+/** Structured telemetry event (error, workflow, or analysis) */
+export interface TelemetryEvent {
+  type: 'error' | 'workflow' | 'analysis';
+  name: string;
+  ts: string;
+  sessionId?: string;
+  meta?: Record<string, string | number | boolean>;
+}
+
 /** Per-session analytics record for telemetry (privacy-safe) */
 export interface TelemetrySessionRecord {
+  sessionId?: string;
   mode: 'filter' | 'pid' | 'quick';
   durationSec: number;
   droneSize?: string;
@@ -119,4 +129,11 @@ export interface TelemetryBundleV2 extends Omit<TelemetryBundle, 'schemaVersion'
   schemaVersion: 2;
   /** Per-session analytics records (all sessions, newest first) */
   sessions: TelemetrySessionRecord[];
+}
+
+/** Telemetry bundle v3 with structured events */
+export interface TelemetryBundleV3 extends Omit<TelemetryBundleV2, 'schemaVersion'> {
+  schemaVersion: 3;
+  /** Structured events (max 200, newest first) */
+  events: TelemetryEvent[];
 }
