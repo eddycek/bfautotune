@@ -17,6 +17,7 @@ import {
   setTuningHistoryManager,
   setTelemetryManager,
   setLicenseManager,
+  setEventCollector,
   setDemoMode,
   sendConnectionChanged,
   sendProfileChanged,
@@ -25,6 +26,7 @@ import {
   consumePendingSettingsSnapshot,
 } from './ipc/handlers';
 import { TelemetryManager } from './telemetry/TelemetryManager';
+import { TelemetryEventCollector } from './telemetry/TelemetryEventCollector';
 import { LicenseManager } from './license/LicenseManager';
 import { initAutoUpdater } from './updater';
 import { logger } from './utils/logger';
@@ -52,6 +54,7 @@ let blackboxManager: BlackboxManager;
 let tuningSessionManager: TuningSessionManager;
 let tuningHistoryManager: TuningHistoryManager;
 let telemetryManager: TelemetryManager;
+let eventCollector: TelemetryEventCollector;
 let licenseManager: LicenseManager;
 
 async function initialize(): Promise<void> {
@@ -106,12 +109,18 @@ async function initialize(): Promise<void> {
   tuningHistoryManager = new TuningHistoryManager(dataPath);
   await tuningHistoryManager.initialize();
 
+  // Create Telemetry event collector
+  const eventCollectorPath = join(app.getPath('userData'), 'data/telemetry-events.json');
+  eventCollector = new TelemetryEventCollector(eventCollectorPath);
+  await eventCollector.load();
+
   // Create Telemetry manager
   telemetryManager = new TelemetryManager(app.getPath('userData'));
   telemetryManager.setProfileManager(profileManager);
   telemetryManager.setTuningHistoryManager(tuningHistoryManager);
   telemetryManager.setBlackboxManager(blackboxManager);
   telemetryManager.setSnapshotManager(snapshotManager);
+  telemetryManager.setEventCollector(eventCollector);
   telemetryManager.setDemoMode(isDemoMode);
   await telemetryManager.initialize();
 
@@ -129,6 +138,7 @@ async function initialize(): Promise<void> {
   setTuningSessionManager(tuningSessionManager);
   setTuningHistoryManager(tuningHistoryManager);
   setTelemetryManager(telemetryManager);
+  setEventCollector(eventCollector);
   setLicenseManager(licenseManager);
   setDemoMode(isDemoMode);
   registerIPCHandlers();
@@ -434,6 +444,10 @@ app.on('window-all-closed', async () => {
 });
 
 app.on('before-quit', async () => {
+  // Persist any pending telemetry events before quitting
+  if (eventCollector) {
+    await eventCollector.persist().catch(() => {});
+  }
   if (mspClient?.isConnected()) {
     await mspClient.disconnect();
   }
