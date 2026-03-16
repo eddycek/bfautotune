@@ -148,6 +148,26 @@ export interface TransferFunctionMetricsSummary {
   dcGain?: { roll: number; pitch: number; yaw: number };
 }
 
+/** Compact metadata of a single recommendation for telemetry tracking */
+export interface RecommendationTrace {
+  ruleId: string;
+  setting: string;
+  confidence: 'high' | 'medium' | 'low';
+  applied: boolean; // was this included in appliedChanges?
+  delta: number; // recommendedValue - currentValue
+  informational?: boolean;
+}
+
+/** Before/after verification delta for a tuning session */
+export interface VerificationDelta {
+  noiseFloorDeltaDb?: { roll: number; pitch: number; yaw: number };
+  overshootDeltaPct?: { roll: number; pitch: number; yaw: number };
+  riseTimeDeltaMs?: { roll: number; pitch: number; yaw: number };
+  bandwidthDeltaHz?: { roll: number; pitch: number; yaw: number };
+  phaseMarginDeltaDeg?: { roll: number; pitch: number; yaw: number };
+  overallImprovement: number; // -100 to +100, positive = better
+}
+
 /** A completed tuning session archived for history/comparison */
 export interface CompletedTuningRecord {
   /** Unique record ID */
@@ -195,4 +215,13 @@ export interface CompletedTuningRecord {
 
   /** App version that created this record (for debugging) */
   appVersion?: string;
+
+  /** Per-recommendation metadata for telemetry tracking */
+  recommendationTraces?: RecommendationTrace[];
+
+  /** Before/after verification delta summary */
+  verificationDelta?: VerificationDelta;
+
+  /** Overall tune quality score (0-100) */
+  qualityScore?: number;
 }
