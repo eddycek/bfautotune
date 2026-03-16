@@ -358,6 +358,9 @@ export function registerBlackboxHandlers(deps: HandlerDependencies): void {
 
       return createResponse<BlackboxParseResult>(result);
     } catch (error) {
+      deps.eventCollector?.emit('error', 'blackbox_parse', {
+        message: getErrorMessage(error),
+      });
       logger.error('Failed to parse Blackbox log:', error);
       return createResponse<BlackboxParseResult>(undefined, getErrorMessage(error));
     }

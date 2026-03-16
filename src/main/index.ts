@@ -164,6 +164,10 @@ async function initialize(): Promise<void> {
     if (window) {
       sendConnectionChanged(window, status);
     }
+    // Track unexpected disconnects during active tuning
+    if (!status.connected && eventCollector) {
+      eventCollector.emit('error', 'msp_disconnect');
+    }
   });
 
   // Auto-detect profile and create baseline on connection
@@ -441,6 +445,24 @@ app.on('window-all-closed', async () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Track uncaught exceptions (privacy-safe: message only, no stacktrace)
+process.on('uncaughtException', (error) => {
+  if (eventCollector) {
+    eventCollector.emit('error', 'uncaught', { message: error.message });
+    eventCollector.persist().catch(() => {});
+  }
+  logger.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  if (eventCollector) {
+    const message = reason instanceof Error ? reason.message : String(reason);
+    eventCollector.emit('error', 'uncaught', { message });
+    eventCollector.persist().catch(() => {});
+  }
+  logger.error('Unhandled rejection:', reason);
 });
 
 app.on('before-quit', async () => {

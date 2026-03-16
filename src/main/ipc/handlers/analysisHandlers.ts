@@ -21,6 +21,11 @@ import { createResponse } from './types';
  * Registers analysis-related IPC handlers.
  */
 export function registerAnalysisHandlers(deps: HandlerDependencies): void {
+  const emitEvent = (
+    type: 'error' | 'workflow' | 'analysis',
+    name: string,
+    meta?: Record<string, string | number | boolean>
+  ) => deps.eventCollector?.emit(type, name, meta);
   // Filter analysis handler
   ipcMain.handle(
     IPCChannel.ANALYSIS_RUN_FILTER,
@@ -125,8 +130,26 @@ export function registerAnalysisHandlers(deps: HandlerDependencies): void {
             `noise level: ${result.noise.overallLevel}, ${result.analysisTimeMs}ms`
         );
 
+        emitEvent('analysis', 'complete', {
+          mode: 'filter',
+          durationMs: result.analysisTimeMs ?? 0,
+          recCount: result.recommendations.length,
+          dataQualityTier: result.dataQuality?.tier ?? 'unknown',
+        });
+        if (result.recommendations.length === 0) {
+          emitEvent('analysis', 'no_recommendations', {
+            mode: 'filter',
+            dataQualityTier: result.dataQuality?.tier ?? 'unknown',
+          });
+        }
+
         return createResponse<FilterAnalysisResult>(result);
       } catch (error) {
+        emitEvent('error', 'analysis_failed', {
+          mode: 'filter',
+          stage: 'fft',
+          message: getErrorMessage(error),
+        });
         logger.error('Failed to run filter analysis:', error);
         return createResponse<FilterAnalysisResult>(undefined, getErrorMessage(error));
       }
@@ -228,8 +251,26 @@ export function registerAnalysisHandlers(deps: HandlerDependencies): void {
             `${result.stepsDetected} steps detected, ${result.analysisTimeMs}ms`
         );
 
+        emitEvent('analysis', 'complete', {
+          mode: 'pid',
+          durationMs: result.analysisTimeMs ?? 0,
+          recCount: result.recommendations.length,
+          dataQualityTier: result.dataQuality?.tier ?? 'unknown',
+        });
+        if (result.recommendations.length === 0) {
+          emitEvent('analysis', 'no_recommendations', {
+            mode: 'pid',
+            dataQualityTier: result.dataQuality?.tier ?? 'unknown',
+          });
+        }
+
         return createResponse<PIDAnalysisResult>(result);
       } catch (error) {
+        emitEvent('error', 'analysis_failed', {
+          mode: 'pid',
+          stage: 'step',
+          message: getErrorMessage(error),
+        });
         logger.error('Failed to run PID analysis:', error);
         return createResponse<PIDAnalysisResult>(undefined, getErrorMessage(error));
       }
@@ -315,8 +356,22 @@ export function registerAnalysisHandlers(deps: HandlerDependencies): void {
           `Transfer function analysis complete: ${result.recommendations.length} recommendations, ${result.analysisTimeMs}ms`
         );
 
+        emitEvent('analysis', 'complete', {
+          mode: 'quick',
+          durationMs: result.analysisTimeMs ?? 0,
+          recCount: result.recommendations.length,
+        });
+        if (result.recommendations.length === 0) {
+          emitEvent('analysis', 'no_recommendations', { mode: 'quick' });
+        }
+
         return createResponse<PIDAnalysisResult>(result);
       } catch (error) {
+        emitEvent('error', 'analysis_failed', {
+          mode: 'quick',
+          stage: 'tf',
+          message: getErrorMessage(error),
+        });
         logger.error('Failed to run transfer function analysis:', error);
         return createResponse<PIDAnalysisResult>(undefined, getErrorMessage(error));
       }

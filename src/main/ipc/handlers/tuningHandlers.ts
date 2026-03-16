@@ -26,6 +26,12 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
   const { mspClient, snapshotManager, profileManager, tuningSessionManager, tuningHistoryManager } =
     deps;
 
+  const emitEvent = (
+    type: 'error' | 'workflow' | 'analysis',
+    name: string,
+    meta?: Record<string, string | number | boolean>
+  ) => deps.eventCollector?.emit(type, name, meta);
+
   // Tuning apply handler
   ipcMain.handle(
     IPCChannel.TUNING_APPLY_RECOMMENDATIONS,
@@ -235,6 +241,7 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         );
         return createResponse<ApplyRecommendationsResult>(result);
       } catch (error) {
+        emitEvent('error', 'apply_failed', { stage: 'apply', message: getErrorMessage(error) });
         logger.error('Failed to apply recommendations:', error);
         return createResponse<ApplyRecommendationsResult>(undefined, getErrorMessage(error));
       }
@@ -352,6 +359,10 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         }
 
         const updated = await tuningSessionManager.getSession(profileId);
+        if (updated) {
+          deps.eventCollector?.setActiveSessionId(updated.id);
+          emitEvent('workflow', 'tuning_started', { mode: resolvedType });
+        }
         sendTuningSessionChanged(updated);
         return createResponse<TuningSession>(updated || session);
       } catch (error) {
@@ -393,6 +404,11 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
             );
             await tuningHistoryManager.archiveSession(completedSession);
             logger.info(`Tuning session archived to history for profile ${profileId}`);
+            emitEvent('workflow', 'tuning_completed', {
+              mode: completedSession.tuningType ?? 'filter',
+              qualityScore: (completedSession as any).qualityScore ?? 0,
+            });
+            deps.eventCollector?.setActiveSessionId(undefined);
             deps.telemetryManager?.onTuningSessionCompleted().catch(() => {});
             sendTuningSessionChanged(completedSession);
             return createResponse<TuningSession>(completedSession);
@@ -403,6 +419,10 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         }
 
         const updated = await tuningSessionManager.updatePhase(profileId, phase, data);
+        emitEvent('workflow', 'phase_changed', {
+          mode: updated.tuningType ?? 'filter',
+          to: phase,
+        });
         sendTuningSessionChanged(updated);
         return createResponse<TuningSession>(updated);
       } catch (error) {
@@ -441,6 +461,16 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
       const profileId = profileManager.getCurrentProfileId();
       if (!profileId) {
         return createResponse<void>(undefined);
+      }
+
+      // Emit abandoned event before deletion
+      const abandonedSession = await tuningSessionManager.getSession(profileId);
+      if (abandonedSession) {
+        emitEvent('workflow', 'tuning_abandoned', {
+          mode: abandonedSession.tuningType ?? 'filter',
+          atPhase: abandonedSession.phase,
+        });
+        deps.eventCollector?.setActiveSessionId(undefined);
       }
 
       await tuningSessionManager.deleteSession(profileId);
