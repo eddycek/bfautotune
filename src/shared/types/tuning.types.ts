@@ -12,6 +12,7 @@
 import type {
   FilterMetricsSummary,
   PIDMetricsSummary,
+  RecommendationTrace,
   TransferFunctionMetricsSummary,
 } from './tuning-history.types';
 
@@ -132,4 +133,7 @@ export interface TuningSession {
 
   /** BF PID profile used in this tuning session (0-based). Undefined = FC default at session start. */
   bfPidProfileIndex?: number;
+
+  /** Per-recommendation metadata for telemetry tracking */
+  recommendationTraces?: RecommendationTrace[];
 }
