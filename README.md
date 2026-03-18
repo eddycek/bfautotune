@@ -961,4 +961,4 @@ Contributions welcome! Please open an issue first to discuss changes.
 
 ## License
 
-MIT
+GPL-3.0-only — see [LICENSE](./LICENSE) for details.

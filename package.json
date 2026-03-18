@@ -41,7 +41,7 @@
     "electron"
   ],
   "author": "eddycek",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "dependencies": {
     "electron-log": "^5.0.1",
     "electron-store": "^8.1.0",

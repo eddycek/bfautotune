@@ -4,13 +4,13 @@
 
 ## Executive Summary
 
-PIDlab uses an **open-core freemium model**: all tuning functionality is free, Pro unlocks multi-drone profiles and priority support. Revenue comes from two streams: **lifetime licenses ($35-$59)** and **annual subscriptions ($15-$19)**, with an optional **Premium tier ($39/year)** from year 2.
+PIDlab uses an **open-core freemium model**: all tuning functionality is free, Pro unlocks multi-drone profiles and diagnostic reports. Revenue comes from two streams: **lifetime licenses ($35-$59)** and **annual subscriptions ($15-$19)**, with an optional **Premium tier ($39/year)** from year 2.
 
 **Key projections:**
 - Break-even: Month 1 (costs are negligible)
-- 5-year cumulative profit: **$142K**
-- 10-year cumulative profit: **$492K**
-- Year 10 annual recurring revenue: **$113K**
+- 5-year cumulative profit: **$134K**
+- 10-year cumulative profit: **$600K**
+- Year 10 annual recurring revenue: **$85K**
 
 ## 1. Pricing Architecture
 
@@ -73,7 +73,7 @@ PIDlab uses an **open-core freemium model**: all tuning functionality is free, P
 
 ### License Choice
 
-**BSL 1.1 (Business Source License)** or **AGPL-3.0** — prevents commercial forks while allowing personal use and contributions. Evaluate before launch; current MIT-like openness is fine for development phase.
+**GPL-3.0-only** — prevents proprietary forks (must share modifications under GPL) while allowing personal use and community contributions. Chosen over BSL 1.1 (too restrictive for community trust) and AGPL-3.0 (unnecessary for desktop app with no network interaction).
 
 ## 3. Operating Costs
 
