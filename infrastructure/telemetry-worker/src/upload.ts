@@ -37,7 +37,8 @@ export async function handleUpload(request: Request, env: Env): Promise<Response
   }
 
   // Rate limit check
-  const allowed = await checkRateLimit(env.TELEMETRY_BUCKET, bundle.installationId);
+  const telemetryWindow = parseInt(env.TELEMETRY_RATE_LIMIT_WINDOW_MIN ?? '', 10) || undefined;
+  const allowed = await checkRateLimit(env.TELEMETRY_BUCKET, bundle.installationId, telemetryWindow);
   if (!allowed) {
     return new Response('Rate limited — max 1 upload per hour', { status: 429 });
   }

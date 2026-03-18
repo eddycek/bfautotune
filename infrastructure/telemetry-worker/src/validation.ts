@@ -2,7 +2,7 @@ import type { AnyTelemetryBundle, InstallationMetadata, Env } from './types';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_PAYLOAD_SIZE = 10 * 1024 * 1024; // 10 MB decompressed
-const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+const DEFAULT_RATE_LIMIT_WINDOW_MIN = 60;
 
 /** Validate UUID v4 format */
 export function isValidUUID(id: string): boolean {
@@ -54,9 +54,11 @@ export function checkPayloadSize(body: string): boolean {
 /** Check rate limit — returns true if upload is allowed */
 export async function checkRateLimit(
   bucket: R2Bucket,
-  installationId: string
+  installationId: string,
+  windowMin?: number
 ): Promise<boolean> {
   try {
+    const windowMs = (windowMin ?? DEFAULT_RATE_LIMIT_WINDOW_MIN) * 60 * 1000;
     const metaObj = await bucket.get(`${installationId}/metadata.json`);
     if (!metaObj) return true; // First upload, no rate limit
 
@@ -64,7 +66,7 @@ export async function checkRateLimit(
     const lastSeen = new Date(metadata.lastSeen).getTime();
     const now = Date.now();
 
-    return now - lastSeen >= RATE_LIMIT_MS;
+    return now - lastSeen >= windowMs;
   } catch {
     return true; // Error reading metadata, allow upload
   }

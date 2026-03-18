@@ -7,6 +7,12 @@ export interface Env {
   REPORT_EMAIL: string;
   /** Sender email address (must be verified in Resend) */
   REPORT_FROM_EMAIL: string;
+  /** Max diagnostic reports per installation per window (default: 5) */
+  DIAGNOSTIC_RATE_LIMIT_MAX?: string;
+  /** Rate limit window in minutes (default: 60) */
+  DIAGNOSTIC_RATE_LIMIT_WINDOW_MIN?: string;
+  /** Max telemetry uploads per installation per window in minutes (default: 60) */
+  TELEMETRY_RATE_LIMIT_WINDOW_MIN?: string;
 }
 
 /** Telemetry bundle schema (mirrors client-side TelemetryBundle) */

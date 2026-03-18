@@ -23,8 +23,8 @@ interface DiagnosticMetadata {
   };
 }
 
-const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour window
-const RATE_LIMIT_MAX = 5; // max reports per window per installation
+const DEFAULT_RATE_LIMIT_WINDOW_MIN = 60;
+const DEFAULT_RATE_LIMIT_MAX = 5;
 
 /** POST /v1/diagnostic — submit a diagnostic report */
 export async function handleDiagnosticUpload(request: Request, env: Env): Promise<Response> {
@@ -52,7 +52,12 @@ export async function handleDiagnosticUpload(request: Request, env: Env): Promis
     return new Response('Invalid ID format', { status: 400 });
   }
 
-  // Rate limit: max 5 per hour per installation
+  // Rate limit: configurable via env (default 5 per 60 min)
+  const rateLimitMax = parseInt(env.DIAGNOSTIC_RATE_LIMIT_MAX ?? '', 10) || DEFAULT_RATE_LIMIT_MAX;
+  const rateLimitWindowMs =
+    (parseInt(env.DIAGNOSTIC_RATE_LIMIT_WINDOW_MIN ?? '', 10) || DEFAULT_RATE_LIMIT_WINDOW_MIN) *
+    60 *
+    1000;
   try {
     const recentKey = `diagnostics/_rate/${data.installationId}.json`;
     const now = Date.now();
@@ -60,13 +65,13 @@ export async function handleDiagnosticUpload(request: Request, env: Env): Promis
     const existing = await env.TELEMETRY_BUCKET.get(recentKey);
     if (existing) {
       const meta: { timestamps: number[] } = await existing.json();
-      // Keep only timestamps within the window
-      timestamps = (meta.timestamps ?? []).filter((t) => now - t < RATE_LIMIT_MS);
+      timestamps = (meta.timestamps ?? []).filter((t) => now - t < rateLimitWindowMs);
     }
-    if (timestamps.length >= RATE_LIMIT_MAX) {
-      return new Response(`Rate limited — max ${RATE_LIMIT_MAX} diagnostic reports per hour`, {
-        status: 429,
-      });
+    if (timestamps.length >= rateLimitMax) {
+      return new Response(
+        `Rate limited — max ${rateLimitMax} diagnostic reports per ${Math.round(rateLimitWindowMs / 60000)} min`,
+        { status: 429 }
+      );
     }
     timestamps.push(now);
     await env.TELEMETRY_BUCKET.put(recentKey, JSON.stringify({ timestamps }), {

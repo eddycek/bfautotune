@@ -15,6 +15,9 @@ bucket_name = "pidlab-telemetry-dev"
 [vars]
 REPORT_EMAIL = "eddycek.ve@gmail.com"
 REPORT_FROM_EMAIL = "onboarding@resend.dev"
+DIAGNOSTIC_RATE_LIMIT_MAX = "5"
+DIAGNOSTIC_RATE_LIMIT_WINDOW_MIN = "60"
+TELEMETRY_RATE_LIMIT_WINDOW_MIN = "60"
 
 # Secrets set via `wrangler secret put` (or Terraform):
 # ADMIN_KEY, RESEND_API_KEY
@@ -25,6 +28,9 @@ name = "pidlab-telemetry"
 [env.prod.vars]
 REPORT_EMAIL = "eddycek.ve@gmail.com"
 REPORT_FROM_EMAIL = "onboarding@resend.dev"
+DIAGNOSTIC_RATE_LIMIT_MAX = "5"
+DIAGNOSTIC_RATE_LIMIT_WINDOW_MIN = "60"
+TELEMETRY_RATE_LIMIT_WINDOW_MIN = "60"
 
 [[env.prod.r2_buckets]]
 binding = "TELEMETRY_BUCKET"
