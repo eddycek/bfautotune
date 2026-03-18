@@ -61,9 +61,15 @@ variable "resend_api_key" {
 }
 
 variable "report_email" {
-  description = "Email address for daily telemetry reports"
+  description = "Recipient email for reports and notifications"
   type        = string
   default     = ""
+}
+
+variable "report_from_email" {
+  description = "Sender email address (must be verified in Resend)"
+  type        = string
+  default     = "onboarding@resend.dev"
 }
 
 variable "domain" {
@@ -155,6 +161,11 @@ resource "cloudflare_workers_script" "telemetry" {
   plain_text_binding {
     name = "REPORT_EMAIL"
     text = var.report_email
+  }
+
+  plain_text_binding {
+    name = "REPORT_FROM_EMAIL"
+    text = var.report_from_email
   }
 
   plain_text_binding {

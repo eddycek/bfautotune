@@ -10,7 +10,8 @@ environment           = "dev"
 
 admin_key      = "your-admin-key"
 resend_api_key = "re_xxxxxxxxxxxx"
-report_email   = "you@example.com"
+report_email      = "you@example.com"
+report_from_email = "onboarding@resend.dev"
 
 # Optional: custom domain (typically prod only)
 # domain  = "telemetry.pidlab.app"

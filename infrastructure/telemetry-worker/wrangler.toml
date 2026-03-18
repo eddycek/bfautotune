@@ -11,13 +11,24 @@ bucket_name = "pidlab-telemetry-dev"
 # [triggers]
 # crons = ["0 7 * * *"]
 
-# Secrets set via `wrangler secret put`:
-# ADMIN_KEY, RESEND_API_KEY, REPORT_EMAIL, REPORT_FROM_EMAIL
+# Plain-text config (not secrets — deployed with worker)
+[vars]
+REPORT_EMAIL = "eddycek.ve@gmail.com"
+REPORT_FROM_EMAIL = "onboarding@resend.dev"
+
+# Secrets set via `wrangler secret put` (or Terraform):
+# ADMIN_KEY, RESEND_API_KEY
 
 [env.prod]
 name = "pidlab-telemetry"
+
+[env.prod.vars]
+REPORT_EMAIL = "eddycek.ve@gmail.com"
+REPORT_FROM_EMAIL = "onboarding@resend.dev"
+
 [[env.prod.r2_buckets]]
 binding = "TELEMETRY_BUCKET"
 bucket_name = "pidlab-telemetry"
+
 [env.prod.triggers]
 crons = ["0 7 * * *"]
