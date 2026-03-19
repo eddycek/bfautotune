@@ -64,7 +64,7 @@ describe('App', () => {
 
   it('shows app title "FPVPIDlab"', () => {
     render(<App />);
-    const title = screen.getByRole('heading', { name: /pidlab/i });
+    const title = screen.getByRole('heading', { name: /fpvpidlab/i });
     expect(title).toBeInTheDocument();
     expect(title.tagName).toBe('H1');
   });

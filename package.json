@@ -97,7 +97,7 @@
     "publish": {
       "provider": "github",
       "owner": "eddycek",
-      "repo": "pidlab"
+      "repo": "fpvpidlab"
     },
     "mac": {
       "category": "public.app-category.developer-tools",
