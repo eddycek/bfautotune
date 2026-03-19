@@ -15,7 +15,7 @@ const ALL_STEPS: { key: WizardStep; label: string }[] = [
   { key: 'summary', label: 'Summary' },
 ];
 
-const QUICK_STEPS: { key: WizardStep; label: string }[] = [
+const FLASH_STEPS: { key: WizardStep; label: string }[] = [
   { key: 'session', label: 'Session' },
   { key: 'flash_analysis', label: 'Analysis' },
   { key: 'summary', label: 'Summary' },
@@ -28,7 +28,7 @@ function getStepsForMode(mode: TuningMode): { key: WizardStep; label: string }[]
     case 'pid':
       return ALL_STEPS.filter((s) => s.key !== 'filter' && s.key !== 'guide');
     case 'flash':
-      return QUICK_STEPS;
+      return FLASH_STEPS;
     default:
       return ALL_STEPS;
   }

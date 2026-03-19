@@ -85,7 +85,7 @@ describe('WizardProgress', () => {
     expect(screen.getByText('Filters')).toBeInTheDocument();
   });
 
-  it('renders 3 steps in quick mode (Session, Analysis, Summary)', () => {
+  it('renders 3 steps in flash mode (Session, Analysis, Summary)', () => {
     render(<WizardProgress currentStep="flash_analysis" mode={TUNING_MODE.FLASH} />);
 
     expect(screen.getByText('Session')).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('WizardProgress', () => {
     expect(screen.queryByText('PIDs')).not.toBeInTheDocument();
   });
 
-  it('quick mode marks session as done when on analysis step', () => {
+  it('flash mode marks session as done when on analysis step', () => {
     const { container } = render(
       <WizardProgress currentStep="flash_analysis" mode={TUNING_MODE.FLASH} />
     );

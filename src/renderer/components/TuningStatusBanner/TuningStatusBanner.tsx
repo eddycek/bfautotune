@@ -185,8 +185,8 @@ export function TuningStatusBanner({
 
   const isFilterApplied = session.phase === TUNING_PHASE.FILTER_APPLIED;
   const isPidApplied = session.phase === TUNING_PHASE.PID_APPLIED;
-  const isQuickApplied = session.phase === TUNING_PHASE.FLASH_APPLIED;
-  const isApplied = isFilterApplied || isPidApplied || isQuickApplied;
+  const isFlashApplied = session.phase === TUNING_PHASE.FLASH_APPLIED;
+  const isApplied = isFilterApplied || isPidApplied || isFlashApplied;
 
   const isFilterVerification = session.phase === TUNING_PHASE.FILTER_VERIFICATION_PENDING;
   const isPidVerification = session.phase === TUNING_PHASE.PID_VERIFICATION_PENDING;

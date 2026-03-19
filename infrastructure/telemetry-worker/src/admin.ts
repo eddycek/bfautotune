@@ -236,7 +236,7 @@ async function handleSessions(env: Env): Promise<Response> {
         total: s.totalCompleted,
         filter: s.byMode.filter,
         pid: s.byMode.pid,
-        flash: flashCount,
+        flash: s.byMode.flash,
         scores: s.recentQualityScores,
       });
     }

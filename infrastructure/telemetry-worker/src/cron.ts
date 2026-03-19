@@ -51,7 +51,7 @@ export async function handleCron(env: Env): Promise<void> {
 
         modeDistribution.filter += bundle.tuningSessions.byMode.filter;
         modeDistribution.pid += bundle.tuningSessions.byMode.pid;
-        modeDistribution.flash += bundle.tuningSessions.byMode.flash;
+        modeDistribution.flash += bundle.tuningSessions.byMode.flash ?? 0;
 
         for (const v of bundle.fcInfo.bfVersions) {
           bfVersions[v] = (bfVersions[v] || 0) + 1;
