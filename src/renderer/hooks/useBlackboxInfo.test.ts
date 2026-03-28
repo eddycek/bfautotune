@@ -78,7 +78,7 @@ describe('useBlackboxInfo', () => {
 
     const updatedInfo: BlackboxInfo = {
       ...mockBlackboxInfo,
-      usedSize: 2097152 // Different value
+      usedSize: 2097152, // Different value
     };
     vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(updatedInfo);
 
@@ -127,7 +127,7 @@ describe('useBlackboxInfo', () => {
 
   it('manages loading state correctly', async () => {
     vi.mocked(window.betaflight.getBlackboxInfo).mockImplementation(
-      () => new Promise(resolve => setTimeout(() => resolve(mockBlackboxInfo), 100))
+      () => new Promise((resolve) => setTimeout(() => resolve(mockBlackboxInfo), 100))
     );
 
     const { result } = renderHook(() => useBlackboxInfo());
@@ -142,11 +142,40 @@ describe('useBlackboxInfo', () => {
     });
   });
 
+  it('keeps previous storage type when refresh returns storageType=none', async () => {
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(mockBlackboxInfo);
+
+    const { result } = renderHook(() => useBlackboxInfo());
+
+    await waitFor(() => {
+      expect(result.current.info?.storageType).toBe('flash');
+    });
+
+    // After erase, FC temporarily returns storageType=none
+    const noneInfo: BlackboxInfo = {
+      supported: false,
+      storageType: 'none',
+      totalSize: 0,
+      usedSize: 0,
+      hasLogs: false,
+      freeSize: 0,
+      usagePercent: 0,
+    };
+    vi.mocked(window.betaflight.getBlackboxInfo).mockResolvedValue(noneInfo);
+
+    await result.current.refresh();
+
+    await waitFor(() => {
+      // Should keep 'flash' storageType but update usedSize to 0
+      expect(result.current.info?.storageType).toBe('flash');
+      expect(result.current.info?.usedSize).toBe(0);
+      expect(result.current.info?.hasLogs).toBe(false);
+    });
+  });
+
   it('clears error on successful refresh after previous error', async () => {
     // First call fails
-    vi.mocked(window.betaflight.getBlackboxInfo).mockRejectedValueOnce(
-      new Error('Initial error')
-    );
+    vi.mocked(window.betaflight.getBlackboxInfo).mockRejectedValueOnce(new Error('Initial error'));
 
     const { result } = renderHook(() => useBlackboxInfo());
 

@@ -19,7 +19,14 @@ export function useBlackboxInfo() {
 
     try {
       const blackboxInfo = await window.betaflight.getBlackboxInfo();
-      setInfo(blackboxInfo);
+      // Guard: if we previously had valid storage and new response says "none",
+      // keep the previous info — FC flash chip temporarily unreadable after erase
+      setInfo((prev) => {
+        if (prev && prev.storageType !== 'none' && blackboxInfo.storageType === 'none') {
+          return { ...prev, usedSize: 0, hasLogs: false };
+        }
+        return blackboxInfo;
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load Blackbox info';
       setError(message);
