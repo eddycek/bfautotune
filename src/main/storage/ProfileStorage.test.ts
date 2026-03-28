@@ -5,14 +5,26 @@ import { tmpdir } from 'os';
 import { ProfileStorage } from './ProfileStorage';
 import type { DroneProfile } from '@shared/types/profile.types';
 
-function makeProfile(id: string, serial: string, overrides: Partial<DroneProfile> = {}): DroneProfile {
+function makeProfile(
+  id: string,
+  serial: string,
+  overrides: Partial<DroneProfile> = {}
+): DroneProfile {
   return {
     id,
     fcSerialNumber: serial,
     name: `Drone ${id}`,
     size: '5"',
-    battery: '4S',
-    fcInfo: { variant: 'BTFL', version: '4.5.1', target: 'STM32F7X2', boardName: 'SPEEDY', apiVersion: { protocol: 0, major: 1, minor: 46 } },
+    battery: '6S',
+    weight: 650,
+    flightStyle: 'balanced',
+    fcInfo: {
+      variant: 'BTFL',
+      version: '4.5.1',
+      target: 'STM32F7X2',
+      boardName: 'SPEEDY',
+      apiVersion: { protocol: 0, major: 1, minor: 46 },
+    },
     createdAt: '2026-02-11T10:00:00.000Z',
     updatedAt: '2026-02-11T10:00:00.000Z',
     lastConnected: '2026-02-11T10:00:00.000Z',
@@ -27,7 +39,10 @@ describe('ProfileStorage', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = join(tmpdir(), `bfat-test-profstorage-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    tempDir = join(
+      tmpdir(),
+      `bfat-test-profstorage-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
     storage = new ProfileStorage(tempDir);
     await storage.ensureDirectory();
   });

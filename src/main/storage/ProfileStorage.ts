@@ -7,7 +7,23 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import type { DroneProfile } from '@shared/types/profile.types';
+import { SIZE_DEFAULTS } from '@shared/constants';
 import { logger } from '../utils/logger';
+
+/**
+ * Backfill required fields for profiles created before weight/flightStyle
+ * became mandatory. Mutates in-place for efficiency.
+ */
+function migrateProfile(profile: DroneProfile): DroneProfile {
+  if (profile.weight == null || profile.weight === 0) {
+    const defaults = SIZE_DEFAULTS[profile.size as keyof typeof SIZE_DEFAULTS];
+    profile.weight = defaults?.weight ?? 650;
+  }
+  if (!profile.flightStyle) {
+    profile.flightStyle = 'balanced';
+  }
+  return profile;
+}
 
 export class ProfileStorage {
   private storagePath: string;
@@ -44,7 +60,11 @@ export class ProfileStorage {
     try {
       const data = await fs.readFile(this.profilesFile, 'utf-8');
       const parsed = JSON.parse(data);
-      return parsed.profiles || {};
+      const profiles: Record<string, DroneProfile> = parsed.profiles || {};
+      for (const profile of Object.values(profiles)) {
+        migrateProfile(profile);
+      }
+      return profiles;
     } catch (error) {
       logger.error('Failed to load profiles:', error);
       return {};
