@@ -70,3 +70,4 @@ src/main/blackbox/__fixtures__/*.bfl
 *.cache
 .cache/
 test-app.html
+.claude/worktrees/
