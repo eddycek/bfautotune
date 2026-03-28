@@ -23,6 +23,7 @@
 .blackbox-status .loading {
   background: var(--bg-tertiary, #333);
   color: var(--text-secondary, #aaa);
+  animation: none; /* Override global .loading spin animation */
 }
 
 .blackbox-status .error {
