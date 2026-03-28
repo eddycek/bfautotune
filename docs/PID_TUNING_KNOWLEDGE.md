@@ -91,6 +91,25 @@
 
 **Gotcha**: High FF can look like P overshoot in step response analysis — check whether the leading-edge spike correlates with stick movement speed before reducing P.
 
+**RC Link-Aware FF Profiles (Community Consensus):**
+
+FF parameters must match RC link packet rate. High-rate links (ELRS 250Hz+) need
+averaging to smooth discrete steps. Low-rate links (Crossfire 50Hz) must NOT average
+or latency is unacceptable.
+
+| RC Link Rate | feedforward_averaging | feedforward_smooth_factor | feedforward_jitter_factor | feedforward_boost |
+|-------------|-------------|-----------------|-----------------|----------|
+| ≤60 Hz (CRSF 50Hz) | OFF | 0 | 10 | 5 |
+| 61-149 Hz (CRSF 150Hz) | OFF | 30 | 7 | — (default) |
+| 150-249 Hz (CRSF Dynamic) | OFF | 15 | 10 | 10 |
+| 250-499 Hz (ELRS/Tracer) | 2_POINT | 35 | 4-5 | 18 |
+| ≥500 Hz (ELRS) | 2_POINT | 65 | 3-5 | 18 |
+
+Sources: SupaflyFPV 4.5 presets, UAV Tech radio options, Karate race presets.
+
+`rc_smoothing_auto_factor`: Most presets set 45 (BF default 30). Higher = smoother input
+but slightly more latency. Racing presets use 25-35, freestyle/cinema 45-50.
+
 ---
 
 ## 2. Filter Architecture (Betaflight)
@@ -199,6 +218,24 @@ From BF Tuning Guide and community consensus:
 - `rpm_filter_harmonics`: 1-3 (default 3). BF 4.5+ allows dimmable harmonics (adjustable notch depth per harmonic)
 - `rpm_filter_min_hz`: Minimum frequency (100 Hz default) — prevents notches from tracking below useful range
 - **Motor poles config**: `motor_poles` must match actual motor (typically 14 for standard FPV motors). Wrong value = RPM filter tracks wrong frequencies
+
+### RPM Filter Q and Weights (Community Presets)
+
+RPM filter Q controls notch bandwidth — lower Q = wider notch = catches more noise but adds delay.
+
+**Community values by drone size (from SupaflyFPV, UAV Tech presets):**
+
+| Size | rpm_filter_q | rpm_filter_weights | Reasoning |
+|------|-------------|-------------------|-----------|
+| 1-3" | 700-1000 | 100,50,100 | Small motors — narrow harmonics |
+| 5" | 700-1000 | 90,50,90 | Standard — narrow harmonics |
+| 6" | 600-800 | 90,50,90 | Larger props — wider harmonic spread |
+| 7"+ | 500-700 | 90,60,90 | Widest spread, needs broad Q |
+
+`rpm_filter_weights` (BF 4.5+): Per-harmonic notch depth (1st, 2nd, 3rd). 100 = full depth.
+Second harmonic (2nd value) typically lower (30-50) — less energy in 2nd harmonic for most props.
+
+`rpm_filter_fade_range_hz`: Range below `rpm_filter_min_hz` where notch fades out (default 50, SupaflyFPV uses 50, Karate uses 100 on race builds).
 
 ### Group Delay
 
@@ -757,6 +794,7 @@ Composite 0-100 score computed after tuning session completes. Components vary b
 - **Filters**: Gyro LPF1 200-300 Hz, D-term LPF1 120-170 Hz
 - **Goal**: Balanced response, good prop wash handling, moderate filtering
 - **Notes**: Most common setup, most tuning content applies to this archetype
+- **D-max**: SupaflyFPV disabled (dmax_gain=0), UAV Tech disabled. Community trend: disable D-max for predictable feel on 5" and smaller.
 
 ### 5" Race (580g, 2650KV, 6S)
 
@@ -778,6 +816,7 @@ Composite 0-100 score computed after tuning session completes. Components vary b
 - **Filters**: Gyro LPF1 150-250 Hz, D-term LPF1 100-140 Hz
 - **Goal**: Efficiency, gentle response, cruise stability
 - **Notes**: Larger props = lower noise frequencies. More frame flex = potential lower-frequency resonances. Lower P/D for gentle handling.
+- **D-max**: SupaflyFPV enables (dmax_gain=100), UAV Tech disabled. Mixed — larger quads may benefit from adaptive D.
 
 ### Tiny Whoop (25g, 19000KV, 1S)
 
@@ -785,6 +824,7 @@ Composite 0-100 score computed after tuning session completes. Components vary b
 - **Filters**: Gyro LPF1 200-350 Hz, D-term LPF1 130-180 Hz
 - **Goal**: Aggressive for the size, high P needed for low-authority motors
 - **Notes**: Very high KV motors have less authority → needs higher PID gains. Lightweight means quick response but also quick upset from air disturbance.
+- **D-max**: Universally disabled (dmax_gain=0) across all preset authors. Whoops need consistent D.
 
 ### 10" Ultra Long Range (1500g, 1400KV, 6S)
 
@@ -807,22 +847,45 @@ Composite 0-100 score computed after tuning session completes. Components vary b
 
 ### TPA (Throttle PID Attenuation)
 
-- Reduces PID gains (primarily D) at high throttle to prevent noise amplification
-- At high throttle: motors spin faster → more noise → D amplifies it → hot motors
-- `tpa_rate`: Amount of attenuation (0-250, BF default 65 = 26%)
-- `tpa_breakpoint`: Throttle level where attenuation begins (1000-2000, default 1350)
-- BF Tuning Guide: TPA rate 0.6 (60% at full throttle), breakpoint 1250 (25% throttle)
-- **Low-throttle TPA (BF 4.5+)**: Also attenuates at very low throttle where motor response is non-linear
+- Reduces PID gains at high throttle to prevent noise amplification
+- `tpa_rate`: Amount of attenuation (0-250, BF default 65)
+- `tpa_breakpoint`: Throttle level where attenuation begins (default 1350)
+- `tpa_mode`: Which terms to attenuate — D (default), PD (SupaflyFPV preference on 5")
+
+**Community preset values:**
+
+| Author | tpa_mode | tpa_rate | tpa_breakpoint |
+|--------|----------|----------|----------------|
+| SupaflyFPV 5" | PD | 50 | 1250 |
+| SupaflyFPV 6-7" | D | 80 | 1250 |
+| Karate Race | D | 70 | 1250 |
+| BF Default | D | 65 | 1350 |
+
+**Low-throttle TPA (BF 4.5+):**
 - `tpa_low_rate`: Low-throttle attenuation (0-100, default 20)
-- `tpa_low_breakpoint`: Throttle level below which attenuation applies (default 1050)
+- `tpa_low_breakpoint`: Throttle below which attenuation applies (default 1050)
+- `tpa_low_always`: ON in SupaflyFPV presets — always attenuate at low throttle
+- **Pattern**: Most presets lower breakpoint to 1250 (from 1350). Larger quads use higher tpa_rate.
 
 ### Anti-Gravity
 
 - Boosts I-term temporarily during rapid throttle changes (punch-outs, drops)
-- Prevents "falling out of the sky" feeling during aggressive throttle maneuvers
-- `anti_gravity_gain`: Strength of I boost (BF Tuning Guide: 0-30 range, default 5000 in internal units)
-- Works by scaling I-term based on throttle derivative
-- Too high: I-term oscillation during throttle pumping. Too low: altitude instability during aggressive moves.
+- `anti_gravity_gain`: Strength of I boost (BF 4.5: 0-250, **default 80**)
+- Note: BF 4.3 used internal units (default 5000). BF 4.5+ changed to 0-250 scale.
+
+**Community preset values:**
+
+| Scenario | anti_gravity_gain |
+|----------|------------------|
+| BF 4.5 default | 80 |
+| SupaflyFPV 5" (with cam) | 120 |
+| SupaflyFPV 5" (no cam) | 110 |
+| UAV Tech 5" FS+GoPro | 120 |
+| UAV Tech Whoop | 90 |
+| Race (Karate, ctzsnooze) | 80 (default) |
+
+**Pattern**: Freestyle with camera weight benefits from higher anti-gravity (110-120).
+Race builds use default. Lightweight builds use default or slightly above.
 
 ### I-term Relax
 
@@ -874,6 +937,40 @@ Composite 0-100 score computed after tuning session completes. Components vary b
 - `ez_landing_limit`: How much to reduce PID gains
 - Prevents tip-overs on landing (relaxes attitude hold)
 - Not needed for experienced pilots, helpful for beginners
+
+### Thrust Linearization
+
+- Compensates for non-linear motor/ESC thrust curve
+- `thrust_linear`: Linearization amount (0-150, BF default 0 = off)
+- Higher value = more compensation for low-throttle non-linearity
+
+**Community values by size (SupaflyFPV):**
+
+| Size | thrust_linear |
+|------|--------------|
+| 3-4" | 40 |
+| 5" | 30 |
+| 6" | 20 |
+| 7" | 10 |
+
+UAV Tech: 0 for 24K PWM, 20 for 48K PWM (all sizes). QuadMcFly: 40.
+Decreases with size — larger props have more linear thrust curves.
+
+### PID Sum Limits
+
+- `pidsum_limit`: Maximum combined PID output per axis (default 500)
+- `pidsum_limit_yaw`: Same for yaw (default 400)
+- UAV Tech universally sets both to 1000 for more headroom during aggressive maneuvers
+- Karate Race: yaw limit 1000 (default pidsum_limit)
+- Higher limits allow full PID authority on heavy/powerful quads. Risk: motor desync on damaged quads.
+
+### D-term LPF Dynamic Expo (BF 4.5+)
+
+- `dterm_lpf1_dyn_expo`: Controls how aggressively D-term dynamic LPF tracks throttle (0-10)
+- Higher expo = LPF cutoff rises faster with throttle
+- Karate Race: 7-10 (aggressive, less D filtering at high throttle)
+- Default: 5
+- Useful for race builds where minimal D-term latency at high throttle is critical
 
 ---
 

@@ -1,232 +1,274 @@
-# Preset Gap Analysis — Lessons from SupaflyFPV Betaflight Presets
+# Preset Gap Analysis — Community Presets vs FPVPIDlab
 
 > **Status**: Proposed
 
-Gap analysis comparing FPVPIDlab recommendations against community Betaflight presets (SupaflyFPV). Identifies settings we don't currently touch but should, and validates where our data-driven approach already exceeds static presets.
+Gap analysis comparing FPVPIDlab recommendations against community Betaflight presets (SupaflyFPV, UAV Tech, Karate/sugarK, QuadMcFly, ctzsnooze, AOS/Chris Rosser). Identifies settings we don't currently recommend but should, ordered by implementation feasibility.
 
 ---
 
 ## Context
 
-SupaflyFPV maintains 4 official Betaflight 4.3 presets (3/4", 5", 6", 7") in the [betaflight/firmware-presets](https://github.com/betaflight/firmware-presets) repository. Each preset configures ~36 Betaflight settings across PIDs, filters, feedforward, RC link, and rates.
+Community preset authors maintain tuning profiles for BF 4.5+ across multiple drone sizes. Each preset configures 30-40 settings across PIDs, filters, feedforward, RC link, motor output, and rates.
 
-FPVPIDlab currently recommends ~22 settings (9 PID gains, 12 filter settings, 1 feedforward_boost). This document analyzes the gap and proposes concrete improvements.
+FPVPIDlab currently recommends ~22 settings (9 PID gains, 12 filter settings, 1 feedforward_boost). This document identifies gaps and proposes concrete implementation tasks.
+
+For detailed community preset values, see `docs/PID_TUNING_KNOWLEDGE.md`:
+- Section 1 → RC Link-Aware FF Profiles table
+- Section 2 → RPM Filter Q and Weights table
+- Section 9 → Quad Archetypes with D-max notes
+- Section 10 → TPA, Anti-Gravity, Thrust Linearization, PID Sum Limits, D-term LPF Dynamic Expo
 
 ### Source Presets Analyzed
 
-| Preset | File |
-|--------|------|
-| 3/4" Freestyle | `presets/4.3/tune/SupaflyFPV_Freestyle_3_4_Inch_EasyTune.txt` |
-| 5" Freestyle | `presets/4.3/tune/SupaflyFPV_Freestyle_5_Inch_EasyTune.txt` |
-| 6" Freestyle | `presets/4.3/tune/SupaflyFPV_Freestyle_6_and_EasyTune.txt` |
-| 7" Freestyle | `presets/4.3/tune/SupaflyFPV_Freestyle_7_Inch_EasyTune.txt` |
+| Author | Sizes | BF Version |
+|--------|-------|------------|
+| SupaflyFPV | 3/4", 5", 6", 7" | 4.5 |
+| UAV Tech | Whoop, 5" FS, 5" Race, 7" LR | 4.5 |
+| Karate/sugarK | 5" Race | 4.5 |
+| QuadMcFly | 5" FS | 4.5 |
+| ctzsnooze | 5" General | 4.5 |
+| AOS/Chris Rosser | 5" Race | 4.5 |
 
 ---
 
-## Summary of Preset Settings vs FPVPIDlab Coverage
+## Gap Analysis Table
 
-| Category | Preset Settings | FPVPIDlab Covers | Gap |
-|----------|----------------|------------------|-----|
-| PID gains (P/I/D per axis) | via simplified_tuning (7 sliders) | 9 raw PID values | Covered (we go deeper — per-axis) |
-| Gyro filters (LPF1/2, dyn) | 7 settings | 7 settings | Covered |
-| D-term filters (LPF1/2, dyn) | 5 settings | 5 settings | Covered |
-| Dynamic notch (min/max/count/q) | 4 settings | 4 settings | Covered |
-| RPM filter (harmonics/q/min/fade) | 4 settings | Read-only (detect active) | **Gap: RPM Q tuning** |
-| Feedforward (averaging/smooth/jitter/boost) | 4 settings per RC link | boost only | **Gap: FF RC link tuning** |
-| RC smoothing | 2 settings | Not touched | **Gap: RC smoothing** |
-| Anti-gravity | 1 setting | Not touched | **Gap: Anti-gravity** |
-| D-max gain | 1 setting (set to 0) | Not touched | **Gap: D-max awareness** |
-| Rates | 9 settings | Not in scope | Out of scope (pilot preference) |
-| DSHOT/bidir | 2 settings | Not in scope | Out of scope (hardware) |
-
----
-
-## Proposed Changes
-
-### Task 1: RC Link-Aware Feedforward Recommendations (HIGH priority)
-
-**Problem**: Feedforward quality depends heavily on RC link type and packet rate. The SupaflyFPV presets define 5 distinct FF configurations per RC link. We currently only recommend `feedforward_boost` changes and have a basic `FeedforwardAnalyzer` that adjusts `smooth_factor` and `jitter_factor` based on step response analysis — but these recommendations are not RC-link-aware and don't cover `feedforward_averaging`.
-
-**What presets set per RC link:**
-
-| RC Link | ff_averaging | ff_smooth | ff_jitter | ff_boost |
-|---------|-------------|-----------|-----------|----------|
-| Crossfire Dynamic | OFF | 15 | 10 | 10 |
-| Crossfire 50Hz | OFF | 0 | 10 | 5 |
-| Crossfire 150Hz | OFF | 30 | 7 | — |
-| Tracer/ELRS 250Hz | 2_POINT | 35 | 4 | 18 |
-| ELRS 500Hz | 2_POINT | 65 | 3 | 18 |
-
-**Key insight**: At 250Hz+ packet rates, `feedforward_averaging = 2_POINT` is critical. Without it, FF response is noisy. At lower rates (Crossfire), averaging must be OFF or it introduces lag.
-
-**What we already have:**
-- `FeedforwardAnalyzer.ts` — analyzes leading-edge overshoot and small-step ratio, recommends `smooth_factor` and `jitter_factor` adjustments
-- `extractRCLinkRate()` — detects RC link rate from BBL headers (`rc_smoothing_input_hz` or `rcIntervalMs`)
-- `FeedforwardContext` type with `rcLinkRateHz` field
-- `HIGH_RC_RATE_HZ = 250` constant already used for step-size scaling
-
-**Proposed changes:**
-
-1. **Add RC link profile lookup table** in `src/main/analysis/constants.ts`:
-   ```
-   RC_LINK_PROFILES:
-     ≤60 Hz:   { averaging: OFF, smoothBase: 0,  jitterBase: 10, boostBase: 5 }
-     61-200 Hz: { averaging: OFF, smoothBase: 25, jitterBase: 8,  boostBase: 12 }
-     201-300 Hz:{ averaging: 2_POINT, smoothBase: 35, jitterBase: 4, boostBase: 18 }
-     301-500 Hz:{ averaging: 2_POINT, smoothBase: 55, jitterBase: 3, boostBase: 18 }
-     501+ Hz:   { averaging: 2_POINT, smoothBase: 65, jitterBase: 3, boostBase: 18 }
-   ```
-
-2. **Extend `FeedforwardAnalyzer.recommendFeedforward()`** to:
-   - Detect RC link rate from BBL headers (already implemented)
-   - Look up baseline FF profile from the table above
-   - Compare current FC settings against the baseline
-   - Generate recommendations for `feedforward_averaging`, `feedforward_smooth_factor`, `feedforward_jitter_factor` when significantly off-target
-   - Keep existing step-response-based analysis as a refinement layer on top of the baseline
-
-3. **Add `feedforward_averaging` to writable settings** in `tuningHandlers.ts` (already supports arbitrary CLI `set` commands — just needs the recommendation to be generated)
-
-4. **Read current `feedforward_averaging` from BBL headers** (`feedforward_averaging` header field) — add to `FeedforwardContext`
-
-**Files to modify:**
-- `src/main/analysis/constants.ts` — add `RC_LINK_PROFILES` lookup table
-- `src/main/analysis/FeedforwardAnalyzer.ts` — extend `recommendFeedforward()` with RC-link-aware baseline
-- `src/main/analysis/PIDRecommender.ts` — extract `feedforward_averaging` from BBL headers into `FeedforwardContext`
-- `src/shared/types/analysis.types.ts` — add `averaging` field to `FeedforwardContext`
-- Tests for all modified files
-
-**Risk**: Low. Additive change — existing boost/smooth/jitter analysis remains, we layer RC-link awareness on top.
+| Setting(s) | Category | Current Coverage | Gap Type | Priority |
+|------------|----------|-----------------|----------|----------|
+| `feedforward_averaging`, `feedforward_smooth_factor`, `feedforward_jitter_factor` | Feedforward | boost only, basic smooth/jitter | RC-link-aware profiles | HIGH |
+| `iterm_relax_cutoff` | PID | Not touched | Flight-style-aware recommendation | HIGH |
+| `anti_gravity_gain` | PID | Not touched | Size/weight-based advisory | MEDIUM |
+| `rpm_filter_q`, `rpm_filter_weights` | Filters | Read-only (detect active) | Size-based Q tuning | MEDIUM |
+| `thrust_linear` | Motor | Not touched | Size-based recommendation | MEDIUM |
+| `simplified_dmax_gain` | PID | Advisory only (d_min context) | Disable recommendation | MEDIUM |
+| `tpa_mode`, `tpa_rate`, `tpa_breakpoint` | PID | Not touched | Size/noise-aware advisory | LOW |
+| `tpa_low_always`, `tpa_low_breakpoint` | PID | Not touched | SupaflyFPV pattern advisory | LOW |
+| `dyn_idle_min_rpm` | Motor | Not touched | Size-based advisory | LOW |
+| `rc_smoothing_auto_factor` | RC | Not touched | Flight-style advisory | LOW |
+| `dterm_lpf1_dyn_expo` | Filters | Not touched | Race build advisory | LOW |
+| `pidsum_limit`, `pidsum_limit_yaw` | PID | Not touched | Power headroom advisory | LOW |
+| `feedforward_max_rate_limit` | Feedforward | Not touched | Race build advisory | LOW |
 
 ---
 
-### Task 2: RPM Filter Q Tuning (MEDIUM priority)
+## Implementation Tasks (ordered by priority)
 
-**Problem**: RPM filter Q (bandwidth) affects how precisely motor noise harmonics are removed. Wider Q (lower number) catches more noise but adds phase delay. Narrower Q (higher number) is more precise but may miss spread-out harmonics. SupaflyFPV scales Q by drone size:
+### Task 1: RC Link-Aware Feedforward Recommendations
 
-| Size | rpm_filter_q | Reasoning |
-|------|-------------|-----------|
-| 3/4" | 1000 | Small motors — narrow harmonics, tight Q sufficient |
-| 5" | 1000 | Standard — narrow harmonics |
-| 6" | 800 | Larger props — wider harmonic spread |
-| 7" | 700 | Largest — widest harmonic spread, needs broad Q |
-
-**What we currently do**: Detect `rpm_filter_harmonics > 0` and adjust other filter bounds accordingly. We never recommend changing RPM filter parameters themselves.
-
-**Proposed changes:**
-
-1. **Add RPM Q size lookup** in `src/main/analysis/constants.ts`:
-   ```
-   RPM_FILTER_Q_BY_SIZE:
-     1-2":  1000
-     3-4":  1000
-     5":    1000
-     6":    800
-     7":    700
-     10":   600
-   ```
-
-2. **Add optional RPM Q recommendation** in `FilterRecommender.ts`:
-   - Only when RPM filter is active (`rpm_filter_harmonics > 0`)
-   - Read current `rpm_filter_q` from FC (requires reading from BBL header or adding MSP field)
-   - If current Q differs significantly from size-appropriate value (>20% difference), recommend adjustment
-   - Rule ID: `F-RPM-Q`
-   - Confidence: low (advisory — RPM Q is rarely the bottleneck)
-
-3. **Add `rpm_filter_q` to `CurrentFilterSettings` type** — already partially available via MSP_FILTER_CONFIG byte 43 (currently not parsed as a named field)
-
-**Files to modify:**
-- `src/main/analysis/constants.ts` — add `RPM_FILTER_Q_BY_SIZE`
-- `src/main/analysis/FilterRecommender.ts` — add RPM Q rule
-- `src/shared/types/analysis.types.ts` — add `rpm_filter_q` to `CurrentFilterSettings`
-- `src/main/msp/MSPClient.ts` — parse `rpm_filter_q` from MSP_FILTER_CONFIG (if not already)
-- Tests for modified files
-
-**Risk**: Low. Advisory-only recommendation with low confidence. Won't disrupt existing filter pipeline.
+- **What**: Recommend `feedforward_averaging`, `feedforward_smooth_factor`, `feedforward_jitter_factor` based on detected RC link rate. See KB Section 1 for the full RC link profile table.
+- **Detection**: RC link rate from BBL header (`rc_smoothing_input_hz` or `rcIntervalMs`). Already extracted via `extractRCLinkRate()`. Current `feedforward_averaging` from BBL header field.
+- **Logic**:
+  - Look up baseline FF profile from RC link rate bands (≤60, 61-150, 151-249, 250-499, ≥500 Hz)
+  - Compare current FC settings against baseline
+  - Generate recommendations when significantly off-target (>30% deviation or wrong averaging mode)
+  - Keep existing step-response-based analysis as refinement layer on top of baseline
+  - Bundle `rc_smoothing_auto_factor` advisory (45 if currently at default 30)
+- **Files to modify**:
+  - `src/main/analysis/constants.ts` — add `RC_LINK_PROFILES` lookup table
+  - `src/main/analysis/FeedforwardAnalyzer.ts` — extend `recommendFeedforward()` with RC-link-aware baseline
+  - `src/main/analysis/PIDRecommender.ts` — extract `feedforward_averaging` from BBL headers into `FeedforwardContext`
+  - `src/shared/types/analysis.types.ts` — add `averaging` field to `FeedforwardContext`
+  - Tests for all modified files
+- **Effort**: Medium (2-3 days)
+- **Risk**: Low — additive change, existing FF analysis remains
 
 ---
 
-### Task 3: Anti-Gravity Gain Recommendation (MEDIUM priority)
+### Task 2: Flight-Style-Aware I-term Relax Cutoff
 
-**Problem**: `anti_gravity_gain` controls how much the I-term is boosted during rapid throttle changes (punchouts, dives). BF default is 3500, but SupaflyFPV and most tuners recommend 5000 for freestyle. Low anti-gravity → poor attitude hold during aggressive throttle changes.
-
-**What we currently do**: Nothing. We don't read, analyze, or recommend anti-gravity settings.
-
-**Detection opportunity**: In PID analysis, we already measure `steadyStateErrorPercent` per step. If we correlate high steady-state error with throttle activity during the step window, we can detect cases where anti-gravity would help.
-
-**Proposed changes:**
-
-1. **Read `anti_gravity_gain` from BBL header** in `extractFeedforwardContext()` or a new extraction function. BBL header key: `anti_gravity_gain`.
-
-2. **Add simple rule in PIDRecommender** (or a new utility):
-   - If `anti_gravity_gain < 5000` AND mean steady-state error is above threshold on multiple axes: recommend increasing to 5000
-   - Rule ID: `P-AG`
-   - Confidence: medium
-   - Informational advisory text explaining what anti-gravity does
-
-3. **Apply via CLI** in `tuningHandlers.ts` — `set anti_gravity_gain = 5000` (same mechanism as filter settings)
-
-**Files to modify:**
-- `src/main/analysis/PIDRecommender.ts` — add anti-gravity rule
-- `src/main/analysis/constants.ts` — add `ANTI_GRAVITY_RECOMMENDED` = 5000
-- `src/shared/types/analysis.types.ts` — add `antiGravityGain` to relevant context type
-- Tests for modified files
-
-**Risk**: Very low. Single advisory recommendation. Only triggers when error data supports it.
+- **What**: Recommend `iterm_relax_cutoff` based on detected flight style and current value.
+- **Detection**: Flight style from user profile (`profile.flightStyle`: smooth/balanced/aggressive). Current `iterm_relax_cutoff` from BBL header. Profile flight style is more reliable than inferring from step response data.
+- **Logic**:
+  - If `profile.flightStyle` is aggressive (race): recommend 20-30
+  - If `profile.flightStyle` is balanced (freestyle): recommend 10-15 (BF default)
+  - If `profile.flightStyle` is smooth (cinematic): recommend 5-10
+  - Only recommend if current value is >50% away from style-appropriate range
+  - Rule ID: `P-IRELAX`, confidence: medium
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` — add iterm_relax rule using profile flight style and BBL header value
+  - `src/main/analysis/constants.ts` — add `ITERM_RELAX_CUTOFF_BY_STYLE` ranges
+  - `src/shared/types/analysis.types.ts` — add `itermRelaxCutoff` to relevant context
+  - Tests for modified files
+- **Effort**: Medium (1-2 days)
+- **Risk**: Low — informational advisory, uses profile flight style as primary source
 
 ---
 
-### Task 4: D-Max Gain Awareness (LOW priority)
+### Task 3: Anti-Gravity Gain Recommendation
 
-**Problem**: Betaflight's `simplified_dmax_gain` (or raw `d_min_*` / `d_max_*` settings) controls adaptive D-gain. When active, D varies between d_min (calm flight) and d_max (aggressive maneuvers). SupaflyFPV sets `dmax_gain = 0` (disabling adaptive D) for predictable feel.
-
-**What we currently do**: We detect d_min from BBL headers and add advisory notes to D recommendations (`applyDMinAdvisory`). But we don't:
-- Detect `dmax_gain` value from simplified tuning
-- Warn when D-max is active and may interfere with our D recommendations
-- Suggest disabling D-max for more predictable tuning convergence
-
-**Proposed changes:**
-
-1. **Extract `simplified_dmax_gain` from BBL header** (if available) or detect from d_min vs d_max relationship:
-   - When `d_min_roll > 0` AND `d_min_roll < pid_roll_d`, D-max is effectively active
-   - Already partially covered by `DMinContext`
-
-2. **Extend existing `applyDMinAdvisory()`** to include a note about D-max implications:
-   - When D-max is active, our D-increase recommendation targets d_max
-   - Low-throttle maneuvers will still use d_min (lower effective D)
-   - Suggest considering `simplified_dmax_gain = 0` for consistent D behavior across all throttle levels
-
-3. **Add informational recommendation** when D-max is active:
-   - Rule ID: `P-DMAX-INFO`
-   - Confidence: low (informational only)
-   - Setting: `simplified_dmax_gain`
-   - Recommended value: 0
-   - Only emit once (not per-axis)
-
-**Files to modify:**
-- `src/main/analysis/PIDRecommender.ts` — extend `applyDMinAdvisory()`, add D-max informational rule
-- `src/main/analysis/constants.ts` — add constant if needed
-- Tests for modified files
-
-**Risk**: Very low. Informational-only recommendation. No functional change to existing D-term logic.
+- **What**: Recommend `anti_gravity_gain` based on drone weight/size and detected steady-state error during throttle transitions. Uses BF 4.5 scale (0-250, default 80). See KB Section 10 for community values.
+- **Detection**: Current `anti_gravity_gain` from BBL header. Steady-state error from existing PID analysis (`meanSteadyStateError`). Drone size from user profile.
+- **Logic**:
+  - If `anti_gravity_gain < 100` AND mean steady-state error is above threshold on multiple axes AND drone carries camera weight: recommend 110-120
+  - Lightweight/race builds: keep at default 80
+  - Rule ID: `P-AG`, confidence: medium
+  - Apply via CLI: `set anti_gravity_gain = <value>`
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` — add anti-gravity rule
+  - `src/main/analysis/constants.ts` — add `ANTI_GRAVITY_BY_STYLE` lookup
+  - `src/shared/types/analysis.types.ts` — add `antiGravityGain` to context type
+  - Tests for modified files
+- **Effort**: Small (1 day)
+- **Risk**: Low — single advisory recommendation, only triggers when error data supports it
 
 ---
 
-### Task 5: RC Smoothing Factor Advisory (LOW priority)
+### Task 4: RPM Filter Q Tuning
 
-**Problem**: SupaflyFPV sets `rc_smoothing_auto_factor = 45` (BF default = 50) across all presets. Lower value = smoother stick input but slightly more latency. This is a minor optimization but shows up in every preset.
+- **What**: Recommend `rpm_filter_q` (and optionally `rpm_filter_weights` on BF 4.5+) based on drone size. See KB Section 2 for the Q/weights table.
+- **Detection**: RPM filter active from `rpm_filter_harmonics > 0` (already detected). Current `rpm_filter_q` from MSP_FILTER_CONFIG byte 43 (needs parsing as named field). Drone size from user profile.
+- **Logic**:
+  - Only when RPM filter is active
+  - If current Q differs >20% from size-appropriate value, recommend adjustment
+  - Rule ID: `F-RPM-Q`, confidence: low (advisory)
+  - Weights recommendation only if current values are all 100 (BF default) and size > 5"
+- **Files to modify**:
+  - `src/main/analysis/constants.ts` — add `RPM_FILTER_Q_BY_SIZE`
+  - `src/main/analysis/FilterRecommender.ts` — add RPM Q rule
+  - `src/shared/types/analysis.types.ts` — add `rpm_filter_q` to `CurrentFilterSettings`
+  - `src/main/msp/MSPClient.ts` — parse `rpm_filter_q` from MSP_FILTER_CONFIG
+  - Tests for modified files
+- **Effort**: Small (1 day)
+- **Risk**: Low — advisory-only, won't disrupt existing filter pipeline
 
-**What we currently do**: Nothing. We don't read or recommend RC smoothing settings.
+---
 
-**Proposed change:**
+### Task 5: Thrust Linearization Advisory
 
-1. **Read `rc_smoothing_auto_factor` from BBL header** (if available)
-2. **Include as part of Task 1** (RC link FF recommendations) — when recommending FF settings for a specific RC link profile, also suggest `rc_smoothing_auto_factor = 45` if currently at default 50
-3. Low confidence, informational advisory
+- **What**: Recommend `thrust_linear` based on drone size. See KB Section 10 for size-based values.
+- **Detection**: Current `thrust_linear` from BBL header. Drone size from user profile. ESC PWM frequency from BBL header (if available).
+- **Logic**:
+  - Size-based lookup: 3-4" → 40, 5" → 30, 6" → 20, 7" → 10
+  - Note: ESC PWM frequency also matters — UAV Tech uses 0 for 24K PWM, 20 for 48K. Size table is for 48K (standard modern ESCs)
+  - If current value is 0 (disabled) and drone is ≤5": recommend enabling
+  - If current value differs >50% from size-appropriate: advisory
+  - Rule ID: `P-THRUST-LIN`, confidence: low (informational)
+  - Requires user to confirm drone size (from profile)
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` — add thrust linearization rule
+  - `src/main/analysis/constants.ts` — add `THRUST_LINEAR_BY_SIZE`
+  - Tests for modified files
+- **Effort**: Small (0.5 day)
+- **Risk**: Low — informational advisory only
 
-**Files to modify:**
-- Same files as Task 1 (bundled together)
+---
 
-**Risk**: Negligible. Informational advisory only.
+### Task 6: D-Max Gain Awareness
+
+- **What**: Recommend disabling `simplified_dmax_gain` for predictable tuning convergence. See KB Section 9 for per-archetype D-max notes.
+- **Detection**: Already have `DMinContext` from BBL headers. Detect from d_min vs d_max relationship: when `d_min_roll > 0` AND `d_min_roll < pid_roll_d`, D-max is effectively active. Drone size from user profile.
+- **Logic**:
+  - For ≤5" and whoops: recommend `simplified_dmax_gain = 0` (community consensus)
+  - For 7"+: informational only (mixed community opinion)
+  - Extend existing `applyDMinAdvisory()` with explicit disable recommendation
+  - Rule ID: `P-DMAX-INFO`, confidence: low (informational)
+  - Only emit once (not per-axis)
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` — extend `applyDMinAdvisory()`, add D-max rule
+  - `src/main/analysis/constants.ts` — add constant if needed
+  - Tests for modified files
+- **Effort**: Small (0.5 day)
+- **Risk**: Low — informational-only, no functional change to D-term logic
+
+---
+
+### Task 7: Dynamic Idle Min RPM Advisory
+
+- **What**: Recommend `dyn_idle_min_rpm` based on drone size and motor KV.
+- **Detection**: Current `dyn_idle_min_rpm` from BBL header. Motor KV and size from user profile. RPM filter status (already detected).
+- **Logic**:
+  - If RPM filter active and `dyn_idle_min_rpm` is 0: recommend enabling (20-40 range)
+  - Size-based: smaller quads (1-3") → 40-60, 5" → 20-35, 7"+ → 15-25
+  - Higher KV motors benefit from higher min RPM (more prone to desync at zero throttle)
+  - Rule ID: `P-DYN-IDLE`, confidence: low (advisory)
+  - User must provide: nothing extra if profile has size/KV
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` — add dynamic idle rule
+  - `src/main/analysis/constants.ts` — add `DYN_IDLE_MIN_RPM_BY_SIZE`
+  - Tests for modified files
+- **Effort**: Small (0.5 day)
+- **Risk**: Low — advisory only
+
+---
+
+### Task 8: TPA Tuning Advisory
+
+- **What**: Recommend `tpa_mode`, `tpa_rate`, `tpa_breakpoint`, and BF 4.5+ low-throttle TPA settings based on drone size and noise profile. See KB Section 10 for community values.
+- **Detection**: Current TPA settings from BBL header. Noise profile from existing filter analysis (throttle-dependent noise detected by `DynamicLowpassRecommender`). Drone size from user profile.
+- **Logic**:
+  - If throttle-dependent noise is severe AND `tpa_mode` is D-only: suggest PD mode (SupaflyFPV pattern for 5")
+  - Larger quads (6-7"): recommend higher `tpa_rate` (80) with lower breakpoint (1250)
+  - If BF 4.5+ and `tpa_low_always` is OFF: advisory to enable (SupaflyFPV pattern)
+  - Rule ID: `P-TPA`, confidence: low (advisory)
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` or new `TPAAdvisor.ts`
+  - `src/main/analysis/constants.ts` — add TPA lookup tables
+  - Tests for modified files
+- **Effort**: Medium (1 day)
+- **Risk**: Low — advisory only, no auto-apply risk
+
+---
+
+### Task 9: D-term LPF Dynamic Expo Advisory
+
+- **What**: Recommend `dterm_lpf1_dyn_expo` for race builds. See KB Section 10.
+- **Detection**: D-term dynamic LPF active (already detected). Flight style from step response data. Current expo from BBL header (if available).
+- **Logic**:
+  - Only when D-term dynamic LPF is active
+  - Racing pattern detected: recommend expo 7-10 (less D filtering at high throttle)
+  - Freestyle: keep default (5)
+  - Rule ID: `F-DEXP`, confidence: low (advisory)
+- **Files to modify**:
+  - `src/main/analysis/FilterRecommender.ts` — add expo rule
+  - `src/main/analysis/constants.ts` — add expo constants
+  - Tests for modified files
+- **Effort**: Small (0.5 day)
+- **Risk**: Low — advisory only, race builds benefit most
+
+---
+
+### Task 10: PID Sum Limit Advisory
+
+- **What**: Recommend increasing `pidsum_limit` and `pidsum_limit_yaw` for heavy/powerful quads. See KB Section 10.
+- **Detection**: Current limits from BBL header. Drone weight from user profile. Motor saturation events detectable from motor output data (if motors hit max during analysis flight).
+- **Logic**:
+  - If drone weight > 800g OR motor output regularly hits limits: recommend 1000/1000
+  - Default (500/400) is fine for ≤5" standard builds
+  - Rule ID: `P-PIDLIM`, confidence: low (informational)
+  - Only recommend when evidence of PID saturation exists
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` — add pidsum limit check
+  - Tests for modified files
+- **Effort**: Small (0.5 day)
+- **Risk**: Low — informational advisory, requires evidence of saturation
+
+---
+
+### Task 11: Feedforward Max Rate Limit Advisory
+
+- **What**: Recommend `feedforward_max_rate_limit` for race builds. Karate race presets set 100 (default 90), ctzsnooze/AOS use 95.
+- **Detection**: Current value from BBL header. Flight style from user profile.
+- **Logic**:
+  - Racing (aggressive flight style): recommend 95-100
+  - Freestyle/cinematic: keep default 90
+  - Rule ID: `P-FF-RATELIM`, confidence: low (advisory)
+- **Files to modify**:
+  - `src/main/analysis/PIDRecommender.ts` — add FF rate limit rule
+  - Tests for modified files
+- **Effort**: Tiny (0.5 day, bundle with Task 1)
+- **Risk**: Low — minor advisory
+
+---
+
+## Data Source Summary
+
+| Data Source | What it provides | Available today? |
+|-------------|-----------------|-----------------|
+| BBL header | FF settings, RC link rate, anti_gravity_gain, iterm_relax_cutoff, d_min/d_max, dyn_idle_min_rpm, TPA settings, thrust_linear, pidsum_limit | Yes (extraction needed for some) |
+| MSP_FILTER_CONFIG | rpm_filter_q (byte 43) | Partially (needs named field) |
+| User profile | Drone size, weight, KV, battery | Yes |
+| Filter analysis | Throttle-dependent noise, noise floor, spectrum | Yes |
+| PID analysis | Step response, steady-state error, flight style | Yes |
 
 ---
 
@@ -244,20 +286,6 @@ These areas require no changes — our data-driven approach is fundamentally sup
 | **Iterative convergence** | One-shot application | Each flight refines recommendations | Approaches optimal tune over 2-3 cycles |
 | **D-term effectiveness** | Not considered | 3-tier gating prevents useless D increases | Avoids adding D when noise cost > stability benefit |
 | **Propwash awareness** | Not addressed | Detection + severity-aware D boost | Targets the most impactful problem for freestyle |
-
----
-
-## Implementation Priority & Effort
-
-| Task | Priority | Effort | Settings Added | Impact |
-|------|----------|--------|---------------|--------|
-| 1. RC Link FF Tuning | HIGH | Medium (2-3 days) | 3 (averaging, smooth, jitter) | High — biggest gap, affects stick feel directly |
-| 2. RPM Filter Q | MEDIUM | Small (1 day) | 1 (rpm_filter_q) | Medium — size-appropriate Q reduces phase delay |
-| 3. Anti-Gravity | MEDIUM | Small (1 day) | 1 (anti_gravity_gain) | Medium — improves throttle stability |
-| 4. D-Max Awareness | LOW | Small (0.5 day) | 1 (informational only) | Low — advisory, helps user understanding |
-| 5. RC Smoothing | LOW | Tiny (bundled with T1) | 1 (rc_smoothing_auto_factor) | Low — minor optimization |
-
-**Total new settings recommended**: 7 (from current 22 to 29)
 
 ---
 
