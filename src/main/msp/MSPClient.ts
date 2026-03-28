@@ -1338,6 +1338,29 @@ export class MSPClient extends EventEmitter {
     try {
       logger.warn('Erasing Blackbox flash - all logged data will be permanently deleted');
 
+      // Wait for FC to be MSP-responsive. After snapshot creation (CLI mode → exit → reboot),
+      // the FC may be mid-reboot when user clicks Erase. Ping with MSP_API_VERSION first.
+      const READY_TIMEOUT = 15000;
+      const READY_INTERVAL = 1000;
+      const readyStart = Date.now();
+      let fcReady = false;
+      while (Date.now() - readyStart < READY_TIMEOUT) {
+        try {
+          await this.connection.sendCommand(MSPCommand.MSP_API_VERSION, Buffer.alloc(0), 2000);
+          fcReady = true;
+          break;
+        } catch (readyErr) {
+          if (!this.connection.isOpen()) {
+            throw new ConnectionError('FC disconnected before erase');
+          }
+          logger.debug('Waiting for FC to become MSP-responsive...');
+          await new Promise((resolve) => setTimeout(resolve, READY_INTERVAL));
+        }
+      }
+      if (!fcReady) {
+        throw new MSPError('FC not responding to MSP commands — cannot erase');
+      }
+
       // Send erase command — some FCs respond immediately (async erase),
       // others block until done (can take 30-60s). We catch timeout and
       // poll MSP_DATAFLASH_SUMMARY to confirm erase completion.
