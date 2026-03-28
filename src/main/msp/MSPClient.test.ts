@@ -1484,11 +1484,18 @@ describe('MSPClient.eraseBlackboxFlash — poll uses getDataflashInfo not getBla
 });
 
 describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () => {
-  it('proceeds to erase when FC responds to MSP ping', async () => {
+  it('waits for FC to become responsive before sending erase', async () => {
     const { client, sendCommand } = createClientWithStub();
+
+    let apiPingCount = 0;
 
     sendCommand.mockImplementation(async (cmd: number) => {
       if (cmd === MSPCommand.MSP_API_VERSION) {
+        apiPingCount++;
+        // First 2 pings timeout (FC rebooting after snapshot), 3rd succeeds
+        if (apiPingCount <= 2) {
+          throw new TimeoutError(`MSP command ${cmd} timed out`);
+        }
         return { command: cmd, data: Buffer.alloc(4) };
       }
       if (cmd === MSPCommand.MSP_DATAFLASH_ERASE) {
@@ -1505,16 +1512,11 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
 
     await client.eraseBlackboxFlash();
 
-    // Should have sent API_VERSION ping + ERASE + SUMMARY poll
-    expect(sendCommand).toHaveBeenCalledWith(MSPCommand.MSP_API_VERSION, expect.anything(), 2000);
-    expect(sendCommand).toHaveBeenCalledWith(
-      MSPCommand.MSP_DATAFLASH_ERASE,
-      expect.anything(),
-      expect.any(Number)
-    );
+    // Should have retried pings before proceeding to erase
+    expect(apiPingCount).toBeGreaterThanOrEqual(3);
   });
 
-  it('throws MSPError if FC is not responsive (single ping timeout)', async () => {
+  it('throws MSPError if FC never becomes responsive within timeout', async () => {
     const { client, sendCommand, mockConn } = createClientWithStub();
 
     mockConn.isInCLI = vi.fn().mockReturnValue(false);
@@ -1529,7 +1531,7 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
     await expect(client.eraseBlackboxFlash()).rejects.toThrow(
       'FC not responding to MSP commands — it may still be rebooting'
     );
-  });
+  }, 15000);
 });
 
 // ─── getStatusEx ─────────────────────────────────────────────────────

@@ -1360,18 +1360,39 @@ export class MSPClient extends EventEmitter {
     try {
       logger.warn('Erasing Blackbox flash - all logged data will be permanently deleted');
 
-      // Sanity check: FC should be MSP-responsive. After snapshot creation,
-      // exportCLIDiff() now exits CLI (triggers reboot), so FC reconnects in
-      // MSP mode before user can click Erase. A single ping confirms readiness.
-      try {
-        await this.connection.sendCommand(MSPCommand.MSP_API_VERSION, Buffer.alloc(0), 2000);
-      } catch (err) {
-        if (err instanceof TimeoutError) {
-          throw new MSPError(
-            'FC not responding to MSP commands — it may still be rebooting. Wait a moment and retry.'
+      // Wait for FC to be MSP-responsive. After snapshot creation,
+      // exportCLIDiff() sends CLI `exit` which reboots the FC (3-5s).
+      // The user may click Erase before reboot completes, so we retry.
+      const READY_TIMEOUT_MS = 10000;
+      const READY_PING_TIMEOUT_MS = 1500;
+      const READY_RETRY_DELAY_MS = 500;
+      const readyStart = Date.now();
+      let fcReady = false;
+      while (Date.now() - readyStart < READY_TIMEOUT_MS) {
+        try {
+          await this.connection.sendCommand(
+            MSPCommand.MSP_API_VERSION,
+            Buffer.alloc(0),
+            READY_PING_TIMEOUT_MS
           );
+          fcReady = true;
+          break;
+        } catch (err) {
+          if (!this.connection.isOpen()) {
+            throw new ConnectionError('FC disconnected before erase');
+          }
+          if (err instanceof TimeoutError) {
+            logger.debug('Waiting for FC to become MSP-responsive...');
+            await new Promise((resolve) => setTimeout(resolve, READY_RETRY_DELAY_MS));
+          } else {
+            throw err;
+          }
         }
-        throw err;
+      }
+      if (!fcReady) {
+        throw new MSPError(
+          'FC not responding to MSP commands — it may still be rebooting. Wait a moment and retry.'
+        );
       }
 
       // Send erase command — some FCs respond immediately (async erase),
