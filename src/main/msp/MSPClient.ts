@@ -426,15 +426,28 @@ export class MSPClient extends EventEmitter {
       }
       const output = await this.connection.sendCLICommand(CLI_COMMANDS.DIFF, 10000);
 
-      // Don't exit CLI - it causes port to close on some FCs
-      // Instead, just leave it in CLI mode and next MSP command will handle it
+      // Exit CLI if WE entered it (not if caller was already in CLI).
+      // BF CLI `exit` reboots the FC — this is intentional. Leaving FC in CLI
+      // breaks all subsequent MSP commands (erase, PID reads, etc.).
+      // Callers that are already in CLI (e.g. apply flow) handle exit themselves via save.
+      if (!wasInCLI) {
+        this.connection.clearFCRebootedFromCLI();
+        try {
+          await this.connection.writeCLIRaw('exit');
+        } catch {
+          // Port closing during reboot is expected
+        }
+      }
 
       return this.cleanCLIOutput(output);
     } catch (error) {
       // Try to recover but don't fail if exit fails
       try {
         if (!wasInCLI) {
-          await this.connection.exitCLI();
+          this.connection.clearFCRebootedFromCLI();
+          try {
+            await this.connection.writeCLIRaw('exit');
+          } catch {}
         }
       } catch {}
       throw error;
@@ -450,15 +463,24 @@ export class MSPClient extends EventEmitter {
       }
       const output = await this.connection.sendCLICommand(CLI_COMMANDS.DUMP, 15000);
 
-      // Don't exit CLI - it causes port to close on some FCs
-      // Instead, just leave it in CLI mode and next MSP command will handle it
+      // Exit CLI if WE entered it — same rationale as exportCLIDiff()
+      if (!wasInCLI) {
+        this.connection.clearFCRebootedFromCLI();
+        try {
+          await this.connection.writeCLIRaw('exit');
+        } catch {
+          // Port closing during reboot is expected
+        }
+      }
 
       return this.cleanCLIOutput(output);
     } catch (error) {
-      // Try to recover but don't fail if exit fails
       try {
         if (!wasInCLI) {
-          await this.connection.exitCLI();
+          this.connection.clearFCRebootedFromCLI();
+          try {
+            await this.connection.writeCLIRaw('exit');
+          } catch {}
         }
       } catch {}
       throw error;
@@ -1338,15 +1360,14 @@ export class MSPClient extends EventEmitter {
     try {
       logger.warn('Erasing Blackbox flash - all logged data will be permanently deleted');
 
-      // Wait for FC to be MSP-responsive. After snapshot creation the FC may be
-      // stuck in CLI mode (exportCLIDiff enters CLI but doesn't exit). If MSP pings
-      // timeout, send CLI `exit` (triggers FC reboot) and wait for reconnect.
-      const READY_TIMEOUT_MS = 20000;
+      // Wait for FC to be MSP-responsive. After snapshot creation,
+      // exportCLIDiff() sends CLI `exit` which reboots the FC (3-5s).
+      // The user may click Erase before reboot completes, so we retry.
+      const READY_TIMEOUT_MS = 10000;
       const READY_PING_TIMEOUT_MS = 1500;
       const READY_RETRY_DELAY_MS = 500;
       const readyStart = Date.now();
       let fcReady = false;
-      let sentCLIExit = false;
       while (Date.now() - readyStart < READY_TIMEOUT_MS) {
         try {
           await this.connection.sendCommand(
@@ -1361,51 +1382,17 @@ export class MSPClient extends EventEmitter {
             throw new ConnectionError('FC disconnected before erase');
           }
           if (err instanceof TimeoutError) {
-            // After 3s of timeouts, FC is likely stuck in CLI mode — send `exit`
-            // to trigger reboot and restore MSP responsiveness.
-            if (!sentCLIExit && Date.now() - readyStart > 3000) {
-              logger.info('FC not responding — sending CLI exit to trigger reboot');
-              try {
-                if (this.connection.isInCLI()) {
-                  await this.connection.writeCLIRaw('exit');
-                } else {
-                  // cliMode was cleared but FC is still in CLI — raw write
-                  await new Promise<void>((resolve, reject) => {
-                    const port = (this.connection as any).port;
-                    if (port?.isOpen) {
-                      port.write('exit\r\n', (writeErr: Error | null) => {
-                        if (writeErr) reject(writeErr);
-                        else port.drain(() => resolve());
-                      });
-                    } else {
-                      resolve();
-                    }
-                  });
-                }
-              } catch {
-                // Port may be closing — that's OK
-              }
-              sentCLIExit = true;
-              // Wait for FC to reboot (port closes, then reopens after ~3-5s)
-              await new Promise((resolve) => setTimeout(resolve, 5000));
-              // Port likely closed and reopened — check if we need to reconnect
-              if (!this.connection.isOpen()) {
-                throw new ConnectionError('FC rebooted after CLI exit — reconnect and retry erase');
-              }
-              continue;
-            }
             logger.debug('Waiting for FC to become MSP-responsive...');
             await new Promise((resolve) => setTimeout(resolve, READY_RETRY_DELAY_MS));
-          } else if (err instanceof ConnectionError) {
-            // FC disconnected (likely from CLI exit reboot) — let caller retry
-            throw err;
           } else {
             throw err;
           }
         }
       }
       if (!fcReady) {
-        throw new MSPError('FC not responding to MSP commands — cannot erase');
+        throw new MSPError(
+          'FC not responding to MSP commands — it may still be rebooting. Wait a moment and retry.'
+        );
       }
 
       // Send erase command — some FCs respond immediately (async erase),

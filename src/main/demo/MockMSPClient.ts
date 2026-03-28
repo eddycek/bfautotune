@@ -182,6 +182,14 @@ class MockMSPConnection extends EventEmitter {
     return `${cmd}\n# `;
   }
 
+  /** Write a raw CLI command without waiting for prompt (mirrors real MSPConnection). */
+  async writeCLIRaw(command: string): Promise<void> {
+    logger.info(`[DEMO] CLI raw: ${command}`);
+    if (command === 'exit') {
+      this._cliMode = false;
+    }
+  }
+
   exitCLI(): void {
     this._cliMode = false;
     logger.info('[DEMO] Exited CLI mode');
@@ -189,6 +197,11 @@ class MockMSPConnection extends EventEmitter {
 
   forceExitCLI(): void {
     this._cliMode = false;
+  }
+
+  clearFCRebootedFromCLI(): void {
+    this._cliMode = false;
+    logger.info('[DEMO] Cleared fcEnteredCLI flag');
   }
 
   async close(): Promise<void> {
@@ -565,11 +578,17 @@ export class MockMSPClient extends EventEmitter {
   }
 
   async exportCLIDiff(): Promise<string> {
-    // Simulate CLI enter/exit like the real client
-    if (!this.connection.isInCLI()) {
+    const wasInCLI = this.connection.isInCLI();
+    if (!wasInCLI) {
       await this.connection.enterCLI();
     }
-    return this.buildCurrentDiff();
+    const diff = this.buildCurrentDiff();
+    // Exit CLI if we entered it (mirrors real MSPClient — triggers FC reboot)
+    if (!wasInCLI) {
+      this.connection.clearFCRebootedFromCLI();
+      await this.connection.writeCLIRaw('exit');
+    }
+    return diff;
   }
 
   async exportCLIDump(): Promise<string> {

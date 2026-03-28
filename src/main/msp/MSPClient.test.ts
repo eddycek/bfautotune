@@ -1016,7 +1016,7 @@ describe('MSPClient.rebootToMSC', () => {
 // ─── exportCLIDiff ───────────────────────────────────────────────────
 
 describe('MSPClient.exportCLIDiff', () => {
-  it('enters CLI, sends diff, and returns cleaned output', async () => {
+  it('enters CLI, sends diff, exits CLI (reboot), and returns cleaned output', async () => {
     const { client, mockConn } = createClientWithStub();
     mockConn.sendCLICommand.mockResolvedValue(
       '# diff all\nset gyro_lpf1_static_hz = 250\nset dterm_lpf1_static_hz = 150\n#'
@@ -1025,17 +1025,22 @@ describe('MSPClient.exportCLIDiff', () => {
     const result = await client.exportCLIDiff();
     expect(mockConn.enterCLI).toHaveBeenCalled();
     expect(mockConn.sendCLICommand).toHaveBeenCalledWith('diff all', 10000);
+    // Exits CLI after reading diff (triggers FC reboot)
+    expect(mockConn.clearFCRebootedFromCLI).toHaveBeenCalled();
+    expect(mockConn.writeCLIRaw).toHaveBeenCalledWith('exit');
     // cleanCLIOutput removes lines starting with # and empty lines
     expect(result).toBe('set gyro_lpf1_static_hz = 250\nset dterm_lpf1_static_hz = 150');
   });
 
-  it('skips enterCLI if already in CLI mode', async () => {
+  it('skips enterCLI and exit if already in CLI mode', async () => {
     const { client, mockConn } = createClientWithStub();
     mockConn.isInCLI.mockReturnValue(true);
     mockConn.sendCLICommand.mockResolvedValue('set motor_pwm_rate = 480\n#');
 
     await client.exportCLIDiff();
     expect(mockConn.enterCLI).not.toHaveBeenCalled();
+    // Should NOT exit CLI — caller was already in CLI and will handle exit
+    expect(mockConn.writeCLIRaw).not.toHaveBeenCalledWith('exit');
   });
 });
 
@@ -1487,7 +1492,7 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
     sendCommand.mockImplementation(async (cmd: number) => {
       if (cmd === MSPCommand.MSP_API_VERSION) {
         apiPingCount++;
-        // First 2 pings timeout (FC rebooting), 3rd succeeds
+        // First 2 pings timeout (FC rebooting after snapshot), 3rd succeeds
         if (apiPingCount <= 2) {
           throw new TimeoutError(`MSP command ${cmd} timed out`);
         }
@@ -1497,7 +1502,6 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
         return { command: cmd, data: Buffer.alloc(0), error: false };
       }
       if (cmd === MSPCommand.MSP_DATAFLASH_SUMMARY) {
-        // Return erased state
         return {
           command: cmd,
           data: buildDataflashSummaryData({ ready: 0x03, totalSize: 2 * 1024 * 1024, usedSize: 0 }),
@@ -1508,14 +1512,13 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
 
     await client.eraseBlackboxFlash();
 
-    // Should have pinged at least 3 times before proceeding to erase
+    // Should have retried pings before proceeding to erase
     expect(apiPingCount).toBeGreaterThanOrEqual(3);
   });
 
   it('throws MSPError if FC never becomes responsive within timeout', async () => {
     const { client, sendCommand, mockConn } = createClientWithStub();
 
-    // FC is not in CLI mode — pure MSP timeout scenario
     mockConn.isInCLI = vi.fn().mockReturnValue(false);
 
     sendCommand.mockImplementation(async (cmd: number) => {
@@ -1525,8 +1528,10 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
       return { command: cmd, data: Buffer.alloc(0) };
     });
 
-    await expect(client.eraseBlackboxFlash()).rejects.toThrow('FC not responding to MSP commands');
-  }, 30000);
+    await expect(client.eraseBlackboxFlash()).rejects.toThrow(
+      'FC not responding to MSP commands — it may still be rebooting'
+    );
+  }, 15000);
 });
 
 // ─── getStatusEx ─────────────────────────────────────────────────────

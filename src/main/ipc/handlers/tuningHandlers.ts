@@ -64,9 +64,8 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         };
 
         // Order matters: MSP commands first (PIDs), then CLI operations
-        // (snapshot, filters, save). createSnapshot() enters CLI mode via
-        // exportCLIDiff() and does NOT exit — so any MSP commands after it
-        // would time out (the FC only processes CLI input while in CLI mode).
+        // (filters, save). The apply flow enters CLI explicitly for filter/FF
+        // commands — exportCLIDiff() detects wasInCLI=true and skips exit.
 
         // Stage 0: Ensure correct BF PID profile is selected (safety net)
         if (profileManager && tuningSessionManager) {
@@ -327,9 +326,9 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
           }
         }
 
-        // Create safety snapshot before starting tuning
-        // WARNING: This enters CLI mode via exportCLIDiff(). After snapshot,
-        // we exit CLI which reboots the FC. MSP is unavailable until reconnect.
+        // Create safety snapshot before starting tuning.
+        // exportCLIDiff() now exits CLI after reading diff (triggers FC reboot).
+        // FC will reconnect in MSP mode — erase works immediately after reconnect.
         let baselineSnapshotId: string | undefined;
         if (snapshotManager && mspClient?.isConnected()) {
           try {
@@ -347,17 +346,6 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
             });
             baselineSnapshotId = snapshot.id;
             logger.info(`Pre-tuning backup created: ${snapshot.id}`);
-
-            // Snapshot entered CLI mode (exportCLIDiff). Clear fcEnteredCLI so that
-            // close() won't send `exit` (which reboots FC unpredictably). Leave
-            // cliMode=true so the erase connectivity check can detect CLI state and
-            // send `exit` itself when the user clicks Erase Flash.
-            if (mspClient.connection.isInCLI()) {
-              mspClient.connection.clearFCRebootedFromCLI();
-              logger.info(
-                'Cleared fcEnteredCLI after snapshot (cliMode still true for erase handler)'
-              );
-            }
           } catch (e) {
             logger.warn('Could not create pre-tuning snapshot:', e);
           }
