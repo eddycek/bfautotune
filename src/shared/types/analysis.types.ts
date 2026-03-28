@@ -58,6 +58,8 @@ export interface FilterRecommendation {
   confidence: 'high' | 'medium' | 'low';
   /** Structured rule identifier for telemetry tracking (e.g. "F-NF-H-GYRO") */
   ruleId?: string;
+  /** When true, this recommendation is advisory-only (informational, not auto-applied) */
+  informational?: boolean;
 }
 
 /** Data quality score for analysis input data */
@@ -233,6 +235,12 @@ export interface CurrentFilterSettings {
   dyn_notch_count?: number;
   /** Dynamic notch Q factor */
   dyn_notch_q?: number;
+  /** RPM filter Q (notch bandwidth). Undefined if not read. */
+  rpm_filter_q?: number;
+  /** D-term LPF1 dynamic expo (0-10, controls how aggressively dynamic LPF tracks throttle) */
+  dterm_lpf1_dyn_expo?: number;
+  /** D-term LPF1 dynamic minimum Hz (>0 means dynamic D-term LPF is active) */
+  dterm_lpf1_dyn_min_hz?: number;
 }
 
 /** Default filter settings (Betaflight 4.4+ defaults) */

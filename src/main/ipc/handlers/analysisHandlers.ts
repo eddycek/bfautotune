@@ -82,12 +82,15 @@ export function registerAnalysisHandlers(deps: HandlerDependencies): void {
         const session = parseResult.sessions[idx];
 
         // Enrich filter settings with data from BBL headers as fallback
-        // Runs when any key field is missing (RPM data, dyn_notch_count/q)
+        // Runs when any key field is missing (RPM data, dyn_notch_count/q, rpm_filter_q, dterm expo)
         if (
           currentSettings &&
           (currentSettings.rpm_filter_harmonics === undefined ||
             currentSettings.dyn_notch_count === undefined ||
-            currentSettings.dyn_notch_q === undefined)
+            currentSettings.dyn_notch_q === undefined ||
+            currentSettings.rpm_filter_q === undefined ||
+            currentSettings.dterm_lpf1_dyn_expo === undefined ||
+            currentSettings.dterm_lpf1_dyn_min_hz === undefined)
         ) {
           const enriched = enrichSettingsFromBBLHeaders(currentSettings, session.header.rawHeaders);
           if (enriched) {
@@ -110,6 +113,19 @@ export function registerAnalysisHandlers(deps: HandlerDependencies): void {
         // Validate BBL header for data quality warnings
         const headerWarnings = validateBBLHeader(session.header);
 
+        // Resolve profile context for size/style-aware advisories
+        let droneSize: import('@shared/types/profile.types').DroneSize | undefined;
+        let flightStyle: import('@shared/types/profile.types').FlightStyle | undefined;
+        if (deps.profileManager) {
+          try {
+            const currentProfile = await deps.profileManager.getCurrentProfile();
+            if (currentProfile?.size) droneSize = currentProfile.size;
+            if (currentProfile?.flightStyle) flightStyle = currentProfile.flightStyle;
+          } catch {
+            // Profile not available — advisory recommendations will be skipped
+          }
+        }
+
         // Run analysis with progress reporting
         const result = await analyzeFilters(
           session.flightData,
@@ -117,7 +133,8 @@ export function registerAnalysisHandlers(deps: HandlerDependencies): void {
           currentSettings,
           (progress) => {
             event.sender.send(IPCChannel.EVENT_ANALYSIS_PROGRESS, progress);
-          }
+          },
+          { droneSize, flightStyle }
         );
 
         // Attach header warnings to the result

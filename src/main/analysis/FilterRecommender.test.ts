@@ -4,6 +4,8 @@ import {
   generateSummary,
   computeNoiseBasedTarget,
   isRpmFilterActive,
+  recommendRpmFilterQ,
+  recommendDtermDynExpo,
 } from './FilterRecommender';
 import type {
   NoiseProfile,
@@ -966,5 +968,181 @@ describe('ruleId assignment', () => {
     expect(gyroRec).toBeDefined();
     // After dedup, the more aggressive rec wins — it should still have a ruleId
     expect(gyroRec!.ruleId).toBeDefined();
+  });
+});
+
+// ---- RPM Filter Q Advisory (F-RPM-Q) ----
+
+describe('recommendRpmFilterQ', () => {
+  it('should return undefined when RPM filter is inactive', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 0,
+      rpm_filter_q: 500,
+    };
+    expect(recommendRpmFilterQ(settings, '5"')).toBeUndefined();
+  });
+
+  it('should return undefined when rpm_filter_q is not available', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+    };
+    expect(recommendRpmFilterQ(settings, '5"')).toBeUndefined();
+  });
+
+  it('should return undefined when drone size is not provided', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      rpm_filter_q: 500,
+    };
+    expect(recommendRpmFilterQ(settings, undefined)).toBeUndefined();
+  });
+
+  it('should return undefined when Q is within 20% of midpoint', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      rpm_filter_q: 800, // within 20% of 850 midpoint for 5"
+    };
+    expect(recommendRpmFilterQ(settings, '5"')).toBeUndefined();
+  });
+
+  it('should recommend raising Q for 5" quad when Q is too low', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      rpm_filter_q: 400, // way below 850 midpoint for 5"
+    };
+    const rec = recommendRpmFilterQ(settings, '5"');
+    expect(rec).toBeDefined();
+    expect(rec!.setting).toBe('rpm_filter_q');
+    expect(rec!.currentValue).toBe(400);
+    expect(rec!.recommendedValue).toBe(850);
+    expect(rec!.ruleId).toBe('F-RPM-Q');
+    expect(rec!.confidence).toBe('low');
+    expect(rec!.informational).toBe(true);
+  });
+
+  it('should recommend lowering Q for 7" quad when Q is too high', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      rpm_filter_q: 1000, // way above 600 midpoint for 7"
+    };
+    const rec = recommendRpmFilterQ(settings, '7"');
+    expect(rec).toBeDefined();
+    expect(rec!.setting).toBe('rpm_filter_q');
+    expect(rec!.currentValue).toBe(1000);
+    expect(rec!.recommendedValue).toBe(600);
+    expect(rec!.ruleId).toBe('F-RPM-Q');
+  });
+
+  it('should use correct midpoint for 6" quad', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      rpm_filter_harmonics: 3,
+      rpm_filter_q: 1000, // above 700 midpoint for 6"
+    };
+    const rec = recommendRpmFilterQ(settings, '6"');
+    expect(rec).toBeDefined();
+    expect(rec!.recommendedValue).toBe(700);
+  });
+});
+
+// ---- D-term LPF Dynamic Expo Advisory (F-DEXP) ----
+
+describe('recommendDtermDynExpo', () => {
+  it('should return undefined when D-term dynamic LPF is not active', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 0, // dynamic LPF disabled
+      dterm_lpf1_dyn_expo: 5,
+    };
+    expect(recommendDtermDynExpo(settings, 'aggressive')).toBeUndefined();
+  });
+
+  it('should return undefined when dterm_lpf1_dyn_min_hz is not available', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_expo: 5,
+      // dterm_lpf1_dyn_min_hz undefined → not active
+    };
+    expect(recommendDtermDynExpo(settings, 'aggressive')).toBeUndefined();
+  });
+
+  it('should return undefined when expo is not available', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 80,
+    };
+    expect(recommendDtermDynExpo(settings, 'aggressive')).toBeUndefined();
+  });
+
+  it('should return undefined when flight style is not provided', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 80,
+      dterm_lpf1_dyn_expo: 5,
+    };
+    expect(recommendDtermDynExpo(settings, undefined)).toBeUndefined();
+  });
+
+  it('should return undefined when expo is within range for balanced style', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 80,
+      dterm_lpf1_dyn_expo: 5,
+    };
+    expect(recommendDtermDynExpo(settings, 'balanced')).toBeUndefined();
+  });
+
+  it('should recommend higher expo for aggressive/racing flight style', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 80, // dynamic LPF active
+      dterm_lpf1_dyn_expo: 5, // default, but racing needs 7-10
+    };
+    const rec = recommendDtermDynExpo(settings, 'aggressive');
+    expect(rec).toBeDefined();
+    expect(rec!.setting).toBe('dterm_lpf1_dyn_expo');
+    expect(rec!.currentValue).toBe(5);
+    expect(rec!.recommendedValue).toBe(7); // min of aggressive range
+    expect(rec!.ruleId).toBe('F-DEXP');
+    expect(rec!.confidence).toBe('low');
+    expect(rec!.informational).toBe(true);
+  });
+
+  it('should recommend lower expo for smooth/cinematic flight style when too high', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 80, // dynamic LPF active
+      dterm_lpf1_dyn_expo: 8, // too high for cinematic
+    };
+    const rec = recommendDtermDynExpo(settings, 'smooth');
+    expect(rec).toBeDefined();
+    expect(rec!.setting).toBe('dterm_lpf1_dyn_expo');
+    expect(rec!.currentValue).toBe(8);
+    expect(rec!.recommendedValue).toBe(5); // max of smooth range
+    expect(rec!.ruleId).toBe('F-DEXP');
+  });
+
+  it('should return undefined when expo is already in range for aggressive', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 80,
+      dterm_lpf1_dyn_expo: 8, // within 7-10 for aggressive
+    };
+    expect(recommendDtermDynExpo(settings, 'aggressive')).toBeUndefined();
+  });
+
+  it('should return undefined when expo is already in range for smooth', () => {
+    const settings: CurrentFilterSettings = {
+      ...DEFAULT_FILTER_SETTINGS,
+      dterm_lpf1_dyn_min_hz: 80,
+      dterm_lpf1_dyn_expo: 4, // within 3-5 for smooth
+    };
+    expect(recommendDtermDynExpo(settings, 'smooth')).toBeUndefined();
   });
 });

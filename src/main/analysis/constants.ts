@@ -495,3 +495,89 @@ export function lookupRCLinkProfile(rcLinkRateHz: number | undefined): RCLinkPro
   if (rcLinkRateHz === undefined || rcLinkRateHz <= 0) return undefined;
   return RC_LINK_PROFILES.find((p) => rcLinkRateHz >= p.minHz && rcLinkRateHz <= p.maxHz);
 }
+
+// ---- Anti-Gravity Gain ----
+// Source: docs/PID_TUNING_KNOWLEDGE.md Section 10 (Community Consensus)
+// Heavier quads with cameras benefit from higher anti-gravity during throttle changes.
+// Race/lightweight builds keep BF default (80). BF 4.5 scale: 0-250.
+
+/** BF 4.5 default anti_gravity_gain */
+export const ANTI_GRAVITY_GAIN_DEFAULT = 80;
+
+/** Weight threshold (grams) above which anti-gravity increase is recommended */
+export const ANTI_GRAVITY_WEIGHT_THRESHOLD_G = 400;
+
+/** Recommended anti-gravity gain for heavy builds (>400g with high SSE) */
+export const ANTI_GRAVITY_HEAVY_RECOMMENDED = 120;
+
+/** Recommended anti-gravity gain for medium builds (>400g without high SSE) */
+export const ANTI_GRAVITY_MEDIUM_RECOMMENDED = 110;
+
+/** Minimum mean steady-state error (%) across roll+pitch to trigger heavy recommendation */
+export const ANTI_GRAVITY_SSE_THRESHOLD = 3.0;
+
+/** Current anti_gravity_gain must be below this to trigger recommendation */
+export const ANTI_GRAVITY_LOW_THRESHOLD = 100;
+
+// ---- Thrust Linearization ----
+// Source: docs/PID_TUNING_KNOWLEDGE.md Section 10 (SupaflyFPV 4.5 presets)
+// Compensates for non-linear motor/ESC thrust curve. Larger props have more
+// linear thrust curves → less linearization needed.
+
+/** Thrust linearization recommended values by drone size. */
+export const THRUST_LINEAR_BY_SIZE: Partial<Record<DroneSize, number>> = {
+  '3"': 40,
+  '4"': 40,
+  '5"': 30,
+  '6"': 20,
+  '7"': 10,
+};
+
+/** Deviation threshold (fraction) from size-appropriate value to trigger advisory */
+export const THRUST_LINEAR_DEVIATION_THRESHOLD = 0.5; // 50%
+
+// ---- RPM Filter Q Tuning ----
+// Source: docs/PID_TUNING_KNOWLEDGE.md Section 2 (Community Presets: SupaflyFPV, UAV Tech)
+// Lower Q = wider notch = catches more noise but adds delay.
+// Smaller motors have narrower harmonic spread → higher Q (narrower notch) is fine.
+// Larger props spread harmonics wider → need lower Q (wider notch).
+
+/** RPM filter Q range by drone size. midpoint is used for recommendations. */
+export interface RpmFilterQRange {
+  min: number;
+  max: number;
+  midpoint: number;
+}
+
+/**
+ * Size-based RPM filter Q lookup table.
+ * Sizes map to categories: micro (1-2.5"), small (3-4"), standard (5"), large (6-7").
+ * Values from PID_TUNING_KNOWLEDGE.md Section 2.
+ */
+export const RPM_FILTER_Q_BY_SIZE: Record<DroneSize, RpmFilterQRange> = {
+  '1"': { min: 700, max: 1000, midpoint: 850 },
+  '2.5"': { min: 700, max: 1000, midpoint: 850 },
+  '3"': { min: 700, max: 1000, midpoint: 850 },
+  '4"': { min: 700, max: 1000, midpoint: 850 },
+  '5"': { min: 700, max: 1000, midpoint: 850 },
+  '6"': { min: 600, max: 800, midpoint: 700 },
+  '7"': { min: 500, max: 700, midpoint: 600 },
+};
+
+/** Deviation threshold (fraction) from size-appropriate Q to trigger recommendation */
+export const RPM_FILTER_Q_DEVIATION_THRESHOLD = 0.2; // 20%
+
+// ---- D-term LPF Dynamic Expo ----
+// Source: docs/PID_TUNING_KNOWLEDGE.md Section 10 (Karate Race presets)
+// Higher expo = LPF cutoff rises faster with throttle = less D filtering at high throttle.
+// Racing benefits from minimal D-term latency at high throttle.
+
+/** D-term LPF dynamic expo ranges by flight style */
+export const DTERM_DYN_EXPO_BY_STYLE: Record<FlightStyle, { min: number; max: number }> = {
+  smooth: { min: 3, max: 5 },
+  balanced: { min: 5, max: 5 },
+  aggressive: { min: 7, max: 10 },
+};
+
+/** BF default dterm_lpf1_dyn_expo */
+export const DTERM_DYN_EXPO_DEFAULT = 5;

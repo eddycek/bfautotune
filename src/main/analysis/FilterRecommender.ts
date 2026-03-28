@@ -11,6 +11,7 @@ import type {
   NoisePeak,
 } from '@shared/types/analysis.types';
 import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
+import type { DroneSize, FlightStyle } from '@shared/types/profile.types';
 import {
   GYRO_LPF1_MIN_HZ,
   GYRO_LPF1_MAX_HZ,
@@ -28,6 +29,10 @@ import {
   PROPWASH_GYRO_LPF1_FLOOR_HZ,
   PROPWASH_FLOOR_BYPASS_DB,
   GYRO_LPF2_DISABLE_THRESHOLD_DB,
+  RPM_FILTER_Q_BY_SIZE,
+  RPM_FILTER_Q_DEVIATION_THRESHOLD,
+  DTERM_DYN_EXPO_BY_STYLE,
+  DTERM_DYN_EXPO_DEFAULT,
 } from './constants';
 
 /** Detect whether RPM filter is active from settings */
@@ -637,6 +642,115 @@ function recommendLpf2Adjustments(
       });
     }
   }
+}
+
+/**
+ * Recommend RPM filter Q adjustment based on drone size.
+ * Only fires when RPM filter is active and current Q differs >20% from size-appropriate value.
+ *
+ * Rule ID: F-RPM-Q, confidence: low (advisory)
+ */
+export function recommendRpmFilterQ(
+  current: CurrentFilterSettings,
+  droneSize?: DroneSize
+): FilterRecommendation | undefined {
+  // Only when RPM filter is active
+  if (!isRpmFilterActive(current)) return undefined;
+
+  // Need both current Q and drone size to make a recommendation
+  if (current.rpm_filter_q === undefined || !droneSize) return undefined;
+
+  const range = RPM_FILTER_Q_BY_SIZE[droneSize];
+  if (!range) return undefined;
+
+  const currentQ = current.rpm_filter_q;
+  const targetQ = range.midpoint;
+
+  // Check if current Q deviates >20% from the size-appropriate midpoint
+  const deviation = Math.abs(currentQ - targetQ) / targetQ;
+  if (deviation <= RPM_FILTER_Q_DEVIATION_THRESHOLD) return undefined;
+
+  const direction = currentQ < targetQ ? 'raising' : 'lowering';
+  const sizeLabel = droneSize;
+
+  return {
+    setting: 'rpm_filter_q',
+    currentValue: currentQ,
+    recommendedValue: targetQ,
+    reason:
+      `For a ${sizeLabel} quad, RPM filter Q of ${range.min}-${range.max} is typical. ` +
+      `Your current Q of ${currentQ} is ${Math.round(deviation * 100)}% off — ` +
+      `${direction} to ${targetQ} will better match your prop size. ` +
+      (currentQ < targetQ
+        ? 'A wider notch than needed adds unnecessary filter delay.'
+        : 'A narrower notch may miss harmonic spread from larger props.'),
+    impact: 'both',
+    confidence: 'low',
+    ruleId: 'F-RPM-Q',
+    informational: true,
+  };
+}
+
+/**
+ * Recommend D-term LPF1 dynamic expo adjustment based on flight style.
+ * Only fires when D-term dynamic LPF is active (dterm_lpf1_dyn_min_hz > 0).
+ *
+ * Racing benefits from higher expo (7-10) — less D filtering at high throttle.
+ * Cinematic benefits from lower expo (3-5) — smoother D-term at all throttles.
+ *
+ * Rule ID: F-DEXP, confidence: low (advisory)
+ */
+export function recommendDtermDynExpo(
+  current: CurrentFilterSettings,
+  flightStyle?: FlightStyle
+): FilterRecommendation | undefined {
+  // D-term dynamic LPF must be active (dyn_min_hz > 0 means dynamic mode is on)
+  const dynActive = (current.dterm_lpf1_dyn_min_hz ?? 0) > 0;
+  if (!dynActive) return undefined;
+
+  // Need flight style and current expo to make a recommendation
+  if (!flightStyle || current.dterm_lpf1_dyn_expo === undefined) return undefined;
+
+  const range = DTERM_DYN_EXPO_BY_STYLE[flightStyle];
+  const currentExpo = current.dterm_lpf1_dyn_expo;
+
+  // Already within the recommended range
+  if (currentExpo >= range.min && currentExpo <= range.max) return undefined;
+
+  // For balanced style, the range is just 5-5 (default), so only fire if not at default
+  if (flightStyle === 'balanced' && currentExpo === DTERM_DYN_EXPO_DEFAULT) return undefined;
+
+  const targetExpo = currentExpo < range.min ? range.min : range.max;
+  const styleLabel =
+    flightStyle === 'aggressive' ? 'racing' : flightStyle === 'smooth' ? 'cinematic' : 'freestyle';
+
+  let reason: string;
+  if (flightStyle === 'aggressive') {
+    reason =
+      `For ${styleLabel} flying, a D-term dynamic expo of ${range.min}-${range.max} is recommended. ` +
+      `Your current value of ${currentExpo} keeps D-term filtering too aggressive at high throttle. ` +
+      'Higher expo lets the D-term filter cutoff rise faster with throttle, reducing latency when you need it most.';
+  } else if (flightStyle === 'smooth') {
+    reason =
+      `For ${styleLabel} flying, a D-term dynamic expo of ${range.min}-${range.max} is recommended. ` +
+      `Your current value of ${currentExpo} may cause D-term filtering to change too aggressively with throttle. ` +
+      'Lower expo keeps D-term filtering more consistent across throttle range for smoother footage.';
+  } else {
+    reason =
+      `For ${styleLabel} flying, D-term dynamic expo of ${range.min} (BF default) is a good balance. ` +
+      `Your current value of ${currentExpo} may not be optimal for general-purpose flying.`;
+  }
+
+  return {
+    setting: 'dterm_lpf1_dyn_expo',
+    currentValue: currentExpo,
+    recommendedValue: targetExpo,
+    reason,
+    impact: 'latency',
+    confidence: 'low',
+    ruleId: 'F-DEXP',
+    informational: true,
+  };
 }
 
 function clamp(value: number, min: number, max: number): number {

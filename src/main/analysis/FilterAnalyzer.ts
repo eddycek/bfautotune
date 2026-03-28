@@ -4,9 +4,11 @@
  * Coordinates the full pipeline: segment selection → FFT → noise analysis → recommendations.
  * This is the main entry point for the analysis module.
  */
+import type { DroneSize, FlightStyle } from '@shared/types/profile.types';
 import type { BlackboxFlightData } from '@shared/types/blackbox.types';
 import type {
   FilterAnalysisResult,
+  FilterRecommendation,
   AnalysisProgress,
   AnalysisWarning,
   CurrentFilterSettings,
@@ -18,7 +20,13 @@ import { DEFAULT_FILTER_SETTINGS } from '@shared/types/analysis.types';
 import { findSteadySegments, findThrottleSweepSegments } from './SegmentSelector';
 import { computePowerSpectrum, trimSpectrum } from './FFTCompute';
 import { analyzeAxisNoise, buildNoiseProfile } from './NoiseAnalyzer';
-import { recommend, generateSummary, isRpmFilterActive } from './FilterRecommender';
+import {
+  recommend,
+  generateSummary,
+  isRpmFilterActive,
+  recommendRpmFilterQ,
+  recommendDtermDynExpo,
+} from './FilterRecommender';
 import { scoreFilterDataQuality, adjustFilterConfidenceByQuality } from './DataQualityScorer';
 import { computeThrottleSpectrogram } from './ThrottleSpectrogramAnalyzer';
 import { estimateGroupDelay } from './GroupDelayEstimator';
@@ -30,6 +38,14 @@ import { FFT_WINDOW_SIZE, FREQUENCY_MIN_HZ, FREQUENCY_MAX_HZ } from './constants
 /** Maximum number of segments to use (more = slower but more accurate) */
 const MAX_SEGMENTS = 5;
 
+/** Optional profile context for size/style-aware advisory recommendations */
+export interface FilterAnalysisOptions {
+  /** Drone size from user profile (enables RPM Q advisory) */
+  droneSize?: DroneSize;
+  /** Flight style from user profile (enables D-term expo advisory) */
+  flightStyle?: FlightStyle;
+}
+
 /**
  * Run the full filter analysis pipeline on parsed flight data.
  *
@@ -37,13 +53,15 @@ const MAX_SEGMENTS = 5;
  * @param sessionIndex - Which session is being analyzed
  * @param currentSettings - Current filter settings from the FC
  * @param onProgress - Optional progress callback
+ * @param options - Optional profile context for size/style-aware advisories
  * @returns Complete analysis result with noise profile and recommendations
  */
 export async function analyze(
   flightData: BlackboxFlightData,
   sessionIndex: number = 0,
   currentSettings: CurrentFilterSettings = DEFAULT_FILTER_SETTINGS,
-  onProgress?: (progress: AnalysisProgress) => void
+  onProgress?: (progress: AnalysisProgress) => void,
+  options?: FilterAnalysisOptions
 ): Promise<FilterAnalysisResult> {
   const startTime = performance.now();
 
@@ -83,7 +101,8 @@ export async function analyze(
       startTime,
       onProgress,
       warnings,
-      qualityResult.score
+      qualityResult.score,
+      options
     );
   }
 
@@ -163,6 +182,9 @@ export async function analyze(
     recommendations.push(...dynLowpassRecs);
   }
 
+  // Step 9: Profile-aware advisory recommendations
+  appendProfileAdvisories(recommendations, currentSettings, options);
+
   onProgress?.({ step: 'recommending', percent: 100 });
 
   return {
@@ -193,7 +215,8 @@ async function analyzeEntireFlight(
   startTime: number,
   onProgress?: (progress: AnalysisProgress) => void,
   warnings?: AnalysisWarning[],
-  dataQuality?: DataQualityScore
+  dataQuality?: DataQualityScore,
+  options?: FilterAnalysisOptions
 ): Promise<FilterAnalysisResult> {
   onProgress?.({ step: 'fft', percent: 30 });
 
@@ -250,6 +273,9 @@ async function analyzeEntireFlight(
     recommendations.push(...dynLowpassRecs);
   }
 
+  // Profile-aware advisory recommendations
+  appendProfileAdvisories(recommendations, currentSettings, options);
+
   return {
     noise: noiseProfile,
     recommendations,
@@ -266,6 +292,24 @@ async function analyzeEntireFlight(
     mechanicalHealth,
     dynamicLowpass,
   };
+}
+
+/**
+ * Append profile-aware advisory recommendations (RPM Q, D-term expo).
+ * These are informational-only and depend on drone size / flight style from the user profile.
+ */
+function appendProfileAdvisories(
+  recommendations: FilterRecommendation[],
+  currentSettings: CurrentFilterSettings,
+  options?: FilterAnalysisOptions
+): void {
+  if (!options) return;
+
+  const rpmQRec = recommendRpmFilterQ(currentSettings, options.droneSize);
+  if (rpmQRec) recommendations.push(rpmQRec);
+
+  const dexpRec = recommendDtermDynExpo(currentSettings, options.flightStyle);
+  if (dexpRec) recommendations.push(dexpRec);
 }
 
 function yieldToEventLoop(): Promise<void> {

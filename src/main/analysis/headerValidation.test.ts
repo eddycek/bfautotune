@@ -250,4 +250,37 @@ describe('enrichSettingsFromBBLHeaders', () => {
     const result = enrichSettingsFromBBLHeaders(settings, headers);
     expect(result).toBeNull(); // nothing to fill
   });
+
+  it('should extract rpm_filter_q from headers', () => {
+    const headers = new Map([['rpm_filter_q', '850']]);
+    const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
+    expect(result).not.toBeNull();
+    expect(result!.rpm_filter_q).toBe(850);
+  });
+
+  it('should extract dterm_lpf1_dyn_expo from headers', () => {
+    const headers = new Map([['dterm_lpf1_dyn_expo', '7']]);
+    const result = enrichSettingsFromBBLHeaders(DEFAULT_FILTER_SETTINGS, headers);
+    expect(result).not.toBeNull();
+    expect(result!.dterm_lpf1_dyn_expo).toBe(7);
+  });
+
+  it('should not overwrite existing rpm_filter_q', () => {
+    const headers = new Map([['rpm_filter_q', '999']]);
+    const settings = { ...DEFAULT_FILTER_SETTINGS, rpm_filter_q: 500 };
+    const result = enrichSettingsFromBBLHeaders(settings, headers);
+    // rpm_filter_q already set → no change (other fields may still be enriched)
+    if (result) {
+      expect(result.rpm_filter_q).toBe(500);
+    }
+  });
+
+  it('should not overwrite existing dterm_lpf1_dyn_expo', () => {
+    const headers = new Map([['dterm_lpf1_dyn_expo', '10']]);
+    const settings = { ...DEFAULT_FILTER_SETTINGS, dterm_lpf1_dyn_expo: 5 };
+    const result = enrichSettingsFromBBLHeaders(settings, headers);
+    if (result) {
+      expect(result.dterm_lpf1_dyn_expo).toBe(5);
+    }
+  });
 });
