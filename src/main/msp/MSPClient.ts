@@ -1340,21 +1340,30 @@ export class MSPClient extends EventEmitter {
 
       // Wait for FC to be MSP-responsive. After snapshot creation (CLI mode → exit → reboot),
       // the FC may be mid-reboot when user clicks Erase. Ping with MSP_API_VERSION first.
-      const READY_TIMEOUT = 15000;
-      const READY_INTERVAL = 1000;
+      const READY_TIMEOUT_MS = 15000;
+      const READY_PING_TIMEOUT_MS = 1500;
+      const READY_RETRY_DELAY_MS = 500;
       const readyStart = Date.now();
       let fcReady = false;
-      while (Date.now() - readyStart < READY_TIMEOUT) {
+      while (Date.now() - readyStart < READY_TIMEOUT_MS) {
         try {
-          await this.connection.sendCommand(MSPCommand.MSP_API_VERSION, Buffer.alloc(0), 2000);
+          await this.connection.sendCommand(
+            MSPCommand.MSP_API_VERSION,
+            Buffer.alloc(0),
+            READY_PING_TIMEOUT_MS
+          );
           fcReady = true;
           break;
-        } catch (readyErr) {
+        } catch (err) {
           if (!this.connection.isOpen()) {
             throw new ConnectionError('FC disconnected before erase');
           }
-          logger.debug('Waiting for FC to become MSP-responsive...');
-          await new Promise((resolve) => setTimeout(resolve, READY_INTERVAL));
+          if (err instanceof TimeoutError) {
+            logger.debug('Waiting for FC to become MSP-responsive...');
+            await new Promise((resolve) => setTimeout(resolve, READY_RETRY_DELAY_MS));
+          } else {
+            throw err;
+          }
         }
       }
       if (!fcReady) {
