@@ -33,6 +33,14 @@ import {
   PIDSUM_LIMIT_WEIGHT_THRESHOLD_G,
   FF_MAX_RATE_LIMIT_DEFAULT,
   FF_MAX_RATE_LIMIT_RACE_RECOMMENDED,
+  ANTI_GRAVITY_GAIN_DEFAULT,
+  ANTI_GRAVITY_WEIGHT_THRESHOLD_G,
+  ANTI_GRAVITY_HEAVY_RECOMMENDED,
+  ANTI_GRAVITY_MEDIUM_RECOMMENDED,
+  ANTI_GRAVITY_SSE_THRESHOLD,
+  ANTI_GRAVITY_LOW_THRESHOLD,
+  THRUST_LINEAR_BY_SIZE,
+  THRUST_LINEAR_DEVIATION_THRESHOLD,
   TPA_BY_SIZE,
   TPA_SIZE_CATEGORY,
   TPA_RATE_DEVIATION_THRESHOLD,
@@ -1188,6 +1196,93 @@ export function recommendFFMaxRateLimit(
     confidence: 'low',
     informational: true,
     ruleId: 'P-FF-RATELIM',
+  };
+}
+
+/** Extract anti_gravity_gain from BBL raw headers. */
+export function extractAntiGravityGain(rawHeaders: Map<string, string>): number | undefined {
+  return parseIntOr(rawHeaders.get('anti_gravity_gain'));
+}
+
+/** Recommend anti_gravity_gain based on drone weight and steady-state error. */
+export function recommendAntiGravityGain(
+  currentGain: number | undefined,
+  droneWeight: number | undefined,
+  meanSteadyStateErrors: { roll: number; pitch: number }
+): PIDRecommendation | undefined {
+  if (currentGain === undefined) return undefined;
+  if (droneWeight === undefined) return undefined;
+  if (droneWeight <= ANTI_GRAVITY_WEIGHT_THRESHOLD_G) return undefined;
+  if (currentGain >= ANTI_GRAVITY_LOW_THRESHOLD) return undefined;
+
+  const hasHighSSE =
+    meanSteadyStateErrors.roll > ANTI_GRAVITY_SSE_THRESHOLD &&
+    meanSteadyStateErrors.pitch > ANTI_GRAVITY_SSE_THRESHOLD;
+
+  const recommended = hasHighSSE ? ANTI_GRAVITY_HEAVY_RECOMMENDED : ANTI_GRAVITY_MEDIUM_RECOMMENDED;
+
+  return {
+    setting: 'anti_gravity_gain',
+    currentValue: currentGain,
+    recommendedValue: recommended,
+    reason:
+      `Anti-gravity gain is ${currentGain} (default ${ANTI_GRAVITY_GAIN_DEFAULT}) on a ${droneWeight}g build. ` +
+      (hasHighSSE
+        ? 'Steady-state error is elevated on roll and pitch, suggesting the I-term needs help during throttle transitions. '
+        : '') +
+      `Heavier quads with cameras benefit from ${recommended} for more stable punch-outs and throttle changes.`,
+    impact: 'stability',
+    confidence: 'medium',
+    ruleId: 'P-AG',
+  };
+}
+
+/** Extract thrust_linear from BBL raw headers. */
+export function extractThrustLinear(rawHeaders: Map<string, string>): number | undefined {
+  return parseIntOr(rawHeaders.get('thrust_linear'));
+}
+
+/** Recommend thrust_linear based on drone size. */
+export function recommendThrustLinear(
+  currentValue: number | undefined,
+  droneSize: DroneSize | undefined
+): PIDRecommendation | undefined {
+  if (currentValue === undefined) return undefined;
+  if (droneSize === undefined) return undefined;
+
+  const recommended = THRUST_LINEAR_BY_SIZE[droneSize];
+  if (recommended === undefined) return undefined;
+
+  if (currentValue === 0) {
+    return {
+      setting: 'thrust_linear',
+      currentValue: 0,
+      recommendedValue: recommended,
+      reason:
+        `Thrust linearization is disabled but recommended at ${recommended} for ${droneSize} builds. ` +
+        'It compensates for non-linear motor response at low throttle, giving more consistent feel across the throttle range.',
+      impact: 'response',
+      confidence: 'low',
+      ruleId: 'P-THRUST-LIN',
+    };
+  }
+
+  const deviation = Math.abs(currentValue - recommended) / recommended;
+  if (deviation <= THRUST_LINEAR_DEVIATION_THRESHOLD) return undefined;
+
+  const direction = currentValue > recommended ? 'high' : 'low';
+  return {
+    setting: 'thrust_linear',
+    currentValue,
+    recommendedValue: recommended,
+    reason:
+      `Thrust linearization is ${currentValue} which is ${direction} for a ${droneSize} build (typical: ${recommended}). ` +
+      (direction === 'high'
+        ? 'Too much linearization can cause twitchy low-throttle behavior.'
+        : 'Too little linearization may cause inconsistent throttle response.'),
+    impact: 'response',
+    confidence: 'low',
+    ruleId: 'P-THRUST-LIN',
   };
 }
 
