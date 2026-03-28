@@ -1,6 +1,6 @@
 # Preset Gap Analysis — Community Presets vs FPVPIDlab
 
-> **Status**: Active (Tasks 1-2 complete PRs #314-#316, Tasks 6-7 complete)
+> **Status**: Active (Tasks 1-3, 5-7 complete, PRs #314-#321)
 
 Gap analysis comparing FPVPIDlab recommendations against community Betaflight presets (SupaflyFPV, UAV Tech, Karate/sugarK, QuadMcFly, ctzsnooze, AOS/Chris Rosser). Identifies settings we don't currently recommend but should, ordered by implementation feasibility.
 

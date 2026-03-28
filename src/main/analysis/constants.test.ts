@@ -7,8 +7,16 @@ import {
   RINGING_MAX_COUNT,
   ITERM_RELAX_CUTOFF_BY_STYLE,
   ITERM_RELAX_DEVIATION_THRESHOLD,
+  ANTI_GRAVITY_GAIN_DEFAULT,
+  ANTI_GRAVITY_WEIGHT_THRESHOLD_G,
+  ANTI_GRAVITY_HEAVY_RECOMMENDED,
+  ANTI_GRAVITY_MEDIUM_RECOMMENDED,
+  ANTI_GRAVITY_SSE_THRESHOLD,
+  ANTI_GRAVITY_LOW_THRESHOLD,
+  THRUST_LINEAR_BY_SIZE,
+  THRUST_LINEAR_DEVIATION_THRESHOLD,
 } from './constants';
-import type { FlightStyle } from '@shared/types/profile.types';
+import type { DroneSize, FlightStyle } from '@shared/types/profile.types';
 
 describe('PID_STYLE_THRESHOLDS', () => {
   const styles: FlightStyle[] = ['smooth', 'balanced', 'aggressive'];
@@ -117,5 +125,55 @@ describe('ITERM_RELAX_CUTOFF_BY_STYLE', () => {
   it('deviation threshold is between 0 and 1', () => {
     expect(ITERM_RELAX_DEVIATION_THRESHOLD).toBeGreaterThan(0);
     expect(ITERM_RELAX_DEVIATION_THRESHOLD).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('Anti-Gravity constants', () => {
+  it('default matches BF 4.5 default (80)', () => {
+    expect(ANTI_GRAVITY_GAIN_DEFAULT).toBe(80);
+  });
+
+  it('weight threshold is 400g', () => {
+    expect(ANTI_GRAVITY_WEIGHT_THRESHOLD_G).toBe(400);
+  });
+
+  it('heavy recommended (120) > medium recommended (110) > default (80)', () => {
+    expect(ANTI_GRAVITY_HEAVY_RECOMMENDED).toBeGreaterThan(ANTI_GRAVITY_MEDIUM_RECOMMENDED);
+    expect(ANTI_GRAVITY_MEDIUM_RECOMMENDED).toBeGreaterThan(ANTI_GRAVITY_GAIN_DEFAULT);
+  });
+
+  it('SSE threshold is positive', () => {
+    expect(ANTI_GRAVITY_SSE_THRESHOLD).toBeGreaterThan(0);
+  });
+
+  it('low threshold is between default and heavy recommended', () => {
+    expect(ANTI_GRAVITY_LOW_THRESHOLD).toBeGreaterThan(ANTI_GRAVITY_GAIN_DEFAULT);
+    expect(ANTI_GRAVITY_LOW_THRESHOLD).toBeLessThanOrEqual(ANTI_GRAVITY_MEDIUM_RECOMMENDED);
+  });
+});
+
+describe('THRUST_LINEAR_BY_SIZE', () => {
+  it('has values for 3" through 7" sizes', () => {
+    const expectedSizes: DroneSize[] = ['3"', '4"', '5"', '6"', '7"'];
+    for (const size of expectedSizes) {
+      expect(THRUST_LINEAR_BY_SIZE[size]).toBeDefined();
+      expect(THRUST_LINEAR_BY_SIZE[size]).toBeGreaterThan(0);
+    }
+  });
+
+  it('does not have values for 1" and 2.5" (too small for linearization)', () => {
+    expect(THRUST_LINEAR_BY_SIZE['1"']).toBeUndefined();
+    expect(THRUST_LINEAR_BY_SIZE['2.5"']).toBeUndefined();
+  });
+
+  it('values decrease with size (larger props = more linear thrust)', () => {
+    expect(THRUST_LINEAR_BY_SIZE['3"']!).toBeGreaterThanOrEqual(THRUST_LINEAR_BY_SIZE['5"']!);
+    expect(THRUST_LINEAR_BY_SIZE['5"']!).toBeGreaterThanOrEqual(THRUST_LINEAR_BY_SIZE['6"']!);
+    expect(THRUST_LINEAR_BY_SIZE['6"']!).toBeGreaterThanOrEqual(THRUST_LINEAR_BY_SIZE['7"']!);
+  });
+
+  it('deviation threshold is between 0 and 1', () => {
+    expect(THRUST_LINEAR_DEVIATION_THRESHOLD).toBeGreaterThan(0);
+    expect(THRUST_LINEAR_DEVIATION_THRESHOLD).toBeLessThanOrEqual(1);
   });
 });

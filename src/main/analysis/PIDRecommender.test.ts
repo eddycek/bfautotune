@@ -11,6 +11,10 @@ import {
   extractDynIdleMinRpm,
   extractRpmFilterActive,
   recommendDynIdleMinRpm,
+  extractAntiGravityGain,
+  recommendAntiGravityGain,
+  extractThrustLinear,
+  recommendThrustLinear,
 } from './PIDRecommender';
 import type { DMinContext, TPAContext } from './PIDRecommender';
 import type { TransferFunctionContext } from './PIDRecommender';
@@ -2451,5 +2455,148 @@ describe('recommendDynIdleMinRpm', () => {
     expect(rec).toBeDefined();
     expect(rec!.reason).toContain('40-60'); // 3" range
     expect(rec!.recommendedValue).toBe(45); // 3" typical
+  });
+});
+
+describe('extractAntiGravityGain', () => {
+  it('should extract anti_gravity_gain from BBL headers', () => {
+    const headers = new Map([['anti_gravity_gain', '80']]);
+    expect(extractAntiGravityGain(headers)).toBe(80);
+  });
+
+  it('should return undefined when header is missing', () => {
+    const headers = new Map<string, string>();
+    expect(extractAntiGravityGain(headers)).toBeUndefined();
+  });
+
+  it('should return undefined for non-numeric values', () => {
+    const headers = new Map([['anti_gravity_gain', 'abc']]);
+    expect(extractAntiGravityGain(headers)).toBeUndefined();
+  });
+});
+
+describe('recommendAntiGravityGain', () => {
+  it('should return undefined when gain is undefined', () => {
+    expect(recommendAntiGravityGain(undefined, 650, { roll: 5, pitch: 5 })).toBeUndefined();
+  });
+
+  it('should return undefined when weight is undefined', () => {
+    expect(recommendAntiGravityGain(80, undefined, { roll: 5, pitch: 5 })).toBeUndefined();
+  });
+
+  it('should return undefined for lightweight builds (<=400g)', () => {
+    expect(recommendAntiGravityGain(80, 350, { roll: 5, pitch: 5 })).toBeUndefined();
+  });
+
+  it('should return undefined when gain is already at or above threshold', () => {
+    expect(recommendAntiGravityGain(100, 650, { roll: 5, pitch: 5 })).toBeUndefined();
+    expect(recommendAntiGravityGain(120, 650, { roll: 5, pitch: 5 })).toBeUndefined();
+  });
+
+  it('should recommend 120 for heavy build with high SSE on both axes', () => {
+    const rec = recommendAntiGravityGain(80, 650, { roll: 4.0, pitch: 4.0 });
+    expect(rec).toBeDefined();
+    expect(rec!.setting).toBe('anti_gravity_gain');
+    expect(rec!.currentValue).toBe(80);
+    expect(rec!.recommendedValue).toBe(120);
+    expect(rec!.ruleId).toBe('P-AG');
+    expect(rec!.confidence).toBe('medium');
+    expect(rec!.reason).toContain('650g');
+  });
+
+  it('should recommend 110 for heavy build without high SSE on both axes', () => {
+    const rec = recommendAntiGravityGain(80, 650, { roll: 4.0, pitch: 1.0 });
+    expect(rec).toBeDefined();
+    expect(rec!.recommendedValue).toBe(110);
+  });
+
+  it('should recommend 110 for heavy build with low SSE on both axes', () => {
+    const rec = recommendAntiGravityGain(80, 500, { roll: 1.0, pitch: 1.0 });
+    expect(rec).toBeDefined();
+    expect(rec!.recommendedValue).toBe(110);
+  });
+
+  it('should not recommend at weight boundary (exactly 400g)', () => {
+    expect(recommendAntiGravityGain(80, 400, { roll: 5, pitch: 5 })).toBeUndefined();
+  });
+});
+
+describe('extractThrustLinear', () => {
+  it('should extract thrust_linear from BBL headers', () => {
+    const headers = new Map([['thrust_linear', '30']]);
+    expect(extractThrustLinear(headers)).toBe(30);
+  });
+
+  it('should return undefined when header is missing', () => {
+    const headers = new Map<string, string>();
+    expect(extractThrustLinear(headers)).toBeUndefined();
+  });
+
+  it('should return undefined for non-numeric values', () => {
+    const headers = new Map([['thrust_linear', 'abc']]);
+    expect(extractThrustLinear(headers)).toBeUndefined();
+  });
+});
+
+describe('recommendThrustLinear', () => {
+  it('should return undefined when value is undefined', () => {
+    expect(recommendThrustLinear(undefined, '5"')).toBeUndefined();
+  });
+
+  it('should return undefined when drone size is undefined', () => {
+    expect(recommendThrustLinear(30, undefined)).toBeUndefined();
+  });
+
+  it('should return undefined for sizes without recommendations (1", 2.5")', () => {
+    expect(recommendThrustLinear(0, '1"')).toBeUndefined();
+    expect(recommendThrustLinear(0, '2.5"')).toBeUndefined();
+  });
+
+  it('should recommend enabling when disabled (0) for 5" build', () => {
+    const rec = recommendThrustLinear(0, '5"');
+    expect(rec).toBeDefined();
+    expect(rec!.setting).toBe('thrust_linear');
+    expect(rec!.currentValue).toBe(0);
+    expect(rec!.recommendedValue).toBe(30);
+    expect(rec!.ruleId).toBe('P-THRUST-LIN');
+    expect(rec!.confidence).toBe('low');
+    expect(rec!.reason).toContain('disabled');
+  });
+
+  it('should recommend enabling when disabled for 3" build', () => {
+    const rec = recommendThrustLinear(0, '3"');
+    expect(rec).toBeDefined();
+    expect(rec!.recommendedValue).toBe(40);
+  });
+
+  it('should recommend enabling when disabled for 7" build', () => {
+    const rec = recommendThrustLinear(0, '7"');
+    expect(rec).toBeDefined();
+    expect(rec!.recommendedValue).toBe(10);
+  });
+
+  it('should return undefined when value is within 50% of recommended', () => {
+    expect(recommendThrustLinear(20, '5"')).toBeUndefined();
+    expect(recommendThrustLinear(40, '5"')).toBeUndefined();
+  });
+
+  it('should recommend when value is too high for size', () => {
+    const rec = recommendThrustLinear(60, '5"');
+    expect(rec).toBeDefined();
+    expect(rec!.recommendedValue).toBe(30);
+    expect(rec!.reason).toContain('high');
+  });
+
+  it('should recommend when value is too low for size', () => {
+    const rec = recommendThrustLinear(10, '5"');
+    expect(rec).toBeDefined();
+    expect(rec!.recommendedValue).toBe(30);
+    expect(rec!.reason).toContain('low');
+  });
+
+  it('should return undefined at exact recommended value', () => {
+    expect(recommendThrustLinear(30, '5"')).toBeUndefined();
+    expect(recommendThrustLinear(40, '3"')).toBeUndefined();
+    expect(recommendThrustLinear(10, '7"')).toBeUndefined();
   });
 });
