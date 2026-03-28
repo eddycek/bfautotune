@@ -1513,7 +1513,10 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
   });
 
   it('throws MSPError if FC never becomes responsive within timeout', async () => {
-    const { client, sendCommand } = createClientWithStub();
+    const { client, sendCommand, mockConn } = createClientWithStub();
+
+    // FC is not in CLI mode — pure MSP timeout scenario
+    mockConn.isInCLI = vi.fn().mockReturnValue(false);
 
     sendCommand.mockImplementation(async (cmd: number) => {
       if (cmd === MSPCommand.MSP_API_VERSION) {
@@ -1523,7 +1526,7 @@ describe('MSPClient.eraseBlackboxFlash — pre-erase MSP readiness check', () =>
     });
 
     await expect(client.eraseBlackboxFlash()).rejects.toThrow('FC not responding to MSP commands');
-  }, 20000);
+  }, 30000);
 });
 
 // ─── getStatusEx ─────────────────────────────────────────────────────
