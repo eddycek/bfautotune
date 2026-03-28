@@ -6,15 +6,28 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import type { DroneProfile } from '@shared/types/profile.types';
+import type { DroneProfile, DroneSize } from '@shared/types/profile.types';
 import { SIZE_DEFAULTS } from '@shared/constants';
 import { logger } from '../utils/logger';
 
+/** Map removed drone sizes to their closest current equivalent */
+const LEGACY_SIZE_MAP: Record<string, DroneSize> = {
+  '2"': '2.5"',
+  '10"': '7"',
+};
+
 /**
- * Backfill required fields for profiles created before weight/flightStyle
- * became mandatory. Mutates in-place for efficiency.
+ * Backfill required fields and normalize removed sizes for profiles
+ * created before weight/flightStyle became mandatory or before size removal.
+ * Mutates in-place for efficiency.
  */
-function migrateProfile(profile: DroneProfile): DroneProfile {
+export function migrateProfile(profile: DroneProfile): DroneProfile {
+  // Normalize removed sizes
+  const mappedSize = LEGACY_SIZE_MAP[profile.size as string];
+  if (mappedSize) {
+    (profile as any).size = mappedSize;
+  }
+
   if (profile.weight == null || profile.weight === 0) {
     const defaults = SIZE_DEFAULTS[profile.size as keyof typeof SIZE_DEFAULTS];
     profile.weight = defaults?.weight ?? 650;

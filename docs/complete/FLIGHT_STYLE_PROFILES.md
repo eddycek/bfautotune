@@ -120,7 +120,7 @@ Using an optional field ensures backward compatibility — existing profiles wit
 
 **PresetSelector**: Map preset IDs to default flight styles:
 - `5inch-race` → `aggressive`
-- `3inch-whoop`, `6inch-longrange`, `7inch-longrange` → `smooth`
+- `3inch-whoop`, `7inch-longrange` → `smooth`
 - All others → `balanced`
 
 ### 2.5 PID Recommender Changes

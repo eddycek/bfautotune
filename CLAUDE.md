@@ -602,7 +602,7 @@ When user selects drone size, defaults auto-populate:
 - 5" → 650g, 1950KV, 6S
 - etc. (see `SIZE_DEFAULTS` in constants)
 
-Sizes available: 1", 3", 4", 5", 6", 7" (no 2" or 10")
+Sizes available: 1", 2.5", 3", 4", 5", 6", 7" (no 2" or 10")
 
 ### Preset Profiles
 8 presets available: tiny-whoop, 3inch-freestyle, 3inch-whoop, 4inch-freestyle, 5inch-freestyle, 5inch-race, 6inch-longrange, 7inch-longrange
