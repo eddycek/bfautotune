@@ -273,6 +273,10 @@ export class MockMSPClient extends EventEmitter {
     return this._rebootPending;
   }
 
+  get internalReconnect(): boolean {
+    return false;
+  }
+
   get lastStorageType(): 'flash' | 'sdcard' | 'none' {
     return this._lastStorageType;
   }
