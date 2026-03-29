@@ -377,6 +377,17 @@ function AppContent() {
           toast.error(err instanceof Error ? err.message : 'Failed to complete session');
         }
         break;
+      case 'skip_erase_verification': {
+        // Skip erase and go directly to verification phase — user will fly with existing flash data
+        const skipVerPhase =
+          tuning.session?.tuningType === TUNING_TYPE.FILTER
+            ? TUNING_PHASE.FILTER_VERIFICATION_PENDING
+            : tuning.session?.tuningType === TUNING_TYPE.PID
+              ? TUNING_PHASE.PID_VERIFICATION_PENDING
+              : TUNING_PHASE.FLASH_VERIFICATION_PENDING;
+        await tuning.updatePhase(skipVerPhase);
+        break;
+      }
       case 'prepare_verification':
         try {
           setErasing(true);
