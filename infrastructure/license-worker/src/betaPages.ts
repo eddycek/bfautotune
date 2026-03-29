@@ -219,6 +219,10 @@ export function adminBetaPage(): string {
       var key = input.value;
       if (!key) return;
 
+      // Trim whitespace (common with copy-paste)
+      key = key.trim();
+      if (!key) return;
+
       // Store in sessionStorage (cleared on tab close), clear input immediately
       sessionStorage.setItem('betaAdminKey', key);
       input.value = '';
@@ -234,6 +238,10 @@ export function adminBetaPage(): string {
     function logout() {
       sessionStorage.removeItem('betaAdminKey');
       showAuthState(false);
+      // Clear sensitive PII from DOM
+      document.getElementById('stats').innerHTML = '';
+      document.getElementById('tableBody').innerHTML = '';
+      document.getElementById('empty').style.display = 'none';
       document.getElementById('content').style.display = 'none';
     }
 
