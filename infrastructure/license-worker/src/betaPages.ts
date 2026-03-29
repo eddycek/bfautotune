@@ -120,6 +120,10 @@ export function adminBetaPage(): string {
     .auth-row { display: flex; gap: 8px; }
     .auth-row input { flex: 1; }
     .auth-row button { padding: 10px 20px; background: #238636; border: 1px solid #2ea043; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .auth-status { display: flex; align-items: center; gap: 12px; }
+    .auth-status .badge-auth { background: #0d3117; color: #3fb950; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+    .btn-logout { padding: 6px 14px; background: transparent; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; font-size: 13px; cursor: pointer; }
+    .btn-logout:hover { border-color: #f85149; color: #f85149; }
     #content { display: none; }
     .stats { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
     .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 20px; }
@@ -148,11 +152,17 @@ export function adminBetaPage(): string {
     <h1>Beta Tester Dashboard</h1>
     <p class="subtitle">Manage beta tester applications</p>
 
-    <div class="auth-section">
+    <div class="auth-section" id="authLogin">
       <label for="adminKey">Admin Key</label>
       <div class="auth-row">
-        <input type="password" id="adminKey" placeholder="Enter admin key">
-        <button onclick="loadData()">Load</button>
+        <input type="password" id="adminKey" placeholder="Enter admin key" autocomplete="off">
+        <button onclick="authenticate()">Load</button>
+      </div>
+    </div>
+    <div class="auth-section" id="authStatus" style="display:none;">
+      <div class="auth-status">
+        <span class="badge-auth">Authenticated</span>
+        <button class="btn-logout" onclick="logout()">Logout</button>
       </div>
     </div>
 
@@ -187,10 +197,8 @@ export function adminBetaPage(): string {
   </div>
 
   <script>
-    var adminKey = '';
-
     function getKey() {
-      return document.getElementById('adminKey').value;
+      return sessionStorage.getItem('betaAdminKey') || '';
     }
 
     function api(method, path) {
@@ -198,20 +206,45 @@ export function adminBetaPage(): string {
         method: method,
         headers: { 'X-Admin-Key': getKey() }
       }).then(function(r) {
-        if (r.status === 401) throw new Error('Invalid admin key');
+        if (r.status === 401) {
+          logout();
+          throw new Error('Invalid or expired admin key');
+        }
         return r.json();
       });
     }
 
-    function loadData() {
-      var key = getKey();
+    function authenticate() {
+      var input = document.getElementById('adminKey');
+      var key = input.value;
       if (!key) return;
-      adminKey = key;
+
+      // Store in sessionStorage (cleared on tab close), clear input immediately
+      sessionStorage.setItem('betaAdminKey', key);
+      input.value = '';
+
+      loadData();
+    }
+
+    function showAuthState(authenticated) {
+      document.getElementById('authLogin').style.display = authenticated ? 'none' : 'block';
+      document.getElementById('authStatus').style.display = authenticated ? 'block' : 'none';
+    }
+
+    function logout() {
+      sessionStorage.removeItem('betaAdminKey');
+      showAuthState(false);
+      document.getElementById('content').style.display = 'none';
+    }
+
+    function loadData() {
+      if (!getKey()) return;
 
       var status = document.getElementById('filterStatus').value;
       var qs = status ? '?status=' + status : '';
 
       api('GET', '/admin/beta/list' + qs).then(function(data) {
+        showAuthState(true);
         document.getElementById('content').style.display = 'block';
         renderStats(data.stats);
         renderTable(data.entries);
@@ -316,10 +349,13 @@ export function adminBetaPage(): string {
       });
     }
 
-    // Allow Enter to trigger load
+    // Allow Enter to trigger authenticate
     document.getElementById('adminKey').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') loadData();
+      if (e.key === 'Enter') authenticate();
     });
+
+    // Auto-load if session key exists (e.g. page refresh)
+    if (getKey()) loadData();
   </script>
 </body>
 </html>`;
