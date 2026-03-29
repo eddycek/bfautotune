@@ -31,11 +31,16 @@ export async function handleBetaSignupSubmit(
     return htmlResponse(signupPage('Invalid form submission.'));
   }
 
-  const name = (formData.get('name') as string || '').trim();
-  const email = (formData.get('email') as string || '').trim().toLowerCase();
-  const quadCount = parseInt(formData.get('quad_count') as string || '1', 10);
-  const platforms = formData.getAll('platform') as string[];
-  const comment = (formData.get('comment') as string || '').trim();
+  const rawName = formData.get('name');
+  const name = typeof rawName === 'string' ? rawName.trim() : '';
+  const rawEmail = formData.get('email');
+  const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+  const rawQuadCount = formData.get('quad_count');
+  const quadCount = typeof rawQuadCount === 'string' ? parseInt(rawQuadCount, 10) : NaN;
+  const rawPlatforms = formData.getAll('platform');
+  const platforms = rawPlatforms.filter((p): p is string => typeof p === 'string');
+  const rawComment = formData.get('comment');
+  const comment = typeof rawComment === 'string' ? rawComment.trim() : '';
 
   // Validate required fields
   if (!name || name.length > 100) {
@@ -60,12 +65,11 @@ export async function handleBetaSignupSubmit(
   const platformStr = validPlatforms.join(',');
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  // Rate limit: max 3 signups per IP per hour
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  // Rate limit: max 3 signups per IP per hour (use SQLite time math for consistent format)
   const rateCheck = await env.LICENSE_DB.prepare(
-    'SELECT COUNT(*) as count FROM beta_whitelist WHERE ip_address = ? AND created_at >= ?'
+    "SELECT COUNT(*) as count FROM beta_whitelist WHERE ip_address = ? AND created_at >= datetime('now','-1 hour')"
   )
-    .bind(ip, oneHourAgo)
+    .bind(ip)
     .first<{ count: number }>();
 
   if (rateCheck && rateCheck.count >= MAX_SIGNUPS_PER_IP_PER_HOUR) {
@@ -91,13 +95,22 @@ export async function handleBetaSignupSubmit(
     }
   }
 
-  // Insert new entry
-  await env.LICENSE_DB.prepare(
-    `INSERT INTO beta_whitelist (name, email, quad_count, platform, comment, ip_address)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  )
-    .bind(name, email, quadCount, platformStr, comment, ip)
-    .run();
+  // Insert new entry (catch UNIQUE constraint for concurrent duplicate signups)
+  try {
+    await env.LICENSE_DB.prepare(
+      `INSERT INTO beta_whitelist (name, email, quad_count, platform, comment, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+      .bind(name, email, quadCount, platformStr, comment, ip)
+      .run();
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '';
+    if (message.includes('UNIQUE constraint failed')) {
+      // Concurrent duplicate — same response to prevent email enumeration
+      return redirect('/beta/thankyou');
+    }
+    throw err;
+  }
 
   // Send confirmation email (fire-and-forget)
   const { subject, html } = confirmationEmail(name);
@@ -181,13 +194,25 @@ export async function handleAdminBetaApprove(
     return Response.json({ error: 'Failed to create license' }, { status: 500 });
   }
 
-  // Update whitelist entry
-  await env.LICENSE_DB.prepare(
-    `UPDATE beta_whitelist SET status = 'approved', license_id = ?, reviewed_at = datetime('now')
-     WHERE id = ?`
-  )
-    .bind(license.id, entryId)
-    .run();
+  // Update whitelist entry (with compensating cleanup on failure)
+  try {
+    await env.LICENSE_DB.prepare(
+      `UPDATE beta_whitelist SET status = 'approved', license_id = ?, reviewed_at = datetime('now')
+       WHERE id = ?`
+    )
+      .bind(license.id, entryId)
+      .run();
+  } catch (err) {
+    // Cleanup orphaned license
+    try {
+      await env.LICENSE_DB.prepare('DELETE FROM licenses WHERE id = ?')
+        .bind(license.id)
+        .run();
+    } catch {
+      // Ignore cleanup failure
+    }
+    return Response.json({ error: 'Failed to approve beta application' }, { status: 500 });
+  }
 
   // Send approval email
   const { subject, html } = approvalEmail(entry.name, licenseKey);
@@ -243,8 +268,8 @@ function formatBetaEntry(row: BetaWhitelistRow) {
     comment: row.comment,
     status: row.status,
     licenseId: row.license_id,
-    createdAt: row.created_at,
-    reviewedAt: row.reviewed_at,
+    createdAt: toISOString(row.created_at),
+    reviewedAt: row.reviewed_at ? toISOString(row.reviewed_at) : null,
   };
 }
 
@@ -253,6 +278,11 @@ function htmlResponse(html: string, status = 200): Response {
     status,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
+}
+
+/** Convert SQLite datetime ('YYYY-MM-DD HH:MM:SS') to ISO-8601 for reliable JS Date parsing */
+function toISOString(sqliteDate: string): string {
+  return sqliteDate.includes('T') ? sqliteDate : sqliteDate.replace(' ', 'T') + 'Z';
 }
 
 function redirect(url: string): Response {

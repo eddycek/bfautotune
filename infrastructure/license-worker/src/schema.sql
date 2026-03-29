@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS licenses (
   activated_at TEXT,
   last_validated_at TEXT,
   reset_count INTEGER NOT NULL DEFAULT 0,
-  max_resets INTEGER NOT NULL DEFAULT 3
+  max_resets INTEGER NOT NULL DEFAULT 3,
+  whitelist_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_licenses_key ON licenses(license_key);
@@ -38,3 +39,4 @@ CREATE TABLE IF NOT EXISTS beta_whitelist (
 
 CREATE INDEX IF NOT EXISTS idx_beta_whitelist_status ON beta_whitelist(status);
 CREATE INDEX IF NOT EXISTS idx_beta_whitelist_email ON beta_whitelist(email);
+CREATE INDEX IF NOT EXISTS idx_beta_whitelist_ip_created_at ON beta_whitelist(ip_address, created_at);
