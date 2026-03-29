@@ -18,6 +18,7 @@ import type {
   TransferFunctionMetricsSummary,
   TuneQualityScore,
   TuneQualityComponent,
+  CompactThrottleSpectrogram,
 } from '../types/tuning-history.types';
 
 export const TIER_LABELS: Record<TuneQualityScore['tier'], string> = {
@@ -54,6 +55,57 @@ function avgNoiseFloor(m: {
   const valid = vals.filter((v) => v > NOISE_FLOOR_VALID_MIN);
   if (valid.length === 0) return undefined;
   return valid.reduce((a, b) => a + b, 0) / valid.length;
+}
+
+/**
+ * Average spectral energy from throttle spectrogram across all axes, bands, and frequencies.
+ * More representative than noise floor (25th percentile) because it captures the full
+ * frequency range including where filters actually reduce noise.
+ */
+function spectrogramEnergy(spec: CompactThrottleSpectrogram): number | undefined {
+  if (!spec || spec.bands.length === 0) return undefined;
+  let sum = 0;
+  let count = 0;
+  for (const band of spec.bands) {
+    for (const axis of ['roll', 'pitch', 'yaw'] as const) {
+      for (const val of band[axis]) {
+        if (val > NOISE_FLOOR_VALID_MIN) {
+          sum += val;
+          count++;
+        }
+      }
+    }
+  }
+  return count > 0 ? sum / count : undefined;
+}
+
+/**
+ * Average spectrogram delta (after - before) across all axes, bands, and frequencies.
+ * Matches the per-axis computation in SpectrogramComparisonChart but averaged across all axes.
+ * Negative = improvement, positive = regression.
+ */
+export function spectrogramDelta(
+  before: CompactThrottleSpectrogram,
+  after: CompactThrottleSpectrogram
+): number | undefined {
+  if (!before || !after || before.bands.length === 0 || after.bands.length === 0) return undefined;
+  let sum = 0;
+  let count = 0;
+  const minBands = Math.min(before.bands.length, after.bands.length);
+  for (let b = 0; b < minBands; b++) {
+    for (const axis of ['roll', 'pitch', 'yaw'] as const) {
+      const beforeBand = before.bands[b][axis];
+      const afterBand = after.bands[b][axis];
+      const minLen = Math.min(beforeBand.length, afterBand.length);
+      for (let f = 0; f < minLen; f++) {
+        if (beforeBand[f] > NOISE_FLOOR_VALID_MIN && afterBand[f] > NOISE_FLOOR_VALID_MIN) {
+          sum += afterBand[f] - beforeBand[f];
+          count++;
+        }
+      }
+    }
+  }
+  return count > 0 ? sum / count : undefined;
 }
 
 const COMPONENTS: ComponentDef[] = [
@@ -136,6 +188,10 @@ const COMPONENTS: ComponentDef[] = [
     getValue: (filter, _pid, verification) => {
       // Only available when both filter-flight and verification-flight data exist
       if (!filter || !verification) return undefined;
+      // Prefer spectrogram delta (full frequency range, all axes) over noise floor delta
+      if (filter.throttleSpectrogram && verification.throttleSpectrogram) {
+        return spectrogramDelta(filter.throttleSpectrogram, verification.throttleSpectrogram);
+      }
       const filterAvg = avgNoiseFloor(filter);
       const verificationAvg = avgNoiseFloor(verification);
       if (filterAvg === undefined || verificationAvg === undefined) return undefined;
