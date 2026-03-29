@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { verifyAppliedConfig, VerifyResult } from './verifyAppliedConfig';
+import { verifyAppliedConfig } from './verifyAppliedConfig';
 import type { PIDConfiguration } from '@shared/types/pid.types';
 import type { CurrentFilterSettings } from '@shared/types/analysis.types';
 import type { AppliedChange } from '@shared/types/tuning.types';

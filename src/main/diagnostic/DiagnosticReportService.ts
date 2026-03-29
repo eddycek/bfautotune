@@ -93,12 +93,12 @@ export async function sendAutoReport(
   }
 
   // Recommendations from traces
+  const allChanges = [
+    ...(session.appliedFilterChanges ?? []),
+    ...(session.appliedPIDChanges ?? []),
+    ...(session.appliedFeedforwardChanges ?? []),
+  ];
   const recommendations = (session.recommendationTraces ?? []).map((trace) => {
-    const allChanges = [
-      ...(session.appliedFilterChanges ?? []),
-      ...(session.appliedPIDChanges ?? []),
-      ...(session.appliedFeedforwardChanges ?? []),
-    ];
     const change = allChanges.find((c) => c.setting === trace.setting);
     return {
       ruleId: trace.ruleId,

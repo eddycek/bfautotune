@@ -161,10 +161,12 @@ function runSanityChecks(actual: Record<string, number>, tuningType: TuningType)
  * and force `verified=false`. Non-applied values are recorded in
  * `expected`/`actual` for diagnostic context but not compared.
  *
- * For PID and Flash modes: reads all 9 PID values + filter settings.
- * For Filter mode: reads filter settings only.
+ * For PID mode: reads and verifies PID values only.
+ * For Filter mode: reads and verifies filter settings only.
+ * For Flash mode: reads and verifies both PID values and filter settings.
  * Includes PID retry on mismatch (1 attempt, PID/Flash modes only).
- * Runs sanity checks on all actual values (I=0, bypassed filter).
+ * Runs sanity checks on PID terms (P/I/D = 0 on roll/pitch) and on
+ * gyro_lpf1_static_hz = 0 (LPF1 bypass) where applicable.
  */
 export async function verifyAppliedConfig(
   mspClient: VerifyMSPClient,
