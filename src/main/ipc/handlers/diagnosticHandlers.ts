@@ -169,11 +169,19 @@ export function registerDiagnosticHandlers(deps: HandlerDependencies): void {
 
         logger.info(`Diagnostic report submitted: ${reportId}`);
 
-        // Upload BBL if requested (non-blocking — failure doesn't affect the report)
-        let bblUploaded = false;
+        // Fire-and-forget BBL upload — don't block report submission
         if (input.includeFlightData) {
-          const installationId = telemetrySettings?.installationId ?? '';
-          bblUploaded = await uploadBBL(deps, record, reportId, installationId, uploadUrl);
+          const installationId = bundle.installationId;
+          uploadBBL(deps, record, reportId, installationId, uploadUrl)
+            .then((uploaded) => {
+              deps.eventCollector?.emit('workflow', 'diagnostic_bbl_upload', {
+                reportId,
+                success: uploaded,
+              });
+            })
+            .catch((err) => {
+              logger.warn('BBL background upload failed:', err);
+            });
         }
 
         // Emit telemetry event
@@ -181,13 +189,12 @@ export function registerDiagnosticHandlers(deps: HandlerDependencies): void {
           mode: bundle.mode,
           hasEmail: !!input.userEmail,
           recCount: bundle.recommendations.length,
-          bblUploaded,
+          includeFlightData: !!input.includeFlightData,
         });
 
         return createResponse<DiagnosticReportResult>({
           reportId,
           submitted: true,
-          bblUploaded,
         });
       } catch (error) {
         logger.error('Failed to send diagnostic report:', error);

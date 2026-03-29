@@ -223,8 +223,11 @@ export async function handleBBLUpload(request: Request, env: Env, reportId: stri
     return new Response('Forbidden', { status: 403 });
   }
 
-  // Check Content-Length
-  const contentLength = parseInt(request.headers.get('Content-Length') ?? '0', 10);
+  // Require valid Content-Length (reject streamed/chunked requests without it)
+  const contentLength = parseInt(request.headers.get('Content-Length') ?? '', 10);
+  if (!contentLength || contentLength <= 0) {
+    return new Response('Content-Length header required', { status: 411 });
+  }
   const maxSize = parseInt(env.BBL_MAX_SIZE_BYTES ?? '', 10) || DEFAULT_BBL_MAX_SIZE;
   if (contentLength > maxSize) {
     return new Response(`BBL file too large (max ${Math.round(maxSize / 1024 / 1024)} MB)`, { status: 413 });
@@ -244,10 +247,11 @@ export async function handleBBLUpload(request: Request, env: Env, reportId: stri
     httpMetadata: { contentType: 'application/octet-stream' },
   });
 
-  // Update metadata
+  // Update metadata (clear expired state on re-upload)
   metadata.hasBbl = true;
   metadata.bblSizeBytes = contentLength;
   metadata.bblUploadedAt = new Date().toISOString();
+  delete metadata.bblExpiredAt;
 
   await env.TELEMETRY_BUCKET.put(
     `diagnostics/${reportId}/metadata.json`,

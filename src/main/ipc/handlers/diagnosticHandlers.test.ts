@@ -180,12 +180,12 @@ describe('diagnosticHandlers', () => {
     expect(result.error).toContain('Upload failed');
   });
 
-  describe('BBL upload', () => {
-    it('uploads BBL when includeFlightData is true', async () => {
+  describe('BBL upload (fire-and-forget)', () => {
+    it('initiates BBL upload when includeFlightData is true', async () => {
       const bblBuffer = Buffer.alloc(1024);
       mockReadFile.mockResolvedValue(bblBuffer);
 
-      // First call: bundle upload. Second call: BBL upload.
+      // First call: bundle upload. Second call: BBL upload (fire-and-forget).
       vi.mocked(net.fetch)
         .mockResolvedValueOnce({
           ok: true,
@@ -201,8 +201,14 @@ describe('diagnosticHandlers', () => {
         includeFlightData: true,
       });
 
+      // Report succeeds immediately (BBL upload is background)
       expect(result.success).toBe(true);
-      expect(result.data.bblUploaded).toBe(true);
+      expect(result.data.submitted).toBe(true);
+
+      // Allow fire-and-forget promise to settle
+      await vi.waitFor(() => {
+        expect(net.fetch).toHaveBeenCalledTimes(2);
+      });
 
       // Verify BBL upload call
       const bblCall = vi.mocked(net.fetch).mock.calls[1];
@@ -217,13 +223,12 @@ describe('diagnosticHandlers', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data.bblUploaded).toBeFalsy();
 
       // Only one fetch call (bundle upload)
       expect(net.fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('returns bblUploaded=false when log not on disk', async () => {
+    it('report succeeds even when BBL file not on disk', async () => {
       mockReadFile.mockRejectedValue(new Error('ENOENT'));
 
       vi.mocked(net.fetch).mockResolvedValueOnce({
@@ -237,10 +242,10 @@ describe('diagnosticHandlers', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data.bblUploaded).toBe(false);
+      expect(result.data.submitted).toBe(true);
     });
 
-    it('returns bblUploaded=false when BBL upload fails', async () => {
+    it('report succeeds even when BBL upload fails', async () => {
       const bblBuffer = Buffer.alloc(1024);
       mockReadFile.mockResolvedValue(bblBuffer);
 
@@ -260,10 +265,9 @@ describe('diagnosticHandlers', () => {
         includeFlightData: true,
       });
 
-      // Report still succeeds — BBL is optional
+      // Report still succeeds — BBL is fire-and-forget
       expect(result.success).toBe(true);
       expect(result.data.submitted).toBe(true);
-      expect(result.data.bblUploaded).toBe(false);
     });
 
     it('selects verification log over analysis log', async () => {
@@ -282,11 +286,13 @@ describe('diagnosticHandlers', () => {
 
       await invokeHandler({ recordId: 'rec-1', includeFlightData: true });
 
-      // Should request verification log (log-verify-1), not filter log
-      expect(deps.blackboxManager!.getLog).toHaveBeenCalledWith('log-verify-1');
+      // Allow fire-and-forget promise to settle
+      await vi.waitFor(() => {
+        expect(deps.blackboxManager!.getLog).toHaveBeenCalledWith('log-verify-1');
+      });
     });
 
-    it('includes bblUploaded in telemetry event', async () => {
+    it('emits BBL telemetry event on background completion', async () => {
       const bblBuffer = Buffer.alloc(1024);
       mockReadFile.mockResolvedValue(bblBuffer);
 
@@ -302,10 +308,23 @@ describe('diagnosticHandlers', () => {
 
       await invokeHandler({ recordId: 'rec-1', includeFlightData: true });
 
+      // Allow fire-and-forget promise to settle
+      await vi.waitFor(() => {
+        expect(deps.eventCollector!.emit).toHaveBeenCalledWith(
+          'workflow',
+          'diagnostic_bbl_upload',
+          expect.objectContaining({ reportId: 'rpt-1', success: true })
+        );
+      });
+    });
+
+    it('includes includeFlightData in report telemetry event', async () => {
+      await invokeHandler({ recordId: 'rec-1', includeFlightData: true });
+
       expect(deps.eventCollector!.emit).toHaveBeenCalledWith(
         'workflow',
         'diagnostic_report_sent',
-        expect.objectContaining({ bblUploaded: true })
+        expect.objectContaining({ includeFlightData: true })
       );
     });
   });

@@ -184,6 +184,7 @@ async function cleanupExpiredBBLFiles(env: Env): Promise<number> {
           if (!meta.hasBbl || !meta.bblUploadedAt) continue;
 
           const uploadedAt = new Date(meta.bblUploadedAt).getTime();
+          if (!Number.isFinite(uploadedAt)) continue; // Skip malformed timestamps
           if (uploadedAt >= cutoff) continue;
 
           // Delete the BBL file
