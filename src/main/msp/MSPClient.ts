@@ -661,6 +661,11 @@ export class MSPClient extends EventEmitter {
       await new Promise((resolve) => setTimeout(resolve, 500));
       this.connectionStatus = { connected: false };
       this.emit('connection-changed', this.connectionStatus);
+
+      // Auto-reconnect after reboot (fire-and-forget — caller doesn't need to wait)
+      this.reconnectAfterReboot().catch((err) => {
+        logger.warn('Auto-reconnect after save failed (non-fatal):', err);
+      });
     } catch (error) {
       this._rebootPending = false;
       logger.error('Failed to save and reboot:', error);
