@@ -19,6 +19,7 @@ export type TuningAction =
   | 'start_new_cycle'
   | 'complete_session'
   | 'prepare_verification'
+  | 'skip_erase_verification'
   | 'analyze_verification'
   | 'open_quick_wizard'
   | 'dismiss';
@@ -277,22 +278,32 @@ export function TuningStatusBanner({
     // Applied phases: Prepare Verification
     if (isApplied) {
       return (
-        <button
-          className="wizard-btn wizard-btn-primary"
-          onClick={() => onAction('prepare_verification')}
-          disabled={erasing}
-        >
-          {erasing ? (
-            <>
-              <span className="spinner" />
-              Preparing...
-            </>
-          ) : isSDCard ? (
-            'Erase Logs & Verify'
-          ) : (
-            'Erase & Verify'
+        <>
+          <button
+            className="wizard-btn wizard-btn-primary"
+            onClick={() => onAction('prepare_verification')}
+            disabled={erasing}
+          >
+            {erasing ? (
+              <>
+                <span className="spinner" />
+                Preparing...
+              </>
+            ) : isSDCard ? (
+              'Erase Logs & Verify'
+            ) : (
+              'Erase & Verify'
+            )}
+          </button>
+          {!erasing && (
+            <button
+              className="wizard-btn wizard-btn-secondary"
+              onClick={() => onAction('skip_erase_verification')}
+            >
+              Skip Erase
+            </button>
           )}
-        </button>
+        </>
       );
     }
 
