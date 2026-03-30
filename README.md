@@ -204,89 +204,9 @@ The fast approach — analyzes any single flight (freestyle, cruise, hover) usin
 - **Recharts** - SVG-based interactive analysis charts
 - **ESLint** + **Prettier** - Code linting and formatting (lint-staged pre-commit)
 
-## Installation
-
-### Prerequisites
-
-- Node.js 20+ and npm
-- Python 3 (for native module compilation)
-- Build tools:
-  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
-  - **Windows**: Visual Studio Build Tools or windows-build-tools
-  - **Linux**: `build-essential` package
-
-### Setup
-
-1. Clone the repository:
-```bash
-git clone https://github.com/eddycek/pidlab.git
-cd pidlab
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Rebuild native modules for Electron:
-```bash
-npm run rebuild
-```
-
 ## Development
 
-Start the development server:
-```bash
-npm run dev
-```
-
-This will:
-- Start Vite dev server for hot reload
-- Launch Electron with the app
-- Open DevTools automatically
-- Start debug HTTP server on `http://127.0.0.1:9300` (endpoints: `/state`, `/screenshot`, `/logs`, `/console`, `/msp`, `/tuning-history`, `/tuning-session`, `/snapshots`, `/blackbox-logs`)
-
-### Demo Mode (No Hardware Needed)
-
-Start the app with a simulated flight controller for offline UX testing:
-```bash
-npm run dev:demo
-```
-
-Demo mode auto-connects to a virtual FC, creates a demo profile, and generates realistic blackbox data. The full tuning workflow is functional — real FFT and step response analysis runs on the simulated data. See [docs/complete/OFFLINE_UX_TESTING.md](./docs/complete/OFFLINE_UX_TESTING.md) for details.
-
-### Available Commands
-
-```bash
-# Development
-npm run dev                          # Start with hot reload + debug server (:9300)
-npm run dev:demo                     # Start with simulated FC + debug server (:9300)
-
-# Testing
-npm test                             # Unit tests in watch mode
-npm run test:run                     # Unit tests once (pre-commit)
-npm run test:ui                      # Interactive test UI
-npm run test:coverage                # Generate coverage report
-npm run test:e2e                     # Build + run Playwright E2E tests
-npm run test:e2e:ui                  # Build + Playwright UI
-
-# Demo data generation (GENERATE_COUNT=N to override session count, default 5)
-npm run demo:generate-history        # Generate 5 mixed tuning sessions (~2 min)
-npm run demo:generate-history:filter # Generate 5 Filter Tune sessions
-npm run demo:generate-history:pid    # Generate 5 PID Tune sessions
-npm run demo:generate-history:flash  # Generate 5 Flash Tune sessions
-npm run demo:generate-history:stress # Stress test (edge cases, poor data quality)
-
-# Code quality
-npm run lint                         # ESLint check
-npm run lint:fix                     # ESLint auto-fix
-npm run format                       # Prettier format
-npm run format:check                 # Prettier check
-
-# Build
-npm run build                        # Production build
-npm run rebuild                      # Rebuild native modules (serialport)
-```
+See [QUICK_START.md](./QUICK_START.md) for installation, setup, all available commands, and troubleshooting.
 
 ### Testing
 
@@ -297,15 +217,6 @@ All UI changes must include tests. Tests automatically run before commits. Cover
 **Playwright E2E:** 37 tests across 7 spec files — launches real Electron app in demo mode, walks through complete tuning cycles (Filter Tune, PID Tune, Flash Tune, diagnostic reports, and stress-test edge cases).
 
 See [TESTING.md](./TESTING.md) for complete testing guidelines, test inventory, and best practices.
-
-## Building
-
-Build the application for your platform:
-```bash
-npm run build
-```
-
-Output will be in the `release/` directory.
 
 ### Releasing
 
