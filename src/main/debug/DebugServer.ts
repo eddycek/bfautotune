@@ -112,8 +112,11 @@ export function startDebugServer(port: number = DEFAULT_PORT): void {
         case '/state':
           return json(res, await getAppState());
 
-        case '/screenshot':
-          return json(res, await takeScreenshot());
+        case '/screenshot': {
+          const w = parseInt(url.searchParams.get('width') || '0', 10) || undefined;
+          const h = parseInt(url.searchParams.get('height') || '0', 10) || undefined;
+          return json(res, await takeScreenshot(w, h));
+        }
 
         case '/logs': {
           const n = parseInt(url.searchParams.get('n') || '50', 10);
@@ -334,7 +337,7 @@ async function getAppState() {
   };
 }
 
-async function takeScreenshot() {
+async function takeScreenshot(targetWidth?: number, targetHeight?: number) {
   const win = getMainWindow();
   if (!win) return { error: 'No window available' };
 
@@ -342,11 +345,24 @@ async function takeScreenshot() {
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
-  // Small delay to let renderer paint after focus
-  await new Promise((r) => setTimeout(r, 200));
+
+  // Resize to target dimensions if provided (for high-res audit captures)
+  const originalSize = win.getSize();
+  if (targetWidth && targetHeight) {
+    win.setSize(targetWidth, targetHeight);
+    // Wait for layout reflow after resize
+    await new Promise((r) => setTimeout(r, 500));
+  } else {
+    await new Promise((r) => setTimeout(r, 200));
+  }
 
   const image = await win.webContents.capturePage();
   const pngBuffer = image.toPNG();
+
+  // Restore original size if resized
+  if (targetWidth && targetHeight) {
+    win.setSize(originalSize[0], originalSize[1]);
+  }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const screenshotDir = resolve(process.cwd(), 'debug-screenshots');

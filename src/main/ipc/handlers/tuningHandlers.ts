@@ -25,6 +25,38 @@ import { verifyAppliedConfig } from '../../utils/verifyAppliedConfig';
 import { sendAutoReport } from '../../diagnostic/DiagnosticReportService';
 import { MockMSPClient } from '../../demo/MockMSPClient';
 
+/**
+ * Compute the next tuning session number.
+ * Uses max(history count, highest existing snapshot session number) + 1
+ * to avoid duplicate numbers when sessions are reset without completing.
+ */
+async function getNextSessionNumber(deps: HandlerDependencies, profileId: string): Promise<number> {
+  let sessionNumber = 1;
+  const { tuningHistoryManager, snapshotManager, profileManager } = deps;
+  if (tuningHistoryManager) {
+    const history = await tuningHistoryManager.getHistory(profileId);
+    sessionNumber = history.length + 1;
+  }
+  // Check existing snapshot numbers to avoid collisions from reset (orphaned) sessions
+  if (snapshotManager && profileManager) {
+    try {
+      const profile = await profileManager.getCurrentProfile();
+      if (profile) {
+        const snapshots = await snapshotManager.listSnapshots();
+        const profileSnaps = snapshots.filter((s: any) => profile.snapshotIds?.includes(s.id));
+        for (const s of profileSnaps) {
+          if (s.tuningSessionNumber && s.tuningSessionNumber >= sessionNumber) {
+            sessionNumber = s.tuningSessionNumber + 1;
+          }
+        }
+      }
+    } catch {
+      // Non-fatal — fall back to history-only count
+    }
+  }
+  return sessionNumber;
+}
+
 export function registerTuningHandlers(deps: HandlerDependencies): void {
   const { mspClient, snapshotManager, profileManager, tuningSessionManager, tuningHistoryManager } =
     deps;
@@ -282,14 +314,23 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
             percent: 95,
           });
           try {
-            let sessionNumber = 1;
-            if (tuningHistoryManager) {
-              const history = await tuningHistoryManager.getHistory(profileId);
-              sessionNumber = history.length + 1;
-            }
             const refreshedSession = await tuningSessionManager!.getSession(profileId);
             const tuningType = (refreshedSession?.tuningType ??
               currentSession.tuningType) as keyof typeof TUNING_TYPE_LABELS;
+            // Use session number from pre-tuning snapshot so Pre/Post pairs match
+            let sessionNumber = await getNextSessionNumber(deps, profileId);
+            if (refreshedSession?.baselineSnapshotId && snapshotManager) {
+              try {
+                const baseline = await snapshotManager.loadSnapshot(
+                  refreshedSession.baselineSnapshotId
+                );
+                if (baseline?.tuningSessionNumber) {
+                  sessionNumber = baseline.tuningSessionNumber;
+                }
+              } catch {
+                // Fall back to computed number
+              }
+            }
             const label = `Post-tuning #${sessionNumber} (${TUNING_TYPE_LABELS[tuningType]})`;
             // createSnapshot → exportCLIDiff → exit → FC reboots.
             // Guard with rebootPending so connected handler skips fallback work.
@@ -433,11 +474,7 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
         let baselineSnapshotId: string | undefined;
         if (snapshotManager && mspClient?.isConnected()) {
           try {
-            let sessionNumber = 1;
-            if (tuningHistoryManager) {
-              const history = await tuningHistoryManager.getHistory(profileId);
-              sessionNumber = history.length + 1;
-            }
+            const sessionNumber = await getNextSessionNumber(deps, profileId);
             const label = `Pre-tuning #${sessionNumber} (${TUNING_TYPE_LABELS[resolvedType]})`;
 
             // Protect against disconnect handler clearing state during FC reboot
