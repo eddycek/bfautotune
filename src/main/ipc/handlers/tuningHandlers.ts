@@ -314,10 +314,23 @@ export function registerTuningHandlers(deps: HandlerDependencies): void {
             percent: 95,
           });
           try {
-            const sessionNumber = await getNextSessionNumber(deps, profileId);
             const refreshedSession = await tuningSessionManager!.getSession(profileId);
             const tuningType = (refreshedSession?.tuningType ??
               currentSession.tuningType) as keyof typeof TUNING_TYPE_LABELS;
+            // Use session number from pre-tuning snapshot so Pre/Post pairs match
+            let sessionNumber = await getNextSessionNumber(deps, profileId);
+            if (refreshedSession?.baselineSnapshotId && snapshotManager) {
+              try {
+                const baseline = await snapshotManager.loadSnapshot(
+                  refreshedSession.baselineSnapshotId
+                );
+                if (baseline?.tuningSessionNumber) {
+                  sessionNumber = baseline.tuningSessionNumber;
+                }
+              } catch {
+                // Fall back to computed number
+              }
+            }
             const label = `Post-tuning #${sessionNumber} (${TUNING_TYPE_LABELS[tuningType]})`;
             // createSnapshot → exportCLIDiff → exit → FC reboots.
             // Guard with rebootPending so connected handler skips fallback work.
