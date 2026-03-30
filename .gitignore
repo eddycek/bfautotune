@@ -63,6 +63,7 @@ test-results/
 
 # Real flight BBL fixtures (large binary files, not for git)
 src/main/blackbox/__fixtures__/*.bbl
+test-fixtures/
 src/main/blackbox/__fixtures__/*.bfl
 
 # Temp files
