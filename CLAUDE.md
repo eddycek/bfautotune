@@ -12,36 +12,17 @@ FPVPIDlab is an Electron-based desktop application for managing FPV drone PID co
 
 ## Development Commands
 
-### Essential Commands
 ```bash
-# Start development with hot reload (includes debug server on port 9300)
-npm run dev
-
-# Run unit tests (watch mode)
-npm test
-
-# Run unit tests once (pre-commit)
-npm run test:run
-
-# Interactive test UI
-npm run test:ui
-
-# Run Playwright E2E tests (builds app first)
-npm run test:e2e
-
-# Build for production
-npm run build
-
-# Rebuild native modules (serialport)
-npm run rebuild
+npm run dev          # Start dev server + Electron + debug server (:9300)
+npm run dev:demo     # Start with simulated FC (no hardware needed)
+npm test             # Unit tests (watch mode)
+npm run test:run     # Unit tests once (pre-commit)
+npm run test:e2e     # Playwright E2E tests (builds first)
+npm run build        # Production build
+npm run rebuild      # Rebuild native modules (serialport)
 ```
 
-### Demo Mode (Offline UX Testing)
-```bash
-# Start with simulated FC — no hardware needed (includes debug server)
-npm run dev:demo
-```
-Boots the app with a mock flight controller that auto-connects on startup. Generates realistic BBL data, allows full tuning workflow testing (all 10 phases), and runs real analysis (FFT, step response). See `docs/OFFLINE_UX_TESTING.md` for details.
+Full command reference (demo data generation, code quality, E2E UI, etc.): [QUICK_START.md](./QUICK_START.md)
 
 ### Debug Server
 

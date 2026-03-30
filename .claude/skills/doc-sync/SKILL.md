@@ -2,8 +2,8 @@
 name: doc-sync
 description: >
   Audit and fix documentation accuracy after code changes. Verifies README decision tables,
-  feature descriptions, test counts, and all MD files against the actual codebase.
-  Run before every PR merge.
+  feature descriptions, test counts, endpoint routes, infrastructure docs, cross-file links,
+  and all MD files against the actual codebase. Run before every PR merge.
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent
 ---
@@ -12,7 +12,9 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent
 
 You are a documentation accuracy auditor for the FPVPIDlab codebase. Your job is to ensure all
 markdown files are factually correct and consistent with the code. You catch stale descriptions,
-wrong thresholds, outdated counts, and misleading text.
+wrong thresholds, outdated counts, missing endpoints, broken links, and misleading text.
+
+**This is the last gate before PR merge. Be thorough.**
 
 ## When to Run
 
@@ -23,8 +25,31 @@ Run `/doc-sync` before merging any PR that changes:
 - Types (`src/shared/types/`)
 - Constants (`src/shared/constants*`, `src/main/analysis/constants.ts`)
 - Test files (any `*.test.ts`)
-- Infrastructure / telemetry worker (`infrastructure/`)
+- Infrastructure / workers (`infrastructure/`)
 - Skills (`.claude/skills/`)
+- Documentation files (`*.md`)
+
+## Files Under Audit
+
+### Root docs
+- `README.md`
+- `ARCHITECTURE.md`
+- `TESTING.md`
+- `SPEC.md`
+- `CLAUDE.md`
+- `QUICK_START.md`
+
+### Design docs
+- `docs/README.md`
+- `docs/*.md`
+
+### Infrastructure docs
+- `infrastructure/README.md`
+- `infrastructure/ENDPOINTS.md`
+- `infrastructure/DEPLOYMENT.md`
+- `infrastructure/ENV-VARS.md`
+- `infrastructure/SCRIPTS.md`
+- `infrastructure/TELEMETRY.md`
 
 ## Audit Procedure
 
@@ -132,16 +157,117 @@ These numbers must match across all files where they appear:
 | Admin scripts | infrastructure/README.md |
 | Skills | CLAUDE.md |
 
-### Step 4b: Infrastructure docs
+### Step 5: Endpoint verification
 
-When `infrastructure/` files change, verify `infrastructure/README.md`:
-- Admin endpoint table lists all routes in `infrastructure/telemetry-worker/src/admin.ts`
-- Script list matches actual files in `infrastructure/scripts/`
-- Bundle type descriptions match `infrastructure/telemetry-worker/src/types.ts`
+**Purpose**: Every endpoint documented in `infrastructure/ENDPOINTS.md` must exist in the worker source code, and every route in the worker code must be documented.
 
-Also verify `docs/README.md` design doc index is current (no missing or stale entries).
+**Telemetry worker routes** — check against:
+- `infrastructure/telemetry-worker/src/index.ts` (public routes)
+- `infrastructure/telemetry-worker/src/diagnostic.ts` (diagnostic routes)
+- `infrastructure/telemetry-worker/src/admin.ts` (admin routes)
 
-### Step 5: Verify text accuracy
+**License worker routes** — check against:
+- `infrastructure/license-worker/src/index.ts` (all routes)
+
+**For each endpoint in ENDPOINTS.md, verify:**
+1. The HTTP method (GET/POST/PUT/PATCH/DELETE) matches the route handler
+2. The URL path pattern matches (including parameter names like `:id`, `{id}`)
+3. The auth type is correct (none, API key, admin token, installation header)
+4. The description accurately reflects what the handler does
+
+**For each route in worker code, verify:**
+1. It appears in ENDPOINTS.md
+2. No undocumented routes exist (search for `router.get`, `router.post`, `router.put`, `router.patch`, `router.delete`, `.get(`, `.post(`, `.put(`, `.patch(`, `.delete(`, and `fetch` route matching patterns)
+
+### Step 6: Infrastructure file sync
+
+#### 6a: Environment variables
+
+Read `infrastructure/ENV-VARS.md` and verify against:
+- `Env` interface in `infrastructure/telemetry-worker/src/types.ts`
+- `Env` interface in `infrastructure/license-worker/src/types.ts`
+- `wrangler.toml` files in each worker directory (for binding names)
+
+For each env var in the doc:
+- Verify it exists in the corresponding `Env` interface or wrangler config
+- Verify the type/description is accurate
+- Check for undocumented env vars in the interfaces
+
+#### 6b: Scripts
+
+Read `infrastructure/SCRIPTS.md` and verify:
+- Every script listed actually exists in `infrastructure/scripts/`
+- Every `.sh` file in `infrastructure/scripts/` is listed in the doc
+- Script descriptions match what the script actually does (read first few lines / comments)
+
+```bash
+# List actual scripts
+ls infrastructure/scripts/*.sh 2>/dev/null
+ls infrastructure/scripts/*.ts 2>/dev/null
+```
+
+#### 6c: Deployment doc
+
+Read `infrastructure/DEPLOYMENT.md` and spot-check:
+- GitHub secret names mentioned match what's referenced in CI workflows (`.github/workflows/`)
+- Deployment steps match actual workflow files
+- Worker names match `wrangler.toml` `name` fields
+
+### Step 7: Cross-file link validation
+
+**Scan all markdown files for internal links and verify each target exists.**
+
+For infrastructure docs:
+```bash
+# Extract markdown links from infrastructure/*.md
+grep -oP '\[.*?\]\(((?!http)[^)]+)\)' infrastructure/*.md
+```
+
+For root docs:
+```bash
+# Extract markdown links from root and docs/
+grep -oP '\[.*?\]\(((?!http)[^)]+)\)' README.md ARCHITECTURE.md CLAUDE.md docs/README.md
+```
+
+For each extracted link:
+- If it points to a `.md` file, verify the file exists at that path (relative to the linking file)
+- If it points to a directory, verify the directory exists
+- If it has an anchor (`#section-name`), optionally verify the heading exists in the target file
+
+Report broken links with the source file, line, and dead target path.
+
+### Step 8: Feature description audit (enhanced)
+
+#### 8a: README feature list
+
+Read the features/capabilities section of README.md. For each feature bullet:
+- Verify corresponding code exists (component, module, handler, hook)
+- Verify parameters/thresholds mentioned are accurate
+- Flag features described as "planned"/"pending"/"coming soon" that are actually implemented
+- Flag features described as implemented that have been removed
+
+#### 8b: ARCHITECTURE.md module list
+
+For each module listed in ARCHITECTURE.md:
+- Verify the source file exists at the stated path
+- Verify handler counts match actual `ipcMain.handle` calls
+- Verify component/hook names match actual filenames
+
+```bash
+# Quick existence check for all paths mentioned
+grep -oP '`src/[^`]+`' ARCHITECTURE.md | tr -d '`' | while read f; do
+  [ ! -e "$f" ] && echo "MISSING: $f"
+done
+```
+
+#### 8c: Known Limitations audit
+
+Read README.md "Known Limitations" section (if it exists):
+- For each limitation listed, check if it has been fixed (search codebase for the fix)
+- Remove limitations that are now resolved
+- Add any new known limitations discovered during the PR
+
+### Step 9: Verify text accuracy
 
 Scan for common stale patterns:
 - Numbers that don't match code (grep for specific values)
@@ -149,8 +275,10 @@ Scan for common stale patterns:
 - Features described as working that were removed
 - Incorrect file paths in project structure tree
 - Code comments with wrong threshold values (like the dCritical > 1.5 bug)
+- Handler counts in tables that don't match actual handler registrations
+- Stale "N tests" or "N modules" counts in prose text
 
-### Step 6: Fix issues
+### Step 10: Fix issues
 
 For each issue found:
 1. State the file, line, and what's wrong
@@ -175,8 +303,26 @@ For each issue found:
 - [x] Style thresholds: all cells match / N mismatches
 - [x] Safety bounds: all cells match / N mismatches
 
+### Endpoint Verification
+- Telemetry worker: N routes documented, M in code, K mismatches
+- License worker: N routes documented, M in code, K mismatches
+- [list any missing/extra/wrong routes]
+
+### Infrastructure Sync
+- Env vars: N documented, M in code, K mismatches
+- Scripts: N documented, M on disk, K mismatches
+- Deployment: [issues or "consistent"]
+
+### Link Validation
+- N internal links checked, M broken
+- [list broken links with source file and target]
+
 ### Feature Description Audit
 - [list of issues found, or "all accurate"]
+
+### Known Limitations Audit
+- [items to remove (now fixed)]
+- [items to add (new limitations)]
 
 ### Text Issues
 - [list of stale/wrong text, or "none found"]
@@ -194,3 +340,8 @@ For each issue found:
 - **Confidence matters** — 'low' vs 'medium' vs 'high' must match exactly
 - **Don't skip post-processing rules** — damping ratio, D-term effectiveness, prop wash context
 - **Comments count too** — fix stale code comments alongside README (like the dCritical threshold)
+- **Routes must match exactly** — method + path + auth type, not just "it exists somewhere"
+- **Env var names are case-sensitive** — `ADMIN_TOKEN` vs `admin_token` matters
+- **Broken links are bugs** — a link to a deleted doc is confusing for contributors
+- **Infrastructure docs lag behind code** — workers change frequently, always verify both directions
+- **Every script must be documented** — undocumented scripts become tribal knowledge
