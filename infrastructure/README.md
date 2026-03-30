@@ -8,21 +8,22 @@ All resources are managed via **Terraform** with state in Cloudflare R2. CI/CD d
 
 | Service | Status | Description | Design Doc |
 |---------|--------|-------------|------------|
-| **Telemetry Worker** | Live (dev + prod) | Upload + admin stats + cron report | [TELEMETRY.md](./TELEMETRY.md), [design doc](../docs/complete/TELEMETRY_COLLECTION.md) |
-| **License Worker** | Active (client done, worker planned) | Offline-first license key validation (Ed25519) | [docs/LICENSE_KEY_SYSTEM.md](../docs/LICENSE_KEY_SYSTEM.md) |
+| **Telemetry Worker** | Live (dev + prod) | Upload, diagnostics, admin stats, cron report | [TELEMETRY.md](./TELEMETRY.md), [design doc](../docs/complete/TELEMETRY_COLLECTION.md) |
+| **License Worker** | Live (dev + prod) | License key validation (Ed25519), beta program | [docs/LICENSE_KEY_SYSTEM.md](../docs/LICENSE_KEY_SYSTEM.md) |
 | **Payment Worker** | Planned | Stripe checkout + invoice generation | [docs/PAYMENT_AND_INVOICING.md](../docs/PAYMENT_AND_INVOICING.md) |
 
 ## Environments
 
 | | Dev | Prod |
 |---|---|---|
-| Worker URL | `telemetry-dev.fpvpidlab.app` | `telemetry.fpvpidlab.app` |
-| R2 bucket | `pidlab-telemetry-dev` | `pidlab-telemetry` |
+| Telemetry Worker | `telemetry-dev.fpvpidlab.app` | `telemetry.fpvpidlab.app` |
+| License Worker | `license-dev.fpvpidlab.app` | `license.fpvpidlab.app` |
+| Telemetry R2 | `pidlab-telemetry-dev` | `pidlab-telemetry` |
+| License D1 | `pidlab-license-dev` | `pidlab-license` |
 | Cron trigger | Disabled | Daily 07:00 UTC |
-| Custom domain | `telemetry-dev.fpvpidlab.app` | `telemetry.fpvpidlab.app` |
 | Terraform state | `pidlab-tfstate` → `dev/terraform.tfstate` | `pidlab-tfstate` → `prod/terraform.tfstate` |
 
-Data is fully isolated — dev and prod never share a bucket.
+Data is fully isolated — dev and prod never share a bucket or database.
 
 ## Directory Structure
 
@@ -46,6 +47,7 @@ infrastructure/
 │       ├── index.ts               ← Router + CORS + cron entry
 │       ├── types.ts               ← Env bindings, bundle schema
 │       ├── upload.ts              ← POST /v1/collect
+│       ├── diagnostic.ts          ← Diagnostic reports + BBL upload + admin review
 │       ├── admin.ts               ← GET /admin/stats/*
 │       ├── validation.ts          ← UUID, schema, rate-limit
 │       └── cron.ts                ← Daily report → Resend email
@@ -58,6 +60,7 @@ infrastructure/
 │       ├── types.ts               ← Env bindings, D1 row types
 │       ├── admin.ts               ← 6 admin endpoints (generate, list, get, revoke, reset, stats)
 │       ├── license.ts             ← Public endpoints (activate, validate, self-reset)
+│       ├── beta.ts                ← Beta program: signup form, admin dashboard, approve/reject
 │       ├── crypto.ts              ← Ed25519 sign/verify via WebCrypto
 │       ├── keygen.ts              ← FPVPIDLAB-XXXX-XXXX-XXXX key generation
 │       ├── validation.ts          ← Input validation
@@ -83,7 +86,11 @@ infrastructure/
 │   ├── telemetry-rules.sh         ← Rule effectiveness (v2)
 │   ├── telemetry-metrics.sh       ← Metric distributions (v2)
 │   ├── telemetry-verification.sh  ← Verification success rates (v2)
-│   └── telemetry-convergence.sh   ← Quality score convergence (v2)
+│   ├── telemetry-convergence.sh   ← Quality score convergence (v2)
+│   ├── diagnostic-list.sh         ← List diagnostic reports
+│   ├── diagnostic-review.sh       ← Mark report as reviewing
+│   ├── diagnostic-resolve.sh      ← Resolve report with message
+│   └── diagnostic-note.sh         ← Add internal note to report
 └── payment-worker/                ← (planned)
 
 .github/workflows/
@@ -110,7 +117,7 @@ GitHub environments `dev` and `prod` can have protection rules (e.g. required ap
 
 ### GitHub Secrets
 
-10 secrets in GitHub repo settings (`Settings → Secrets and variables → Actions`):
+12 secrets in GitHub repo settings (`Settings → Secrets and variables → Actions`):
 
 #### `CLOUDFLARE_PROVISIONING`
 
@@ -138,13 +145,20 @@ API keys for authenticating requests to `/admin/stats/*` endpoints on telemetry 
 - **Scope**: Only used within Worker runtime — no Cloudflare API access
 - **Generated with**: `openssl rand -hex 32`
 
-#### `RESEND_API_KEY` (not yet set)
+#### `RESEND_API_KEY`
 
-Resend email delivery API key for daily telemetry report cron job. Optional — cron job logs report to console if not configured.
+Resend email delivery API key for daily telemetry cron report, diagnostic report notifications, and beta program emails.
 
-- **Used by**: Terraform (injected as Worker secret), daily cron Worker
+- **Used by**: Terraform (injected as Worker secret on both telemetry and license Workers)
 - **Scope**: Resend email sending only
 - **Created in**: resend.com dashboard
+
+#### `RESEND_FROM_EMAIL`
+
+Verified sender address for Resend email delivery (e.g. `noreply@fpvpidlab.app`).
+
+- **Used by**: Terraform (injected as Worker secret on both telemetry and license Workers)
+- **Scope**: Email "From" address for cron reports, diagnostic notifications, beta program emails
 
 #### `LICENSE_ED25519_PRIVATE_KEY` + `LICENSE_ED25519_PUBLIC_KEY`
 
@@ -276,6 +290,25 @@ PIDLAB_ENV=prod ./infrastructure/scripts/generate-key.sh
 ./infrastructure/scripts/telemetry-convergence.sh     # Quality score convergence across sessions
 ```
 
+### Diagnostic Report Management
+
+```bash
+# List reports (default: all, filter by status)
+./infrastructure/scripts/diagnostic-list.sh
+./infrastructure/scripts/diagnostic-list.sh --status new
+
+# Mark report as reviewing
+./infrastructure/scripts/diagnostic-review.sh <reportId>
+
+# Resolve report with message (sends email to user if they provided email)
+./infrastructure/scripts/diagnostic-resolve.sh <reportId> "Fixed in v0.2.0 — LPF1 threshold adjusted"
+
+# Add internal note (not visible to user)
+./infrastructure/scripts/diagnostic-note.sh <reportId> "Reproducible with RPM filter disabled"
+```
+
+Or use the `/diagnose` Claude Code skill: `/diagnose <reportId>` (investigates bundle, cross-references code, proposes fix).
+
 ### Health Checks
 
 ```bash
@@ -300,9 +333,37 @@ curl -sf https://license-dev.fpvpidlab.app/health
 
 ## Telemetry Worker Endpoints
 
+**Base URL**: `telemetry-dev.fpvpidlab.app` (dev) / `telemetry.fpvpidlab.app` (prod)
+
+### Public Endpoints
+
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST` | `/v1/collect` | None | Upload telemetry bundle (gzip, rate-limited 1/hr) |
+| `GET` | `/health` | None | Health check |
+
+### Diagnostic Report Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/v1/diagnostic` | None | Submit diagnostic report bundle (rate-limited 5/hr) |
+| `PATCH` | `/v1/diagnostic/{reportId}` | `X-Installation-Id` | Add user details (email, note) to existing auto-report |
+| `PUT` | `/v1/diagnostic/{reportId}/bbl` | `X-Installation-Id` | Upload BBL flight data for a report (max 50 MB) |
+
+### Diagnostic Admin Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/admin/diagnostics` | `X-Admin-Key` | List reports (`?status=new\|reviewing\|resolved\|needs-bbl&limit=50`) |
+| `GET` | `/admin/diagnostics/summary` | `X-Admin-Key` | Report counts by status (for cron email) |
+| `GET` | `/admin/diagnostics/{reportId}` | `X-Admin-Key` | Full bundle + metadata |
+| `GET` | `/admin/diagnostics/{reportId}/bbl` | `X-Admin-Key` | Download BBL file |
+| `PATCH` | `/admin/diagnostics/{reportId}` | `X-Admin-Key` | Update status, resolution, internal note |
+
+### Telemetry Admin Stats Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | `GET` | `/admin/stats` | `X-Admin-Key` | Summary: installs, active 24h/7d/30d, modes, platforms |
 | `GET` | `/admin/stats/app-versions` | `X-Admin-Key` | FPVPIDlab app version distribution |
 | `GET` | `/admin/stats/versions` | `X-Admin-Key` | Betaflight firmware version distribution |
@@ -313,36 +374,91 @@ curl -sf https://license-dev.fpvpidlab.app/health
 | `GET` | `/admin/stats/blackbox` | `X-Admin-Key` | Blackbox: total logs, compression, storage types |
 | `GET` | `/admin/stats/profiles` | `X-Admin-Key` | Profile count distribution + average per install |
 | `GET` | `/admin/stats/full` | `X-Admin-Key` | All of the above in a single response |
-| `GET` | `/admin/stats/rules` | `X-Admin-Key` | Rule effectiveness: fire/apply rates, avg delta (v2) |
-| `GET` | `/admin/stats/metrics` | `X-Admin-Key` | Metric distributions: noise, overshoot, bandwidth (v2) |
-| `GET` | `/admin/stats/verification` | `X-Admin-Key` | Verification success rates by tuning mode (v2) |
-| `GET` | `/admin/stats/convergence` | `X-Admin-Key` | Quality score convergence across sessions (v2) |
-| `GET` | `/health` | None | Health check |
+| `GET` | `/admin/stats/rules` | `X-Admin-Key` | Rule effectiveness: fire/apply rates, avg delta (v3) |
+| `GET` | `/admin/stats/metrics` | `X-Admin-Key` | Metric distributions: noise, overshoot, bandwidth (v3) |
+| `GET` | `/admin/stats/verification` | `X-Admin-Key` | Verification success rates by tuning mode (v3) |
+| `GET` | `/admin/stats/convergence` | `X-Admin-Key` | Quality score convergence across sessions (v3) |
+| `GET` | `/admin/stats/errors` | `X-Admin-Key` | Aggregated error metrics from structured events (v3) |
+| `GET` | `/admin/events` | `X-Admin-Key` | Events for specific installation (`?id=UUID`) |
 
 ## License Worker Endpoints
+
+**Base URL**: `license-dev.fpvpidlab.app` (dev) / `license.fpvpidlab.app` (prod)
+
+### Public Endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST` | `/license/activate` | None | Activate key + bind machine, returns signed license |
 | `POST` | `/license/validate` | None | Periodic validation (revocation sync) |
 | `POST` | `/license/reset` | None | Self-service machine reset (key + email required) |
+| `GET` | `/health` | None | Health check |
+
+### Beta Program Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/beta` | None | Public beta signup form (HTML page) |
+| `POST` | `/beta/signup` | None | Process signup submission (email, drone info, experience) |
+| `GET` | `/beta/thankyou` | None | Confirmation page after signup |
+| `GET` | `/admin/beta` | `X-Admin-Key` | Admin dashboard — review pending beta applications (HTML) |
+| `GET` | `/admin/beta/list` | `X-Admin-Key` | List beta applications (JSON, `?status=pending\|approved\|rejected`) |
+| `PUT` | `/admin/beta/{id}/approve` | `X-Admin-Key` | Approve application — auto-generates tester license key + sends email |
+| `PUT` | `/admin/beta/{id}/reject` | `X-Admin-Key` | Reject application — sends rejection email |
+
+### Admin Key Management Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | `POST` | `/admin/keys/generate` | `X-Admin-Key` | Generate new license key |
-| `GET` | `/admin/keys` | `X-Admin-Key` | List keys (filterable by status, type, email) |
+| `GET` | `/admin/keys` | `X-Admin-Key` | List keys (`?status=active\|revoked&type=paid\|tester&email=X`) |
 | `GET` | `/admin/keys/{id}` | `X-Admin-Key` | Key details |
 | `PUT` | `/admin/keys/{id}/revoke` | `X-Admin-Key` | Revoke a key |
 | `PUT` | `/admin/keys/{id}/reset` | `X-Admin-Key` | Admin reset machine binding |
 | `GET` | `/admin/keys/stats` | `X-Admin-Key` | Aggregate statistics |
-| `GET` | `/health` | None | Health check |
 
 ### R2 Storage Layout
 
 ```
 pidlab-telemetry[-dev]/
 ├── {installationId}/
-│   ├── latest.json       ← Most recent bundle (overwritten each upload)
-│   └── metadata.json     ← { firstSeen, lastSeen, uploadCount }
+│   ├── latest.json                 ← Most recent telemetry bundle (overwritten each upload)
+│   └── metadata.json               ← { firstSeen, lastSeen, uploadCount }
+├── diagnostics/
+│   ├── _rate/{installationId}.json  ← Rate limit timestamps
+│   └── {reportId}/
+│       ├── bundle.json              ← Full diagnostic bundle
+│       ├── metadata.json            ← Status, resolution, preview
+│       └── flight.bbl               ← BBL flight data (optional, 30-day retention)
 └── ...
 ```
+
+## Worker Environment Variables
+
+### Telemetry Worker
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `TELEMETRY_BUCKET` | Yes | — | R2 bucket binding |
+| `ADMIN_KEY` | Yes | — | Admin API authentication key |
+| `RESEND_API_KEY` | No | — | Resend email delivery (cron reports, diagnostic notifications) |
+| `REPORT_EMAIL` | No | — | Recipient for diagnostic report notifications |
+| `REPORT_FROM_EMAIL` | No | — | Sender address for email delivery |
+| `DIAGNOSTIC_RATE_LIMIT_MAX` | No | `5` | Max diagnostic reports per window |
+| `DIAGNOSTIC_RATE_LIMIT_WINDOW_MIN` | No | `60` | Rate limit window in minutes |
+| `TELEMETRY_RATE_LIMIT_WINDOW_MIN` | No | `60` | Telemetry upload rate limit window in minutes |
+| `BBL_MAX_SIZE_BYTES` | No | `52428800` (50 MB) | Max BBL file upload size |
+
+### License Worker
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LICENSE_DB` | Yes | — | D1 database binding |
+| `ADMIN_KEY` | Yes | — | Admin API authentication key |
+| `ED25519_PRIVATE_KEY` | Yes | — | License signing private key |
+| `ED25519_PUBLIC_KEY` | Yes | — | License verification public key |
+| `RESEND_API_KEY` | No | — | Resend email delivery (beta program emails) |
+| `RESEND_FROM_EMAIL` | No | — | Sender address for beta program emails |
 
 ## Stack
 
